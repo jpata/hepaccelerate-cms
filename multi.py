@@ -50,116 +50,6 @@ def make_objects_gpu(arrs):
     )
     return muons, jets
 
-
-class Histogram:
-    def __init__(self, contents, contents_w2, edges):
-        self.contents = cupy.asnumpy(contents)
-        self.contents_w2 = cupy.asnumpy(contents_w2)
-        self.edges = cupy.asnumpy(edges)
-        
-    @staticmethod
-    def from_vector(data, weights, bins):        
-        out_w = cupy.zeros(len(bins) - 1, dtype=np.float32)
-        out_w2 = cupy.zeros(len(bins) - 1, dtype=np.float32)
-        fill_histogram[32, 1024](data, weights, bins, out_w, out_w2)
-        return Histogram(out_w, out_w2, bins)
-    
-    def __add__(self, other):
-        assert(np.all(self.edges == other.edges))
-        return Histogram(self.contents +  other.contents, self.contents_w2 +  other.contents_w2, self.edges)
-
-    def plot(self):
-        line = plt.step(self.edges[:-1], self.contents, where="mid")
-        plt.errorbar(midpoints(self.edges), self.contents, np.sqrt(self.contents), lw=0, elinewidth=1, color=line[0].get_color())
-    
-    
-def get_histogram(data, weights, bins):
-    return Histogram.from_vector(data, weights, bins)
-
-
-class Results(dict):
-    
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        
-    def __add__(self, other):
-        d0 = self
-        d1 = other
-        
-        d_ret = Results({})
-        k0 = set(d0.keys())
-        k1 = set(d1.keys())
-
-        for k in k0.intersection(k1):
-            d_ret[k] = d0[k] + d1[k]
-
-        for k in k0.difference(k1):
-            d_ret[k] = d0[k]
-
-        for k in k1.difference(k0):
-            d_ret[k] = d1[k]
-
-        return d_ret
-
-class JaggedStruct(object):
-    def __init__(self, offsets, attrs_data, numpy_lib=np):
-        self.numpy_lib = numpy_lib
-        
-        self.offsets = offsets
-        self.attrs_data = attrs_data
-        
-        num_items = None
-        for (k, v) in self.attrs_data.items():
-            num_items_next = len(v)
-            if num_items and num_items != num_items_next:
-                raise AttributeError("Mismatched attribute {0}".format(k))
-            else:
-                num_items = num_items_next
-            setattr(self, k, v)
-        self.num_items = num_items
-    
-        self.masks = {}
-        self.masks["all"] = self.make_mask()
-    
-    def make_mask(self):
-        return self.numpy_lib.ones(self.num_items, dtype=self.numpy_lib.bool)
-    
-    def mask(self, name):
-        if not name in self.masks.keys():
-            self.masks[name] = self.make_mask()
-        return self.masks[name]
-    
-    def size(self):
-        size_tot = self.offsets.size
-        for k, v in self.attrs_data.items():
-            size_tot += v.size
-        return size_tot
-    
-    def __len__(self):
-        return len(self.offsets) - 1
-    
-    @staticmethod
-    def from_arraydict(arraydict, prefix, numpy_lib=np):
-        ks = [k for k in arraydict.keys() if prefix in str(k, 'ascii')]
-        k0 = ks[0]
-        return JaggedStruct(
-            numpy_lib.array(arraydict[k0].offsets),
-            {str(k, 'ascii').replace(prefix, ""): numpy_lib.array(v.content)
-             for (k,v) in arraydict.items()},
-            numpy_lib=numpy_lib
-        )
-
-    def savez(self, path):
-        with open(path, "wb") as of:
-            self.numpy_lib.savez(of, offsets=self.offsets, **self.attrs_data)
-    
-    @staticmethod 
-    def load(path, numpy_lib):
-        with open(path, "rb") as of:
-            fi = numpy_lib.load(of)
-            ks = [f for f in fi.npz_file.files if f!="offsets"]
-            return JaggedStruct(fi["offsets"], {k: fi.npz_file[k] for k in ks})  
-
 def get_selected_muons(muons, mu_pt_cut_leading, mu_pt_cut_subleading, mu_iso_cut):
     
     passes_iso = muons.pfRelIso03_all < mu_iso_cut
@@ -326,22 +216,27 @@ def sum_result(rets):
     return sum(rets, Results({}))
 
 if __name__ == "__main__":
-    cluster = LocalCluster(ip="0.0.0.0", n_workers=1, threads_per_worker=16, processes=False, diagnostics_port=8181, memory_limit="60GB")
-    #cluster.start_worker(ncores=16, memory_limit="60GB")
-    client = Client(cluster)
-    print(client)
+    #cluster = LocalCluster(ip="0.0.0.0", n_workers=1, threads_per_worker=16, processes=False, diagnostics_port=8181, memory_limit="60GB")
+    #client = Client(cluster)
+    #print(client)
     
     filenames = glob.glob("/nvmedata/store/mc/RunIIFall17NanoAOD/DYJetsToLL_M-50_TuneCP5_13TeV-amcatnloFXFX-pythia8/NANOAODSIM/**/*.root", recursive=True)[:100]
 
-    dsk = {}
-    for ifn, fn in enumerate(filenames):
-        dsk['load-{0}'.format(ifn)] = (load, fn)
-        dsk['transfer-{0}'.format(ifn)] = (transfer_to_gpu, 'load-{0}'.format(ifn)) 
-        dsk['analyze-{0}'.format(ifn)] = (analyze, 'transfer-{0}'.format(ifn))
-        dsk['result-{0}'.format(ifn)] = (result, 'analyze-{0}'.format(ifn))
-     
-    dsk['sum'] = (sum_result, [k for k in dsk.keys() if "result-" in k])
-    ret = client.get(dsk, 'sum')
+
+    for fn in filenames[:10]:
+        print(fn)
+        d = load(filenames[1])
+        g0, g1 = transfer_to_gpu(d)
+        g1.savez(fn.replace(".root", ".jets.npz")) 
+    #dsk = {}
+    #for ifn, fn in enumerate(filenames):
+    #    dsk['load-{0}'.format(ifn)] = (load, fn)
+    #    dsk['transfer-{0}'.format(ifn)] = (transfer_to_gpu, 'load-{0}'.format(ifn)) 
+    #    dsk['analyze-{0}'.format(ifn)] = (analyze, 'transfer-{0}'.format(ifn))
+    #    dsk['result-{0}'.format(ifn)] = (result, 'analyze-{0}'.format(ifn))
+    # 
+    #dsk['sum'] = (sum_result, [k for k in dsk.keys() if "result-" in k])
+    #ret = client.get(dsk, 'sum')
     
     #results = []
     #for fn in filenames:
