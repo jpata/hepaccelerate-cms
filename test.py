@@ -256,15 +256,16 @@ def chunks(l, n):
 if __name__ == "__main__":
     #
 
-
+    nev_total = 0
+    t0 = time.time()
     for datasetname, globpattern, is_mc in [
         ("data_2017", "/nvmedata/store/data/Run2017*/SingleMuon/NANOAOD/Nano14Dec2018-v1/**/*.root", False),
         ("dy", "/nvmedata/store/mc/RunIIFall17NanoAOD/DYJetsToLL_M-50_TuneCP5_13TeV-amcatnloFXFX-pythia8/NANOAODSIM/**/*.root", True),
         ("ggh", "/nvmedata/store/mc/RunIIFall17NanoAOD/GluGluHToMuMu_M125_13TeV_amcatnloFXFX_pythia8/NANOAODSIM/**/*.root", True),
         ]:
         filenames_all = glob.glob(globpattern, recursive=True)
-        filenames_all = [fn for fn in filenames_all if not "Friend" in fn]
-        for filenames in chunks(filenames_all, 30):
+        filenames_all = [fn for fn in filenames_all if not "Friend" in fn][:100]
+        for filenames in chunks(filenames_all, 20):
             arrays_ev = [
                 "PV_npvsGood", "Flag_METFilters", "Flag_goodVertices", "HLT_IsoMu24"
             ]
@@ -288,8 +289,8 @@ if __name__ == "__main__":
                 ds.preload(nthreads=16, do_progress=True, event_vars=[bytes(x, encoding='ascii') for x in arrays_ev])
                 ds.to_cache(do_progress=True)
             else:
-                ds.from_cache(do_progress=True)
-
+                ds.from_cache(do_progress=True, nthreads=16)
+            nev_total += len(ds)
             #ds.make_random_weights()
 
             ret = ds.analyze(analyze_data, is_mc=is_mc, pu_corrections_target=pu_corrections_2016, mu_pt_cut_leading=30, debug=False)
@@ -301,3 +302,6 @@ if __name__ == "__main__":
             pinned_mempool = cupy.get_default_pinned_memory_pool()
             mempool.free_all_blocks()
             pinned_mempool.free_all_blocks()
+    t1 = time.time()
+    dt = t1 - t0
+    print("Processed {0:.2E} events in total, {1:.1f} seconds, {2:.2E} Hz".format(nev_total, dt, nev_total/dt))
