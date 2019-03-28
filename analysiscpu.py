@@ -5,7 +5,7 @@ import numpy as np
 import math
 
 @numba.jit
-def searchsorted(arr, val):
+def searchsorted_devfunc(arr, val):
     ret = -1
     for i in range(len(arr)):
         if val <= arr[i]:
@@ -17,7 +17,7 @@ def searchsorted(arr, val):
 @numba.jit
 def fill_histogram(data, weights, bins, out_w, out_w2):
     for i in range(len(data)):
-        bin_idx = searchsorted(bins, data[i])
+        bin_idx = searchsorted_devfunc(bins, data[i])
         if bin_idx >=0 and bin_idx < len(out_w):
             out_w[bin_idx] += weights[i]
             out_w2[bin_idx] += weights[i]**2
@@ -188,8 +188,8 @@ For all events (N), mask the objects in the first collection (M1) if they are cl
 def mask_deltar_first_kernel(etas1, phis1, mask1, offsets1, etas2, phis2, mask2, offsets2, dr2, mask_out):
     
     for iev in range(len(offsets1)-1):
-        a1 = offsets2[iev]
-        b1 = offsets2[iev+1]
+        a1 = offsets1[iev]
+        b1 = offsets1[iev+1]
         
         a2 = offsets2[iev]
         b2 = offsets2[iev+1]
@@ -236,7 +236,7 @@ def histogram_from_vector(data, weights, bins):
 def get_bin_contents_kernel(values, edges, contents, out):
     for i in numba.prange(len(values)):
         v = values[i]
-        ibin = searchsorted(edges, v)
+        ibin = searchsorted_devfunc(edges, v)
         if ibin>=0 and ibin < len(contents):
             out[i] = contents[ibin]
 

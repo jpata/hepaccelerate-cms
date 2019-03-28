@@ -9,8 +9,13 @@ import numpy as np
 import hepaccelerate
 
 @cuda.jit(device=True)
-def searchsorted(arr, val):
+def searchsorted_devfunc(arr, val):
     ret = -1
+
+    #overflow
+    if val > arr[-1]:
+        return len(arr)
+
     for i in range(len(arr)):
         if val <= arr[i]:
             ret = i
@@ -18,12 +23,28 @@ def searchsorted(arr, val):
     return ret
 
 @cuda.jit
+def searchsorted_kernel(vals, arr, inds_out):
+    xi = cuda.grid(1)
+    xstride = cuda.gridsize(1)
+    
+    for i in range(xi, len(vals), xstride):
+        inds_out[i] = searchsorted_devfunc(arr, vals[i])
+
+def searchsorted(arr, vals):
+    """
+    Find indices to insert vals into arr to preserve order.
+    """
+    ret = cupy.zeros_like(vals, dtype=cupy.int32)
+    searchsorted_kernel[32, 1024](vals, arr, ret)
+    return ret 
+
+@cuda.jit
 def fill_histogram(data, weights, bins, out_w, out_w2):
     xi = cuda.grid(1)
     xstride = cuda.gridsize(1)
     
     for i in range(xi, len(data), xstride):
-        bin_idx = searchsorted(bins, data[i])
+        bin_idx = searchsorted_devfunc(bins, data[i])
         if bin_idx >=0 and bin_idx < len(out_w):
             cuda.atomic.add(out_w, bin_idx, weights[i])
             cuda.atomic.add(out_w2, bin_idx, weights[i]**2)
@@ -215,8 +236,8 @@ def mask_deltar_first_cudakernel(etas1, phis1, mask1, offsets1, etas2, phis2, ma
     xstride = cuda.gridsize(1)
     
     for iev in range(xi, len(offsets1)-1, xstride):
-        a1 = offsets2[iev]
-        b1 = offsets2[iev+1]
+        a1 = offsets1[iev]
+        b1 = offsets1[iev+1]
         
         a2 = offsets2[iev]
         b2 = offsets2[iev+1]
@@ -267,7 +288,7 @@ def get_bin_contents_cudakernel(values, edges, contents, out):
     xstride = cuda.gridsize(1)
     for i in range(xi, len(values), xstride):
         v = values[i]
-        ibin = searchsorted(edges, v)
+        ibin = searchsorted_devfunc(edges, v)
         if ibin>=0 and ibin < len(contents):
             out[i] = contents[ibin]
 
