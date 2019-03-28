@@ -53,11 +53,13 @@ def get_selected_muons(muons, trigobj, mask_events, mu_pt_cut_leading, mu_pt_cut
     passes_leading_pt = muons.pt > mu_pt_cut_leading
     passes_aeta = NUMPY_LIB.abs(muons.eta) < mu_aeta_cut
     
-    muons_matched_to_trigobj = mask_deltar_first(muons, muons.masks["all"], trigobj, trigobj.masks["all"], 0.1)
- 
+    trigobj.masks["mu"] = (trigobj.id == 13)
+  
+    muons_matched_to_trigobj = NUMPY_LIB.invert(mask_deltar_first(muons, muons.masks["all"], trigobj, trigobj.masks["mu"], 0.1))
+    
     #select muons that pass these cuts
     muons_passing_id = passes_iso & passes_id & passes_subleading_pt & muons_matched_to_trigobj
-   
+ 
     #select events that have muons passing cuts 
     events_passes_muid = sum_in_offsets(muons, muons_passing_id, mask_events, muons.masks["all"], NUMPY_LIB.int8) >= 2
     events_passes_leading_pt = sum_in_offsets(muons, muons_passing_id & passes_leading_pt, mask_events, muons.masks["all"], NUMPY_LIB.int8) >= 1
@@ -110,13 +112,6 @@ def compute_inv_mass(objects, mask_events, mask_objects):
     pz_total = sum_in_offsets(objects, pz, mask_events, mask_objects)
     e_total = sum_in_offsets(objects, e, mask_events, mask_objects)
     inv_mass = NUMPY_LIB.sqrt(-(px_total**2 + py_total**2 + pz_total**2 - e_total**2))
-    #for i in range(100):
-    #    if mask_events[i]:
-    #        a = objects.offsets[i]
-    #        b = objects.offsets[i+1]
-    #        print(mask_objects[a:b])
-    #        print(px[a:b], px_total[i], inv_mass[i])
-    #import pdb;pdb.set_trace()
     return inv_mass
 
 def fill_with_weights(values, weight_dict, mask, bins):
@@ -133,6 +128,7 @@ def remove_inf_nan(arr):
 
 def fix_large_weights(weights, maxw=10.0):
     weights[weights > maxw] = maxw
+    weights[:] = weights[:] / NUMPY_LIB.mean(weights)
 
 def compute_pu_weights(pu_corrections_target, weights, mc_nvtx, reco_nvtx):
     pu_edges, (values_nom, values_up, values_down) = pu_corrections_target
@@ -145,20 +141,20 @@ def compute_pu_weights(pu_corrections_target, weights, mc_nvtx, reco_nvtx):
     ratio = values_nom / src_pu_hist.contents
     remove_inf_nan(ratio)
     pu_weights = NUMPY_LIB.zeros_like(weights)
-    fix_large_weights(pu_weights) 
     get_bin_contents(reco_nvtx, NUMPY_LIB.array(pu_edges), NUMPY_LIB.array(ratio), pu_weights)
- 
+    fix_large_weights(pu_weights) 
+     
     ratio_up = values_up / src_pu_hist.contents
     remove_inf_nan(ratio_up)
     pu_weights_up = NUMPY_LIB.zeros_like(weights)
-    fix_large_weights(pu_weights_up) 
     get_bin_contents(reco_nvtx, NUMPY_LIB.array(pu_edges), NUMPY_LIB.array(ratio_up), pu_weights_up)
+    fix_large_weights(pu_weights_up) 
     
     ratio_down = values_down / src_pu_hist.contents
     remove_inf_nan(ratio_down)
     pu_weights_down = NUMPY_LIB.zeros_like(weights)
-    fix_large_weights(pu_weights_down) 
     get_bin_contents(reco_nvtx, NUMPY_LIB.array(pu_edges), NUMPY_LIB.array(ratio_down), pu_weights_down)
+    fix_large_weights(pu_weights_down) 
     
     return pu_weights, pu_weights_up, pu_weights_down
 
@@ -208,7 +204,6 @@ def analyze_data(
     debug=True
     ):
     
-    print(len(trigobj))
     mask_events = NUMPY_LIB.ones(len(muons), dtype=NUMPY_LIB.bool)
     select_events_trigger(scalars, mask_events)
     if debug:
@@ -216,6 +211,7 @@ def analyze_data(
 
     weights = {}
     weights["nominal"] = NUMPY_LIB.ones(len(muons), dtype=NUMPY_LIB.float32)
+
     if is_mc:
         weights["nominal"] = weights["nominal"] * scalars["genWeight"]/genweight_scalefactor
         pu_weights, pu_weights_up, pu_weights_down = compute_pu_weights(pu_corrections_target, weights["nominal"], scalars["Pileup_nTrueInt"], scalars["PV_npvsGood"])
@@ -266,8 +262,8 @@ def analyze_data(
     if doverify:
         assert(NUMPY_LIB.all(leading_muon_pt[leading_muon_pt>0] > mu_pt_cut_leading))
         assert(NUMPY_LIB.all(subleading_muon_pt[subleading_muon_pt>0] > mu_pt_cut_subleading))
-
-
+ 
+  
     hist_npvs_d = fill_with_weights(scalars["PV_npvsGood"], weights, ret_mu["selected_events"], NUMPY_LIB.linspace(0,100,101))
     hist_inv_mass_d = fill_with_weights(inv_mass, weights, ret_mu["selected_events"], NUMPY_LIB.linspace(60,150,201))
 
@@ -292,8 +288,8 @@ def analyze_data(
         #get integrated luminosity in this file
         if not (lumidata is None): 
             int_lumi = get_int_lumi(scalars["run"], scalars["luminosityBlock"], mask_events, lumidata)
-
-    return Results({
+    
+    ret = Results({
         "int_lumi": int_lumi,
         "hist_npvs_d": Results(hist_npvs_d),
         "hist_inv_mass_d": Results(hist_inv_mass_d),
@@ -308,7 +304,13 @@ def analyze_data(
         "hist_leading_jet_pt": Results(hist_leading_jet_pt_d),
         "hist_subleading_jet_pt": Results(hist_subleading_jet_pt_d),        
     })
-
+    
+    if is_mc:   
+        hist_puweight = get_histogram(pu_weights, NUMPY_LIB.ones_like(pu_weights), NUMPY_LIB.linspace(0, 10, 100))
+        print("puWeight", NUMPY_LIB.min(pu_weights), NUMPY_LIB.max(pu_weights), NUMPY_LIB.mean(pu_weights))
+        ret["hist_puweight"] = hist_puweight
+    return ret
+ 
 def load_puhist_target(filename):
     fi = uproot.open("RunII_2016_data.root")
     
@@ -348,6 +350,9 @@ if __name__ == "__main__":
         filenames_all = glob.glob(globpattern, recursive=True)
         filenames_all = [fn for fn in filenames_all if not "Friend" in fn][:20]
         ret_ds = []
+        
+        print("processing dataset {0} with {1} files".format(datasetname, len(filenames_all)))
+        
         for filenames in chunks(filenames_all, 10):
             arrays_ev = [
                 "PV_npvsGood",
@@ -384,7 +389,7 @@ if __name__ == "__main__":
             nev_total += len(ds)
             #ds.make_random_weights()
 
-            ret = ds.analyze(analyze_data, is_mc=is_mc, lumimask=lumimask, lumidata=lumidata, pu_corrections_target=pu_corrections_2016, debug=False)
+            ret = ds.analyze(analyze_data, is_mc=is_mc, lumimask=lumimask, lumidata=lumidata, pu_corrections_target=pu_corrections_2016, debug=True)
 
             if is_mc:
                 ret["gen_sumweights"] = get_gen_sumweights(filenames)

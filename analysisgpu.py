@@ -259,20 +259,21 @@ def mask_deltar_first_cudakernel(etas1, phis1, mask1, offsets1, etas2, phis2, ma
                 
                 #if first object is closer than dr2, mask element will be *disabled*
                 passdr = ((deta**2 + dphi**2) < dr2)
-                mask_out[idx1] = not passdr
+                mask_out[idx1] = mask_out[idx1] | passdr
                 
 def mask_deltar_first(objs1, mask1, objs2, mask2, drcut):
     assert(mask1.shape == objs1.eta.shape)
     assert(mask2.shape == objs2.eta.shape)
     assert(objs1.offsets.shape == objs2.offsets.shape)
     
-    mask_out = cupy.ones_like(objs1.eta, dtype=cupy.bool)
+    mask_out = cupy.zeros_like(objs1.eta, dtype=cupy.bool)
     mask_deltar_first_cudakernel[32, 1024](
         objs1.eta, objs1.phi, mask1, objs1.offsets,
         objs2.eta, objs2.phi, mask2, objs2.offsets,
         drcut**2, mask_out
     )
     cuda.synchronize()
+    mask_out = cupy.invert(mask_out)
     return mask_out
 
 def histogram_from_vector(data, weights, bins):        

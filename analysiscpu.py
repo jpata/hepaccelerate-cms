@@ -184,10 +184,10 @@ For all events (N), mask the objects in the first collection (M1) if they are cl
     mask_out: output mask, array of (M1, )
 
 """
-@numba.jit
+@numba.njit
 def mask_deltar_first_kernel(etas1, phis1, mask1, offsets1, etas2, phis2, mask2, offsets2, dr2, mask_out):
     
-    for iev in range(len(offsets1)-1):
+    for iev in numba.prange(len(offsets1)-1):
         a1 = offsets1[iev]
         b1 = offsets1[iev+1]
         
@@ -211,19 +211,20 @@ def mask_deltar_first_kernel(etas1, phis1, mask1, offsets1, etas2, phis2, mask2,
                 
                 #if first object is closer than dr2, mask element will be *disabled*
                 passdr = ((deta**2 + dphi**2) < dr2)
-                mask_out[idx1] = not passdr
+                mask_out[idx1] = mask_out[idx1] | passdr
                 
 def mask_deltar_first(objs1, mask1, objs2, mask2, drcut):
     assert(mask1.shape == objs1.eta.shape)
     assert(mask2.shape == objs2.eta.shape)
     assert(objs1.offsets.shape == objs2.offsets.shape)
     
-    mask_out = np.ones_like(objs1.eta, dtype=np.bool)
+    mask_out = np.zeros_like(objs1.eta, dtype=np.bool)
     mask_deltar_first_kernel(
         objs1.eta, objs1.phi, mask1, objs1.offsets,
         objs2.eta, objs2.phi, mask2, objs2.offsets,
         drcut**2, mask_out
     )
+    mask_out = np.invert(mask_out)
     return mask_out
 
 def histogram_from_vector(data, weights, bins):        
