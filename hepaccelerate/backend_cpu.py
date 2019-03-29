@@ -1,4 +1,3 @@
-#need to set these explicitly
 import os
 import numba
 import numpy as np

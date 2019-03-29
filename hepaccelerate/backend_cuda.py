@@ -1,12 +1,12 @@
-#need to set these explicitly
+#need to set these CUDA variables explicitly
 import os
 os.environ["NUMBAPRO_NVVM"] = "/usr/local/cuda-9.2/nvvm/lib64/libnvvm.so"
 os.environ["NUMBAPRO_LIBDEVICE"] = "/usr/local/cuda-9.2/nvvm/libdevice/"
 from numba import cuda
+
 import cupy
 import math
 import numpy as np
-import hepaccelerate
 
 @cuda.jit(device=True)
 def searchsorted_devfunc(arr, val):
