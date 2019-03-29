@@ -135,7 +135,7 @@ class Results(dict):
     
     def save_json(self, outfn):
         with open(outfn, "w") as fi:
-            fi.write(json.dumps(dict(self), fi, indent=2, cls=NumpyEncoder))
+            fi.write(json.dumps(dict(self), indent=2, cls=NumpyEncoder))
  
 #def progress(count, total, status=''):
 #    bar_len = 60

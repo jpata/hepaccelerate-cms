@@ -2,7 +2,7 @@ Accelerated array analysis on CMS NanoAOD data. Requires Python 3, Numba, uproot
 Use the provided singularity image to get started fast.
 
 ~~~
-git checkout git@github.com:jpata/hepaccelerate.git
+git clone git@github.com:jpata/hepaccelerate.git
 cd hepaccelerate
 
 #prepare a list of files (currently must be on the local filesystem, not on xrootd) to read
@@ -17,7 +17,7 @@ wget https://jpata.web.cern.ch/jpata/singularity/cupy.simg -o singularity/cupy.s
 ##or compile yourself if you have ROOT access on your machine
 #cd singularity;make
 
-#Run the test script using singularity
+#Run the test script using singularity (currently singularity does NOT work on lxplus)
 #In case you get errors with data not being found, use the option -B to bind external mounted disks to the singularity image (in my case /nvmedata) in case
 LC_ALL=C PYTHONPATH=./ singularity exec -B /nvmedata --nv singularity/cupy.simg python3 tests/simple.py --filelist filelist.txt
 
