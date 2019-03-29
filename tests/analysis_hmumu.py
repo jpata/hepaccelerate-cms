@@ -2,6 +2,8 @@ import glob
 import time
 import numpy
 import os
+os.environ["NUMBAPRO_NVVM"] = "/usr/local/cuda-9.2/nvvm/lib64/libnvvm.so"
+os.environ["NUMBAPRO_LIBDEVICE"] = "/usr/local/cuda-9.2/nvvm/libdevice/"
 import sys
 import cupy
 
