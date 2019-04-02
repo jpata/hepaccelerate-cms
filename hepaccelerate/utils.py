@@ -6,7 +6,6 @@ import numpy as np
 from collections import OrderedDict
 
 import uproot
-import cupy
 
 def choose_backend(use_cuda):
     if use_cuda:

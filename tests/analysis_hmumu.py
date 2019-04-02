@@ -5,7 +5,6 @@ import os
 os.environ["NUMBAPRO_NVVM"] = "/usr/local/cuda/nvvm/lib64/libnvvm.so"
 os.environ["NUMBAPRO_LIBDEVICE"] = "/usr/local/cuda/nvvm/libdevice/"
 
-import cupy
 import numba
 
 # Disable memory pool for device memory (GPU)
@@ -15,7 +14,6 @@ import numba
 #cupy.cuda.set_pinned_memory_allocator(None)
 
 import sys
-import cupy
 import concurrent.futures
 import threading
 from threading import Thread
@@ -409,7 +407,7 @@ def analyze_data(
     return ret
  
 def load_puhist_target(filename):
-    fi = uproot.open("RunII_2016_data.root")
+    fi = uproot.open(filename)
     
     h = fi["pileup"]
     edges = np.array(h.edges)
@@ -467,6 +465,7 @@ def create_dataset(filenames, is_mc):
     return ds
 
 def cache_data_multiproc_worker(args):
+    sys.stdout.write(".")
     filename, is_mc = args
     ds = create_dataset([filename], is_mc)
     ds.preload()
@@ -546,12 +545,15 @@ if __name__ == "__main__":
     
     processed_size_mb = 0
 
-    #action = "cache"
-    action = "analyze"
-    nthreads = 16
-    dev = cupy.cuda.Device(0)
+    action = "cache"
+    #action = "analyze"
+    nthreads = 4
+
+    if use_cuda:
+        dev = cupy.cuda.Device(0)
+
     for datasetname, globpattern, is_mc in [
-        ("data_2017", "/nvmedata/store/data/Run2017*/SingleMuon/NANOAOD/Nano14Dec2018-v1/**/*.root", False),
+        ("data_2017", "/Volumes/Samsung_T3/nanoad/store/data/Run2017*/SingleMuon/NANOAOD/Nano14Dec2018-v1/**/*.root", False),
 #        ("ggh", "/nvmedata/store/mc/RunIIFall17NanoAODv4/GluGluHToMuMu_M125_*/NANOAODSIM/*12Apr2018_Nano14Dec2018*/**/*.root", True),
 #        ("dy", "/nvmedata/store/mc/RunIIFall17NanoAODv4/DYJetsToLL_M-50_TuneCP5_13TeV-amcatnloFXFX-pythia8*/**/*.root", True),
 #        ("ttjets_dl", "/nvmedata/store/mc/RunIIFall17NanoAODv4/TTJets_DiLept_TuneCP5_13TeV-madgraphMLM-pythia8/**/*.root", True),
