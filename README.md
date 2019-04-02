@@ -18,7 +18,6 @@ We also provide a singularity image with the python libraries preinstalled, see 
 
 ~~~
 import hepaccelerate
-import hepaccelerate.backend_cpu as ha #backend_gpu for CUDA
 from hepaccelerate.utils import Results, NanoAODDataset, Histogram, choose_backend
 
 NUMPY_LIB, ha = choose_backend(use_cuda=False)
