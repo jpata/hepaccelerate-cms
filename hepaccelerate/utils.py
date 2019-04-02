@@ -7,7 +7,7 @@ from collections import OrderedDict
 
 import uproot
 
-def choose_backend(use_cuda):
+def choose_backend(use_cuda=False):
     if use_cuda:
         print("Using the GPU CUDA backend")
         import cupy
@@ -276,6 +276,7 @@ class NanoAODDataset(Dataset):
             data = {}
             for structname in self.names_structs:
                 data[structname] = self.structs[structname][ifile]
+            data["num_events"] = self.structs[structname][ifile].numevents()
             data["eventvars"] = self.eventvars[ifile]
             ret = analyze_data(data, **kwargs)
             rets += [ret]

@@ -115,7 +115,7 @@ if __name__ == "__main__":
             print(dataset.printout())
 
         #Run the analyze_data function on all files
-        results += dataset.analyze(analyze_data, NUMPY_LIB=NUMPY_LIB, parameters={"muons_ptcut": 30.0})
+        results += dataset.analyze(analyze_data, parameters={"muons_ptcut": 30.0})
              
     print(results)
     print("Efficiency of dimuon events: {0:.2f}".format(results["events_dimuon"]/results["num_events"]))
