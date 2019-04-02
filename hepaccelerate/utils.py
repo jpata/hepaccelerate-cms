@@ -7,7 +7,7 @@ from collections import OrderedDict
 
 import uproot
 
-def choose_backend(use_cuda):
+def choose_backend(use_cuda=False):
     if use_cuda:
         print("Using the GPU CUDA backend")
         import cupy
@@ -67,6 +67,10 @@ class JaggedStruct(object):
     
     def numevents(self):
         return len(self.offsets) - 1
+
+    def numobjects(self):
+        for k, v in self.attrs_data.items():
+            return len(self.attrs_data[k])
     
     @staticmethod
     def from_arraydict(arraydict, prefix, numpy_lib):
@@ -110,7 +114,7 @@ class JaggedStruct(object):
     def __getattr__(self, attr):
         if attr in self.attrs_data.keys():
             return self.attrs_data[attr]
-        return self.__getattribute__(name)
+        return self.__getattribute__(attr)
  
 class NumpyEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -147,16 +151,6 @@ class Results(dict):
     def save_json(self, outfn):
         with open(outfn, "w") as fi:
             fi.write(json.dumps(dict(self), indent=2, cls=NumpyEncoder))
- 
-#def progress(count, total, status=''):
-#    bar_len = 60
-#    filled_len = int(round(bar_len * count / float(total)))
-#
-#    percents = round(100.0 * count / float(total), 1)
-#    bar = '=' * filled_len + '-' * (bar_len - filled_len)
-#
-#    sys.stdout.write('[%s] %s%s ...%s\r' % (bar, percents, '%', status))
-#    sys.stdout.flush()  # As suggested by Rom Ruben (see: http://stackoverflow.com/questions/3173320/text-progress-bar-in-the-console/27871113#comment50529068_27871113)
 
 def progress(count, total, status=''):
     sys.stdout.write('.')
@@ -171,9 +165,9 @@ class Dataset(object):
         self.treename = treename
         self.do_progress = False
 
-    def preload(self, nthreads=1):
-        if self.do_progress:
-            print("Preloading data from {0} files to system memory".format(len(self.filenames)))
+    def preload(self, nthreads=1, verbose=False):
+        if verbose:
+            print("Loading data from {0} ROOT files to memory".format(len(self.filenames)))
         t0 = time.time()
         for ifn, fn in enumerate(self.filenames):
             fi = uproot.open(fn)
@@ -189,7 +183,7 @@ class Dataset(object):
                 progress(ifn, len(self.filenames))
         t1 = time.time()
         dt = t1 - t0
-        if self.do_progress:
+        if verbose:
             print("Loaded {0:.2E} events in {1:.1f} seconds, {2:.2E} Hz".format(len(self), dt, len(self)/dt))
 
     def num_events_raw(self):
@@ -247,8 +241,8 @@ class NanoAODDataset(Dataset):
         s += "  EventVariables({0}, {1})".format(len(self), ", ".join(self.names_eventvars))
         return s    
 
-    def preload(self, nthreads=1):
-        super(NanoAODDataset, self).preload(nthreads)
+    def preload(self, nthreads=1, verbose=False):
+        super(NanoAODDataset, self).preload(nthreads, verbose)
  
     def build_structs(self, prefix): 
         struct_array = [
@@ -275,23 +269,24 @@ class NanoAODDataset(Dataset):
         if self.do_progress:
             print("Made objects in {0:.2E} events in {1:.1f} seconds, {2:.2E} Hz".format(len(self), dt, len(self)/dt))
 
-    def analyze(self, analyze_data, **kwargs):
+    def analyze(self, analyze_data, verbose=False, **kwargs):
         t0 = time.time()
         rets = []
         for ifile in range(len(self.filenames)):
             data = {}
             for structname in self.names_structs:
                 data[structname] = self.structs[structname][ifile]
+            data["num_events"] = self.structs[structname][ifile].numevents()
             data["eventvars"] = self.eventvars[ifile]
             ret = analyze_data(data, **kwargs)
             rets += [ret]
         t1 = time.time()
         dt = t1 - t0
-        if self.do_progress:
-            print("Processed analysis with {0:.2E} events in {1:.1f} seconds, {2:.2E} Hz".format(len(self), dt, len(self)/dt))
+        if verbose:
+            print("analyze: processed analysis with {0:.2E} events in {1:.1f} seconds, {2:.2E} Hz".format(len(self), dt, len(self)/dt))
         return sum(rets, Results({}))
 
-    def to_cache(self, nthreads=1):
+    def to_cache(self, nthreads=1, verbose=False):
         if self.do_progress:
             print("Caching dataset")
         t0 = time.time()
@@ -306,8 +301,10 @@ class NanoAODDataset(Dataset):
 
         t1 = time.time()
         dt = t1 - t0
-        if self.do_progress:
-            print("Cache built in {0:.1f} seconds".format(dt))
+        if verbose:
+            print("to_cache: created cache for {1:.2E} events in {0:.1f} seconds, speed {2:.2E} Hz".format(
+                dt, len(self), len(self)/dt
+            ))
     
     def to_cache_worker(self, ifn):
         if self.do_progress:
@@ -327,11 +324,9 @@ class NanoAODDataset(Dataset):
         with open(os.path.join(dn, bfn + ".eventvars.npz"), "wb") as fi:
             self.numpy_lib.savez(fi, **self.eventvars[ifn])
 
-    def from_cache(self, nthreads=1):
-        if self.do_progress:
-            print("Loading dataset from cache")
+    def from_cache(self, nthreads=1, verbose=False):
         t0 = time.time()
-        
+
         if nthreads == 1:
             for ifn in range(len(self.filenames)):
                 ifn, loaded_structs, eventvars = self.from_cache_worker(ifn)
@@ -346,10 +341,13 @@ class NanoAODDataset(Dataset):
             for structname in self.names_structs:
                 self.structs[structname] = [r[1][structname] for r in results]
             self.eventvars = [r[2] for r in results] 
+
         t1 = time.time()
         dt = t1 - t0
-        if self.do_progress:
-            print("Cache loaded in {0:.1f} seconds, {1:.2E} events".format(dt, len(self)))
+        if verbose:
+            print("from_cache: loaded cache for {1:.2E} events in {0:.1f} seconds, speed {2:.2E} Hz".format(
+                dt, len(self), len(self)/dt
+            ))
 
     def from_cache_worker(self, ifn):
         if self.do_progress:
@@ -372,7 +370,7 @@ class NanoAODDataset(Dataset):
     def num_objects_loaded(self, structname):
         n_objects = 0
         for ifn in range(len(self.structs[structname])):
-            n_objects += len(self.structs[structname][ifn])
+            n_objects += self.structs[structname][ifn].numobjects()
         return n_objects
     
     def num_events_loaded(self, structname):

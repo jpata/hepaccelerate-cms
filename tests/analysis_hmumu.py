@@ -7,11 +7,7 @@ os.environ["NUMBAPRO_LIBDEVICE"] = "/usr/local/cuda/nvvm/libdevice/"
 
 import numba
 
-# Disable memory pool for device memory (GPU)
-#cupy.cuda.set_allocator(None)
-
-# Disable memory pool for pinned memory (CPU).
-#cupy.cuda.set_pinned_memory_allocator(None)
+import argparse
 
 import sys
 import concurrent.futures
@@ -107,21 +103,6 @@ class thread_killer(object):
     def set_tokill(self,tokill):
         with self.lock:
             self.to_kill = tokill
-
-#Choose the backend
-use_cuda = bool(int(os.environ.get("HEPACCELERATE_CUDA", 0)))
-if use_cuda:
-    print("Using the GPU CUDA backend")
-    import cupy
-    NUMPY_LIB = cupy
-    from hepaccelerate.backend_cuda import *
-    NUMPY_LIB.searchsorted = searchsorted
-else:
-    print("Using the numpy CPU backend")
-    NUMPY_LIB = numpy
-    from hepaccelerate.backend_cpu import *
-    NUMPY_LIB.asnumpy = numpy.array
-NanoAODDataset.numpy_lib = NUMPY_LIB
 
 def get_histogram(data, weights, bins):
     return Histogram(*histogram_from_vector(data, weights, bins))
@@ -465,44 +446,51 @@ def create_dataset(filenames, is_mc):
     return ds
 
 def cache_data_multiproc_worker(args):
-    sys.stdout.write(".")
     filename, is_mc = args
+    t0 = time.time()
     ds = create_dataset([filename], is_mc)
+    ds.numpy_lib = np
     ds.preload()
     ds.make_objects()
     ds.to_cache()
+    t1 = time.time()
+    dt = t1 - t0
     processed_size_mb = ds.memsize()/1024.0/1024.0
+    print("built cache for {0}, {1:.2f} MB, {2:.2E} Hz, {3:.2f} MB/s".format(filename, processed_size_mb, len(ds)/dt, processed_size_mb/dt))
     return len(ds), processed_size_mb
 
 class InputGen:
-    def __init__(self, paths, is_mc):
+    def __init__(self, paths, is_mc, nthreads):
         self.paths_chunks = list(chunks(paths, chunksize))
         self.chunk_lock = threading.Lock()
+        self.loaded_lock = threading.Lock()
         self.num_chunk = 0
         self.num_loaded = 0
         self.is_mc = is_mc
+        self.nthreads = nthreads
 
     def is_done(self):
-        return self.num_chunk == len(self.paths_chunks) and self.num_loaded == len(self.paths_chunks)
+        return (self.num_chunk == len(self.paths_chunks)) and (self.num_loaded == len(self.paths_chunks))
  
     def __iter__(self):
         return self.generator()
 
+    #did not make this a generator to simplify handling the thread locks
     def nextone(self):
 
         self.chunk_lock.acquire()
         if self.num_chunk == len(self.paths_chunks):
             self.chunk_lock.release()
             return None
-        #print(self.paths_chunks[self.num_chunk])
+
         ds = create_dataset(self.paths_chunks[self.num_chunk], is_mc)
         self.num_chunk += 1
         ds.numpy_lib = numpy
         self.chunk_lock.release()
 
-        ds.from_cache(nthreads=1)
-        
-        with self.chunk_lock: 
+        ds.from_cache(nthreads=16, verbose=True)
+
+        with self.loaded_lock:
             self.num_loaded += 1
 
         return ds
@@ -519,80 +507,84 @@ def threaded_batches_feeder(tokill, batches_queue, dataset_generator):
     #print("Cleaning up threaded_batches_feeder worker", threading.get_ident())
     return
 
-def event_loop(train_batches_queue):
+def event_loop(train_batches_queue, use_cuda):
     ds = train_batches_queue.get(block=True)
-    print("event_loop nev={0}, queued={1}".format(train_batches_queue.qsize(), len(ds)))
+    #print("event_loop nev={0}, queued={1}".format(len(ds), train_batches_queue.qsize()))
 
     if use_cuda:
         ds.numpy_lib = cupy
         ds.move_to_device(cupy)
 
-    ret = ds.analyze(analyze_data, is_mc=is_mc, lumimask=lumimask, lumidata=lumidata, pu_corrections_target=pu_corrections_2016, debug=False)
+    ret = ds.analyze(analyze_data, verbose=True, is_mc=is_mc, lumimask=lumimask, lumidata=lumidata, pu_corrections_target=pu_corrections_2016, debug=False)
     ret["num_events"] = len(ds)
 
     train_batches_queue.task_done()
     #print("analyzed {0}".format(len(ds)))
     return ret, len(ds), ds.memsize()/1024.0/1024.0
 
+def parse_args():
+    parser = argparse.ArgumentParser(description='Example HiggsMuMu analysis')
+    parser.add_argument('--use-cuda', action='store_true', help='Use the CUDA backend')
+    parser.add_argument('--action', '-a', action='append', help='List of actions to do', choices=['cache', 'analyze'])
+    parser.add_argument('--nthreads', '-t', action='store', help='Number of CPU threads or workers to use', type=int, default=4, required=False)
+    parser.add_argument('--datapath', '-p', action='store', help='Prefix to load NanoAOD data from', default="/nvmedata")
+    parser.add_argument('--maxfiles', '-m', action='store', help='Maximum number of files to process', default=-1, type=int)
+    args = parser.parse_args()
+    return args
+
 if __name__ == "__main__":
     nev_total = 0
     t0 = time.time()
+    
+    args = parse_args()  
+    print(args)
+
+    processed_size_mb = 0
+    num_processed = 0
+
+    if args.use_cuda:
+        print("Using the GPU CUDA backend")
+        import cupy
+        dev = cupy.cuda.Device(0)
+        NUMPY_LIB = cupy
+        from hepaccelerate.backend_cuda import *
+        NUMPY_LIB.searchsorted = searchsorted
+    else:
+        print("Using the numpy CPU backend")
+        NUMPY_LIB = numpy
+        from hepaccelerate.backend_cpu import *
+        NUMPY_LIB.asnumpy = numpy.array
+
+    NanoAODDataset.numpy_lib = NUMPY_LIB
     LumiMask.numpy_lib = NUMPY_LIB
 
     lumimask = LumiMask("data/Cert_294927-306462_13TeV_EOY2017ReReco_Collisions17_JSON.txt")
     lumidata = LumiData("data/lumi2017.csv")
     pu_corrections_2016 = load_puhist_target("data/RunII_2017_data.root") 
-    
-    processed_size_mb = 0
-
-    action = "cache"
-    #action = "analyze"
-    nthreads = 4
-
-    if use_cuda:
-        dev = cupy.cuda.Device(0)
 
     for datasetname, globpattern, is_mc in [
-        ("data_2017", "/Volumes/Samsung_T3/nanoad/store/data/Run2017*/SingleMuon/NANOAOD/Nano14Dec2018-v1/**/*.root", False),
-#        ("ggh", "/nvmedata/store/mc/RunIIFall17NanoAODv4/GluGluHToMuMu_M125_*/NANOAODSIM/*12Apr2018_Nano14Dec2018*/**/*.root", True),
-#        ("dy", "/nvmedata/store/mc/RunIIFall17NanoAODv4/DYJetsToLL_M-50_TuneCP5_13TeV-amcatnloFXFX-pythia8*/**/*.root", True),
-#        ("ttjets_dl", "/nvmedata/store/mc/RunIIFall17NanoAODv4/TTJets_DiLept_TuneCP5_13TeV-madgraphMLM-pythia8/**/*.root", True),
-#        ("ww", "/nvmedata/store/mc/RunIIFall17NanoAODv4/WWTo2L2Nu_NNPDF31_TuneCP5_13TeV-powheg-pythia8/**/*.root", True),
-#        ("wz", "/nvmedata/store/mc/RunIIFall17NanoAODv4/WZTo3LNu_13TeV-powheg-pythia8/**/*.root", True),
-#        ("zz", "/nvmedata/store/mc/RunIIFall17NanoAODv4/ZZTo2L2Nu_13TeV_powheg_pythia8/**/*.root", True),
+        ("data_2017", args.datapath + "/store/data/Run2017*/SingleMuon/NANOAOD/Nano14Dec2018-v1/**/*.root", False),
+#        ("ggh", args.datapath + "/store/mc/RunIIFall17NanoAODv4/GluGluHToMuMu_M125_*/NANOAODSIM/*12Apr2018_Nano14Dec2018*/**/*.root", True),
+        ("dy", args.datapath + "/store/mc/RunIIFall17NanoAODv4/DYJetsToLL_M-50_TuneCP5_13TeV-amcatnloFXFX-pythia8*/**/*.root", True),
+#        ("ttjets_dl", args.datapath + "/store/mc/RunIIFall17NanoAODv4/TTJets_DiLept_TuneCP5_13TeV-madgraphMLM-pythia8/**/*.root", True),
+#        ("ww", args.datapath + "/store/mc/RunIIFall17NanoAODv4/WWTo2L2Nu_NNPDF31_TuneCP5_13TeV-powheg-pythia8/**/*.root", True),
+#        ("wz", args.datapath + "/store/mc/RunIIFall17NanoAODv4/WZTo3LNu_13TeV-powheg-pythia8/**/*.root", True),
+#        ("zz", args.datapath + "/store/mc/RunIIFall17NanoAODv4/ZZTo2L2Nu_13TeV_powheg_pythia8/**/*.root", True),
         ]:
         filenames_all = glob.glob(globpattern, recursive=True)
-        filenames_all = [fn for fn in filenames_all if not "Friend" in fn][:100]
-        print("processing dataset {0} with {1} files".format(datasetname, len(filenames_all)))
+        filenames_all = [fn for fn in filenames_all if not "Friend" in fn]
+        print("dataset {0} has {1} files".format(datasetname, len(filenames_all)))
+        if args.maxfiles > 0:
+            filenames_all = filenames_all[:args.maxfiles]
 
-        if action=="cache":
-            nev_total, processed_size_mb = cache_data(filenames_all, is_mc, nworkers=nthreads)
-        elif action=="analyze":        
-            #for filenames in chunks(filenames_all, 10):
-                #sys.stdout.write(".")
-                #ds = create_dataset(filenames, is_mc)
-                #ds.from_cache(nthreads=nthreads)
-                #
-                #processed_size_mb += ds.memsize()/1024.0/1024.0
-                #nev_total += len(ds)
-   
-                #pu_corrections_2016 = load_puhist_target("data/RunII_2017_data.root") 
-                #ret = ds.analyze(analyze_data, is_mc=is_mc, lumimask=lumimask, lumidata=lumidata, pu_corrections_target=pu_corrections_2016, debug=False)
-                #if is_mc:
-                #    ret["gen_sumweights"] = get_gen_sumweights(filenames)
- 
-                #ret_ds += [ret]
-                #
-                ##clean up temporary arrays from CUDA memory 
-                #mempool = cupy.get_default_memory_pool()
-                #pinned_mempool = cupy.get_default_pinned_memory_pool()
-                #mempool.free_all_blocks()
-                #pinned_mempool.free_all_blocks()
-            
-                #ret = sum(ret_ds, Results({}))
-                #ret.save_json("out/{0}.json".format(datasetname))
-               
-            training_set_generator = InputGen(list(filenames_all), is_mc)
+        print("processing {0} files".format(len(filenames_all)))
+
+        if "cache" in args.action:
+            print("Preparing caches ROOT files")
+            nev_total, processed_size_mb = cache_data(filenames_all, is_mc, nworkers=args.nthreads)
+
+        if "analyze" in args.action:        
+            training_set_generator = InputGen(list(filenames_all), is_mc, args.nthreads)
             threadk = thread_killer()
             threadk.set_tokill(False)
             train_batches_queue = Queue(maxsize=10)
@@ -601,26 +593,28 @@ if __name__ == "__main__":
             for _ in range(1):
                 t = Thread(target=threaded_batches_feeder, args=(threadk, train_batches_queue, training_set_generator))
                 t.start()
-            
-            #t = Thread(target=threaded_cuda_batches, args=(threadk, cuda_batches_queue, train_batches_queue))
-            #t.start()
 
             rets = []
-            while not training_set_generator.is_done():
 
-                ret, nev, memsize = event_loop(train_batches_queue) 
+            #loop over all data
+            while num_processed < len(training_set_generator.paths_chunks):
+                ret, nev, memsize = event_loop(train_batches_queue, args.use_cuda) 
                 rets += [ret]
                 processed_size_mb += memsize
                 nev_total += nev
-                
-                if use_cuda:
+                num_processed += 1
+
+                if args.use_cuda:
                     mempool = cupy.get_default_memory_pool()
                     pinned_mempool = cupy.get_default_pinned_memory_pool()
                     mempool.free_all_blocks()
                     pinned_mempool.free_all_blocks()
                     dev.synchronize()
 
+            #clean up threads
             threadk.set_tokill(True)
+
+            #
             ret = sum(rets, Results({}))
             if is_mc:
                 ret["gen_sumweights"] = get_gen_sumweights(filenames_all)
@@ -628,6 +622,6 @@ if __name__ == "__main__":
 
     t1 = time.time()
     dt = t1 - t0
-    print("Processed {nev:.2E} ({nev}) events in total {size:.2f} GB, {dt:.1f} seconds, {evspeed:.2E} Hz, {sizespeed:.2f} MB/s".format(
+    print("Overall processed {nev:.2E} ({nev}) events in total {size:.2f} GB, {dt:.1f} seconds, {evspeed:.2E} Hz, {sizespeed:.2f} MB/s".format(
         nev=nev_total, dt=dt, size=processed_size_mb/1024.0, evspeed=nev_total/dt, sizespeed=processed_size_mb/dt)
     )

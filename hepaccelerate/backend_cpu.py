@@ -3,7 +3,7 @@ import numba
 import numpy as np
 import math
 
-@numba.jit
+@numba.jit(fastmath=True)
 def searchsorted_devfunc(arr, val):
     ret = -1
     for i in range(len(arr)):
