@@ -53,10 +53,7 @@ def analyze_data(data, NUMPY_LIB=None, parameters={}):
  
     return ret
  
-if __name__ == "__main__":
-    #Choose the backend
-    use_cuda = bool(int(os.environ.get("HEPACCELERATE_CUDA", 0)))
-   
+if __name__ == "__main__": 
     parser = argparse.ArgumentParser(description='Runs a simple array-based analysis')
     parser.add_argument('--use-cuda', action='store_true', help='Use the CUDA backend')
     parser.add_argument('--from-cache', action='store_true', help='Load from cache (otherwise create it)')

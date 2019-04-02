@@ -7,11 +7,7 @@ os.environ["NUMBAPRO_LIBDEVICE"] = "/usr/local/cuda/nvvm/libdevice/"
 
 import numba
 
-# Disable memory pool for device memory (GPU)
-#cupy.cuda.set_allocator(None)
-
-# Disable memory pool for pinned memory (CPU).
-#cupy.cuda.set_pinned_memory_allocator(None)
+import argparse
 
 import sys
 import concurrent.futures
@@ -521,7 +517,7 @@ def threaded_batches_feeder(tokill, batches_queue, dataset_generator):
 
 def event_loop(train_batches_queue):
     ds = train_batches_queue.get(block=True)
-    print("event_loop nev={0}, queued={1}".format(train_batches_queue.qsize(), len(ds)))
+    print("event_loop nev={0}, queued={1}".format(len(ds), train_batches_queue.qsize()))
 
     if use_cuda:
         ds.numpy_lib = cupy
@@ -538,6 +534,12 @@ if __name__ == "__main__":
     nev_total = 0
     t0 = time.time()
     LumiMask.numpy_lib = NUMPY_LIB
+  
+    parser = argparse.ArgumentParser(description='Example HiggsMuMu analysis')
+    parser.add_argument('--use-cuda', action='store_true', help='Use the CUDA backend')
+    parser.add_argument('--actions', action='store', help='What to do?', choices=['cache', 'analyze'], nargs='+')
+    parser.add_argument('--nthreads', action='store', help='Number of CPU threads or workers to use', type=int, default=4, required=False)
+    args = parser.parse_args()
 
     lumimask = LumiMask("data/Cert_294927-306462_13TeV_EOY2017ReReco_Collisions17_JSON.txt")
     lumidata = LumiData("data/lumi2017.csv")
@@ -549,7 +551,7 @@ if __name__ == "__main__":
     #action = "analyze"
     nthreads = 4
 
-    if use_cuda:
+    if args.use_cuda:
         dev = cupy.cuda.Device(0)
 
     for datasetname, globpattern, is_mc in [
@@ -562,36 +564,13 @@ if __name__ == "__main__":
 #        ("zz", "/nvmedata/store/mc/RunIIFall17NanoAODv4/ZZTo2L2Nu_13TeV_powheg_pythia8/**/*.root", True),
         ]:
         filenames_all = glob.glob(globpattern, recursive=True)
-        filenames_all = [fn for fn in filenames_all if not "Friend" in fn][:100]
+        filenames_all = [fn for fn in filenames_all if not "Friend" in fn][:10]
         print("processing dataset {0} with {1} files".format(datasetname, len(filenames_all)))
 
-        if action=="cache":
+        if "cache" in args.actions:
             nev_total, processed_size_mb = cache_data(filenames_all, is_mc, nworkers=nthreads)
-        elif action=="analyze":        
-            #for filenames in chunks(filenames_all, 10):
-                #sys.stdout.write(".")
-                #ds = create_dataset(filenames, is_mc)
-                #ds.from_cache(nthreads=nthreads)
-                #
-                #processed_size_mb += ds.memsize()/1024.0/1024.0
-                #nev_total += len(ds)
-   
-                #pu_corrections_2016 = load_puhist_target("data/RunII_2017_data.root") 
-                #ret = ds.analyze(analyze_data, is_mc=is_mc, lumimask=lumimask, lumidata=lumidata, pu_corrections_target=pu_corrections_2016, debug=False)
-                #if is_mc:
-                #    ret["gen_sumweights"] = get_gen_sumweights(filenames)
- 
-                #ret_ds += [ret]
-                #
-                ##clean up temporary arrays from CUDA memory 
-                #mempool = cupy.get_default_memory_pool()
-                #pinned_mempool = cupy.get_default_pinned_memory_pool()
-                #mempool.free_all_blocks()
-                #pinned_mempool.free_all_blocks()
-            
-                #ret = sum(ret_ds, Results({}))
-                #ret.save_json("out/{0}.json".format(datasetname))
-               
+
+        if "analyze" in args.actions:        
             training_set_generator = InputGen(list(filenames_all), is_mc)
             threadk = thread_killer()
             threadk.set_tokill(False)
