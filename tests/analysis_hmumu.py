@@ -104,21 +104,6 @@ class thread_killer(object):
         with self.lock:
             self.to_kill = tokill
 
-#Choose the backend
-use_cuda = bool(int(os.environ.get("HEPACCELERATE_CUDA", 0)))
-if use_cuda:
-    print("Using the GPU CUDA backend")
-    import cupy
-    NUMPY_LIB = cupy
-    from hepaccelerate.backend_cuda import *
-    NUMPY_LIB.searchsorted = searchsorted
-else:
-    print("Using the numpy CPU backend")
-    NUMPY_LIB = numpy
-    from hepaccelerate.backend_cpu import *
-    NUMPY_LIB.asnumpy = numpy.array
-NanoAODDataset.numpy_lib = NUMPY_LIB
-
 def get_histogram(data, weights, bins):
     return Histogram(*histogram_from_vector(data, weights, bins))
 
@@ -515,7 +500,7 @@ def threaded_batches_feeder(tokill, batches_queue, dataset_generator):
     #print("Cleaning up threaded_batches_feeder worker", threading.get_ident())
     return
 
-def event_loop(train_batches_queue):
+def event_loop(train_batches_queue, use_cuda):
     ds = train_batches_queue.get(block=True)
     print("event_loop nev={0}, queued={1}".format(len(ds), train_batches_queue.qsize()))
 
@@ -533,7 +518,6 @@ def event_loop(train_batches_queue):
 if __name__ == "__main__":
     nev_total = 0
     t0 = time.time()
-    LumiMask.numpy_lib = NUMPY_LIB
   
     parser = argparse.ArgumentParser(description='Example HiggsMuMu analysis')
     parser.add_argument('--use-cuda', action='store_true', help='Use the CUDA backend')
@@ -541,9 +525,7 @@ if __name__ == "__main__":
     parser.add_argument('--nthreads', action='store', help='Number of CPU threads or workers to use', type=int, default=4, required=False)
     args = parser.parse_args()
 
-    lumimask = LumiMask("data/Cert_294927-306462_13TeV_EOY2017ReReco_Collisions17_JSON.txt")
-    lumidata = LumiData("data/lumi2017.csv")
-    pu_corrections_2016 = load_puhist_target("data/RunII_2017_data.root") 
+
     
     processed_size_mb = 0
 
@@ -553,6 +535,23 @@ if __name__ == "__main__":
 
     if args.use_cuda:
         dev = cupy.cuda.Device(0)
+
+        print("Using the GPU CUDA backend")
+        import cupy
+        NUMPY_LIB = cupy
+        from hepaccelerate.backend_cuda import *
+        NUMPY_LIB.searchsorted = searchsorted
+    else:
+        print("Using the numpy CPU backend")
+        NUMPY_LIB = numpy
+        from hepaccelerate.backend_cpu import *
+        NUMPY_LIB.asnumpy = numpy.array
+    NanoAODDataset.numpy_lib = NUMPY_LIB
+    LumiMask.numpy_lib = NUMPY_LIB
+
+    lumimask = LumiMask("data/Cert_294927-306462_13TeV_EOY2017ReReco_Collisions17_JSON.txt")
+    lumidata = LumiData("data/lumi2017.csv")
+    pu_corrections_2016 = load_puhist_target("data/RunII_2017_data.root") 
 
     for datasetname, globpattern, is_mc in [
         ("data_2017", "/Volumes/Samsung_T3/nanoad/store/data/Run2017*/SingleMuon/NANOAOD/Nano14Dec2018-v1/**/*.root", False),
@@ -580,19 +579,16 @@ if __name__ == "__main__":
             for _ in range(1):
                 t = Thread(target=threaded_batches_feeder, args=(threadk, train_batches_queue, training_set_generator))
                 t.start()
-            
-            #t = Thread(target=threaded_cuda_batches, args=(threadk, cuda_batches_queue, train_batches_queue))
-            #t.start()
 
             rets = []
             while not training_set_generator.is_done():
 
-                ret, nev, memsize = event_loop(train_batches_queue) 
+                ret, nev, memsize = event_loop(train_batches_queue, args.use_cuda) 
                 rets += [ret]
                 processed_size_mb += memsize
                 nev_total += nev
                 
-                if use_cuda:
+                if args.use_cuda:
                     mempool = cupy.get_default_memory_pool()
                     pinned_mempool = cupy.get_default_pinned_memory_pool()
                     mempool.free_all_blocks()
