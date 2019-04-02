@@ -475,6 +475,7 @@ class InputGen:
     def __iter__(self):
         return self.generator()
 
+    #did not make this a generator to simplify handling the thread locks
     def nextone(self):
 
         self.chunk_lock.acquire()
@@ -487,14 +488,8 @@ class InputGen:
         ds.numpy_lib = numpy
         self.chunk_lock.release()
 
+        ds.from_cache(nthreads=16, verbose=True)
 
-        t0 = time.time()
-        ds.from_cache(nthreads=16)
-        t1 = time.time()
-        dt = t1 - t0
-        processed_size_mb = ds.memsize()/1024.0/1024.0
-        print("loaded cache {0:.2f} MB, {1:.2E} Hz, {2:.2f} MB/s".format(processed_size_mb, len(ds)/dt, processed_size_mb/dt))
-        
         with self.loaded_lock:
             self.num_loaded += 1
 
@@ -514,13 +509,13 @@ def threaded_batches_feeder(tokill, batches_queue, dataset_generator):
 
 def event_loop(train_batches_queue, use_cuda):
     ds = train_batches_queue.get(block=True)
-    print("event_loop nev={0}, queued={1}".format(len(ds), train_batches_queue.qsize()))
+    #print("event_loop nev={0}, queued={1}".format(len(ds), train_batches_queue.qsize()))
 
     if use_cuda:
         ds.numpy_lib = cupy
         ds.move_to_device(cupy)
 
-    ret = ds.analyze(analyze_data, is_mc=is_mc, lumimask=lumimask, lumidata=lumidata, pu_corrections_target=pu_corrections_2016, debug=False)
+    ret = ds.analyze(analyze_data, verbose=True, is_mc=is_mc, lumimask=lumimask, lumidata=lumidata, pu_corrections_target=pu_corrections_2016, debug=False)
     ret["num_events"] = len(ds)
 
     train_batches_queue.task_done()
@@ -570,7 +565,7 @@ if __name__ == "__main__":
     for datasetname, globpattern, is_mc in [
         ("data_2017", args.datapath + "/store/data/Run2017*/SingleMuon/NANOAOD/Nano14Dec2018-v1/**/*.root", False),
 #        ("ggh", args.datapath + "/store/mc/RunIIFall17NanoAODv4/GluGluHToMuMu_M125_*/NANOAODSIM/*12Apr2018_Nano14Dec2018*/**/*.root", True),
-#        ("dy", args.datapath + "/store/mc/RunIIFall17NanoAODv4/DYJetsToLL_M-50_TuneCP5_13TeV-amcatnloFXFX-pythia8*/**/*.root", True),
+        ("dy", args.datapath + "/store/mc/RunIIFall17NanoAODv4/DYJetsToLL_M-50_TuneCP5_13TeV-amcatnloFXFX-pythia8*/**/*.root", True),
 #        ("ttjets_dl", args.datapath + "/store/mc/RunIIFall17NanoAODv4/TTJets_DiLept_TuneCP5_13TeV-madgraphMLM-pythia8/**/*.root", True),
 #        ("ww", args.datapath + "/store/mc/RunIIFall17NanoAODv4/WWTo2L2Nu_NNPDF31_TuneCP5_13TeV-powheg-pythia8/**/*.root", True),
 #        ("wz", args.datapath + "/store/mc/RunIIFall17NanoAODv4/WZTo3LNu_13TeV-powheg-pythia8/**/*.root", True),
@@ -585,6 +580,7 @@ if __name__ == "__main__":
         print("processing {0} files".format(len(filenames_all)))
 
         if "cache" in args.action:
+            print("Preparing caches ROOT files")
             nev_total, processed_size_mb = cache_data(filenames_all, is_mc, nworkers=args.nthreads)
 
         if "analyze" in args.action:        
@@ -615,8 +611,10 @@ if __name__ == "__main__":
                     pinned_mempool.free_all_blocks()
                     dev.synchronize()
 
-
+            #clean up threads
             threadk.set_tokill(True)
+
+            #
             ret = sum(rets, Results({}))
             if is_mc:
                 ret["gen_sumweights"] = get_gen_sumweights(filenames_all)
@@ -624,6 +622,6 @@ if __name__ == "__main__":
 
     t1 = time.time()
     dt = t1 - t0
-    print("Processed {nev:.2E} ({nev}) events in total {size:.2f} GB, {dt:.1f} seconds, {evspeed:.2E} Hz, {sizespeed:.2f} MB/s".format(
+    print("Overall processed {nev:.2E} ({nev}) events in total {size:.2f} GB, {dt:.1f} seconds, {evspeed:.2E} Hz, {sizespeed:.2f} MB/s".format(
         nev=nev_total, dt=dt, size=processed_size_mb/1024.0, evspeed=nev_total/dt, sizespeed=processed_size_mb/dt)
     )

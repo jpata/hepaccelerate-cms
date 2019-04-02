@@ -21,7 +21,7 @@ def analyze_data(data, NUMPY_LIB=None, parameters={}):
     muons = data["Muon"]
     #Get the total number of events
     num_events = muons.numevents()
-    num_muons = len(muons)
+    num_muons = muons.numobjects()
     mask_events = NUMPY_LIB.ones(num_events, dtype=NUMPY_LIB.bool)
     print("Processing {0} events, {1} muons".format(num_events, num_muons))
     
@@ -42,13 +42,13 @@ def analyze_data(data, NUMPY_LIB=None, parameters={}):
     #If there is no such muon in the event, the array element will be 0
     inds = NUMPY_LIB.zeros(num_events, dtype=NUMPY_LIB.int32)
     leading_muon_pt = ha.get_in_offsets(muons.pt, muons.offsets, inds, mask_events_dimuon, mask_muons_pass_pt)
-    print("leading_muon_pt[all_events] =", leading_muon_pt[:5])
+    print("leading_muon_pt[all_events] =", leading_muon_pt[:10])
     
     #create a histogram of the leading muon pt, using only the events that passed the muon selection
     weights = NUMPY_LIB.ones(num_events, dtype=NUMPY_LIB.float32)
     bins = NUMPY_LIB.linspace(0,300,101)
     hist_muons_pt = Histogram(*ha.histogram_from_vector(leading_muon_pt[mask_events_dimuon], weights, bins))
-    print("leading_muon_pt[mask_events_dimuon] =", leading_muon_pt[mask_events_dimuon][:5])
+    print("leading_muon_pt[mask_events_dimuon] =", leading_muon_pt[mask_events_dimuon][:10])
     ret["hist_leading_muon_pt"] = hist_muons_pt
  
     return ret
@@ -58,13 +58,14 @@ if __name__ == "__main__":
     parser.add_argument('--use-cuda', action='store_true', help='Use the CUDA backend')
     parser.add_argument('--from-cache', action='store_true', help='Load from cache (otherwise create it)')
     parser.add_argument('--nthreads', action='store', help='Number of CPU threads to use', type=int, default=4, required=False)
-    parser.add_argument('--files-per-batch', action='store', help='Number of files to process per batch', type=int, default=10, required=False)
+    parser.add_argument('--files-per-batch', action='store', help='Number of files to process per batch', type=int, default=1, required=False)
     parser.add_argument('--cache-location', action='store', help='Path prefix for the cache, must be writable', type=str, default=os.path.join(os.getcwd(), 'cache'))
     parser.add_argument('--filelist', action='store', help='List of files to load', type=str, default=None, required=False)
     parser.add_argument('filenames', nargs=argparse.REMAINDER)
     args = parser.parse_args()
  
     NUMPY_LIB, ha = choose_backend(args.use_cuda)
+    NanoAODDataset.numpy_lib = NUMPY_LIB
    
     #define arrays to load: these are objects that will be kept together 
     arrays_objects = [
@@ -92,15 +93,24 @@ if __name__ == "__main__":
     results = Results()
     for ibatch, files_in_batch in enumerate(chunks(filenames, args.files_per_batch)): 
         #define our dataset
-        dataset = NanoAODDataset(files_in_batch, arrays_objects + arrays_event, "Events", NUMPY_LIB, ["Jet", "Muon", "TrigObj"], arrays_event)
+        dataset = NanoAODDataset(files_in_batch, arrays_objects + arrays_event, "Events", ["Jet", "Muon", "TrigObj"], arrays_event)
         dataset.get_cache_dir = lambda fn,loc=args.cache_location: os.path.join(loc, fn)
 
-        #Optionally, save the dataset in an uncompressed format
         if not args.from_cache:
-            dataset.preload(nthreads=args.nthreads, do_progress=True)
-            dataset.to_cache(do_progress=True, nthreads=args.nthreads)
+            #Load data from ROOT files
+            dataset.preload(nthreads=args.nthreads, verbose=True)
+
+            #prepare the object arrays on the host or device
+            dataset.make_objects()
+
+            print("preparing dataset cache")
+            #save arrays for future use in cache
+            dataset.to_cache(verbose=True, nthreads=args.nthreads)
+
+        #Optionally, load the dataset from an uncompressed format
         else:
-            dataset.from_cache(do_progress=True, nthreads=16)
+            print("loading dataset from cache")
+            dataset.from_cache(verbose=True, nthreads=args.nthreads)
         if ibatch == 0:
             print(dataset.printout())
 

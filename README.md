@@ -1,5 +1,20 @@
-Accelerated array analysis on CMS NanoAOD data. Requires Python 3, Numba, uproot, awkward-array, optionally CUDA.
-Use the provided singularity image to get started fast.
+# hepaccelerate
+
+Accelerated array analysis on flat ROOT data. Process 1 billion events to histograms in 10 minutes on a single machine. Weighted histograms, jet-lepton deltaR matching and pileup weighting directly on the GPU! No batch jobs or servers!
+
+Requirements:
+ - python 3
+ - uproot
+ - awkward-array
+ - numba
+
+Optional for CUDA acceleration:
+ - cupy
+ - cudatoolkit
+
+We also provide a singularity image with the python libraries preinstalled, see below.
+
+## Getting started
 
 ~~~
 git clone git@github.com:jpata/hepaccelerate.git
@@ -9,6 +24,26 @@ cd hepaccelerate
 #replace /nvmedata with your local location of ROOT files
 find /nvmedata/store/mc/RunIIFall17NanoAODv4/GluGluHToMuMu_M125_*/NANOAODSIM -name "*.root | head -n100 > filelist.txt
 
+#Run the test analysis
+PYTHONPATH=.:$PYTHONPATH python3 tests/simple.py --filelist filelist.txt
+
+#output will be stored in this json
+cat out.json
+~~~
+
+This script loads the ROOT files, prepares local caches from the branches you read and processes the data
+~~~
+#second time around, you can load the data from the cache, which is much faster
+PYTHONPATH=.:$PYTHONPATH python3 tests/simple.py --filelist filelist.txt --from-cache
+
+#use CUDA for array processing on a GPU!
+PYTHONPATH=.:$PYTHONPATH python3 tests/simple.py --filelist filelist.txt --from-cache --use-cuda
+~~~
+
+## Singularity image
+Singularity allows you to try out the package without needing to install the python libraries.
+
+~~~
 #Download the uproot+cupy+numba singularity image from CERN
 wget https://jpata.web.cern.ch/jpata/singularity/cupy.simg -o singularity/cupy.simg
 
@@ -17,16 +52,5 @@ wget https://jpata.web.cern.ch/jpata/singularity/cupy.simg -o singularity/cupy.s
 ##or compile yourself if you have ROOT access on your machine
 #cd singularity;make
 
-#Run the test script using singularity (currently singularity does NOT work on lxplus)
-#In case you get errors with data not being found, use the option -B to bind external mounted disks to the singularity image (in my case /nvmedata) in case
-LC_ALL=C PYTHONPATH=./ singularity exec -B /nvmedata --nv singularity/cupy.simg python3 tests/simple.py --filelist filelist.txt
-
-#output will be stored in this json
-cat out.json
-
-#second time around, can load the data from the cache, which is much faster
-LC_ALL=C PYTHONPATH=./ singularity exec -B /nvmedata --nv singularity/cupy.simg python3 tests/simple.py --filelist filelist.txt --from-cache
-
-#use CUDA for array processing
-LC_ALL=C PYTHONPATH=./ singularity exec -B /nvmedata --nv singularity/cupy.simg python3 tests/simple.py --filelist filelist.txt --from-cache --use-cuda
+LC_ALL=C PYTHONPATH=.:$PYTHONPATH singularity exec -B /nvmedata --nv singularity/cupy.simg python3 ...
 ~~~
