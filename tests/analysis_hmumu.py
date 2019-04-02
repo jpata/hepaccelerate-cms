@@ -446,23 +446,28 @@ def create_dataset(filenames, is_mc):
     return ds
 
 def cache_data_multiproc_worker(args):
-    sys.stdout.write(".")
     filename, is_mc = args
+    t0 = time.time()
     ds = create_dataset([filename], is_mc)
+    ds.numpy_lib = np
     ds.preload()
     ds.make_objects()
     ds.to_cache()
+    t1 = time.time()
+    dt = t1 - t0
     processed_size_mb = ds.memsize()/1024.0/1024.0
+    print("built cache for {0}, {1:.2f} MB, {2:.2E} Hz, {3:.2f} MB/s".format(filename, processed_size_mb, len(ds)/dt, processed_size_mb/dt))
     return len(ds), processed_size_mb
 
 class InputGen:
-    def __init__(self, paths, is_mc):
+    def __init__(self, paths, is_mc, nthreads):
         self.paths_chunks = list(chunks(paths, chunksize))
         self.chunk_lock = threading.Lock()
         self.loaded_lock = threading.Lock()
         self.num_chunk = 0
         self.num_loaded = 0
         self.is_mc = is_mc
+        self.nthreads = nthreads
 
     def is_done(self):
         return (self.num_chunk == len(self.paths_chunks)) and (self.num_loaded == len(self.paths_chunks))
@@ -482,7 +487,13 @@ class InputGen:
         ds.numpy_lib = numpy
         self.chunk_lock.release()
 
-        ds.from_cache(nthreads=1)
+
+        t0 = time.time()
+        ds.from_cache(nthreads=16)
+        t1 = time.time()
+        dt = t1 - t0
+        processed_size_mb = ds.memsize()/1024.0/1024.0
+        print("loaded cache {0:.2f} MB, {1:.2E} Hz, {2:.2f} MB/s".format(processed_size_mb, len(ds)/dt, processed_size_mb/dt))
         
         with self.loaded_lock:
             self.num_loaded += 1
@@ -516,30 +527,30 @@ def event_loop(train_batches_queue, use_cuda):
     #print("analyzed {0}".format(len(ds)))
     return ret, len(ds), ds.memsize()/1024.0/1024.0
 
+def parse_args():
+    parser = argparse.ArgumentParser(description='Example HiggsMuMu analysis')
+    parser.add_argument('--use-cuda', action='store_true', help='Use the CUDA backend')
+    parser.add_argument('--action', '-a', action='append', help='List of actions to do', choices=['cache', 'analyze'])
+    parser.add_argument('--nthreads', '-t', action='store', help='Number of CPU threads or workers to use', type=int, default=4, required=False)
+    parser.add_argument('--datapath', '-p', action='store', help='Prefix to load NanoAOD data from', default="/nvmedata")
+    parser.add_argument('--maxfiles', '-m', action='store', help='Maximum number of files to process', default=-1, type=int)
+    args = parser.parse_args()
+    return args
+
 if __name__ == "__main__":
     nev_total = 0
     t0 = time.time()
-  
-    parser = argparse.ArgumentParser(description='Example HiggsMuMu analysis')
-    parser.add_argument('--use-cuda', action='store_true', help='Use the CUDA backend')
-    parser.add_argument('--actions', action='store', help='What to do?', choices=['cache', 'analyze'], nargs='+')
-    parser.add_argument('--nthreads', action='store', help='Number of CPU threads or workers to use', type=int, default=4, required=False)
-    args = parser.parse_args()
-
-
     
-    processed_size_mb = 0
+    args = parse_args()  
+    print(args)
 
-    action = "cache"
-    #action = "analyze"
-    nthreads = 4
+    processed_size_mb = 0
     num_processed = 0
 
     if args.use_cuda:
-        dev = cupy.cuda.Device(0)
-
         print("Using the GPU CUDA backend")
         import cupy
+        dev = cupy.cuda.Device(0)
         NUMPY_LIB = cupy
         from hepaccelerate.backend_cuda import *
         NUMPY_LIB.searchsorted = searchsorted
@@ -548,6 +559,7 @@ if __name__ == "__main__":
         NUMPY_LIB = numpy
         from hepaccelerate.backend_cpu import *
         NUMPY_LIB.asnumpy = numpy.array
+
     NanoAODDataset.numpy_lib = NUMPY_LIB
     LumiMask.numpy_lib = NUMPY_LIB
 
@@ -556,23 +568,27 @@ if __name__ == "__main__":
     pu_corrections_2016 = load_puhist_target("data/RunII_2017_data.root") 
 
     for datasetname, globpattern, is_mc in [
-        ("data_2017", "/Volumes/Samsung_T3/nanoad/store/data/Run2017*/SingleMuon/NANOAOD/Nano14Dec2018-v1/**/*.root", False),
-#        ("ggh", "/nvmedata/store/mc/RunIIFall17NanoAODv4/GluGluHToMuMu_M125_*/NANOAODSIM/*12Apr2018_Nano14Dec2018*/**/*.root", True),
-#        ("dy", "/nvmedata/store/mc/RunIIFall17NanoAODv4/DYJetsToLL_M-50_TuneCP5_13TeV-amcatnloFXFX-pythia8*/**/*.root", True),
-#        ("ttjets_dl", "/nvmedata/store/mc/RunIIFall17NanoAODv4/TTJets_DiLept_TuneCP5_13TeV-madgraphMLM-pythia8/**/*.root", True),
-#        ("ww", "/nvmedata/store/mc/RunIIFall17NanoAODv4/WWTo2L2Nu_NNPDF31_TuneCP5_13TeV-powheg-pythia8/**/*.root", True),
-#        ("wz", "/nvmedata/store/mc/RunIIFall17NanoAODv4/WZTo3LNu_13TeV-powheg-pythia8/**/*.root", True),
-#        ("zz", "/nvmedata/store/mc/RunIIFall17NanoAODv4/ZZTo2L2Nu_13TeV_powheg_pythia8/**/*.root", True),
+        ("data_2017", args.datapath + "/store/data/Run2017*/SingleMuon/NANOAOD/Nano14Dec2018-v1/**/*.root", False),
+#        ("ggh", args.datapath + "/store/mc/RunIIFall17NanoAODv4/GluGluHToMuMu_M125_*/NANOAODSIM/*12Apr2018_Nano14Dec2018*/**/*.root", True),
+#        ("dy", args.datapath + "/store/mc/RunIIFall17NanoAODv4/DYJetsToLL_M-50_TuneCP5_13TeV-amcatnloFXFX-pythia8*/**/*.root", True),
+#        ("ttjets_dl", args.datapath + "/store/mc/RunIIFall17NanoAODv4/TTJets_DiLept_TuneCP5_13TeV-madgraphMLM-pythia8/**/*.root", True),
+#        ("ww", args.datapath + "/store/mc/RunIIFall17NanoAODv4/WWTo2L2Nu_NNPDF31_TuneCP5_13TeV-powheg-pythia8/**/*.root", True),
+#        ("wz", args.datapath + "/store/mc/RunIIFall17NanoAODv4/WZTo3LNu_13TeV-powheg-pythia8/**/*.root", True),
+#        ("zz", args.datapath + "/store/mc/RunIIFall17NanoAODv4/ZZTo2L2Nu_13TeV_powheg_pythia8/**/*.root", True),
         ]:
         filenames_all = glob.glob(globpattern, recursive=True)
-        filenames_all = [fn for fn in filenames_all if not "Friend" in fn][:10]
-        print("processing dataset {0} with {1} files".format(datasetname, len(filenames_all)))
+        filenames_all = [fn for fn in filenames_all if not "Friend" in fn]
+        print("dataset {0} has {1} files".format(datasetname, len(filenames_all)))
+        if args.maxfiles > 0:
+            filenames_all = filenames_all[:args.maxfiles]
 
-        if "cache" in args.actions:
-            nev_total, processed_size_mb = cache_data(filenames_all, is_mc, nworkers=nthreads)
+        print("processing {0} files".format(len(filenames_all)))
 
-        if "analyze" in args.actions:        
-            training_set_generator = InputGen(list(filenames_all), is_mc)
+        if "cache" in args.action:
+            nev_total, processed_size_mb = cache_data(filenames_all, is_mc, nworkers=args.nthreads)
+
+        if "analyze" in args.action:        
+            training_set_generator = InputGen(list(filenames_all), is_mc, args.nthreads)
             threadk = thread_killer()
             threadk.set_tokill(False)
             train_batches_queue = Queue(maxsize=10)
@@ -584,7 +600,7 @@ if __name__ == "__main__":
 
             rets = []
 
-
+            #loop over all data
             while num_processed < len(training_set_generator.paths_chunks):
                 ret, nev, memsize = event_loop(train_batches_queue, args.use_cuda) 
                 rets += [ret]
