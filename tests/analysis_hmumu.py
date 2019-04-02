@@ -459,12 +459,13 @@ class InputGen:
     def __init__(self, paths, is_mc):
         self.paths_chunks = list(chunks(paths, chunksize))
         self.chunk_lock = threading.Lock()
+        self.loaded_lock = threading.Lock()
         self.num_chunk = 0
         self.num_loaded = 0
         self.is_mc = is_mc
 
     def is_done(self):
-        return self.num_chunk == len(self.paths_chunks) and self.num_loaded == len(self.paths_chunks)
+        return (self.num_chunk == len(self.paths_chunks)) and (self.num_loaded == len(self.paths_chunks))
  
     def __iter__(self):
         return self.generator()
@@ -475,7 +476,7 @@ class InputGen:
         if self.num_chunk == len(self.paths_chunks):
             self.chunk_lock.release()
             return None
-        #print(self.paths_chunks[self.num_chunk])
+
         ds = create_dataset(self.paths_chunks[self.num_chunk], is_mc)
         self.num_chunk += 1
         ds.numpy_lib = numpy
@@ -483,7 +484,7 @@ class InputGen:
 
         ds.from_cache(nthreads=1)
         
-        with self.chunk_lock: 
+        with self.loaded_lock:
             self.num_loaded += 1
 
         return ds
@@ -532,6 +533,7 @@ if __name__ == "__main__":
     action = "cache"
     #action = "analyze"
     nthreads = 4
+    num_processed = 0
 
     if args.use_cuda:
         dev = cupy.cuda.Device(0)
@@ -581,19 +583,22 @@ if __name__ == "__main__":
                 t.start()
 
             rets = []
-            while not training_set_generator.is_done():
 
+
+            while num_processed < len(training_set_generator.paths_chunks):
                 ret, nev, memsize = event_loop(train_batches_queue, args.use_cuda) 
                 rets += [ret]
                 processed_size_mb += memsize
                 nev_total += nev
-                
+                num_processed += 1
+
                 if args.use_cuda:
                     mempool = cupy.get_default_memory_pool()
                     pinned_mempool = cupy.get_default_pinned_memory_pool()
                     mempool.free_all_blocks()
                     pinned_mempool.free_all_blocks()
                     dev.synchronize()
+
 
             threadk.set_tokill(True)
             ret = sum(rets, Results({}))
