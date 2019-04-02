@@ -183,7 +183,7 @@ For all events (N), mask the objects in the first collection (M1) if they are cl
     mask_out: output mask, array of (M1, )
 
 """
-@numba.njit
+@numba.njit(parallel=True)
 def mask_deltar_first_kernel(etas1, phis1, mask1, offsets1, etas2, phis2, mask2, offsets2, dr2, mask_out):
     
     for iev in numba.prange(len(offsets1)-1):

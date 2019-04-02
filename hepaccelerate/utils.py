@@ -6,6 +6,7 @@ import numpy as np
 from collections import OrderedDict
 
 import uproot
+import cupy
 
 def choose_backend(use_cuda):
     if use_cuda:
@@ -46,7 +47,6 @@ class JaggedStruct(object):
                 raise AttributeError("Mismatched attribute {0}".format(k))
             else:
                 num_items = num_items_next
-            setattr(self, k, v)
         self.num_items = num_items
     
         self.masks = {}
@@ -60,7 +60,7 @@ class JaggedStruct(object):
             self.masks[name] = self.make_mask()
         return self.masks[name]
     
-    def __len__(self):
+    def memsize(self):
         size_tot = self.offsets.size
         for k, v in self.attrs_data.items():
             size_tot += v.size
@@ -87,7 +87,7 @@ class JaggedStruct(object):
     @staticmethod 
     def load(path, numpy_lib):
         with open(path, "rb") as of:
-            fi = numpy_lib.load(of, mmap_mode="r")
+            fi = numpy_lib.load(of)
    
             #workaround for cupy
             npz_file = fi
@@ -101,6 +101,18 @@ class JaggedStruct(object):
                 numpy_lib=numpy_lib
             )
 
+    def move_to_device(self, numpy_lib):
+        self.numpy_lib = numpy_lib
+        new_offsets = self.numpy_lib.array(self.offsets)
+        new_attrs_data = {k: self.numpy_lib.array(v) for k, v in self.attrs_data.items()}
+        self.offsets = new_offsets
+        self.attrs_data = new_attrs_data
+ 
+    def __getattr__(self, attr):
+        if attr in self.attrs_data.keys():
+            return self.attrs_data[attr]
+        return self.__getattribute__(name)
+ 
 class NumpyEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, np.ndarray):
@@ -149,7 +161,7 @@ class Results(dict):
 
 def progress(count, total, status=''):
     sys.stdout.write('.')
-    sys.stdout.flush()  # As suggested by Rom Ruben (see: http://stackoverflow.com/questions/3173320/text-progress-bar-in-the-console/27871113#comment50529068_27871113)
+    sys.stdout.flush()
 
 
 class Dataset(object):
@@ -158,13 +170,13 @@ class Dataset(object):
         self.arrays_to_load = arrays_to_load
         self.data_host = []
         self.treename = treename
+        self.do_progress = False
 
-    def preload(self, nthreads=1, do_progress=False):
-        print("Preloading data from {0} files to system memory".format(len(self.filenames)))
+    def preload(self, nthreads=1):
+        if self.do_progress:
+            print("Preloading data from {0} files to system memory".format(len(self.filenames)))
         t0 = time.time()
         for ifn, fn in enumerate(self.filenames):
-            if do_progress:
-                progress(ifn, len(self.filenames))
             fi = uproot.open(fn)
             tt = fi.get(self.treename)
             if nthreads > 1:
@@ -172,11 +184,14 @@ class Dataset(object):
                 with ThreadPoolExecutor(max_workers=nthreads) as executor:
                     arrs = tt.arrays(self.arrays_to_load, executor=executor)
             else:
-                arrs = tt.arrays(self.arrays_to_load, executor=executor)
+                arrs = tt.arrays(self.arrays_to_load)
             self.data_host += [arrs]
+            if self.do_progress:
+                progress(ifn, len(self.filenames))
         t1 = time.time()
         dt = t1 - t0
-        print("Loaded {0:.2E} events in {1:.1f} seconds, {2:.2E} Hz".format(len(self), dt, len(self)/dt))
+        if self.do_progress:
+            print("Loaded {0:.2E} events in {1:.1f} seconds, {2:.2E} Hz".format(len(self), dt, len(self)/dt))
 
     def num_events_raw(self):
         nev = 0
@@ -189,23 +204,40 @@ class Dataset(object):
         return self.num_events_raw()
 
 class NanoAODDataset(Dataset):
-    def __init__(self, filenames, arrays_to_load, treename, numpy_lib, names_structs, names_eventvars):
+    numpy_lib = np
+    def __init__(self, filenames, arrays_to_load, treename, names_structs, names_eventvars):
         super(NanoAODDataset, self).__init__(filenames, arrays_to_load, treename)
-        self.eventvars = [] 
-        self.numpy_lib = numpy_lib
         self.names_structs = names_structs
         self.names_eventvars = names_eventvars
-        self.get_cache_dir = lambda x: x
+        self.cache_prefix = ""
          
         #lists of data, one per file
         self.structs = {}
         for struct in self.names_structs:
             self.structs[struct] = []
         self.eventvars = []
-    
+
+    def move_to_device(self, numpy_lib):
+        for ifile in range(len(self.filenames)):
+            for structname in self.names_structs:
+                self.structs[structname][ifile].move_to_device(numpy_lib)
+            for evvar in self.names_eventvars:
+                self.eventvars[ifile][evvar] = numpy_lib.array(self.eventvars[ifile][evvar])
+
+    def memsize(self):
+        tot = 0
+        for ifile in range(len(self.filenames)):
+            for structname in self.names_structs:
+                tot += self.structs[structname][ifile].memsize()
+            for evvar in self.names_eventvars:
+                tot += self.eventvars[ifile][evvar].size
+        return tot
+ 
     def __repr__(self):
         s = "NanoAODDataset(files={0}, events={1}, {2})".format(len(self.filenames), len(self), ", ".join(self.structs.keys()))
         return s
+    def get_cache_dir(self, fn):
+        return os.path.join(self.cache_prefix, fn)
 
     def printout(self):
         s = str(self) 
@@ -216,9 +248,8 @@ class NanoAODDataset(Dataset):
         s += "  EventVariables({0}, {1})".format(len(self), ", ".join(self.names_eventvars))
         return s    
 
-    def preload(self, nthreads=1, do_progress=False):
-        super(NanoAODDataset, self).preload(nthreads, do_progress)
-        self.make_objects()
+    def preload(self, nthreads=1):
+        super(NanoAODDataset, self).preload(nthreads)
  
     def build_structs(self, prefix): 
         struct_array = [
@@ -230,7 +261,8 @@ class NanoAODDataset(Dataset):
         return struct_array
 
     def make_objects(self):
-        print("Making objects with backend={0}".format(self.numpy_lib.__name__))
+        if self.do_progress:
+            print("Making objects with backend={0}".format(self.numpy_lib.__name__))
         t0 = time.time()
         for structname in self.names_structs:
             self.structs[structname] = self.build_structs(structname + "_")
@@ -241,7 +273,8 @@ class NanoAODDataset(Dataset):
   
         t1 = time.time()
         dt = t1 - t0
-        print("Made objects in {0:.2E} events in {1:.1f} seconds, {2:.2E} Hz".format(len(self), dt, len(self)/dt))
+        if self.do_progress:
+            print("Made objects in {0:.2E} events in {1:.1f} seconds, {2:.2E} Hz".format(len(self), dt, len(self)/dt))
 
     def analyze(self, analyze_data, **kwargs):
         t0 = time.time()
@@ -255,11 +288,13 @@ class NanoAODDataset(Dataset):
             rets += [ret]
         t1 = time.time()
         dt = t1 - t0
-        print("Processed analysis with {0:.2E} events in {1:.1f} seconds, {2:.2E} Hz".format(len(self), dt, len(self)/dt))
+        if self.do_progress:
+            print("Processed analysis with {0:.2E} events in {1:.1f} seconds, {2:.2E} Hz".format(len(self), dt, len(self)/dt))
         return sum(rets, Results({}))
 
-    def to_cache(self, do_progress=False, nthreads=1):
-        print("Caching dataset")
+    def to_cache(self, nthreads=1):
+        if self.do_progress:
+            print("Caching dataset")
         t0 = time.time()
         if nthreads == 1:
             for ifn in range(len(self.filenames)):
@@ -272,10 +307,12 @@ class NanoAODDataset(Dataset):
 
         t1 = time.time()
         dt = t1 - t0
-        print("Cache built in {0:.1f} seconds".format(dt))
+        if self.do_progress:
+            print("Cache built in {0:.1f} seconds".format(dt))
     
     def to_cache_worker(self, ifn):
-        progress(ifn, len(self.filenames))
+        if self.do_progress:
+            progress(ifn, len(self.filenames))
         fn = self.filenames[ifn] 
         bfn = os.path.basename(fn).replace(".root", "")
         dn = os.path.dirname(self.get_cache_dir(fn))
@@ -291,14 +328,17 @@ class NanoAODDataset(Dataset):
         with open(os.path.join(dn, bfn + ".eventvars.npz"), "wb") as fi:
             self.numpy_lib.savez(fi, **self.eventvars[ifn])
 
-    def from_cache(self, do_progress=False, nthreads=1):
-        print("Loading dataset from cache")
+    def from_cache(self, nthreads=1):
+        if self.do_progress:
+            print("Loading dataset from cache")
         t0 = time.time()
+        
         if nthreads == 1:
             for ifn in range(len(self.filenames)):
                 ifn, loaded_structs, eventvars = self.from_cache_worker(ifn)
                 for structname in self.names_structs:
                     self.structs[structname] += [loaded_structs[structname]]
+                self.eventvars += [eventvars]
         else:
             from concurrent.futures import ThreadPoolExecutor
             with ThreadPoolExecutor(max_workers=nthreads) as executor:
@@ -309,10 +349,12 @@ class NanoAODDataset(Dataset):
             self.eventvars = [r[2] for r in results] 
         t1 = time.time()
         dt = t1 - t0
-        print("Cache loaded in {0:.1f} seconds, {1:.2E} events".format(dt, len(self)))
+        if self.do_progress:
+            print("Cache loaded in {0:.1f} seconds, {1:.2E} events".format(dt, len(self)))
 
     def from_cache_worker(self, ifn):
-        progress(ifn, len(self.filenames))
+        if self.do_progress:
+            progress(ifn, len(self.filenames))
         fn = self.filenames[ifn]
         bfn = os.path.basename(fn).replace(".root", "")
         
