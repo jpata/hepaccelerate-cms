@@ -76,10 +76,10 @@ def get_selected_muons(muons, trigobj, mask_events, mu_pt_cut_leading, mu_pt_cut
     
     trigobj.masks["mu"] = (trigobj.id == 13)
   
-    #muons_matched_to_trigobj = NUMPY_LIB.invert(mask_deltar_first(muons, muons_passing_id, trigobj, trigobj.masks["mu"], 0.1))
+    muons_matched_to_trigobj = NUMPY_LIB.invert(mask_deltar_first(muons, muons_passing_id, trigobj, trigobj.masks["mu"], 0.1))
     
     #select muons that pass these cuts
-    #muons_passing_id = muons_passing_id & muons_matched_to_trigobj
+    muons_passing_id = muons_passing_id & muons_matched_to_trigobj
  
     #select events that have muons passing cuts 
     events_passes_muid = ha.sum_in_offsets(muons, muons_passing_id, mask_events, muons.masks["all"], NUMPY_LIB.int8) >= 2
@@ -107,9 +107,9 @@ def get_selected_jets(jets, muons, mask_muons, mask_events, jet_pt_cut, jet_eta_
  
     """
     selected_jets = (jets.pt > jet_pt_cut) & (NUMPY_LIB.abs(jets.eta) < jet_eta_cut) & (((jets.jetId & 2)>>1)==1)
-    #jets_pass_dr = mask_deltar_first(jets, selected_jets, muons, mask_muons, dr_cut)
-    #jets.masks["pass_dr"] = jets_pass_dr
-    #selected_jets = selected_jets & jets_pass_dr
+    jets_pass_dr = mask_deltar_first(jets, selected_jets, muons, mask_muons, dr_cut)
+    jets.masks["pass_dr"] = jets_pass_dr
+    selected_jets = selected_jets & jets_pass_dr
 
     num_jets = ha.sum_in_offsets(jets, selected_jets, mask_events, jets.masks["all"], NUMPY_LIB.int8)
 
