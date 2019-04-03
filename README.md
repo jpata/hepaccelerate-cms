@@ -133,3 +133,7 @@ wget https://jpata.web.cern.ch/jpata/singularity/cupy.simg -o singularity/cupy.s
 
 LC_ALL=C PYTHONPATH=.:$PYTHONPATH singularity exec -B /nvmedata --nv singularity/cupy.simg python3 ...
 ~~~
+
+## Recommendations on data locality
+In order to make full use of modern CPUs or GPUs, you want to bring the data as close as possible to where the work is done, otherwise you will spend most of the time waiting for the data to arrive rather than actually performing the computations.
+With CMS NanoAOD with event sizes of 1-2 kB/event, 1 million events is approximately 1-2 GB on disk. Therefore, you can fit a significant amount of data used in a HEP analysis on a commodity SSD. In order to copy the data to your local disk, use grid tools such as `gfal-copy` or even `rsync` to fetch it from your nearest Tier2. Hint: preserving the filename structure (`/store/...`) will allow you to easily run the same code on multiple sites.
