@@ -53,6 +53,39 @@ results = dataset.analyze(analyze_data_function, verbose=True, parameters={"muon
 results.save_json("out.json")
 ~~~
 
+## Benchmarks
+
+### macbook
+
+4-core 2.6GHz i5, 8GB DDR3, 250GB SSD PT250B over USB3
+35,041,780 events, 2.07GB of branches
+
+task    | configuration  |time    | speed       | speed
+--------|----------------|--------|-------------|-----------
+caching | CPU(4)         | 378.5s | 9.26E+04 Hz | 5.60 MB/s
+analyze | CPU(1)         | 170.9s | 2.05E+05 Hz | 12.41 MB/s
+analyze | CPU(2)         | 163.5s | 2.14E+05 Hz | 12.98 MB/s
+analyze | CPU(4)         | 161.6s | 2.17E+05 Hz | 13.12 MB/s
+
+
+### workstation
+
+16-core 3GHz i7, 64GB DDR3, 6.4TB Intel P4608, 1x Titan X 12GB
+214,989,146 events in 11.87 GB of branches
+
+task    | configuration           |time           | speed       | speed
+--------|-------------------------|---------------|-------------|-----------
+caching | CPU(16)                 | 281.3 seconds | 7.64E+05 Hz | 43.22 MB/s
+analyze | CPU(1)                  | 180.7 seconds | 1.19E+06 Hz | 67.27 MB/s
+analyze | CPU(2)                  | 141.1 seconds | 1.52E+06 Hz | 86.16 MB/s
+analyze | CPU(4)                  | 140.4 seconds | 1.53E+06 Hz | 86.54 MB/s
+analyze | CPU(8)                  | 139.0 seconds | 1.55E+06 Hz | 87.44 MB/s
+analyze | CPU(16)                 | 127.9 seconds | 1.68E+06 Hz | 95.05 MB/s
+analyze | GPU(1) CPU(16)          | 115.8 seconds | 1.86E+06 Hz | 105.00 MB/s
+analyze | GPU(1) CPU(16) batch(2) | 93.7 seconds  | 2.29E+06 Hz | 129.72 MB/s
+analyze | GPU(1) CPU(16) batch(4) | 85.9 seconds  | 2.50E+06 Hz | 141.54 MB/s
+analyze | GPU(1) CPU(16) batch(8) | 85.1 seconds  | 2.53E+06 Hz | 142.83 MB/s
+
 ## Getting started
 
 ~~~
