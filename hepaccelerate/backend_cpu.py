@@ -5,7 +5,7 @@ import math
 
 @numba.jit(fastmath=True)
 def searchsorted_devfunc(arr, val):
-    ret = -1
+    ret = len(arr)
     for i in range(len(arr)):
         if val <= arr[i]:
             ret = i
@@ -206,7 +206,7 @@ def mask_deltar_first_kernel(etas1, phis1, mask1, offsets1, etas2, phis2, mask2,
                 phi2 = phis2[idx2]
                 
                 deta = abs(eta1 - eta2)
-                dphi = (phi1 - phi2 + math.pi) % (2*math.pi) - math.pi
+                dphi = np.mod(phi1 - phi2 + math.pi, 2*math.pi) - math.pi
                 
                 #if first object is closer than dr2, mask element will be *disabled*
                 passdr = ((deta**2 + dphi**2) < dr2)
@@ -244,3 +244,16 @@ def get_bin_contents(values, edges, contents, out):
     assert(values.shape == out.shape)
     assert(edges.shape[0] == contents.shape[0]+1)
     get_bin_contents_kernel(values, edges, contents, out)
+
+
+@numba.njit(parallel=True, fastmath=True)
+def apply_run_lumi_mask_kernel(masks, runs, lumis, mask_out):
+    for iev in numba.prange(len(runs)):
+        run = runs[iev]
+        lumi = lumis[iev]
+
+        if run in masks:
+            lumimask = masks[run]
+            ind = searchsorted_devfunc(lumimask, lumi)
+            if np.mod(ind, 2) == 1:
+                mask_out[iev] = 1

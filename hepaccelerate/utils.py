@@ -4,8 +4,13 @@ import time
 import json
 import numpy as np
 from collections import OrderedDict
+import json
 
 import uproot
+
+import numba
+from numba import types
+from numba.typed import Dict
 
 def choose_backend(use_cuda=False):
     if use_cuda:
@@ -387,3 +392,35 @@ class NanoAODDataset(Dataset):
             return n_events_loaded[kfirst]
         else:
             return n_events_raw
+
+class LumiMask(object):
+    """
+        Class that parses a 'golden json' into an efficient valid lumiSection lookup table
+        Instantiate with the json file, and call with an array of runs and lumiSections, to
+        return a boolean array, where valid lumiSections are marked True
+    """
+    def __init__(self, jsonfile, numpy_lib, backend):
+        with open(jsonfile) as fin:
+            goldenjson = json.load(fin)
+        self._masks = Dict.empty(
+            key_type=types.int64,
+            value_type=types.int64[:]
+        )
+
+        self.backend = backend
+        self.numpy_lib = numpy_lib
+
+        for run, lumilist in goldenjson.items():
+            run = int(run)
+            mask = self.numpy_lib.array(lumilist).flatten()
+            mask[::2] -= 1
+            self._masks[int(run)] = mask
+
+    def __call__(self, runs, lumis):
+        mask_out = self.numpy_lib.zeros(dtype='bool', shape=runs.shape)
+        LumiMask.apply_run_lumi_mask(self._masks, runs, lumis, mask_out, self.backend)
+        return mask_out
+
+    @staticmethod
+    def apply_run_lumi_mask(masks, runs, lumis, mask_out, backend):
+        backend.apply_run_lumi_mask_kernel(masks, runs, lumis, mask_out)
