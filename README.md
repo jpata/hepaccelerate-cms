@@ -55,10 +55,14 @@ results.save_json("out.json")
 
 ## Benchmarks
 
-### macbook
+The following benchmarks have been carried out with a realistic CMS analysis on NanoAOD. We first perform a caching step, where the branches that we will use are uncompressed. Without this optional caching step, the upper limit on the processing speed will be dominated by the CPU decompression of the ROOT TTree. Even now, the IO time of reading the cached arrays dominates, the analysis receives a small boost from multiple CPU threads, and a another small boost from using the GPU and thus freeing the CPU to load the data from disk.
 
-4-core 2.6GHz i5, 8GB DDR3, 250GB SSD PT250B over USB3
-35,041,780 events, 2.07GB of branches
+### 2015 Macbook pro 
+
+- 4-core 2.6GHz i5
+- 8GB DDR3
+- 250GB SSD PT250B over USB3
+- analyzed 35,041,780 events in 2.07GB of branches
 
 task    | configuration  |time    | speed       | speed
 --------|----------------|--------|-------------|-----------
@@ -68,10 +72,13 @@ analyze | CPU(2)         | 163.5s | 2.14E+05 Hz | 12.98 MB/s
 analyze | CPU(4)         | 161.6s | 2.17E+05 Hz | 13.12 MB/s
 
 
-### workstation
+### High-end workstation
 
-16-core 3GHz i7, 64GB DDR3, 6.4TB Intel P4608, 1x Titan X 12GB
-214,989,146 events in 11.87 GB of branches
+- 16-core 3GHz i7
+- 64GB DDR3
+- 6.4TB Intel P4608
+- 1x Titan X 12GB
+- analyzed 214,989,146 events in 11.87 GB of branches
 
 task    | configuration           |time           | speed       | speed
 --------|-------------------------|---------------|-------------|-----------
