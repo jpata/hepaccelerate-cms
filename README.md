@@ -7,6 +7,7 @@ Requirements:
  - uproot
  - awkward-array
  - numba
+ - fnal-column-analysis-tools
 
 Optional for CUDA acceleration:
  - cupy
@@ -99,7 +100,7 @@ analyze | GPU(1) CPU(16) batch(8) | 85.1 seconds  | 2.53E+06 Hz | 142.83 MB/s
 ### Workstation, 1B event run
 
 We can demonstrate that we can process 1B events in about 10 minutes (from existing caches) and in about 30 minutes from raw NanoAOD.
- 
+
 - 978,711,446 events in 54.95 GB of branches
 - analyze as before
 - analyze, but make 100 more histograms
