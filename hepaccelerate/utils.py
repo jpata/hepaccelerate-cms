@@ -223,9 +223,9 @@ class NanoAODDataset(Dataset):
                 arrays_to_load += [branch]
         super(NanoAODDataset, self).__init__(filenames, arrays_to_load, "Events")
         
-        self.eventvars_dtypes = datastructures.pop("EventVariables")
+        self.eventvars_dtypes = datastructures.get("EventVariables")
         self.names_eventvars = [evvar for evvar, dtype in self.eventvars_dtypes] 
-        self.structs_dtypes = datastructures
+        self.structs_dtypes = {k: v for (k, v) in datastructures.items() if k != "EventVariables"}
         self.names_structs = sorted(self.structs_dtypes.keys())
         self.cache_prefix = ""
          
