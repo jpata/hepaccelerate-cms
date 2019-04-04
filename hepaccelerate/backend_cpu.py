@@ -3,7 +3,7 @@ import numba
 import numpy as np
 import math
 
-@numba.jit(fastmath=True)
+@numba.njit(fastmath=True)
 def searchsorted_devfunc(arr, val):
     ret = len(arr)
     for i in range(len(arr)):
@@ -13,7 +13,7 @@ def searchsorted_devfunc(arr, val):
     return ret
 
 #need atomics to add to bin contents
-@numba.jit
+@numba.njit(fastmath=True)
 def fill_histogram(data, weights, bins, out_w, out_w2):
     for i in range(len(data)):
         bin_idx = searchsorted_devfunc(bins, data[i])
@@ -21,7 +21,7 @@ def fill_histogram(data, weights, bins, out_w, out_w2):
             out_w[bin_idx] += weights[i]
             out_w2[bin_idx] += weights[i]**2
 
-@numba.njit(parallel=True)
+@numba.njit(parallel=True, fastmath=True)
 def select_opposite_sign_muons_kernel(muon_charges_content, muon_charges_offsets, content_mask_in, content_mask_out):
     
     for iev in numba.prange(muon_charges_offsets.shape[0]-1):
@@ -50,7 +50,7 @@ def select_opposite_sign_muons_kernel(muon_charges_content, muon_charges_offsets
                     break
     return
 
-@numba.njit(parallel=True)
+@numba.njit(parallel=True, fastmath=True)
 def sum_in_offsets_kernel(content, offsets, mask_rows, mask_content, out):
 
     for iev in numba.prange(offsets.shape[0]-1):
@@ -63,7 +63,7 @@ def sum_in_offsets_kernel(content, offsets, mask_rows, mask_content, out):
             if mask_content[ielem]:
                 out[iev] += content[ielem]
             
-@numba.njit(parallel=True)
+@numba.njit(parallel=True, fastmath=True)
 def max_in_offsets_kernel(content, offsets, mask_rows, mask_content, out):
 
     for iev in numba.prange(offsets.shape[0]-1):
@@ -84,7 +84,7 @@ def max_in_offsets_kernel(content, offsets, mask_rows, mask_content, out):
         out[iev] = accum
 
         
-@numba.njit(parallel=True)
+@numba.njit(parallel=True, fastmath=True)
 def min_in_offsets_kernel(content, offsets, mask_rows, mask_content, out):
 
     for iev in numba.prange(offsets.shape[0]-1):
@@ -104,7 +104,7 @@ def min_in_offsets_kernel(content, offsets, mask_rows, mask_content, out):
                     first = False
         out[iev] = accum
     
-@numba.njit(parallel=True)
+@numba.njit(parallel=True, fastmath=True)
 def get_in_offsets_kernel(content, offsets, indices, mask_rows, mask_content, out):
     for iev in numba.prange(offsets.shape[0]-1):
         if not mask_rows[iev]:
@@ -121,7 +121,7 @@ def get_in_offsets_kernel(content, offsets, indices, mask_rows, mask_content, ou
                 else:
                     index_to_get += 1
         
-@numba.njit(parallel=True)
+@numba.njit(parallel=True, fastmath=True)
 def min_in_offsets_kernel(content, offsets, mask_rows, mask_content, out):
     for iev in numba.prange(offsets.shape[0]-1):
         if not mask_rows[iev]:
@@ -183,7 +183,7 @@ For all events (N), mask the objects in the first collection (M1) if they are cl
     mask_out: output mask, array of (M1, )
 
 """
-@numba.njit(parallel=True)
+@numba.njit(parallel=True, fastmath=True)
 def mask_deltar_first_kernel(etas1, phis1, mask1, offsets1, etas2, phis2, mask2, offsets2, dr2, mask_out):
     
     for iev in numba.prange(len(offsets1)-1):
@@ -232,7 +232,7 @@ def histogram_from_vector(data, weights, bins):
     fill_histogram(data, weights, bins, out_w, out_w2)
     return out_w, out_w2, bins
     
-@numba.njit(parallel=True)
+@numba.njit(parallel=True, fastmath=True)
 def get_bin_contents_kernel(values, edges, contents, out):
     for i in numba.prange(len(values)):
         v = values[i]
