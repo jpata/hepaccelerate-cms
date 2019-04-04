@@ -24,11 +24,10 @@ import hepaccelerate.utils
 from hepaccelerate.utils import Results
 from hepaccelerate.utils import NanoAODDataset
 from hepaccelerate.utils import Histogram
-from hepaccelerate.utils import choose_backend
+from hepaccelerate.utils import choose_backend, LumiData, LumiMask
 import hepaccelerate.backend_cpu as backend_cpu
 
 import fnal_column_analysis_tools
-from fnal_column_analysis_tools.lumi_tools import LumiMask, LumiData
 
 genweight_scalefactor = 1e6
 chunksize = 1
@@ -55,7 +54,7 @@ class thread_killer(object):
 def get_histogram(data, weights, bins):
     return Histogram(*ha.histogram_from_vector(data, weights, bins))
 
-def get_selected_muons(muons, trigobj, mask_events, mu_pt_cut_leading, mu_pt_cut_subleading, mu_aeta_cut, mu_iso_cut):
+def get_selected_muons(muons, trigobj, mask_events, mu_pt_cut_leading, mu_pt_cut_subleading, mu_aeta_cut, mu_iso_cut, muon_id_type, muon_trig_match_dr):
     """
     Given a list of muons in events, selects the muons that pass quality, momentum and charge criteria.
     Selects events that have at least 2 such muons. Selections are made by producing boolean masks.
@@ -68,25 +67,35 @@ def get_selected_muons(muons, trigobj, mask_events, mu_pt_cut_leading, mu_pt_cut
 
     """ 
     passes_iso = muons.pfRelIso04_all < mu_iso_cut
-    passes_id = muons.mediumId == 1
+    
+    if muon_id_type == "medium":
+        passes_id = muons.mediumId == 1
+    elif muon_id_type == "tight":
+        passes_id = muons.tightId == 1
+    else:
+        raise Exception("unknown muon id: {0}".format(muon_id_type))
+
     passes_subleading_pt = muons.pt > mu_pt_cut_subleading
     passes_leading_pt = muons.pt > mu_pt_cut_leading
     passes_aeta = NUMPY_LIB.abs(muons.eta) < mu_aeta_cut
     muons_passing_id =  passes_iso & passes_id & passes_subleading_pt & passes_aeta
+
+    #Get muons that are high-pt and are matched to trigger
+
+    mask_trigger_objects_mu = (trigobj.id == 13)
+    muons_matched_to_trigobj = NUMPY_LIB.invert(ha.mask_deltar_first(
+        muons, muons_passing_id & passes_leading_pt, trigobj, mask_trigger_objects_mu, muon_trig_match_dr
+    ))
+
+    #At least one muon must be matched to trigger
+    events_passes_triggermatch = ha.sum_in_offsets(muons, muons_matched_to_trigobj, mask_events, muons.masks["all"], NUMPY_LIB.int8) >= 1
     
-    trigobj.masks["mu"] = (trigobj.id == 13)
-  
-    muons_matched_to_trigobj = NUMPY_LIB.invert(ha.mask_deltar_first(muons, muons_passing_id, trigobj, trigobj.masks["mu"], 0.1))
-    
-    #select muons that pass these cuts
-    muons_passing_id = muons_passing_id & muons_matched_to_trigobj
- 
     #select events that have muons passing cuts 
     events_passes_muid = ha.sum_in_offsets(muons, muons_passing_id, mask_events, muons.masks["all"], NUMPY_LIB.int8) >= 2
     events_passes_leading_pt = ha.sum_in_offsets(muons, muons_passing_id & passes_leading_pt, mask_events, muons.masks["all"], NUMPY_LIB.int8) >= 1
     events_passes_subleading_pt = ha.sum_in_offsets(muons, muons_passing_id & passes_subleading_pt, mask_events, muons.masks["all"], NUMPY_LIB.int8) >= 2
 
-    base_event_sel = mask_events & events_passes_muid & events_passes_leading_pt & events_passes_subleading_pt
+    base_event_sel = mask_events & events_passes_triggermatch & events_passes_muid & events_passes_leading_pt & events_passes_subleading_pt
     
     muons_passing_os = ha.select_muons_opposite_sign(muons, muons_passing_id & passes_subleading_pt)
     events_passes_os = ha.sum_in_offsets(muons, muons_passing_os, mask_events, muons.masks["all"], NUMPY_LIB.int8) == 2
@@ -100,14 +109,36 @@ def get_selected_muons(muons, trigobj, mask_events, mu_pt_cut_leading, mu_pt_cut
     }
 
 
-def get_selected_jets(jets, muons, mask_muons, mask_events, jet_pt_cut, jet_eta_cut, dr_cut):
+def get_bit_values(array, bit_index):
+    """
+    Given an array of N binary values (e.g. jet IDs), return the bit value at bit_index in [0, N-1].
+    """
+    return (array & 2**(bit_index - 1)) >> 1
+
+def get_selected_jets(jets, muons, mask_muons, mask_events, jet_pt_cut, jet_eta_cut, jet_dr_cut, jet_id, jet_puid):
     """
     Given jets and selected muons in events, choose jets that pass quality criteria and that are not dR-matched
     to muons.
  
     """
-    selected_jets = (jets.pt > jet_pt_cut) & (NUMPY_LIB.abs(jets.eta) < jet_eta_cut) & (((jets.jetId & 2)>>1)==1)
-    jets_pass_dr = ha.mask_deltar_first(jets, selected_jets, muons, mask_muons, dr_cut)
+
+    #Jet ID flags bit1 is loose (always false in 2017 since it does not exist), bit2 is tight, bit3 is tightLepVeto
+    if jet_id == "tight":
+        pass_jetid = get_bit_values(jets.jetId, 1)
+    elif jet_id == "loose":
+        pass_jetid = get_bit_values(jets.jetId, 0)
+
+    #The value is a bit representation of the fulfilled working points: tight (1), medium (2), and loose (4).
+    #As tight is also medium and medium is also loose, there are only 4 different settings: 0 (no WP, 0b000), 4 (loose, 0b100), 6 (medium, 0b110), and 7 (tight, 0b111).
+    if jet_puid == "loose":
+        pass_jet_puid = jets.puId == 4
+    elif jet_puid == "medium":
+        pass_jet_puid = jets.puId == 6
+    elif jet_puid == "tight":
+        pass_jet_puid = jets.puId == 7
+
+    selected_jets = (jets.pt > jet_pt_cut) & (NUMPY_LIB.abs(jets.eta) < jet_eta_cut) & pass_jetid & pass_jet_puid
+    jets_pass_dr = ha.mask_deltar_first(jets, selected_jets, muons, mask_muons, jet_dr_cut)
     jets.masks["pass_dr"] = jets_pass_dr
     selected_jets = selected_jets & jets_pass_dr
 
@@ -180,23 +211,27 @@ def compute_pu_weights(pu_corrections_target, weights, mc_nvtx, reco_nvtx):
     
     return pu_weights, pu_weights_up, pu_weights_down
 
-def select_events_trigger(scalars, mask_events):
+def select_events_trigger(scalars, mask_events, parameters):
 
     flags = [
         "Flag_HBHENoiseFilter", "Flag_HBHENoiseIsoFilter", "Flag_EcalDeadCellTriggerPrimitiveFilter",
         "Flag_goodVertices", "Flag_globalSuperTightHalo2016Filter", "Flag_BadPFMuonFilter",
         "Flag_BadChargedCandidateFilter"
     ]
- 
     for flag in flags:
         mask_events = mask_events & scalars[flag]
-    mask_events = mask_events & scalars["HLT_IsoMu24"] & scalars["PV_npvsGood"]>0
+    
+    pvsel = scalars["PV_npvsGood"] > parameters["nPV"]
+    pvsel = pvsel & (scalars["PV_ndof"] > parameters["NdfPV"])
+    pvsel = pvsel & (scalars["PV_z"] < parameters["zPV"])
+
+    mask_events = mask_events & scalars["HLT_IsoMu24"] & pvsel
 
 def get_int_lumi(runs, lumis, mask_events, lumidata):
     print("computing integrated luminosity from {0} lumis".format(len(lumis)))
     processed_runs = NUMPY_LIB.asnumpy(runs[mask_events])
     processed_lumis = NUMPY_LIB.asnumpy(lumis[mask_events])
-    runs_lumis = np.zeros((processed_runs.shape[0], 2), dtype=np.int64)
+    runs_lumis = np.zeros((processed_runs.shape[0], 2), dtype=np.uint32)
     runs_lumis[:, 0] = processed_runs[:]
     runs_lumis[:, 1] = processed_lumis[:]
     lumi_proc = lumidata.get_lumi(runs_lumis)
@@ -218,6 +253,7 @@ def analyze_data(
     pu_corrections=None,
     lumimask=None,
     lumidata=None,
+    parameters={},
     mu_pt_cut_leading=30,
     mu_pt_cut_subleading=20,
     mu_aeta_cut=2.4,
@@ -231,9 +267,12 @@ def analyze_data(
     jets = data["Jet"]
     trigobj = data["TrigObj"]
     scalars = data["eventvars"]
- 
+
+    # scalars["run"] = NUMPY_LIB.array(scalars["run"], dtype=NUMPY_LIB.uint32)
+    # scalars["luminosityBlock"] = NUMPY_LIB.array(scalars["run"], dtype=NUMPY_LIB.uint32)
+
     mask_events = NUMPY_LIB.ones(muons.numevents(), dtype=NUMPY_LIB.bool)
-    select_events_trigger(scalars, mask_events)
+    select_events_trigger(scalars, mask_events, parameters)
     if debug:
         print("{0} events passed trigger".format(NUMPY_LIB.sum(mask_events)))
 
@@ -249,7 +288,12 @@ def analyze_data(
     
     
     #get the two leading muons after applying all muon selection
-    ret_mu = get_selected_muons(muons, trigobj, mask_events, mu_pt_cut_leading, mu_pt_cut_subleading, mu_aeta_cut, mu_iso_cut)
+    ret_mu = get_selected_muons(
+        muons, trigobj, mask_events,
+        parameters["muon_pt_leading"], parameters["muon_pt"],
+        parameters["muon_eta"], parameters["muon_iso"],
+        parameters["muon_id"], parameters["muon_trigger_match_dr"]
+    )
     
     if doverify:
         z = ha.sum_in_offsets(muons, ret_mu["selected_muons"], ret_mu["selected_events"], ret_mu["selected_muons"], dtype=NUMPY_LIB.int8)
@@ -257,15 +301,11 @@ def analyze_data(
     if debug:
         print("{0} events passed muon".format(NUMPY_LIB.sum(ret_mu["selected_events"])))
     
-    #for i in range(100):
-    #    if ret_mu["selected_events"][i]:
-    #        print("ev", i)
-    #        for idxmu in range(muons.offsets[i], muons.offsets[i+1]):
-    #            if ret_mu["selected_muons"][idxmu]:
-    #                print(muons.charge[idxmu], muons.pt[idxmu], muons.eta[idxmu], muons.mediumId[idxmu], muons.pfRelIso04_all[idxmu])
-    
     #get the passing jets for events that pass muon selection
-    ret_jet = get_selected_jets(jets, muons, ret_mu["selected_muons"], mask_events, jet_pt_cut, jet_eta_cut, jet_mu_drcut)    
+    ret_jet = get_selected_jets(jets, muons,
+        ret_mu["selected_muons"], mask_events, parameters["jet_pt"],
+        parameters["jet_eta"], parameters["jet_mu_dr"], parameters["jet_id"], parameters["jet_puid"]
+    )    
     if doverify:
         z = ha.min_in_offsets(jets, jets.pt, ret_mu["selected_events"], ret_jet["selected_jets"])
         assert(NUMPY_LIB.all(z[z>0] > jet_pt_cut))
@@ -311,11 +351,13 @@ def analyze_data(
     
     int_lumi = 0 
     if not is_mc and not (lumimask is None):
-        mask_lumi = NUMPY_LIB.array(lumimask(NUMPY_LIB.asnumpy(scalars["run"]), NUMPY_LIB.asnumpy(scalars["luminosityBlock"])))
+        runs = NUMPY_LIB.asnumpy(scalars["run"])
+        lumis = NUMPY_LIB.asnumpy(scalars["luminosityBlock"])
+        mask_lumi = NUMPY_LIB.array(lumimask(runs, lumis))
         mask_events = mask_events & mask_lumi
         #get integrated luminosity in this file
-        #if not (lumidata is None): 
-        #    int_lumi = get_int_lumi(scalars["run"], scalars["luminosityBlock"], mask_events, lumidata)
+        if not (lumidata is None): 
+            int_lumi = get_int_lumi(runs, lumis, mask_events, lumidata)
     
     ret = Results({
         "int_lumi": int_lumi,
@@ -372,7 +414,7 @@ def cache_data(filenames, is_mc, nworkers=16):
 
 def create_dataset(filenames, is_mc):
     arrays_ev = [
-        "PV_npvsGood",
+        "PV_npvsGood", "PV_ndof", "PV_z",
         "Flag_HBHENoiseFilter", "Flag_HBHENoiseIsoFilter", "Flag_EcalDeadCellTriggerPrimitiveFilter", "Flag_goodVertices",
         "Flag_globalSuperTightHalo2016Filter", "Flag_BadPFMuonFilter", "Flag_BadChargedCandidateFilter",
         "HLT_IsoMu24",
@@ -381,11 +423,11 @@ def create_dataset(filenames, is_mc):
     if is_mc:
         arrays_ev += ["Pileup_nTrueInt", "Generator_weight", "genWeight"]
     arrays_jet = [
-        "Jet_pt", "Jet_eta", "Jet_phi", "Jet_btagDeepB", "Jet_jetId"
+        "Jet_pt", "Jet_eta", "Jet_phi", "Jet_btagDeepB", "Jet_jetId", "Jet_puId",
     ]
     
     arrays_muon = [
-        "nMuon", "Muon_pt", "Muon_eta", "Muon_phi", "Muon_mass", "Muon_pfRelIso04_all", "Muon_mediumId", "Muon_charge"
+        "nMuon", "Muon_pt", "Muon_eta", "Muon_phi", "Muon_mass", "Muon_pfRelIso04_all", "Muon_mediumId", "Muon_tightId", "Muon_charge"
     ]
     
     arrays_trigobj = [
@@ -492,7 +534,7 @@ def parse_args():
     args = parser.parse_args()
     return args
 
-def main():
+def main(parameters):
     global NUMPY_LIB, ha
 
     nev_total = 0
@@ -509,9 +551,9 @@ def main():
     else:
         os.environ["NUMBA_NUM_THREADS"] = str(args.nthreads)
 
-    lumimask = hepaccelerate.utils.LumiMask("data/Cert_294927-306462_13TeV_EOY2017ReReco_Collisions17_JSON.txt", np, backend_cpu)
+    lumimask = LumiMask("data/Cert_294927-306462_13TeV_EOY2017ReReco_Collisions17_JSON.txt", np, backend_cpu)
     lumidata = LumiData("data/lumi2017.csv")
-    pu_corrections_2017 = load_puhist_target("data/RunII_2017_data.root") 
+    pu_corrections_2017 = load_puhist_target("data/RunII_2017_data.root")
 
     processed_size_mb = 0
     for datasetname, globpattern, is_mc in [
@@ -554,7 +596,7 @@ def main():
             num_processed = 0
             #loop over all data, call the analyze function
             while num_processed < len(training_set_generator.paths_chunks):
-                ret, nev, memsize = event_loop(train_batches_queue, args.use_cuda, debug=False, verbose=True, is_mc=is_mc, lumimask=lumimask, lumidata=lumidata, pu_corrections=pu_corrections_2017) 
+                ret, nev, memsize = event_loop(train_batches_queue, args.use_cuda, debug=False, verbose=True, is_mc=is_mc, lumimask=lumimask, lumidata=lumidata, pu_corrections=pu_corrections_2017, parameters=parameters) 
                 rets += [ret]
                 processed_size_mb += memsize
                 nev_total += nev
@@ -577,12 +619,29 @@ def main():
     )
 
 if __name__ == "__main__":
-    import yappi
-    filename = 'callgrind.filename.prof'
-    yappi.set_clock_type('cpu')
-    yappi.start(builtins=True)
+    # import yappi
+    # filename = 'callgrind.filename.prof'
+    # yappi.set_clock_type('cpu')
+    # yappi.start(builtins=True)
 
-    main()
+    parameters = {
+        "NdfPV": 4,
+        "zPV": 24,
+        "nPV": 0,
+        "muon_pt": 20,
+        "muon_pt_leading": 30,
+        "muon_eta": 2.4,
+        "muon_iso": 0.25,
+        "muon_id": "medium",
+        "muon_trigger_match_dr": 0.1,
+        "jet_mu_dr": 0.4,
+        "jet_pt": 30,
+        "jet_eta": 4.7,
+        "jet_id": "tight",
+        "jet_puid": "loose",
+    }
 
-    stats = yappi.get_func_stats()
-    stats.save(filename, type='callgrind')
+    main(parameters)
+
+    # stats = yappi.get_func_stats()
+    # stats.save(filename, type='callgrind')

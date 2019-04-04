@@ -424,3 +424,56 @@ class LumiMask(object):
     @staticmethod
     def apply_run_lumi_mask(masks, runs, lumis, mask_out, backend):
         backend.apply_run_lumi_mask_kernel(masks, runs, lumis, mask_out)
+
+class LumiData(object):
+    """
+        Class to hold and parse per-lumiSection integrated lumi values
+        as returned by brilcalc, e.g. with a command such as:
+        $ brilcalc lumi -c /cvmfs/cms.cern.ch/SITECONF/local/JobConfig/site-local-config.xml \
+                -b "STABLE BEAMS" --normtag=/cvmfs/cms-bril.cern.ch/cms-lumi-pog/Normtags/normtag_PHYSICS.json \
+                -u /pb --byls --output-style csv -i Cert_294927-306462_13TeV_PromptReco_Collisions17_JSON.txt > lumi2017.csv
+    """
+    def __init__(self, lumi_csv):
+        self._lumidata = np.loadtxt(lumi_csv, delimiter=',', usecols=(0,1,6,7), converters={
+            0: lambda s: s.split(b':')[0],
+            1: lambda s: s.split(b':')[0], # not sure what lumi:0 means, appears to be always zero (DAQ off before beam dump?)
+        })
+        self.index = Dict.empty(
+            key_type = types.Tuple([types.uint32, types.uint32]),
+            value_type = types.float64
+        )
+        self.build_lumi_table()
+    
+    def build_lumi_table(self):
+        runs = self._lumidata[:, 0].astype('u4')
+        lumis = self._lumidata[:, 1].astype('u4')
+        LumiData.build_lumi_table_kernel(runs, lumis, self._lumidata, self.index)
+
+    @staticmethod
+    @numba.njit(parallel=False, fastmath=False)
+    def build_lumi_table_kernel(runs, lumis, lumidata, index):
+        for i in range(len(runs)):
+            run = runs[i]
+            lumi = lumis[i]
+            index[(run, lumi)] = float(lumidata[i, 2])
+            
+    def get_lumi(self, runslumis):
+        """
+            Return integrated lumi
+            runlumis: 2d numpy array of [[run,lumi], [run,lumi], ...] or LumiList object
+        """
+        tot_lumi = np.zeros((1, ), dtype=np.float64)
+        LumiData.get_lumi_kernel(runslumis[:, 0], runslumis[:, 1], self.index, tot_lumi)
+        return tot_lumi[0]
+    
+    @staticmethod
+    @numba.njit(parallel=False, fastmath=False)
+    def get_lumi_kernel(runs, lumis, index, tot_lumi):
+        ks_done = set()
+        for iev in range(len(runs)):
+            run = runs[iev]
+            lumi = lumis[iev]
+            k = (run, lumi)
+            if not k in ks_done:
+                ks_done.add(k)
+                tot_lumi[0] += index.get(k, 0)
