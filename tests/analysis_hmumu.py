@@ -27,8 +27,6 @@ from hepaccelerate.utils import Histogram
 from hepaccelerate.utils import choose_backend, LumiData, LumiMask
 import hepaccelerate.backend_cpu as backend_cpu
 
-import fnal_column_analysis_tools
-
 genweight_scalefactor = 1e6
 chunksize = 1
 
@@ -402,46 +400,30 @@ def chunks(l, n):
     for i in range(0, len(l), n):
         yield l[i:i + n]
 
-def cache_data(filenames, is_mc, nworkers=16):
-    with concurrent.futures.ProcessPoolExecutor(max_workers=nworkers) as executor:
+def cache_data(filenames, datastructures, nworkers=16):
+    if nworkers == 1:
         tot_ev = 0
         tot_mb = 0
-        for result in executor.map(cache_data_multiproc_worker, [(fn, is_mc) for fn in filenames]):
+        for result in map(cache_data_multiproc_worker, [(fn, datastructures) for fn in filenames]):
             tot_ev += result[0]
             tot_mb += result[1]
-        print() 
+    else:
+        with concurrent.futures.ProcessPoolExecutor(max_workers=nworkers) as executor:
+            tot_ev = 0
+            tot_mb = 0
+            for result in executor.map(cache_data_multiproc_worker, [(fn, datastructures) for fn in filenames]):
+                tot_ev += result[0]
+                tot_mb += result[1]
     return tot_ev, tot_mb
 
-def create_dataset(filenames, is_mc):
-    arrays_ev = [
-        "PV_npvsGood", "PV_ndof", "PV_z",
-        "Flag_HBHENoiseFilter", "Flag_HBHENoiseIsoFilter", "Flag_EcalDeadCellTriggerPrimitiveFilter", "Flag_goodVertices",
-        "Flag_globalSuperTightHalo2016Filter", "Flag_BadPFMuonFilter", "Flag_BadChargedCandidateFilter",
-        "HLT_IsoMu24",
-        "run", "luminosityBlock", "event"
-    ]
-    if is_mc:
-        arrays_ev += ["Pileup_nTrueInt", "Generator_weight", "genWeight"]
-    arrays_jet = [
-        "Jet_pt", "Jet_eta", "Jet_phi", "Jet_btagDeepB", "Jet_jetId", "Jet_puId",
-    ]
-    
-    arrays_muon = [
-        "nMuon", "Muon_pt", "Muon_eta", "Muon_phi", "Muon_mass", "Muon_pfRelIso04_all", "Muon_mediumId", "Muon_tightId", "Muon_charge"
-    ]
-    
-    arrays_trigobj = [
-        "nTrigObj", "TrigObj_pt", "TrigObj_eta", "TrigObj_phi", "TrigObj_id"
-    ]
-    
-    arrays_to_load = arrays_ev + arrays_jet + arrays_muon + arrays_trigobj
-    ds = NanoAODDataset(filenames, arrays_to_load, "Events", ["Muon", "Jet", "TrigObj"], arrays_ev)
+def create_dataset(filenames, datastructures):
+    ds = NanoAODDataset(filenames, datastructures)
     return ds
 
 def cache_data_multiproc_worker(args):
-    filename, is_mc = args
+    filename, datastructure = args
     t0 = time.time()
-    ds = create_dataset([filename], is_mc)
+    ds = create_dataset([filename], datastructure)
     ds.numpy_lib = np
     ds.preload()
     ds.make_objects()
@@ -527,6 +509,7 @@ def event_loop(train_batches_queue, use_cuda, **kwargs):
 def parse_args():
     parser = argparse.ArgumentParser(description='Example HiggsMuMu analysis')
     parser.add_argument('--use-cuda', action='store_true', help='Use the CUDA backend')
+    parser.add_argument('--async-data', action='store_true', help='Load data on a separate thread')
     parser.add_argument('--action', '-a', action='append', help='List of actions to do', choices=['cache', 'analyze'], required=True)
     parser.add_argument('--nthreads', '-t', action='store', help='Number of CPU threads or workers to use', type=int, default=4, required=False)
     parser.add_argument('--datapath', '-p', action='store', help='Prefix to load NanoAOD data from', default="/nvmedata")
@@ -565,6 +548,7 @@ def main(parameters):
 #        ("wz", args.datapath + "/store/mc/RunIIFall17NanoAODv4/WZTo3LNu_13TeV-powheg-pythia8/**/*.root", True),
 #        ("zz", args.datapath + "/store/mc/RunIIFall17NanoAODv4/ZZTo2L2Nu_13TeV_powheg_pythia8/**/*.root", True),
         ]:
+
         filenames_all = glob.glob(globpattern, recursive=True)
         filenames_all = [fn for fn in filenames_all if not "Friend" in fn]
         print("dataset {0} has {1} files".format(datasetname, len(filenames_all)))
@@ -573,29 +557,39 @@ def main(parameters):
 
         print("processing {0} files, {1}".format(len(filenames_all), args.action))
 
+        datastructure = create_datastructure(is_mc)
+
         if "cache" in args.action:
             print("Preparing caches from ROOT files")
-            _nev_total, _processed_size_mb = cache_data(filenames_all, is_mc, nworkers=args.nthreads)
+            _nev_total, _processed_size_mb = cache_data(filenames_all, datastructure, nworkers=args.nthreads)
             nev_total += _nev_total
             processed_size_mb += _processed_size_mb
 
         if "analyze" in args.action:        
             print("Starting analysis")
-            training_set_generator = InputGen(list(filenames_all), is_mc, args.nthreads)
+
+            training_set_generator = InputGen(list(filenames_all), datastructure, args.nthreads)
             threadk = thread_killer()
             threadk.set_tokill(False)
             train_batches_queue = Queue(maxsize=10)
-            cuda_batches_queue = Queue(maxsize=1)
- 
-            for _ in range(1):
-                t = Thread(target=threaded_batches_feeder, args=(threadk, train_batches_queue, training_set_generator))
-                t.start()
+            
+            if args.async_data:
+                for _ in range(1):
+                    t = Thread(target=threaded_batches_feeder, args=(threadk, train_batches_queue, training_set_generator))
+                    t.start()
 
             rets = []
-
             num_processed = 0
+
             #loop over all data, call the analyze function
             while num_processed < len(training_set_generator.paths_chunks):
+
+                if not args.async_data:
+                    ds = training_set_generator.nextone()
+                    if not ds:
+                        break
+                    train_batches_queue.put(ds)
+
                 ret, nev, memsize = event_loop(train_batches_queue, args.use_cuda, debug=False, verbose=True, is_mc=is_mc, lumimask=lumimask, lumidata=lumidata, pu_corrections=pu_corrections_2017, parameters=parameters) 
                 rets += [ret]
                 processed_size_mb += memsize
@@ -618,6 +612,49 @@ def main(parameters):
         nev=nev_total, dt=dt, size=processed_size_mb/1024.0, evspeed=nev_total/dt, sizespeed=processed_size_mb/dt)
     )
 
+def create_datastructure(is_mc):
+    datastructures = {
+        "Muon": [
+            ("Muon_pt", "float32"), ("Muon_eta", "float32"),
+            ("Muon_phi", "float32"), ("Muon_mass", "float32"),
+            ("Muon_pfRelIso04_all", "float32"), ("Muon_mediumId", "bool"),
+            ("Muon_tightId", "bool"), ("Muon_charge", "int32")
+        ],
+        "Jet": [
+            ("Jet_pt", "float32"), ("Jet_eta", "float32"),
+            ("Jet_phi", "float32"), ("Jet_btagDeepB", "float32"),
+            ("Jet_jetId", "int32"), ("Jet_puId", "int32"),
+        ],
+        "TrigObj": [
+            ("TrigObj_pt", "float32"),
+            ("TrigObj_eta", "float32"),
+            ("TrigObj_phi", "float32"),
+            ("TrigObj_id", "int32")
+        ],
+        "EventVariables": [
+            ("PV_npvsGood", "float32"), 
+            ("PV_ndof", "float32"),
+            ("PV_z", "float32"),
+            ("Flag_HBHENoiseFilter", "bool"),
+            ("Flag_HBHENoiseIsoFilter", "bool"),
+            ("Flag_EcalDeadCellTriggerPrimitiveFilter", "bool"),
+            ("Flag_goodVertices", "bool"),
+            ("Flag_globalSuperTightHalo2016Filter", "bool"),
+            ("Flag_BadPFMuonFilter", "bool"),
+            ("Flag_BadChargedCandidateFilter", "bool"),
+            ("HLT_IsoMu24", "bool"),
+            ("run", "uint32"),
+            ("luminosityBlock", "uint32"),
+            ("event", "uint64")
+        ]
+    }
+    if is_mc:
+        datastructures["EventVariables"] += [
+            ("Pileup_nTrueInt", "uint32"),
+            ("Generator_weight", "float32"),
+            ("genWeight", "float32")
+        ]
+    return datastructures
 if __name__ == "__main__":
     # import yappi
     # filename = 'callgrind.filename.prof'

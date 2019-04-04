@@ -17,7 +17,7 @@ We also provide a singularity image with the python libraries preinstalled, see 
 
 ## Sneak peek
 
-~~~
+```python
 import hepaccelerate
 from hepaccelerate.utils import Results, NanoAODDataset, Histogram, choose_backend
 
@@ -52,7 +52,7 @@ dataset.preload(nthreads=4, verbose=True)
 dataset.make_objects()
 results = dataset.analyze(analyze_data_function, verbose=True, parameters={"muons_ptcut": 30.0})
 results.save_json("out.json")
-~~~
+```
 
 ## Benchmarks
 
@@ -116,7 +116,7 @@ analyze (100 histograms) | GPU(1) CPU(16) batch(4) | 832.5 seconds   | 1.18E+06 
 
 ## Getting started
 
-~~~
+```bash
 git clone git@github.com:jpata/hepaccelerate.git
 cd hepaccelerate
 
@@ -129,21 +129,21 @@ PYTHONPATH=.:$PYTHONPATH python3 tests/simple.py --filelist filelist.txt
 
 #output will be stored in this json
 cat out.json
-~~~
+```
 
 This script loads the ROOT files, prepares local caches from the branches you read and processes the data
-~~~
+```bash
 #second time around, you can load the data from the cache, which is much faster
 PYTHONPATH=.:$PYTHONPATH python3 tests/simple.py --filelist filelist.txt --from-cache
 
 #use CUDA for array processing on a GPU!
 PYTHONPATH=.:$PYTHONPATH python3 tests/simple.py --filelist filelist.txt --from-cache --use-cuda
-~~~
+```
 
 ## Singularity image
 Singularity allows you to try out the package without needing to install the python libraries.
 
-~~~
+```bash
 #Download the uproot+cupy+numba singularity image from CERN
 wget https://jpata.web.cern.ch/jpata/singularity/cupy.simg -o singularity/cupy.simg
 
@@ -153,7 +153,7 @@ wget https://jpata.web.cern.ch/jpata/singularity/cupy.simg -o singularity/cupy.s
 #cd singularity;make
 
 LC_ALL=C PYTHONPATH=.:$PYTHONPATH singularity exec -B /nvmedata --nv singularity/cupy.simg python3 ...
-~~~
+```
 
 ## Recommendations on data locality
 In order to make full use of modern CPUs or GPUs, you want to bring the data as close as possible to where the work is done, otherwise you will spend most of the time waiting for the data to arrive rather than actually performing the computations.

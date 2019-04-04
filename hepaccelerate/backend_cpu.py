@@ -25,19 +25,19 @@ def fill_histogram(data, weights, bins, out_w, out_w2):
 def select_opposite_sign_muons_kernel(muon_charges_content, muon_charges_offsets, content_mask_in, content_mask_out):
     
     for iev in numba.prange(muon_charges_offsets.shape[0]-1):
-        start = muon_charges_offsets[iev]
-        end = muon_charges_offsets[iev + 1]
+        start = np.uint64(muon_charges_offsets[iev])
+        end = np.uint64(muon_charges_offsets[iev + 1])
         
-        ch1 = 0
-        idx1 = -1
-        ch2 = 0
-        idx2 = -1
+        ch1 = np.float32(0.0)
+        idx1 = np.uint64(0)
+        ch2 = np.float32(0.0)
+        idx2 = np.uint64(0)
         
         for imuon in range(start, end):
             if not content_mask_in[imuon]:
                 continue
                 
-            if idx1 == -1:
+            if idx1 == 0 and idx2 == 0:
                 ch1 = muon_charges_content[imuon]
                 idx1 = imuon
                 continue
@@ -45,8 +45,8 @@ def select_opposite_sign_muons_kernel(muon_charges_content, muon_charges_offsets
                 ch2 = muon_charges_content[imuon]
                 if (ch2 != ch1):
                     idx2 = imuon
-                    content_mask_out[idx1] = 1
-                    content_mask_out[idx2] = 1
+                    content_mask_out[idx1] = True
+                    content_mask_out[idx2] = True
                     break
     return
 
