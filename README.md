@@ -7,6 +7,7 @@ Requirements:
  - uproot
  - awkward-array
  - numba
+ - fnal-column-analysis-tools
 
 Optional for CUDA acceleration:
  - cupy
@@ -53,6 +54,66 @@ results = dataset.analyze(analyze_data_function, verbose=True, parameters={"muon
 results.save_json("out.json")
 ~~~
 
+## Benchmarks
+
+The following benchmarks have been carried out with a realistic CMS analysis on NanoAOD. We first perform a caching step, where the branches that we will use are uncompressed and saved to local disk as numpy files. Without this optional caching step, the upper limit on the processing speed will be dominated by the CPU decompression of the ROOT TTree (first line in the tables). Even with the caching, the IO time of reading the cached arrays is significant, such that the analysis receives only a small boost from multiple CPU threads, and a another small boost from using the GPU and thus freeing the CPU to deal with loading the data from disk.
+However, if the analysis part becomes moderately complex
+
+
+### 2015 Macbook Pro 
+
+- 4-core 2.6GHz i5
+- 8GB DDR3
+- 250GB SSD PT250B over USB3
+- analyzed 35,041,780 events in 2.07GB of branches
+
+task    | configuration  |time    | speed       | speed
+--------|----------------|--------|-------------|-----------
+caching | CPU(4)         | 378.5s | 9.26E+04 Hz | 5.60 MB/s
+analyze | CPU(1)         | 170.9s | 2.05E+05 Hz | 12.41 MB/s
+analyze | CPU(2)         | 163.5s | 2.14E+05 Hz | 12.98 MB/s
+analyze | CPU(4)         | 161.6s | 2.17E+05 Hz | 13.12 MB/s
+
+
+### High-end workstation
+
+- 16-core 3GHz i7
+- 64GB DDR3
+- 6.4TB Intel P4608
+- 1x Titan X 12GB
+- analyzed 214,989,146 events in 11.87 GB of branches
+
+task    | configuration           |time           | speed       | speed
+--------|-------------------------|---------------|-------------|-----------
+caching | CPU(16)                 | 281.3 seconds | 7.64E+05 Hz | 43.22 MB/s
+analyze | CPU(1)                  | 180.7 seconds | 1.19E+06 Hz | 67.27 MB/s
+analyze | CPU(2)                  | 141.1 seconds | 1.52E+06 Hz | 86.16 MB/s
+analyze | CPU(4)                  | 140.4 seconds | 1.53E+06 Hz | 86.54 MB/s
+analyze | CPU(8)                  | 139.0 seconds | 1.55E+06 Hz | 87.44 MB/s
+analyze | CPU(16)                 | 127.9 seconds | 1.68E+06 Hz | 95.05 MB/s
+analyze | GPU(1) CPU(16)          | 115.8 seconds | 1.86E+06 Hz | 105.00 MB/s
+analyze | GPU(1) CPU(16) batch(2) | 93.7 seconds  | 2.29E+06 Hz | 129.72 MB/s
+analyze | GPU(1) CPU(16) batch(4) | 85.9 seconds  | 2.50E+06 Hz | 141.54 MB/s
+analyze | GPU(1) CPU(16) batch(8) | 85.1 seconds  | 2.53E+06 Hz | 142.83 MB/s
+
+
+### Workstation, 1B event run
+
+We can demonstrate that we can process 1B events in about 10 minutes (from existing caches) and in about 30 minutes from raw NanoAOD.
+
+- 978,711,446 events in 54.95 GB of branches
+- analyze as before
+- analyze, but make 100 more histograms
+
+task                     | configuration           |time             | speed       | speed
+-------------------------|-------------------------|-----------------|-------------|-----------
+caching                  | CPU(16)                 | 1127.0 seconds  | 8.68E+05 Hz | 49.93 MB/s
+analyze                  | CPU(16)                 | 594.1 seconds   | 1.65E+06 Hz | 94.70 MB/s
+analyze                  | GPU(1) CPU(16) batch(4) | 565.7 seconds   | 1.73E+06 Hz | 99.46 MB/s
+analyze (100 histograms) | CPU(16)                 | 1232.4 seconds  | 7.94E+05 Hz | 45.65 MB/s
+analyze (100 histograms) | GPU(1) CPU(16) batch(4) | 832.5 seconds   | 1.18E+06 Hz | 67.59 MB/s
+
+
 ## Getting started
 
 ~~~
@@ -93,3 +154,7 @@ wget https://jpata.web.cern.ch/jpata/singularity/cupy.simg -o singularity/cupy.s
 
 LC_ALL=C PYTHONPATH=.:$PYTHONPATH singularity exec -B /nvmedata --nv singularity/cupy.simg python3 ...
 ~~~
+
+## Recommendations on data locality
+In order to make full use of modern CPUs or GPUs, you want to bring the data as close as possible to where the work is done, otherwise you will spend most of the time waiting for the data to arrive rather than actually performing the computations.
+With CMS NanoAOD with event sizes of 1-2 kB/event, 1 million events is approximately 1-2 GB on disk. Therefore, you can fit a significant amount of data used in a HEP analysis on a commodity SSD. In order to copy the data to your local disk, use grid tools such as `gfal-copy` or even `rsync` to fetch it from your nearest Tier2. Preserving the filename structure (`/store/...`) will allow you to easily run the same code on multiple sites.

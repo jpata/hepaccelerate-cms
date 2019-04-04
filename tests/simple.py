@@ -60,7 +60,7 @@ if __name__ == "__main__":
     parser.add_argument('--nthreads', action='store', help='Number of CPU threads to use', type=int, default=4, required=False)
     parser.add_argument('--files-per-batch', action='store', help='Number of files to process per batch', type=int, default=1, required=False)
     parser.add_argument('--cache-location', action='store', help='Path prefix for the cache, must be writable', type=str, default=os.path.join(os.getcwd(), 'cache'))
-    parser.add_argument('--filelist', action='store', help='List of files to load', type=str, default=None, required=False)
+    parser.add_argument('--filelist', action='store', help='List of files to load', type=str, default=None, required=True)
     parser.add_argument('filenames', nargs=argparse.REMAINDER)
     args = parser.parse_args()
  
@@ -115,7 +115,7 @@ if __name__ == "__main__":
             print(dataset.printout())
 
         #Run the analyze_data function on all files
-        results += dataset.analyze(analyze_data, parameters={"muons_ptcut": 30.0})
+        results += dataset.analyze(analyze_data, NUMPY_LIB=NUMPY_LIB, parameters={"muons_ptcut": 30.0})
              
     print(results)
     print("Efficiency of dimuon events: {0:.2f}".format(results["events_dimuon"]/results["num_events"]))
