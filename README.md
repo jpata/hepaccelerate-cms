@@ -55,9 +55,11 @@ results.save_json("out.json")
 
 ## Benchmarks
 
-The following benchmarks have been carried out with a realistic CMS analysis on NanoAOD. We first perform a caching step, where the branches that we will use are uncompressed. Without this optional caching step, the upper limit on the processing speed will be dominated by the CPU decompression of the ROOT TTree. Even now, the IO time of reading the cached arrays dominates, the analysis receives a small boost from multiple CPU threads, and a another small boost from using the GPU and thus freeing the CPU to load the data from disk.
+The following benchmarks have been carried out with a realistic CMS analysis on NanoAOD. We first perform a caching step, where the branches that we will use are uncompressed and saved to local disk as numpy files. Without this optional caching step, the upper limit on the processing speed will be dominated by the CPU decompression of the ROOT TTree (first line in the tables). Even with the caching, the IO time of reading the cached arrays is significant, such that the analysis receives only a small boost from multiple CPU threads, and a another small boost from using the GPU and thus freeing the CPU to deal with loading the data from disk.
+However, if the analysis part becomes moderately complex
 
-### 2015 Macbook pro 
+
+### 2015 Macbook Pro 
 
 - 4-core 2.6GHz i5
 - 8GB DDR3
@@ -92,6 +94,24 @@ analyze | GPU(1) CPU(16)          | 115.8 seconds | 1.86E+06 Hz | 105.00 MB/s
 analyze | GPU(1) CPU(16) batch(2) | 93.7 seconds  | 2.29E+06 Hz | 129.72 MB/s
 analyze | GPU(1) CPU(16) batch(4) | 85.9 seconds  | 2.50E+06 Hz | 141.54 MB/s
 analyze | GPU(1) CPU(16) batch(8) | 85.1 seconds  | 2.53E+06 Hz | 142.83 MB/s
+
+
+### Workstation, 1B event run
+
+We can demonstrate that we can process 1B events in about 10 minutes (from existing caches) and in about 30 minutes from raw NanoAOD.
+ 
+- 978,711,446 events in 54.95 GB of branches
+- analyze as before
+- analyze, but make 100 more histograms
+
+task                     | configuration           |time             | speed       | speed
+-------------------------|-------------------------|-----------------|-------------|-----------
+caching                  | CPU(16)                 | 1127.0 seconds  | 8.68E+05 Hz | 49.93 MB/s
+analyze                  | CPU(16)                 | 594.1 seconds   | 1.65E+06 Hz | 94.70 MB/s
+analyze                  | GPU(1) CPU(16) batch(4) | 565.7 seconds   | 1.73E+06 Hz | 99.46 MB/s
+analyze (100 histograms) | CPU(16)                 | 1232.4 seconds  | 7.94E+05 Hz | 45.65 MB/s
+analyze (100 histograms) | GPU(1) CPU(16) batch(4) | 832.5 seconds   | 1.18E+06 Hz | 67.59 MB/s
+
 
 ## Getting started
 
