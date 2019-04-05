@@ -56,13 +56,15 @@ class JaggedStruct(object):
         self.num_items = num_items
 
         raise_fmterror = False
+        bad_branches = []
         for branch, dtype in self.attr_names_dtypes:
             arr = self.attrs_data[branch.replace(self.prefix, "")]
             if arr.dtype != getattr(self.numpy_lib, dtype):
                 raise_fmterror = True
-                print("Attribute {0} declared as {1} but was {2}".format(branch, dtype, arr.dtype), file=sys.stderr)
+                bad_branches += [branch]
+                print("ERROR reading the ROOT TTree: branch {0} declared as {1} but was {2}".format(branch, dtype, arr.dtype), file=sys.stderr)
         if raise_fmterror:
-            raise Exception("Declared data structure did not match ROOT file.")
+            raise Exception("Declared data structure did not match ROOT file. The NanoAODDataset data structure did not match the ROOT TTree for the branches: {0}, please see above for more details.".format(bad_branches))
     
         self.masks = {}
         self.masks["all"] = self.make_mask()
