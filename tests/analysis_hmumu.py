@@ -52,7 +52,11 @@ class thread_killer(object):
 def get_histogram(data, weights, bins):
     return Histogram(*ha.histogram_from_vector(data, weights, bins))
 
-def get_selected_muons(muons, trigobj, mask_events, mu_pt_cut_leading, mu_pt_cut_subleading, mu_aeta_cut, mu_iso_cut, muon_id_type, muon_trig_match_dr):
+def get_selected_muons(
+    muons, trigobj, mask_events,
+    mu_pt_cut_leading, mu_pt_cut_subleading,
+    mu_aeta_cut, mu_iso_cut, muon_id_type,
+    muon_trig_match_dr):
     """
     Given a list of muons in events, selects the muons that pass quality, momentum and charge criteria.
     Selects events that have at least 2 such muons. Selections are made by producing boolean masks.
@@ -62,6 +66,8 @@ def get_selected_muons(muons, trigobj, mask_events, mu_pt_cut_leading, mu_pt_cut
     mu_pt_cut_leading (float) - the pt cut on the leading muon
     mu_pt_cut_subleading (float) - the pt cut on all other muons
     mu_iso_cut (float) - cut to choose isolated muons
+    muon_id_type (string) - "medium" or "tight" for the muon ID
+    muon_trig_match_dr (float) - dR matching criterion between trigger object and leading muon
 
     """ 
     passes_iso = muons.pfRelIso04_all < mu_iso_cut
@@ -76,27 +82,49 @@ def get_selected_muons(muons, trigobj, mask_events, mu_pt_cut_leading, mu_pt_cut
     passes_subleading_pt = muons.pt > mu_pt_cut_subleading
     passes_leading_pt = muons.pt > mu_pt_cut_leading
     passes_aeta = NUMPY_LIB.abs(muons.eta) < mu_aeta_cut
-    muons_passing_id =  passes_iso & passes_id & passes_subleading_pt & passes_aeta
+    muons_passing_id =  (
+        passes_iso & passes_id &
+        passes_subleading_pt & passes_aeta
+    )
 
     #Get muons that are high-pt and are matched to trigger
 
     mask_trigger_objects_mu = (trigobj.id == 13)
     muons_matched_to_trigobj = NUMPY_LIB.invert(ha.mask_deltar_first(
-        muons, muons_passing_id & passes_leading_pt, trigobj, mask_trigger_objects_mu, muon_trig_match_dr
+        muons, muons_passing_id & passes_leading_pt, trigobj,
+        mask_trigger_objects_mu, muon_trig_match_dr
     ))
 
-    #At least one muon must be matched to trigger
-    events_passes_triggermatch = ha.sum_in_offsets(muons, muons_matched_to_trigobj, mask_events, muons.masks["all"], NUMPY_LIB.int8) >= 1
+    #At least one muon must be matched to trigger object
+    events_passes_triggermatch = ha.sum_in_offsets(
+        muons, muons_matched_to_trigobj, mask_events,
+        muons.masks["all"], NUMPY_LIB.int8
+    ) >= 1
     
     #select events that have muons passing cuts 
-    events_passes_muid = ha.sum_in_offsets(muons, muons_passing_id, mask_events, muons.masks["all"], NUMPY_LIB.int8) >= 2
-    events_passes_leading_pt = ha.sum_in_offsets(muons, muons_passing_id & passes_leading_pt, mask_events, muons.masks["all"], NUMPY_LIB.int8) >= 1
-    events_passes_subleading_pt = ha.sum_in_offsets(muons, muons_passing_id & passes_subleading_pt, mask_events, muons.masks["all"], NUMPY_LIB.int8) >= 2
+    events_passes_muid = ha.sum_in_offsets(
+        muons, muons_passing_id, mask_events, muons.masks["all"],
+        NUMPY_LIB.int8) >= 2
+    events_passes_leading_pt = ha.sum_in_offsets(
+        muons, muons_passing_id & passes_leading_pt, mask_events,
+        muons.masks["all"], NUMPY_LIB.int8) >= 1
+    events_passes_subleading_pt = ha.sum_in_offsets(
+        muons, muons_passing_id & passes_subleading_pt, 
+        mask_events, muons.masks["all"], NUMPY_LIB.int8) >= 2
 
-    base_event_sel = mask_events & events_passes_triggermatch & events_passes_muid & events_passes_leading_pt & events_passes_subleading_pt
+    base_event_sel = (
+        mask_events &
+        events_passes_triggermatch &
+        events_passes_muid &
+        events_passes_leading_pt &
+        events_passes_subleading_pt
+    )
     
-    muons_passing_os = ha.select_muons_opposite_sign(muons, muons_passing_id & passes_subleading_pt)
-    events_passes_os = ha.sum_in_offsets(muons, muons_passing_os, mask_events, muons.masks["all"], NUMPY_LIB.int8) == 2
+    muons_passing_os = ha.select_muons_opposite_sign(
+        muons, muons_passing_id & passes_subleading_pt)
+    events_passes_os = ha.sum_in_offsets(
+        muons, muons_passing_os, mask_events,
+        muons.masks["all"], NUMPY_LIB.int8) == 2
     
     final_event_sel = base_event_sel & events_passes_os
     final_muon_sel = muons_passing_id & passes_subleading_pt & muons_passing_os
@@ -113,14 +141,29 @@ def get_bit_values(array, bit_index):
     """
     return (array & 2**(bit_index)) >> 1
 
-def get_selected_jets(jets, muons, mask_muons, mask_events, jet_pt_cut, jet_eta_cut, jet_dr_cut, jet_id, jet_puid):
+def get_selected_jets(
+    jets, muons,
+    mask_muons,
+    mask_events,
+    jet_pt_cut, jet_eta_cut,
+    jet_dr_cut, jet_id, jet_puid
+    ):
     """
-    Given jets and selected muons in events, choose jets that pass quality criteria and that are not dR-matched
-    to muons.
- 
+    Given jets and selected muons in events, choose jets that pass quality
+    criteria and that are not dR-matched to muons.
+
+    jets (JaggedStruct)
+    muons (JaggedStruct)
+    mask_muons (array of bool)
+    mask_events (array of bool)
+    jet_pt_cut (float)
+    jet_eta_cut(float)
+    jet_dr_cut (float)
+    jet_id (string)
+    jet_puid (string)
     """
 
-    #Jet ID flags bit1 is loose (always false in 2017 since it does not exist), bit2 is tight, bit3 is tightLepVeto
+    #Jet ID flags bit0 is loose (always false in 2017 since it does not exist), bit1 is tight, bit2 is tightLepVeto
     if jet_id == "tight":
         pass_jetid = get_bit_values(jets.jetId, 1)
     elif jet_id == "loose":
@@ -134,13 +177,18 @@ def get_selected_jets(jets, muons, mask_muons, mask_events, jet_pt_cut, jet_eta_
         pass_jet_puid = jets.puId == 6
     elif jet_puid == "tight":
         pass_jet_puid = jets.puId == 7
+    elif jet_puid == "none":
+        pass_jet_puid = NUMPY_LIB.ones(jets.numobjects(), dtype=NUMPY_LIB.bool)
 
-    selected_jets = (jets.pt > jet_pt_cut) & (NUMPY_LIB.abs(jets.eta) < jet_eta_cut) & pass_jetid & pass_jet_puid
-    jets_pass_dr = ha.mask_deltar_first(jets, selected_jets, muons, mask_muons, jet_dr_cut)
+    selected_jets = ((jets.pt > jet_pt_cut) &
+        (NUMPY_LIB.abs(jets.eta) < jet_eta_cut) & pass_jetid & pass_jet_puid)
+    jets_pass_dr = ha.mask_deltar_first(jets, selected_jets, muons,
+        mask_muons, jet_dr_cut)
     jets.masks["pass_dr"] = jets_pass_dr
     selected_jets = selected_jets & jets_pass_dr
 
-    num_jets = ha.sum_in_offsets(jets, selected_jets, mask_events, jets.masks["all"], NUMPY_LIB.int8)
+    num_jets = ha.sum_in_offsets(jets, selected_jets, mask_events,
+        jets.masks["all"], NUMPY_LIB.int8)
 
     return {
         "selected_jets": selected_jets,
@@ -148,6 +196,23 @@ def get_selected_jets(jets, muons, mask_muons, mask_events, jet_pt_cut, jet_eta_
     }
 
 def compute_inv_mass(objects, mask_events, mask_objects):
+    """
+    Computes the invariant mass in the selected objects.
+    
+    objects (JaggedStruct)
+    mask_events (array of bool) 
+    mask_objects (array of bool)
+    
+    """
+    if objects.numobjects() != len(mask_objects):
+        raise Exception(
+            "Object mask size {0} did not match number of objects {1}".format(
+                len(mask_objects), objects.numobjects()))
+    if objects.numevents() != len(mask_events):
+        raise Exception(
+            "Event mask size {0} did not match number of events {1}".format(
+                len(mask_events), objects.numevents()))
+
     pt = objects.pt
     eta = objects.eta
     phi = objects.phi
@@ -156,7 +221,7 @@ def compute_inv_mass(objects, mask_events, mask_objects):
     px = pt * NUMPY_LIB.cos(phi)
     py = pt * NUMPY_LIB.sin(phi)
     pz = pt * NUMPY_LIB.sinh(eta)
-    e = np.sqrt(px**2 + py**2 + pz**2 + mass**2)
+    e = NUMPY_LIB.sqrt(px**2 + py**2 + pz**2 + mass**2)
 
     px_total = ha.sum_in_offsets(objects, px, mask_events, mask_objects)
     py_total = ha.sum_in_offsets(objects, py, mask_events, mask_objects)
@@ -192,19 +257,22 @@ def compute_pu_weights(pu_corrections_target, weights, mc_nvtx, reco_nvtx):
     ratio = values_nom / src_pu_hist.contents
     remove_inf_nan(ratio)
     pu_weights = NUMPY_LIB.zeros_like(weights)
-    ha.get_bin_contents(reco_nvtx, NUMPY_LIB.array(pu_edges), NUMPY_LIB.array(ratio), pu_weights)
+    ha.get_bin_contents(reco_nvtx, NUMPY_LIB.array(pu_edges),
+        NUMPY_LIB.array(ratio), pu_weights)
     fix_large_weights(pu_weights) 
      
     ratio_up = values_up / src_pu_hist.contents
     remove_inf_nan(ratio_up)
     pu_weights_up = NUMPY_LIB.zeros_like(weights)
-    ha.get_bin_contents(reco_nvtx, NUMPY_LIB.array(pu_edges), NUMPY_LIB.array(ratio_up), pu_weights_up)
+    ha.get_bin_contents(reco_nvtx, NUMPY_LIB.array(pu_edges),
+        NUMPY_LIB.array(ratio_up), pu_weights_up)
     fix_large_weights(pu_weights_up) 
     
     ratio_down = values_down / src_pu_hist.contents
     remove_inf_nan(ratio_down)
     pu_weights_down = NUMPY_LIB.zeros_like(weights)
-    ha.get_bin_contents(reco_nvtx, NUMPY_LIB.array(pu_edges), NUMPY_LIB.array(ratio_down), pu_weights_down)
+    ha.get_bin_contents(reco_nvtx, NUMPY_LIB.array(pu_edges),
+        NUMPY_LIB.array(ratio_down), pu_weights_down)
     fix_large_weights(pu_weights_down) 
     
     return pu_weights, pu_weights_up, pu_weights_down
@@ -241,7 +309,10 @@ def get_gen_sumweights(filenames):
     for fi in filenames:
         ff = uproot.open(fi)
         bl = ff.get("Runs")
-        sumw += bl.array("genEventSumw").sum()/genweight_scalefactor
+        sumw += bl.array("genEventSumw").sum()
+    if sumw > 1e9:
+        print("very large genweights, rescaling")
+        sumw = sumw / genweight_scalefactor
     return sumw
 
 
@@ -252,11 +323,6 @@ def analyze_data(
     lumimask=None,
     lumidata=None,
     parameters={},
-    mu_pt_cut_leading=30,
-    mu_pt_cut_subleading=20,
-    mu_aeta_cut=2.4,
-    mu_iso_cut=0.25, jet_pt_cut=30,
-    jet_eta_cut=4.7, jet_mu_drcut=0.4,
     doverify=True,
     debug=True
     ):
@@ -278,11 +344,17 @@ def analyze_data(
     weights["nominal"] = NUMPY_LIB.ones(muons.numevents(), dtype=NUMPY_LIB.float32)
 
     if is_mc:
-        weights["nominal"] = weights["nominal"] * scalars["genWeight"]/genweight_scalefactor
-        pu_weights, pu_weights_up, pu_weights_down = compute_pu_weights(pu_corrections, weights["nominal"], scalars["Pileup_nTrueInt"], scalars["PV_npvsGood"])
+        weights["nominal"] = weights["nominal"] * scalars["genWeight"]
+        pu_weights, pu_weights_up, pu_weights_down = compute_pu_weights(
+            pu_corrections, weights["nominal"],
+            scalars["Pileup_nTrueInt"], scalars["PV_npvsGood"])
         weights["puWeight"] = weights["nominal"] * pu_weights
         weights["puWeight_up"] = weights["nominal"] * pu_weights_up
         weights["puWeight_down"] = weights["nominal"] * pu_weights_down
+
+        if np.sum(scalars["genWeight"]) > 1e9:
+            print("very large genweights, rescaling")
+            scalars["genWeight"] = scalars["genWeight"]/genweight_scalefactor
     
     
     #get the two leading muons after applying all muon selection
@@ -294,8 +366,11 @@ def analyze_data(
     )
     
     if doverify:
-        z = ha.sum_in_offsets(muons, ret_mu["selected_muons"], ret_mu["selected_events"], ret_mu["selected_muons"], dtype=NUMPY_LIB.int8)
+        z = ha.sum_in_offsets(muons, ret_mu["selected_muons"],
+            ret_mu["selected_events"],
+            ret_mu["selected_muons"], dtype=NUMPY_LIB.int8)
         assert(NUMPY_LIB.all(z[z!=0] == 2))
+
     if debug:
         print("{0} events passed muon".format(NUMPY_LIB.sum(ret_mu["selected_events"])))
     
@@ -306,12 +381,12 @@ def analyze_data(
     )    
     if doverify:
         z = ha.min_in_offsets(jets, jets.pt, ret_mu["selected_events"], ret_jet["selected_jets"])
-        assert(NUMPY_LIB.all(z[z>0] > jet_pt_cut))
+        assert(NUMPY_LIB.all(z[z>0] > parameters["jet_pt"]))
 
         
     inv_mass = compute_inv_mass(muons, ret_mu["selected_events"], ret_mu["selected_muons"])
     if not is_mc:
-        inv_mass[(inv_mass > 120) & (inv_mass < 130)] = 0
+        inv_mass[(inv_mass >= 120) & (inv_mass <= 130)] = 0
  
     inds = NUMPY_LIB.zeros(muons.numevents(), dtype=NUMPY_LIB.int32)
     leading_muon_pt = ha.get_in_offsets(muons.pt, muons.offsets, inds, ret_mu["selected_events"], ret_mu["selected_muons"])
@@ -326,8 +401,8 @@ def analyze_data(
     subleading_jet_eta = ha.get_in_offsets(jets.eta, jets.offsets, inds, ret_mu["selected_events"], ret_jet["selected_jets"])
     
     if doverify:
-        assert(NUMPY_LIB.all(leading_muon_pt[leading_muon_pt>0] > mu_pt_cut_leading))
-        assert(NUMPY_LIB.all(subleading_muon_pt[subleading_muon_pt>0] > mu_pt_cut_subleading))
+        assert(NUMPY_LIB.all(leading_muon_pt[leading_muon_pt>0] > parameters["muon_pt_leading"]))
+        assert(NUMPY_LIB.all(subleading_muon_pt[subleading_muon_pt>0] > parameters["muon_pt"]))
  
   
     hist_npvs_d = fill_with_weights(scalars["PV_npvsGood"], weights, ret_mu["selected_events"], NUMPY_LIB.linspace(0,100,101))
@@ -337,16 +412,15 @@ def analyze_data(
     hist_leading_muon_pt_d = fill_with_weights(leading_muon_pt, weights, ret_mu["selected_events"], NUMPY_LIB.linspace(0.0, 200.0, 401))
     hist_subleading_muon_pt_d = fill_with_weights(subleading_muon_pt, weights, ret_mu["selected_events"], NUMPY_LIB.linspace(0.0, 200.0, 401))
     
-    #create lots of histograms 
-    hist_leading_muon_pt_d_weights = fill_with_weights(leading_muon_pt, weights, ret_mu["selected_events"], NUMPY_LIB.linspace(0.0, 200.0, 401))  
-
-    #get histograms of leading and subleading muon eta
     hist_leading_muon_eta_d = fill_with_weights(leading_muon_eta, weights, ret_mu["selected_events"], NUMPY_LIB.linspace(-4.0, 4.0, 401))
     hist_subleading_muon_eta_d = fill_with_weights(subleading_muon_eta, weights, ret_mu["selected_events"], NUMPY_LIB.linspace(-4.0, 4.0, 401))
 
     hist_leading_jet_pt_d = fill_with_weights(leading_jet_pt, weights, ret_mu["selected_events"] & (ret_jet["num_jets"]>=1), NUMPY_LIB.linspace(0, 200.0, 401))
     hist_subleading_jet_pt_d = fill_with_weights(subleading_jet_pt, weights, ret_mu["selected_events"] & (ret_jet["num_jets"]>=2), NUMPY_LIB.linspace(0, 100.0, 401))
     
+    hist_numjet_d = fill_with_weights(ret_jet["num_jets"], weights, ret_mu["selected_events"], NUMPY_LIB.linspace(0, 10, 11))
+
+
     int_lumi = 0 
     if not is_mc and not (lumimask is None):
         runs = NUMPY_LIB.asnumpy(scalars["run"])
@@ -361,16 +435,17 @@ def analyze_data(
         "int_lumi": int_lumi,
         "hist_npvs_d": Results(hist_npvs_d),
         "hist_inv_mass_d": Results(hist_inv_mass_d),
+
         "hist_mu0_pt": Results(hist_leading_muon_pt_d),
-        
-        "hist_mu0_pt_weights": Results(hist_leading_muon_pt_d_weights),
         "hist_mu1_pt": Results(hist_subleading_muon_pt_d),
         
         "hist_mu0_eta": Results(hist_leading_muon_eta_d),
         "hist_mu1_eta": Results(hist_subleading_muon_eta_d),
         
         "hist_leading_jet_pt": Results(hist_leading_jet_pt_d),
-        "hist_subleading_jet_pt": Results(hist_subleading_jet_pt_d),        
+        "hist_subleading_jet_pt": Results(hist_subleading_jet_pt_d),
+
+        "hist_numjet_d": Results(hist_numjet_d),
     })
     
     if is_mc:   
@@ -492,7 +567,12 @@ def event_loop(train_batches_queue, use_cuda, **kwargs):
         ds.numpy_lib = cupy
         ds.move_to_device(cupy)
 
-    ret = ds.analyze(analyze_data, **kwargs)
+
+    parameters = kwargs.pop("parameters")
+
+    ret = {}
+    for parameter_set_name, parameter_set in parameters.items():
+        ret[parameter_set_name] = ds.analyze(analyze_data, parameters=parameter_set, **kwargs)
     ret["num_events"] = len(ds)
 
     train_batches_queue.task_done()
@@ -517,7 +597,7 @@ def parse_args():
     args = parser.parse_args()
     return args
 
-def main(parameters):
+def main(datasets, parameters, lumidata, lumimask, pu_corrections):
     global NUMPY_LIB, ha
 
     nev_total = 0
@@ -534,22 +614,10 @@ def main(parameters):
     else:
         os.environ["NUMBA_NUM_THREADS"] = str(args.nthreads)
 
-    lumimask = LumiMask("data/Cert_294927-306462_13TeV_EOY2017ReReco_Collisions17_JSON.txt", np, backend_cpu)
-    lumidata = LumiData("data/lumi2017.csv")
-    pu_corrections_2017 = load_puhist_target("data/RunII_2017_data.root")
-
     processed_size_mb = 0
-    for datasetname, globpattern, is_mc in [
-        ("data_2017", args.datapath + "/store/data/Run2017*/SingleMuon/NANOAOD/Nano14Dec2018-v1/**/*.root", False),
-#        ("ggh", args.datapath + "/store/mc/RunIIFall17NanoAODv4/GluGluHToMuMu_M125_*/NANOAODSIM/*12Apr2018_Nano14Dec2018*/**/*.root", True),
-        ("dy", args.datapath + "/store/mc/RunIIFall17NanoAODv4/DYJetsToLL_M-50_TuneCP5_13TeV-amcatnloFXFX-pythia8*/**/*.root", True),
-#        ("ttjets_dl", args.datapath + "/store/mc/RunIIFall17NanoAODv4/TTJets_DiLept_TuneCP5_13TeV-madgraphMLM-pythia8/**/*.root", True),
-#        ("ww", args.datapath + "/store/mc/RunIIFall17NanoAODv4/WWTo2L2Nu_NNPDF31_TuneCP5_13TeV-powheg-pythia8/**/*.root", True),
-#        ("wz", args.datapath + "/store/mc/RunIIFall17NanoAODv4/WZTo3LNu_13TeV-powheg-pythia8/**/*.root", True),
-#        ("zz", args.datapath + "/store/mc/RunIIFall17NanoAODv4/ZZTo2L2Nu_13TeV_powheg_pythia8/**/*.root", True),
-        ]:
+    for datasetname, globpattern, is_mc in datasets:
 
-        filenames_all = glob.glob(globpattern, recursive=True)
+        filenames_all = glob.glob(args.datapath + globpattern, recursive=True)
         filenames_all = [fn for fn in filenames_all if not "Friend" in fn]
         print("dataset {0} has {1} files".format(datasetname, len(filenames_all)))
         if args.maxfiles > 0:
@@ -590,7 +658,12 @@ def main(parameters):
                         break
                     train_batches_queue.put(ds)
 
-                ret, nev, memsize = event_loop(train_batches_queue, args.use_cuda, debug=False, verbose=True, is_mc=is_mc, lumimask=lumimask, lumidata=lumidata, pu_corrections=pu_corrections_2017, parameters=parameters) 
+                ret, nev, memsize = event_loop(
+                    train_batches_queue, args.use_cuda, debug=False,
+                    verbose=True, is_mc=is_mc, lumimask=lumimask,
+                    lumidata=lumidata,
+                    pu_corrections=pu_corrections,
+                    parameters=parameters) 
                 rets += [ret]
                 processed_size_mb += memsize
                 nev_total += nev
@@ -604,6 +677,7 @@ def main(parameters):
             ret = sum(rets, Results({}))
             if is_mc:
                 ret["gen_sumweights"] = get_gen_sumweights(filenames_all)
+            print("int_events={0:.2E}".format(sum(ret["an1"]["hist_numjet_d"]["puWeight"].contents)))
             ret.save_json("out/{0}.json".format(datasetname))
 
     t1 = time.time()
@@ -618,7 +692,8 @@ def create_datastructure(is_mc):
             ("Muon_pt", "float32"), ("Muon_eta", "float32"),
             ("Muon_phi", "float32"), ("Muon_mass", "float32"),
             ("Muon_pfRelIso04_all", "float32"), ("Muon_mediumId", "bool"),
-            ("Muon_tightId", "bool"), ("Muon_charge", "int32")
+            ("Muon_tightId", "bool"), ("Muon_charge", "int32"),
+            ("Muon_isGlobal", "bool"), ("Muon_isTracker", "bool")
         ],
         "Jet": [
             ("Jet_pt", "float32"), ("Jet_eta", "float32"),
@@ -655,30 +730,57 @@ def create_datastructure(is_mc):
             ("genWeight", "float32")
         ]
     return datastructures
-if __name__ == "__main__":
-    # import yappi
-    # filename = 'callgrind.filename.prof'
-    # yappi.set_clock_type('cpu')
-    # yappi.start(builtins=True)
 
-    parameters = {
-        "NdfPV": 4,
-        "zPV": 24,
-        "nPV": 0,
-        "muon_pt": 20,
-        "muon_pt_leading": 30,
-        "muon_eta": 2.4,
-        "muon_iso": 0.25,
-        "muon_id": "medium",
-        "muon_trigger_match_dr": 0.1,
-        "jet_mu_dr": 0.4,
-        "jet_pt": 30,
-        "jet_eta": 4.7,
-        "jet_id": "tight",
-        "jet_puid": "loose",
+if __name__ == "__main__":
+    analysis_parameters = {
+        "an1": {
+            "NdfPV": 4,
+            "zPV": 24,
+            "nPV": 0,
+            "muon_pt": 20,
+            "muon_pt_leading": 30,
+            "muon_eta": 2.4,
+            "muon_iso": 0.25,
+            "muon_id": "medium",
+            "muon_trigger_match_dr": 0.1,
+            "jet_mu_dr": 0.4,
+            "jet_pt": 30,
+            "jet_eta": 4.7,
+            "jet_id": "tight",
+            "jet_puid": "loose",
+        },
+        "an2": {
+            "NdfPV": 4,
+            "zPV": 24,
+            "nPV": 0,
+            "muon_pt": 20,
+            "muon_pt_leading": 30,
+            "muon_eta": 2.4,
+            "muon_iso": 0.25,
+            "muon_id": "medium",
+            "muon_trigger_match_dr": 0.1,
+            "jet_mu_dr": 0.4,
+            "jet_pt": 30,
+            "jet_eta": 4.7,
+            "jet_id": "loose",
+            "jet_puid": "loose",
+        }
     }
 
-    main(parameters)
+    datasets = [
+        ("data_2017", "/store/data/Run2017*/SingleMuon/NANOAOD/Nano14Dec2018-v1/**/*.root", False),
+        ("ggh", "/store/mc/RunIIFall17NanoAODv4/GluGluHToMuMu_M125_13TeV_amcatnloFXFX_pythia8/NANOAODSIM/*12Apr2018_Nano14Dec2018*/**/*.root", True),
+        ("vbf", "/store/mc/RunIIFall17NanoAODv4/VBFHToMuMu_M125_TuneCP5_PSweights_13TeV_amcatnlo_pythia8/NANOAODSIM/*12Apr2018_Nano14Dec2018*/**/*.root", True),
+        ("dy", "/store/mc/RunIIFall17NanoAODv4/DYJetsToLL_M-50_TuneCP5_13TeV-amcatnloFXFX-pythia8*/**/*.root", True),
+        ("ttjets_dl", "/store/mc/RunIIFall17NanoAODv4/TTJets_DiLept_TuneCP5_13TeV-madgraphMLM-pythia8/**/*.root", True),
+        ("ww_2l2nu", "/store/mc/RunIIFall17NanoAODv4/WWTo2L2Nu_NNPDF31_TuneCP5_13TeV-powheg-pythia8/**/*.root", True),
+        ("wz_3lnu", "/store/mc/RunIIFall17NanoAODv4/WZTo3LNu_13TeV-powheg-pythia8/**/*.root", True),
+        ("wz_2l2q", "/store/mc/RunIIFall17NanoAODv4/WZTo2L2Q_13TeV_amcatnloFXFX_madspin_pythia8/**/*.root", True),
+        ("zz", "/store/mc/RunIIFall17NanoAODv4/ZZTo2L2Nu_13TeV_powheg_pythia8/**/*.root", True),
+    ]
 
-    # stats = yappi.get_func_stats()
-    # stats.save(filename, type='callgrind')
+    lumimask = LumiMask("data/Cert_294927-306462_13TeV_EOY2017ReReco_Collisions17_JSON.txt", np, backend_cpu)
+    lumidata = LumiData("data/lumi2017.csv")
+    pu_corrections_2017 = load_puhist_target("data/RunII_2017_data.root")
+
+    main(datasets, analysis_parameters, lumidata, lumimask, pu_corrections_2017)

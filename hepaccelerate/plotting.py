@@ -48,8 +48,15 @@ def load_hist(hist_dict):
 if __name__ == "__main__":
 
     #in picobarns
+    #from https://docs.google.com/presentation/d/1OMnGnSs8TIiPPVOEKV8EbWS8YBgEsoMH0r0Js5v5tIQ/edit#slide=id.g3f663e4489_0_20
     cross_sections = {
         "dy": 5765.4,
+        "ggh": 0.009605,
+        "vbf": 0.000823,
+        "ttjets_dl": 85.656,
+        "ww_2l2nu": 5.595,
+        "wz_3lnu":  4.42965,
+        "zz": 16.523
     }
 
     import json
@@ -57,37 +64,50 @@ if __name__ == "__main__":
     res = {}
     genweights = {}
     weight_xs = {}
+    mc_samples = ["ggh", "zz", "ww_2l2nu", "wz_3lnu", "ttjets_dl", "dy"]
 
     res["data"] = json.load(open("out/data_2017.json"))
-    res["dy"] = json.load(open("out/dy.json"))
+    for mc_samp in mc_samples:
+        res[mc_samp] = json.load(open("out/{0}.json".format(mc_samp)))
 
     #in inverse picobarns
-    int_lumi = res["data"]["int_lumi"]
+    int_lumi = res["data"]["an1"]["int_lumi"]
 
-    for sample in ["dy"]:
-        genweights[sample] = res[sample]["gen_sumweights"]
-        weight_xs[sample] = cross_sections[sample] * int_lumi / genweights[sample]
+    for mc_samp in mc_samples:
+        genweights[mc_samp] = res[mc_samp]["gen_sumweights"]
+        weight_xs[mc_samp] = cross_sections[mc_samp] * int_lumi / genweights[mc_samp]
+        print(mc_samp, genweights[mc_samp], cross_sections[mc_samp])
 
-    for var in [k for k in res["dy"].keys() if k.startswith("hist_")]:
-        if var in ["hist_puweight"]:
-            continue
-        weights = res["dy"][var].keys()
-        for weight in weights:
-            print(var, weight)
-            h = load_hist(res["dy"][var][weight])
-            hd = load_hist(res["data"][var]["nominal"])
+    for analysis in [k for k in res["dy"].keys() if k.startswith("an")]:
 
-            h["xsw"] = weight_xs["dy"]
-            h["label"] = "DY ({0:.1E})".format(np.sum(h["contents"]))
-            hd["label"] = "data ({0:.1E})".format(np.sum(hd["contents"]))
+        for var in [k for k in res["dy"][analysis].keys() if k.startswith("hist_")]:
+            if var in ["hist_puweight"]:
+                continue
 
-            plt.figure(figsize=(4,4))
-            a1, a2 = plot_hist_ratio([h], hd)
-            a1.text(0.01,0.99, r"CMS internal, $\int L = {0:.1f}\ pb^{{-1}}$ (2017)".format(int_lumi),
-                horizontalalignment='left', verticalalignment='top', transform=a1.transAxes
-            )
-            a1.set_title(" ".join([var, weight]))
-            handles, labels = a1.get_legend_handles_labels()
-            a1.legend(handles[::-1], labels[::-1], frameon=False)
+            if "jet" not in var:
+                continue
 
-            plt.savefig("out/{0}_{1}.pdf".format(var, weight), bbox_inches="tight")
+            weights = res["dy"][analysis][var].keys()
+            for weight in weights:
+                print(var, weight)
+                hd = load_hist(res["data"][analysis][var]["nominal"])
+
+                hmc = []
+                for mc_samp in mc_samples:
+                    h = load_hist(res[mc_samp][analysis][var][weight])
+                    h["xsw"] = weight_xs[mc_samp]
+                    h["label"] = "{0} ({1:.1E})".format(mc_samp, np.sum(h["contents"]))
+                    hmc += [h]
+
+                hd["label"] = "data ({0:.1E})".format(np.sum(hd["contents"]))
+
+                plt.figure(figsize=(4,4))
+                a1, a2 = plot_hist_ratio(hmc, hd)
+                a1.text(0.01,0.99, r"CMS internal, $\int L = {0:.1f}\ pb^{{-1}}$".format(int_lumi),
+                    horizontalalignment='left', verticalalignment='top', transform=a1.transAxes
+                )
+                a1.set_title(" ".join([var, weight]))
+                handles, labels = a1.get_legend_handles_labels()
+                a1.legend(handles[::-1], labels[::-1], frameon=False, fontsize=8)
+
+                plt.savefig("out/{0}_{1}_{2}.pdf".format(analysis, var, weight), bbox_inches="tight")
