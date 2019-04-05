@@ -355,7 +355,7 @@ def analyze_data(
         mask_events = mask_events & mask_lumi
         #get integrated luminosity in this file
         if not (lumidata is None): 
-            int_lumi = get_int_lumi(runs, lumis, mask_events, lumidata)
+            int_lumi = get_int_lumi(runs, lumis, NUMPY_LIB.asnumpy(mask_events), lumidata)
     
     ret = Results({
         "int_lumi": int_lumi,

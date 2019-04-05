@@ -227,6 +227,7 @@ def mask_deltar_first(objs1, mask1, objs2, mask2, drcut):
     return mask_out
 
 def histogram_from_vector(data, weights, bins):        
+    assert(len(data) == len(weights))
     out_w = np.zeros(len(bins) - 1, dtype=np.float32)
     out_w2 = np.zeros(len(bins) - 1, dtype=np.float32)
     fill_histogram(data, weights, bins, out_w, out_w2)
