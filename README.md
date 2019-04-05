@@ -99,19 +99,19 @@ The following benchmarks have been carried out with a realistic CMS analysis on 
 
 This proto-analysis implements the following:
 
- (x) muon selection: pT leading and subleading, eta, ID, isolation, opposite charge, matching to trigger objects
- (x) jet selection: pt, eta, ID & PU ID, remove jets dR-matched to leptons
- (x) event selection: MET filters, trigger, primary vertex quality cuts, two opposite sign muons
- (x) high-level variables: dimuon invariant mass
- (x) PU and gen weight computation
- (x) on the fly luminosity calculation, golden JSON lumi filtering
- (x) weighted histograms of muon, jet and event variables
+ - [x] muon selection: pT leading and subleading, eta, ID, isolation, opposite charge, matching to trigger objects
+ - [x] jet selection: pt, eta, ID & PU ID, remove jets dR-matched to leptons
+ - [x] event selection: MET filters, trigger, primary vertex quality cuts, two opposite sign muons
+ - [x] high-level variables: dimuon invariant mass
+ - [x] PU and gen weight computation
+ - [x] on the fly luminosity calculation, golden JSON lumi filtering
+ - [x] weighted histograms of muon, jet and event variables
 
 Not yet implemented:
 
- ( ) muon momentum Rochester corrections
- ( ) lepton scale factors
- ( ) in-situ training and evaluation of Higgs-to-bkg discriminators
+ - [ ] muon momentum Rochester corrections
+ - [ ] lepton scale factors
+ - [ ] in-situ training and evaluation of Higgs-to-bkg discriminators
 
 The analysis is carried out using a single script on a single machine, `tests/analyse_hmumu.py -a cache -a analyze --nthreads N (--use-cuda)`. In order to be able to process a billion events in a few minutes, the first time the analysis is run, the branches that we will use are uncompressed and saved to local disk as numpy files. Without this optional caching step, the upper limit on the processing speed will be dominated by the CPU decompression of the ROOT TTree (first line `caching` in the tables). This means that the second time you run the analysis with reading the same branches, the decompression does not need to be done and we can achieve about 3-4x higher speeds.
 
@@ -192,3 +192,10 @@ LC_ALL=C PYTHONPATH=.:$PYTHONPATH singularity exec -B /nvmedata --nv singularity
 ## Recommendations on data locality
 In order to make full use of modern CPUs or GPUs, you want to bring the data as close as possible to where the work is done, otherwise you will spend most of the time waiting for the data to arrive rather than actually performing the computations.
 With CMS NanoAOD with event sizes of 1-2 kB/event, 1 million events is approximately 1-2 GB on disk. Therefore, you can fit a significant amount of data used in a HEP analysis on a commodity SSD. In order to copy the data to your local disk, use grid tools such as `gfal-copy` or even `rsync` to fetch it from your nearest Tier2. Preserving the filename structure (`/store/...`) will allow you to easily run the same code on multiple sites.
+
+## Frequently asked questions
+
+ - How does this relate to the awkward-array project? We use the jagged structure provided by the awkward arrays, but implement common HEP functions such as deltaR matching as loops or 'kernels' running directly over the array contents, taking into account the event structure. We make these loops fast with Numba, but allow you to debug them by going back to standard python when disabling the compilation.
+ - What if I don't have access to a GPU? You should still be able to see event processing speeds in the hundreds of kHz for common analysis tasks.
+ - How do I plot my histograms that are saved in the JSON? Load the JSON contents and use the `edges` (left bin edges, plus last rightmost edge), `contents` (weighted bin contents) and `contents_w2` (bin contents with squared weights, useful for error calculation) to access the data directly.
+ - I'm a GPU programming expert, how optimized are your CUDA kernels? Good question! At the moment, not very optimized, as we do a lot of control flow (`if` statements) in them. However, the GPU analysis is still about 5x faster than a pure CPU analysis. Please give us a hand to make it even better!
