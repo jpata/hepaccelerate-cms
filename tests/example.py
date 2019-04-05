@@ -20,14 +20,35 @@ def analyze_data_function(data, parameters):
 
     weights = NUMPY_LIB.ones(num_events, dtype=NUMPY_LIB.float32)
     bins = NUMPY_LIB.linspace(0,300,101)
-    hist_muons_pt = Histogram(*ha.histogram_from_vector(leading_muon_pt[mask_events_dimuon], weights, bins))
+    hist_muons_pt = Histogram(*ha.histogram_from_vector(leading_muon_pt[mask_events_dimuon], weights[mask_events_dimuon], bins))
 
     ret["hist_leading_muon_pt"] = hist_muons_pt
     return ret
 
-dataset = NanoAODDataset(
-    ["/Volumes/Samsung_T3/nanoad//store/mc/RunIIFall17NanoAODv4/DYJetsToLL_M-50_TuneCP5_13TeV-amcatnloFXFX-pythia8/NANOAODSIM/PU2017_12Apr2018_Nano14Dec2018_new_pmx_102X_mc2017_realistic_v6_ext1-v1/00000/8AAF0CFA-542F-8947-973E-A61A78293481.root"],
-    ["Jet_pt", "Jet_eta", "Jet_phi", "Jet_mass", "Muon_pt", "Muon_eta", "Muon_phi", "Muon_mass", "HLT_IsoMu24"], "Events", ["Jet", "Muon"], ["HLT_IsoMu24"])
+filename = "/Volumes/Samsung_T3/nanoad//store/mc/RunIIFall17NanoAODv4/DYJetsToLL_M-50_TuneCP5_13TeV-amcatnloFXFX-pythia8/NANOAODSIM/PU2017_12Apr2018_Nano14Dec2018_new_pmx_102X_mc2017_realistic_v6_ext1-v1/00000/8AAF0CFA-542F-8947-973E-A61A78293481.root"
+
+#predefine which branches to read from the TTree and how they are grouped to objects
+datastructures = {
+        "Muon": [
+            ("Muon_pt", "float32"),("Muon_eta", "float32"),
+            ("Muon_phi", "float32"), ("Muon_mass", "float32"),
+            ("Muon_pfRelIso04_all", "float32"), ("Muon_mediumId", "bool"),
+            ("Muon_tightId", "bool"), ("Muon_charge", "int32")
+        ],
+        "Jet": [
+            ("Jet_pt", "float32"), ("Jet_eta", "float32"),
+            ("Jet_phi", "float32"), ("Jet_btagDeepB", "float32"),
+            ("Jet_jetId", "int32"), ("Jet_puId", "int32"),
+        ],
+        "EventVariables": [
+            ("HLT_IsoMu24", "bool"),
+            ("run", "uint32"),
+            ("luminosityBlock", "uint32"),
+            ("event", "uint64")
+        ]
+    }
+
+dataset = NanoAODDataset([filename], datastructures)
 dataset.preload(nthreads=4, verbose=True)
 dataset.make_objects()
 results = dataset.analyze(analyze_data_function, verbose=True, parameters={"muons_ptcut": 30.0})
