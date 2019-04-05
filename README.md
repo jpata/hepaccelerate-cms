@@ -54,64 +54,61 @@ results = dataset.analyze(analyze_data_function, verbose=True, parameters={"muon
 results.save_json("out.json")
 ```
 
-## Benchmarks
+## Benchmark on a CMS Higgs analysis
 
-The following benchmarks have been carried out with a realistic CMS analysis on NanoAOD. We first perform a caching step, where the branches that we will use are uncompressed and saved to local disk as numpy files. Without this optional caching step, the upper limit on the processing speed will be dominated by the CPU decompression of the ROOT TTree (first line in the tables). Even with the caching, the IO time of reading the cached arrays is significant, such that the analysis receives only a small boost from multiple CPU threads, and a another small boost from using the GPU and thus freeing the CPU to deal with loading the data from disk.
-However, if the analysis part becomes moderately complex
+The following benchmarks have been carried out with a realistic CMS analysis on NanoAOD.
 
+This proto-analysis implements the following:
 
-### 2015 Macbook Pro 
+ (x) muon selection: pT leading and subleading, eta, ID, isolation, opposite charge, matching to trigger objects
+ (x) jet selection: pt, eta, ID & PU ID, remove jets dR-matched to leptons
+ (x) event selection: MET filters, trigger, primary vertex quality cuts, two opposite sign muons
+ (x) high-level variables: dimuon invariant mass
+ (x) PU and gen weight computation
+ (x) on the fly luminosity calculation, golden JSON lumi filtering
+ (x) weighted histograms of muon, jet and event variables
+
+Not yet implemented:
+
+ ( ) muon momentum Rochester corrections
+ ( ) lepton scale factors
+ ( ) in-situ training and evaluation of Higgs-to-bkg discriminators
+
+The analysis is carried out using a single script, `tests/analyse_hmumu.py -a cache -a analyze --nthreads N (--use-cuda) --async-data`. In order to be able to process a billion events, the first time the analysis is run, the branches that we will use are uncompressed and saved to local disk as numpy files. Without this optional caching step, the upper limit on the processing speed will be dominated by the CPU decompression of the ROOT TTree (first line `caching` in the tables). This means that the second time you run the analysis with reading the same branches, the decompression does not need to be done and we can achieve about 3-4x higher speeds.
+
+### 2015 Macbook Pro, 35M events
+
+We can process 35M events on a macbook in about 5 minutes.
 
 - 4-core 2.6GHz i5
 - 8GB DDR3
 - 250GB SSD PT250B over USB3
-- analyzed 35,041,780 events in 2.07GB of branches
+- analyzed 35,041,780 events in 2.36 GB of branches
 
-task    | configuration  |time    | speed       | speed
---------|----------------|--------|-------------|-----------
-caching | CPU(4)         | 378.5s | 9.26E+04 Hz | 5.60 MB/s
-analyze | CPU(1)         | 170.9s | 2.05E+05 Hz | 12.41 MB/s
-analyze | CPU(2)         | 163.5s | 2.14E+05 Hz | 12.98 MB/s
-analyze | CPU(4)         | 161.6s | 2.17E+05 Hz | 13.12 MB/s
+Overall processed 3.50E+07 (35041780) events in total 2.36 GB, 365.5 seconds, 9.59E+04 Hz, 6.60 MB/s
+
+task    | configuration  |time     | speed       | speed
+--------|----------------|---------|-------------|-----------
+caching | CPU(4)         | 365.5 s | 9.59E+04 Hz | 6.60 MB/s
+analyze | CPU(4)         | 116.6 s | 3.01E+05 Hz | 20.70 MB/s
 
 
-### High-end workstation
+### High-end workstation, 1B events
+
+We can demonstrate that we can process 1B events in about 4 minutes (from existing caches) and in about 20 minutes from raw NanoAOD. The maximum system throughput is limited by the read speed of the P4608 SSD, which is 1.5GB/s.
 
 - 16-core 3GHz i7
 - 64GB DDR3
 - 6.4TB Intel P4608
 - 1x Titan X 12GB
-- analyzed 214,989,146 events in 11.87 GB of branches
-
-task    | configuration           |time           | speed       | speed
---------|-------------------------|---------------|-------------|-----------
-caching | CPU(16)                 | 281.3 seconds | 7.64E+05 Hz | 43.22 MB/s
-analyze | CPU(1)                  | 180.7 seconds | 1.19E+06 Hz | 67.27 MB/s
-analyze | CPU(2)                  | 141.1 seconds | 1.52E+06 Hz | 86.16 MB/s
-analyze | CPU(4)                  | 140.4 seconds | 1.53E+06 Hz | 86.54 MB/s
-analyze | CPU(8)                  | 139.0 seconds | 1.55E+06 Hz | 87.44 MB/s
-analyze | CPU(16)                 | 127.9 seconds | 1.68E+06 Hz | 95.05 MB/s
-analyze | GPU(1) CPU(16)          | 115.8 seconds | 1.86E+06 Hz | 105.00 MB/s
-analyze | GPU(1) CPU(16) batch(2) | 93.7 seconds  | 2.29E+06 Hz | 129.72 MB/s
-analyze | GPU(1) CPU(16) batch(4) | 85.9 seconds  | 2.50E+06 Hz | 141.54 MB/s
-analyze | GPU(1) CPU(16) batch(8) | 85.1 seconds  | 2.53E+06 Hz | 142.83 MB/s
+- analyzed 978,711,446 events in 62.70 GB of branches
 
 
-### Workstation, 1B event run
-
-We can demonstrate that we can process 1B events in about 10 minutes (from existing caches) and in about 30 minutes from raw NanoAOD.
-
-- 978,711,446 events in 54.95 GB of branches
-- analyze as before
-- analyze, but make 100 more histograms
-
-task                     | configuration           |time             | speed       | speed
--------------------------|-------------------------|-----------------|-------------|-----------
-caching                  | CPU(16)                 | 1127.0 seconds  | 8.68E+05 Hz | 49.93 MB/s
-analyze                  | CPU(16)                 | 594.1 seconds   | 1.65E+06 Hz | 94.70 MB/s
-analyze                  | GPU(1) CPU(16) batch(4) | 565.7 seconds   | 1.73E+06 Hz | 99.46 MB/s
-analyze (100 histograms) | CPU(16)                 | 1232.4 seconds  | 7.94E+05 Hz | 45.65 MB/s
-analyze (100 histograms) | GPU(1) CPU(16) batch(4) | 832.5 seconds   | 1.18E+06 Hz | 67.59 MB/s
+task    | configuration           |time      | speed       | speed
+--------|-------------------------|----------|-------------|-----------
+caching | CPU(16)                 | 1008.8 s | 9.70E+05 Hz | 63.65 MB/s
+analyze | CPU(16)                 | 374.7 s  | 2.61E+06 Hz | 171.38 MB/s
+analyze | GPU(1) CPU(16) batch(8) | 229.4 s  | 4.27E+06 Hz | 279.87 MB/s
 
 
 ## Getting started
