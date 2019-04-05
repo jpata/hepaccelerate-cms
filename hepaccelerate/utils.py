@@ -216,7 +216,7 @@ class Dataset(object):
 
 class NanoAODDataset(Dataset):
     numpy_lib = np
-    def __init__(self, filenames, datastructures):
+    def __init__(self, filenames, datastructures, cache_location=""):
         arrays_to_load = []
         for ds_item, ds_vals in datastructures.items():
             for branch, dtype in ds_vals:
@@ -227,7 +227,7 @@ class NanoAODDataset(Dataset):
         self.names_eventvars = [evvar for evvar, dtype in self.eventvars_dtypes] 
         self.structs_dtypes = {k: v for (k, v) in datastructures.items() if k != "EventVariables"}
         self.names_structs = sorted(self.structs_dtypes.keys())
-        self.cache_prefix = ""
+        self.cache_location = cache_location
          
         #lists of data, one per file
         self.structs = {}
@@ -254,8 +254,9 @@ class NanoAODDataset(Dataset):
     def __repr__(self):
         s = "NanoAODDataset(files={0}, events={1}, {2})".format(len(self.filenames), len(self), ", ".join(self.structs.keys()))
         return s
+
     def get_cache_dir(self, fn):
-        return os.path.join(self.cache_prefix, fn)
+        return self.cache_location + fn
 
     def printout(self):
         s = str(self) 

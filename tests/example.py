@@ -26,6 +26,7 @@ def analyze_data_function(data, parameters):
     return ret
 
 filename = "/Volumes/Samsung_T3/nanoad//store/mc/RunIIFall17NanoAODv4/DYJetsToLL_M-50_TuneCP5_13TeV-amcatnloFXFX-pythia8/NANOAODSIM/PU2017_12Apr2018_Nano14Dec2018_new_pmx_102X_mc2017_realistic_v6_ext1-v1/00000/8AAF0CFA-542F-8947-973E-A61A78293481.root"
+try_cache = True
 
 #predefine which branches to read from the TTree and how they are grouped to objects
 datastructures = {
@@ -48,8 +49,20 @@ datastructures = {
         ]
     }
 
-dataset = NanoAODDataset([filename], datastructures)
-dataset.preload(nthreads=4, verbose=True)
-dataset.make_objects()
+dataset = NanoAODDataset([filename], datastructures, cache_location="./mycache/")
+
+#optionally set try_cache=True to make the the analysis faster the next time around when reading the same branches
+if try_cache:
+    try:
+        dataset.from_cache(verbose=True, nthreads=4)
+    except FileNotFoundError as e:
+        print("Cache not found, creating...")
+        dataset.preload(nthreads=4, verbose=True)
+        dataset.make_objects()
+        dataset.to_cache(verbose=True, nthreads=4)
+else:
+    dataset.preload(nthreads=4, verbose=True)
+    dataset.make_objects()
+
 results = dataset.analyze(analyze_data_function, verbose=True, parameters={"muons_ptcut": 30.0})
 results.save_json("out.json")

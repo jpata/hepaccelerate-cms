@@ -1,21 +1,25 @@
 # hepaccelerate
 
-Accelerated array analysis on flat ROOT data. Process 1 billion events to histograms in 10 minutes on a single GPU workstation. Weighted histograms, jet-lepton deltaR matching and pileup weighting directly on the GPU! Or, if you don't have a GPU, no big deal, the same code works on the CPU too, just somewhat slower! No batch jobs or servers required!
+Accelerated array analysis on flat ROOT data. Process 1 billion events to histograms in 4 minutes on a single GPU workstation.
 
-Requirements:
+Weighted histograms, jet-lepton deltaR matching and pileup weighting directly on the GPU! Or, if you don't have a GPU, no big deal, the same code works on the CPU too, just somewhat slower! No batch jobs or servers required!
+
+Required python libraries:
  - python 3
  - uproot
  - awkward-array
- - numba
+ - numba >0.43
  - fnal-column-analysis-tools
 
-Optional for CUDA acceleration:
+Optional libraries for CUDA acceleration:
  - cupy
  - cudatoolkit
 
 We also provide a singularity image with the python libraries preinstalled, see below.
 
 ## Sneak peek
+
+This is a minimal example in [tests/example.py](tests/example.py).
 
 ```python
 import hepaccelerate
@@ -40,23 +44,58 @@ def analyze_data_function(data, parameters):
 
     weights = NUMPY_LIB.ones(num_events, dtype=NUMPY_LIB.float32)
     bins = NUMPY_LIB.linspace(0,300,101)
-    hist_muons_pt = Histogram(*ha.histogram_from_vector(leading_muon_pt[mask_events_dimuon], weights, bins))
+    hist_muons_pt = Histogram(*ha.histogram_from_vector(leading_muon_pt[mask_events_dimuon], weights[mask_events_dimuon], bins))
 
     ret["hist_leading_muon_pt"] = hist_muons_pt
     return ret
 
-dataset = NanoAODDataset(
-    ["8AAF0CFA-542F-8947-973E-A61A78293481.root"],
-    ["Jet_pt", "Jet_eta", "Jet_phi", "Jet_mass", "Muon_pt", "Muon_eta", "Muon_phi", "Muon_mass", "HLT_IsoMu24"], "Events", ["Jet", "Muon"], ["HLT_IsoMu24"])
-dataset.preload(nthreads=4, verbose=True)
-dataset.make_objects()
+filename = "/Volumes/Samsung_T3/nanoad//store/mc/RunIIFall17NanoAODv4/DYJetsToLL_M-50_TuneCP5_13TeV-amcatnloFXFX-pythia8/NANOAODSIM/PU2017_12Apr2018_Nano14Dec2018_new_pmx_102X_mc2017_realistic_v6_ext1-v1/00000/8AAF0CFA-542F-8947-973E-A61A78293481.root"
+try_cache = True
+
+#predefine which branches to read from the TTree and how they are grouped to objects
+datastructures = {
+        "Muon": [
+            ("Muon_pt", "float32"),("Muon_eta", "float32"),
+            ("Muon_phi", "float32"), ("Muon_mass", "float32"),
+            ("Muon_pfRelIso04_all", "float32"), ("Muon_mediumId", "bool"),
+            ("Muon_tightId", "bool"), ("Muon_charge", "int32")
+        ],
+        "Jet": [
+            ("Jet_pt", "float32"), ("Jet_eta", "float32"),
+            ("Jet_phi", "float32"), ("Jet_btagDeepB", "float32"),
+            ("Jet_jetId", "int32"), ("Jet_puId", "int32"),
+        ],
+        "EventVariables": [
+            ("HLT_IsoMu24", "bool"),
+            ("run", "uint32"),
+            ("luminosityBlock", "uint32"),
+            ("event", "uint64")
+        ]
+    }
+
+dataset = NanoAODDataset([filename], datastructures, cache_location="./mycache/")
+
+#optionally set try_cache=True to make the the analysis faster the next time around when reading the same branches
+if try_cache:
+    try:
+        dataset.from_cache(verbose=True, nthreads=4)
+    except FileNotFoundError as e:
+        print("Cache not found, creating...")
+        dataset.preload(nthreads=4, verbose=True)
+        dataset.make_objects()
+        dataset.to_cache(verbose=True, nthreads=4)
+else:
+    dataset.preload(nthreads=4, verbose=True)
+    dataset.make_objects()
+
 results = dataset.analyze(analyze_data_function, verbose=True, parameters={"muons_ptcut": 30.0})
 results.save_json("out.json")
 ```
 
 ## Benchmark on a CMS Higgs analysis
 
-The following benchmarks have been carried out with a realistic CMS analysis on NanoAOD.
+The following benchmarks have been carried out with a realistic CMS analysis on NanoAOD. The analysis can be found in [tests/analysis_hmumu.py](tests/analysis_hmumu.py).
+
 
 This proto-analysis implements the following:
 
@@ -74,7 +113,7 @@ Not yet implemented:
  ( ) lepton scale factors
  ( ) in-situ training and evaluation of Higgs-to-bkg discriminators
 
-The analysis is carried out using a single script, `tests/analyse_hmumu.py -a cache -a analyze --nthreads N (--use-cuda) --async-data`. In order to be able to process a billion events, the first time the analysis is run, the branches that we will use are uncompressed and saved to local disk as numpy files. Without this optional caching step, the upper limit on the processing speed will be dominated by the CPU decompression of the ROOT TTree (first line `caching` in the tables). This means that the second time you run the analysis with reading the same branches, the decompression does not need to be done and we can achieve about 3-4x higher speeds.
+The analysis is carried out using a single script on a single machine, `tests/analyse_hmumu.py -a cache -a analyze --nthreads N (--use-cuda)`. In order to be able to process a billion events in a few minutes, the first time the analysis is run, the branches that we will use are uncompressed and saved to local disk as numpy files. Without this optional caching step, the upper limit on the processing speed will be dominated by the CPU decompression of the ROOT TTree (first line `caching` in the tables). This means that the second time you run the analysis with reading the same branches, the decompression does not need to be done and we can achieve about 3-4x higher speeds.
 
 ### 2015 Macbook Pro, 35M events
 
@@ -85,8 +124,6 @@ We can process 35M events on a macbook in about 5 minutes.
 - 250GB SSD PT250B over USB3
 - analyzed 35,041,780 events in 2.36 GB of branches
 
-Overall processed 3.50E+07 (35041780) events in total 2.36 GB, 365.5 seconds, 9.59E+04 Hz, 6.60 MB/s
-
 task    | configuration  |time     | speed       | speed
 --------|----------------|---------|-------------|-----------
 caching | CPU(4)         | 365.5 s | 9.59E+04 Hz | 6.60 MB/s
@@ -95,7 +132,7 @@ analyze | CPU(4)         | 116.6 s | 3.01E+05 Hz | 20.70 MB/s
 
 ### High-end workstation, 1B events
 
-We can demonstrate that we can process 1B events in about 4 minutes (from existing caches) and in about 20 minutes from raw NanoAOD. The maximum system throughput is limited by the read speed of the P4608 SSD, which is 1.5GB/s.
+We can demonstrate that we can process 1B events in about 4 minutes (from existing caches) and in about 20 minutes from raw NanoAOD. The theoretical maximum system throughput is limited by the 1.5GB/s read speed of the SSD.
 
 - 16-core 3GHz i7
 - 64GB DDR3
