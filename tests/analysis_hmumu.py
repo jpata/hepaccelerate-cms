@@ -111,7 +111,7 @@ def get_bit_values(array, bit_index):
     """
     Given an array of N binary values (e.g. jet IDs), return the bit value at bit_index in [0, N-1].
     """
-    return (array & 2**(bit_index - 1)) >> 1
+    return (array & 2**(bit_index)) >> 1
 
 def get_selected_jets(jets, muons, mask_muons, mask_events, jet_pt_cut, jet_eta_cut, jet_dr_cut, jet_id, jet_puid):
     """
@@ -344,8 +344,8 @@ def analyze_data(
     hist_leading_muon_eta_d = fill_with_weights(leading_muon_eta, weights, ret_mu["selected_events"], NUMPY_LIB.linspace(-4.0, 4.0, 401))
     hist_subleading_muon_eta_d = fill_with_weights(subleading_muon_eta, weights, ret_mu["selected_events"], NUMPY_LIB.linspace(-4.0, 4.0, 401))
 
-    hist_leading_jet_pt_d = fill_with_weights(leading_jet_pt, weights, ret_mu["selected_events"] & (ret_jet["num_jets"]>=1), NUMPY_LIB.linspace(0, 300.0, 401))
-    hist_subleading_jet_pt_d = fill_with_weights(subleading_jet_pt, weights, ret_mu["selected_events"] & (ret_jet["num_jets"]>=2), NUMPY_LIB.linspace(0, 300.0, 401))
+    hist_leading_jet_pt_d = fill_with_weights(leading_jet_pt, weights, ret_mu["selected_events"] & (ret_jet["num_jets"]>=1), NUMPY_LIB.linspace(0, 200.0, 401))
+    hist_subleading_jet_pt_d = fill_with_weights(subleading_jet_pt, weights, ret_mu["selected_events"] & (ret_jet["num_jets"]>=2), NUMPY_LIB.linspace(0, 100.0, 401))
     
     int_lumi = 0 
     if not is_mc and not (lumimask is None):
