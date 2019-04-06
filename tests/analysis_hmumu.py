@@ -740,7 +740,7 @@ def create_datastructure(is_mc):
 
 if __name__ == "__main__":
     analysis_parameters = {
-        "an1": {
+        "baseline": {
             "NdfPV": 4,
             "zPV": 24,
             "nPV": 0,
@@ -756,7 +756,39 @@ if __name__ == "__main__":
             "jet_id": "tight",
             "jet_puid": "loose",
         },
-        "an2": {
+        "muon_tight": {
+            "NdfPV": 4,
+            "zPV": 24,
+            "nPV": 0,
+            "muon_pt": 20,
+            "muon_pt_leading": 30,
+            "muon_eta": 2.4,
+            "muon_iso": 0.25,
+            "muon_id": "tight",
+            "muon_trigger_match_dr": 0.1,
+            "jet_mu_dr": 0.4,
+            "jet_pt": 30,
+            "jet_eta": 4.7,
+            "jet_id": "tight",
+            "jet_puid": "loose",
+        },
+        "subleading_muon_pt15": {
+            "NdfPV": 4,
+            "zPV": 24,
+            "nPV": 0,
+            "muon_pt": 15,
+            "muon_pt_leading": 30,
+            "muon_eta": 2.4,
+            "muon_iso": 0.25,
+            "muon_id": "medium",
+            "muon_trigger_match_dr": 0.1,
+            "jet_mu_dr": 0.4,
+            "jet_pt": 30,
+            "jet_eta": 4.7,
+            "jet_id": "tight",
+            "jet_puid": "loose",
+        },
+        "no_jet_mu_clean": {
             "NdfPV": 4,
             "zPV": 24,
             "nPV": 0,
