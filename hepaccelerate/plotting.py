@@ -56,6 +56,7 @@ if __name__ == "__main__":
         "ttjets_dl": 85.656,
         "ww_2l2nu": 5.595,
         "wz_3lnu":  4.42965,
+        "wz_2l2q": 5.595,
         "zz": 16.523
     }
 
@@ -64,7 +65,7 @@ if __name__ == "__main__":
     res = {}
     genweights = {}
     weight_xs = {}
-    mc_samples = ["ggh", "zz", "ww_2l2nu", "wz_3lnu", "ttjets_dl", "dy"]
+    mc_samples = ["ggh", "zz", "wz_2l2q", "ww_2l2nu", "wz_3lnu", "ttjets_dl", "vbf", "dy"]
 
     res["data"] = json.load(open("out/data_2017.json"))
     for mc_samp in mc_samples:
@@ -84,19 +85,16 @@ if __name__ == "__main__":
             if var in ["hist_puweight"]:
                 continue
 
-            if "jet" not in var:
-                continue
-
-            weights = res["dy"][analysis][var].keys()
-            for weight in weights:
-                print(var, weight)
+            #weights = res["dy"][analysis][var].keys()
+            for weight in ["nominal", "puWeight"]:
                 hd = load_hist(res["data"][analysis][var]["nominal"])
 
                 hmc = []
                 for mc_samp in mc_samples:
                     h = load_hist(res[mc_samp][analysis][var][weight])
                     h["xsw"] = weight_xs[mc_samp]
-                    h["label"] = "{0} ({1:.1E})".format(mc_samp, np.sum(h["contents"]))
+                    h["label"] = "{0} ({1:.1E})".format(mc_samp, h["xsw"]*np.sum(h["contents"]))
+                    print(var, weight, mc_samp, h["xsw"]*np.sum(h["contents"]))
                     hmc += [h]
 
                 hd["label"] = "data ({0:.1E})".format(np.sum(hd["contents"]))

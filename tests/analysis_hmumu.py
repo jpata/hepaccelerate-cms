@@ -27,7 +27,7 @@ from hepaccelerate.utils import Histogram
 from hepaccelerate.utils import choose_backend, LumiData, LumiMask
 import hepaccelerate.backend_cpu as backend_cpu
 
-genweight_scalefactor = 1e6
+genweight_scalefactor = 0.0001
 
 from types import FrameType
 
@@ -164,25 +164,35 @@ def get_selected_jets(
 
     #Jet ID flags bit0 is loose (always false in 2017 since it does not exist), bit1 is tight, bit2 is tightLepVeto
     if jet_id == "tight":
-        pass_jetid = get_bit_values(jets.jetId, 1)
+        pass_jetid = jets.jetId >= 2
     elif jet_id == "loose":
-        pass_jetid = get_bit_values(jets.jetId, 0)
+        pass_jetid = jets.jetId >= 1
 
     #The value is a bit representation of the fulfilled working points: tight (1), medium (2), and loose (4).
     #As tight is also medium and medium is also loose, there are only 4 different settings: 0 (no WP, 0b000), 4 (loose, 0b100), 6 (medium, 0b110), and 7 (tight, 0b111).
     if jet_puid == "loose":
-        pass_jet_puid = jets.puId == 4
+        pass_jet_puid = jets.puId >= 4
     elif jet_puid == "medium":
-        pass_jet_puid = jets.puId == 6
+        pass_jet_puid = jets.puId >= 6
     elif jet_puid == "tight":
-        pass_jet_puid = jets.puId == 7
+        pass_jet_puid = jets.puId >= 7
     elif jet_puid == "none":
         pass_jet_puid = NUMPY_LIB.ones(jets.numobjects(), dtype=NUMPY_LIB.bool)
 
     selected_jets = ((jets.pt > jet_pt_cut) &
         (NUMPY_LIB.abs(jets.eta) < jet_eta_cut) & pass_jetid & pass_jet_puid)
-    jets_pass_dr = ha.mask_deltar_first(jets, selected_jets, muons,
-        mask_muons, jet_dr_cut)
+    jets_pass_dr = ha.mask_deltar_first(
+        jets, selected_jets, muons,
+        muons.masks["all"], jet_dr_cut)
+
+    #for iev in range(20):
+    #    print("---")
+    #    for ijet in range(jets.offsets[iev], jets.offsets[iev+1]):
+    #        print(iev, "jet", jets.pt[ijet], jets.eta[ijet], jets.phi[ijet], selected_jets[ijet], jets_pass_dr[ijet])
+    #    for imu in range(muons.offsets[iev], muons.offsets[iev+1]):
+    #        print(iev, "muon", muons.pt[imu], muons.eta[imu], muons.phi[imu], mask_muons[imu])
+    #import pdb;pdb.set_trace()
+
     jets.masks["pass_dr"] = jets_pass_dr
     selected_jets = selected_jets & jets_pass_dr
 
@@ -308,10 +318,9 @@ def get_gen_sumweights(filenames):
     for fi in filenames:
         ff = uproot.open(fi)
         bl = ff.get("Runs")
-        sumw += bl.array("genEventSumw").sum()
-    if sumw > 1e9:
-        print("very large genweights, rescaling")
-        sumw = sumw / genweight_scalefactor
+        arr = bl.array("genEventSumw")
+        arr = arr * genweight_scalefactor
+        sumw += arr.sum()
     return sumw
 
 
@@ -343,7 +352,7 @@ def analyze_data(
     weights["nominal"] = NUMPY_LIB.ones(muons.numevents(), dtype=NUMPY_LIB.float32)
 
     if is_mc:
-        weights["nominal"] = weights["nominal"] * scalars["genWeight"]
+        weights["nominal"] = weights["nominal"] * scalars["genWeight"] * genweight_scalefactor
         pu_weights, pu_weights_up, pu_weights_down = compute_pu_weights(
             pu_corrections, weights["nominal"],
             scalars["Pileup_nTrueInt"], scalars["PV_npvsGood"])
@@ -351,9 +360,7 @@ def analyze_data(
         weights["puWeight_up"] = weights["nominal"] * pu_weights_up
         weights["puWeight_down"] = weights["nominal"] * pu_weights_down
 
-        if np.sum(scalars["genWeight"]) > 1e9:
-            print("very large genweights, rescaling")
-            scalars["genWeight"] = scalars["genWeight"]/genweight_scalefactor
+        scalars["genWeight"] = scalars["genWeight"]
     
     
     #get the two leading muons after applying all muon selection
@@ -405,20 +412,19 @@ def analyze_data(
  
   
     hist_npvs_d = fill_with_weights(scalars["PV_npvsGood"], weights, ret_mu["selected_events"], NUMPY_LIB.linspace(0,100,101))
-    hist_inv_mass_d = fill_with_weights(inv_mass, weights, ret_mu["selected_events"], NUMPY_LIB.linspace(60,150,201))
+    hist_inv_mass_d = fill_with_weights(inv_mass, weights, ret_mu["selected_events"], NUMPY_LIB.linspace(60,150,101))
 
     #get histograms of leading and subleading muon momenta
-    hist_leading_muon_pt_d = fill_with_weights(leading_muon_pt, weights, ret_mu["selected_events"], NUMPY_LIB.linspace(0.0, 200.0, 401))
-    hist_subleading_muon_pt_d = fill_with_weights(subleading_muon_pt, weights, ret_mu["selected_events"], NUMPY_LIB.linspace(0.0, 200.0, 401))
+    hist_leading_muon_pt_d = fill_with_weights(leading_muon_pt, weights, ret_mu["selected_events"], NUMPY_LIB.linspace(0.0, 200.0, 101))
+    hist_subleading_muon_pt_d = fill_with_weights(subleading_muon_pt, weights, ret_mu["selected_events"], NUMPY_LIB.linspace(0.0, 200.0, 101))
     
-    hist_leading_muon_eta_d = fill_with_weights(leading_muon_eta, weights, ret_mu["selected_events"], NUMPY_LIB.linspace(-4.0, 4.0, 401))
-    hist_subleading_muon_eta_d = fill_with_weights(subleading_muon_eta, weights, ret_mu["selected_events"], NUMPY_LIB.linspace(-4.0, 4.0, 401))
+    hist_leading_muon_eta_d = fill_with_weights(leading_muon_eta, weights, ret_mu["selected_events"], NUMPY_LIB.linspace(-4.0, 4.0, 101))
+    hist_subleading_muon_eta_d = fill_with_weights(subleading_muon_eta, weights, ret_mu["selected_events"], NUMPY_LIB.linspace(-4.0, 4.0, 101))
 
-    hist_leading_jet_pt_d = fill_with_weights(leading_jet_pt, weights, ret_mu["selected_events"] & (ret_jet["num_jets"]>=1), NUMPY_LIB.linspace(0, 200.0, 401))
-    hist_subleading_jet_pt_d = fill_with_weights(subleading_jet_pt, weights, ret_mu["selected_events"] & (ret_jet["num_jets"]>=2), NUMPY_LIB.linspace(0, 100.0, 401))
+    hist_leading_jet_pt_d = fill_with_weights(leading_jet_pt, weights, ret_mu["selected_events"] & (ret_jet["num_jets"]>=1), NUMPY_LIB.linspace(30, 200.0, 101))
+    hist_subleading_jet_pt_d = fill_with_weights(subleading_jet_pt, weights, ret_mu["selected_events"] & (ret_jet["num_jets"]>=2), NUMPY_LIB.linspace(30, 100.0, 101))
     
     hist_numjet_d = fill_with_weights(ret_jet["num_jets"], weights, ret_mu["selected_events"], NUMPY_LIB.linspace(0, 10, 11))
-
 
     int_lumi = 0 
     if not is_mc and not (lumimask is None):
@@ -760,12 +766,12 @@ if __name__ == "__main__":
             "muon_iso": 0.25,
             "muon_id": "medium",
             "muon_trigger_match_dr": 0.1,
-            "jet_mu_dr": 0.4,
+            "jet_mu_dr": 0.0,
             "jet_pt": 30,
             "jet_eta": 4.7,
-            "jet_id": "loose",
+            "jet_id": "tight",
             "jet_puid": "loose",
-        }
+        },
     }
 
     datasets = [

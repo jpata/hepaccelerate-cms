@@ -13,13 +13,13 @@ def searchsorted_devfunc(arr, val):
     return ret
 
 #need atomics to add to bin contents
-@numba.njit(fastmath=True)
+@numba.njit(fastmath=False)
 def fill_histogram(data, weights, bins, out_w, out_w2):
     for i in range(len(data)):
         bin_idx = searchsorted_devfunc(bins, data[i])
         if bin_idx >=0 and bin_idx < len(out_w):
-            out_w[bin_idx] += weights[i]
-            out_w2[bin_idx] += weights[i]**2
+            out_w[bin_idx] += np.float64(weights[i])
+            out_w2[bin_idx] += np.float64(weights[i]**2)
 
 @numba.njit(parallel=True, fastmath=True)
 def select_opposite_sign_muons_kernel(muon_charges_content, muon_charges_offsets, content_mask_in, content_mask_out):
@@ -187,28 +187,27 @@ For all events (N), mask the objects in the first collection (M1) if they are cl
 def mask_deltar_first_kernel(etas1, phis1, mask1, offsets1, etas2, phis2, mask2, offsets2, dr2, mask_out):
     
     for iev in numba.prange(len(offsets1)-1):
-        a1 = offsets1[iev]
-        b1 = offsets1[iev+1]
+        a1 = np.uint64(offsets1[iev])
+        b1 = np.uint64(offsets1[iev+1])
         
-        a2 = offsets2[iev]
-        b2 = offsets2[iev+1]
+        a2 = np.uint64(offsets2[iev])
+        b2 = np.uint64(offsets2[iev+1])
         
         for idx1 in range(a1, b1):
             if not mask1[idx1]:
                 continue
                 
-            eta1 = etas1[idx1]
-            phi1 = phis1[idx1]
+            eta1 = np.float32(etas1[idx1])
+            phi1 = np.float32(phis1[idx1])
             for idx2 in range(a2, b2):
                 if not mask2[idx2]:
                     continue
-                eta2 = etas2[idx2]
-                phi2 = phis2[idx2]
+                eta2 = np.float32(etas2[idx2])
+                phi2 = np.float32(phis2[idx2])
                 
                 deta = abs(eta1 - eta2)
                 dphi = np.mod(phi1 - phi2 + math.pi, 2*math.pi) - math.pi
                 
-                #if first object is closer than dr2, mask element will be *disabled*
                 passdr = ((deta**2 + dphi**2) < dr2)
                 mask_out[idx1] = mask_out[idx1] | passdr
                 
@@ -228,8 +227,8 @@ def mask_deltar_first(objs1, mask1, objs2, mask2, drcut):
 
 def histogram_from_vector(data, weights, bins):        
     assert(len(data) == len(weights))
-    out_w = np.zeros(len(bins) - 1, dtype=np.float32)
-    out_w2 = np.zeros(len(bins) - 1, dtype=np.float32)
+    out_w = np.zeros(len(bins) - 1, dtype=np.float64)
+    out_w2 = np.zeros(len(bins) - 1, dtype=np.float64)
     fill_histogram(data, weights, bins, out_w, out_w2)
     return out_w, out_w2, bins
     
