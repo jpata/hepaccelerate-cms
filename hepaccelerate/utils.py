@@ -38,11 +38,13 @@ class Histogram:
         return Histogram(self.contents +  other.contents, self.contents_w2 +  other.contents_w2, self.edges)
 
 class JaggedStruct(object):
-    def __init__(self, offsets, attrs_data, numpy_lib):
+    def __init__(self, offsets, attrs_data, prefix, numpy_lib, attr_names_dtypes):
         self.numpy_lib = numpy_lib
         
         self.offsets = offsets
         self.attrs_data = attrs_data
+        self.attr_names_dtypes = attr_names_dtypes
+        self.prefix = prefix
         
         num_items = None
         for (k, v) in self.attrs_data.items():
@@ -52,6 +54,17 @@ class JaggedStruct(object):
             else:
                 num_items = num_items_next
         self.num_items = num_items
+
+        raise_fmterror = False
+        bad_branches = []
+        for branch, dtype in self.attr_names_dtypes:
+            arr = self.attrs_data[branch.replace(self.prefix, "")]
+            if arr.dtype != getattr(self.numpy_lib, dtype):
+                raise_fmterror = True
+                bad_branches += [branch]
+                print("ERROR reading the ROOT TTree: branch {0} declared as {1} but was {2}".format(branch, dtype, arr.dtype), file=sys.stderr)
+        if raise_fmterror:
+            raise Exception("Declared data structure did not match ROOT file. The NanoAODDataset data structure did not match the ROOT TTree for the branches: {0}, please see above for more details.".format(bad_branches))
     
         self.masks = {}
         self.masks["all"] = self.make_mask()
@@ -78,36 +91,38 @@ class JaggedStruct(object):
             return len(self.attrs_data[k])
     
     @staticmethod
-    def from_arraydict(arraydict, prefix, numpy_lib):
+    def from_arraydict(arraydict, prefix, numpy_lib, attr_names_dtypes):
         ks = [k for k in arraydict.keys() if prefix in str(k, 'ascii')]
         k0 = ks[0]
         return JaggedStruct(
             numpy_lib.array(arraydict[k0].offsets),
             {str(k, 'ascii').replace(prefix, ""): numpy_lib.array(v.content)
              for (k,v) in arraydict.items()},
-            numpy_lib=numpy_lib
+            prefix, numpy_lib, attr_names_dtypes
         )
 
-    def savez(self, path):
-        with open(path, "wb") as of:
-            self.numpy_lib.savez(of, offsets=self.offsets, **self.attrs_data)
+    def save(self, path):
+        for attr, dtype in self.attr_names_dtypes + [("offsets", "uint64")]:
+            attr = attr.replace(self.prefix, "")
+            arr = getattr(self, attr)
+            m = np.memmap(path + ".{0}.mmap".format(attr), dtype=dtype, mode='write',
+                shape=(len(arr))
+            )
+            m[:] = arr[:]
     
     @staticmethod 
-    def load(path, numpy_lib):
-        with open(path, "rb") as of:
-            fi = numpy_lib.load(of)
-   
-            #workaround for cupy
-            npz_file = fi
-            if hasattr(fi, "npz_file"):
-                npz_file = fi.npz_file
- 
-            ks = [f for f in npz_file.files if f!="offsets"]
-            return JaggedStruct(
-                numpy_lib.array(fi["offsets"]),
-                {k: numpy_lib.array(npz_file[k]) for k in ks},
-                numpy_lib=numpy_lib
-            )
+    def load(path, prefix, attr_names_dtypes, numpy_lib):
+        attrs_data = {}
+        offsets = None
+        for attr, dtype in attr_names_dtypes + [("offsets", "uint64")]:
+            attr = attr.replace(prefix, "")
+            m = np.memmap(path + ".{0}.mmap".format(attr), dtype=dtype, mode='r')
+            arr = numpy_lib.array(m)
+            if attr == "offsets":
+                offsets = arr
+            else:
+                attrs_data[attr] = arr
+        return JaggedStruct(offsets, attrs_data, prefix, numpy_lib, attr_names_dtypes)
 
     def move_to_device(self, numpy_lib):
         self.numpy_lib = numpy_lib
@@ -203,16 +218,23 @@ class Dataset(object):
 
 class NanoAODDataset(Dataset):
     numpy_lib = np
-    def __init__(self, filenames, arrays_to_load, treename, names_structs, names_eventvars):
-        super(NanoAODDataset, self).__init__(filenames, arrays_to_load, treename)
-        self.names_structs = names_structs
-        self.names_eventvars = names_eventvars
-        self.cache_prefix = ""
+    def __init__(self, filenames, datastructures, cache_location=""):
+        arrays_to_load = []
+        for ds_item, ds_vals in datastructures.items():
+            for branch, dtype in ds_vals:
+                arrays_to_load += [branch]
+        super(NanoAODDataset, self).__init__(filenames, arrays_to_load, "Events")
+        
+        self.eventvars_dtypes = datastructures.get("EventVariables")
+        self.names_eventvars = [evvar for evvar, dtype in self.eventvars_dtypes] 
+        self.structs_dtypes = {k: v for (k, v) in datastructures.items() if k != "EventVariables"}
+        self.names_structs = sorted(self.structs_dtypes.keys())
+        self.cache_location = cache_location
          
         #lists of data, one per file
         self.structs = {}
-        for struct in self.names_structs:
-            self.structs[struct] = []
+        for structname in self.names_structs:
+            self.structs[structname] = []
         self.eventvars = []
 
     def move_to_device(self, numpy_lib):
@@ -234,8 +256,9 @@ class NanoAODDataset(Dataset):
     def __repr__(self):
         s = "NanoAODDataset(files={0}, events={1}, {2})".format(len(self.filenames), len(self), ", ".join(self.structs.keys()))
         return s
+
     def get_cache_dir(self, fn):
-        return os.path.join(self.cache_prefix, fn)
+        return self.cache_location + fn
 
     def printout(self):
         s = str(self) 
@@ -252,8 +275,8 @@ class NanoAODDataset(Dataset):
     def build_structs(self, prefix): 
         struct_array = [
             JaggedStruct.from_arraydict(
-                {k: v for k, v in arrs.items() if prefix in str(k)},
-                prefix, self.numpy_lib 
+                {k: v for k, v in arrs.items() if prefix + "_" in str(k)},
+                prefix + "_", self.numpy_lib, self.structs_dtypes[prefix]
             ) for arrs in self.data_host
         ]
         return struct_array
@@ -263,7 +286,7 @@ class NanoAODDataset(Dataset):
             print("Making objects with backend={0}".format(self.numpy_lib.__name__))
         t0 = time.time()
         for structname in self.names_structs:
-            self.structs[structname] = self.build_structs(structname + "_")
+            self.structs[structname] = self.build_structs(structname)
 
         self.eventvars = [{
             k: self.numpy_lib.array(data[bytes(k, encoding='ascii')]) for k in self.names_eventvars
@@ -325,9 +348,14 @@ class NanoAODDataset(Dataset):
             pass
 
         for structname in self.names_structs:
-            self.structs[structname][ifn].savez(os.path.join(dn, bfn + ".{0}.npz".format(structname)))
-        with open(os.path.join(dn, bfn + ".eventvars.npz"), "wb") as fi:
-            self.numpy_lib.savez(fi, **self.eventvars[ifn])
+            self.structs[structname][ifn].save(os.path.join(dn, bfn + ".{0}".format(structname)))
+
+        for attr, dtype in self.eventvars_dtypes:
+            arr = self.eventvars[ifn][attr]
+            m = np.memmap(os.path.join(dn, bfn + ".{0}.mmap".format(attr)),
+                dtype=dtype, mode='write', shape=(len(arr))
+            )
+            m[:] = arr[:]
 
     def from_cache(self, nthreads=1, verbose=False):
         t0 = time.time()
@@ -364,12 +392,15 @@ class NanoAODDataset(Dataset):
 
         loaded_structs = {}
         for struct in self.names_structs:
-            loaded_structs[struct]= JaggedStruct.load(os.path.join(dn, bfn+".{0}.npz".format(struct)), self.numpy_lib)
-        with open(os.path.join(dn, bfn+".eventvars.npz"), "rb") as fi:
-            npz_file = self.numpy_lib.load(fi)
-            if hasattr(npz_file, "npz_file"):
-                npz_file = npz_file.npz_file
-            eventvars = {k: self.numpy_lib.array(npz_file[k]) for k in npz_file.files}
+            loaded_structs[struct]= JaggedStruct.load(os.path.join(dn, bfn+".{0}".format(struct)), struct+"_", self.structs_dtypes[struct], self.numpy_lib)
+        
+        eventvars = {}
+        for attr, dtype in self.eventvars_dtypes:
+            m = np.memmap(os.path.join(dn, bfn + ".{0}.mmap".format(attr)),
+                dtype=dtype, mode='r'
+            )
+            eventvars[attr] = self.numpy_lib.array(m)
+
         return ifn, loaded_structs, eventvars
  
     def num_objects_loaded(self, structname):

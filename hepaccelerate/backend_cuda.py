@@ -52,19 +52,19 @@ def select_opposite_sign_muons_cudakernel(muon_charges_content, muon_charges_off
     xstride = cuda.gridsize(1)
     
     for iev in range(xi, muon_charges_offsets.shape[0]-1, xstride):
-        start = muon_charges_offsets[iev]
-        end = muon_charges_offsets[iev + 1]
+        start = np.uint64(muon_charges_offsets[iev])
+        end = np.uint64(muon_charges_offsets[iev + 1])
         
-        ch1 = 0
-        idx1 = -1
-        ch2 = 0
-        idx2 = -1
+        ch1 = np.int32(0)
+        idx1 = np.uint64(0)
+        ch2 = np.int32(0)
+        idx2 = np.uint64(0)
         
         for imuon in range(start, end):
             if not content_mask_in[imuon]:
                 continue
                 
-            if idx1 == -1:
+            if idx1 == 0 and idx2 == 0:
                 ch1 = muon_charges_content[imuon]
                 idx1 = imuon
                 continue
@@ -233,26 +233,29 @@ def mask_deltar_first_cudakernel(etas1, phis1, mask1, offsets1, etas2, phis2, ma
     xstride = cuda.gridsize(1)
     
     for iev in range(xi, len(offsets1)-1, xstride):
-        a1 = offsets1[iev]
-        b1 = offsets1[iev+1]
+        a1 = np.uint64(offsets1[iev])
+        b1 = np.uint64(offsets1[iev+1])
         
-        a2 = offsets2[iev]
-        b2 = offsets2[iev+1]
+        a2 = np.uint64(offsets2[iev])
+        b2 = np.uint64(offsets2[iev+1])
         
         for idx1 in range(a1, b1):
             if not mask1[idx1]:
                 continue
                 
-            eta1 = etas1[idx1]
-            phi1 = phis1[idx1]
+            eta1 = np.float32(etas1[idx1])
+            phi1 = np.float32(phis1[idx1])
             for idx2 in range(a2, b2):
                 if not mask2[idx2]:
                     continue
-                eta2 = etas2[idx2]
-                phi2 = phis2[idx2]
+                eta2 = np.float32(etas2[idx2])
+                phi2 = np.float32(phis2[idx2])
                 
                 deta = abs(eta1 - eta2)
-                dphi = (phi1 - phi2 + math.pi) % (2*math.pi) - math.pi
+                dphi = phi1 - phi2 + math.pi
+                while dphi > 2*math.pi:
+                    dphi -= 2*math.pi
+                dphi -= math.pi
                 
                 #if first object is closer than dr2, mask element will be *disabled*
                 passdr = ((deta**2 + dphi**2) < dr2)
@@ -273,10 +276,12 @@ def mask_deltar_first(objs1, mask1, objs2, mask2, drcut):
     mask_out = cupy.invert(mask_out)
     return mask_out
 
-def histogram_from_vector(data, weights, bins):        
+def histogram_from_vector(data, weights, bins):
+    assert(len(data) == len(weights))
     out_w = cupy.zeros(len(bins) - 1, dtype=cupy.float32)
     out_w2 = cupy.zeros(len(bins) - 1, dtype=cupy.float32)
-    fill_histogram[32, 1024](data, weights, bins, out_w, out_w2)
+    if len(data) > 0:
+        fill_histogram[32, 1024](data, weights, bins, out_w, out_w2)
     return cupy.asnumpy(out_w), cupy.asnumpy(out_w2), cupy.asnumpy(bins)
 
 

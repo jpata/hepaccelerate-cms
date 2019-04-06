@@ -3,7 +3,7 @@ import numba
 import numpy as np
 import math
 
-@numba.jit(fastmath=True)
+@numba.njit(fastmath=True)
 def searchsorted_devfunc(arr, val):
     ret = len(arr)
     for i in range(len(arr)):
@@ -13,31 +13,31 @@ def searchsorted_devfunc(arr, val):
     return ret
 
 #need atomics to add to bin contents
-@numba.jit
+@numba.njit(fastmath=False)
 def fill_histogram(data, weights, bins, out_w, out_w2):
     for i in range(len(data)):
         bin_idx = searchsorted_devfunc(bins, data[i])
         if bin_idx >=0 and bin_idx < len(out_w):
-            out_w[bin_idx] += weights[i]
-            out_w2[bin_idx] += weights[i]**2
+            out_w[bin_idx] += np.float64(weights[i])
+            out_w2[bin_idx] += np.float64(weights[i]**2)
 
-@numba.njit(parallel=True)
+@numba.njit(parallel=True, fastmath=True)
 def select_opposite_sign_muons_kernel(muon_charges_content, muon_charges_offsets, content_mask_in, content_mask_out):
     
     for iev in numba.prange(muon_charges_offsets.shape[0]-1):
-        start = muon_charges_offsets[iev]
-        end = muon_charges_offsets[iev + 1]
+        start = np.uint64(muon_charges_offsets[iev])
+        end = np.uint64(muon_charges_offsets[iev + 1])
         
-        ch1 = 0
-        idx1 = -1
-        ch2 = 0
-        idx2 = -1
+        ch1 = np.float32(0.0)
+        idx1 = np.uint64(0)
+        ch2 = np.float32(0.0)
+        idx2 = np.uint64(0)
         
         for imuon in range(start, end):
             if not content_mask_in[imuon]:
                 continue
                 
-            if idx1 == -1:
+            if idx1 == 0 and idx2 == 0:
                 ch1 = muon_charges_content[imuon]
                 idx1 = imuon
                 continue
@@ -45,12 +45,12 @@ def select_opposite_sign_muons_kernel(muon_charges_content, muon_charges_offsets
                 ch2 = muon_charges_content[imuon]
                 if (ch2 != ch1):
                     idx2 = imuon
-                    content_mask_out[idx1] = 1
-                    content_mask_out[idx2] = 1
+                    content_mask_out[idx1] = True
+                    content_mask_out[idx2] = True
                     break
     return
 
-@numba.njit(parallel=True)
+@numba.njit(parallel=True, fastmath=True)
 def sum_in_offsets_kernel(content, offsets, mask_rows, mask_content, out):
 
     for iev in numba.prange(offsets.shape[0]-1):
@@ -63,7 +63,7 @@ def sum_in_offsets_kernel(content, offsets, mask_rows, mask_content, out):
             if mask_content[ielem]:
                 out[iev] += content[ielem]
             
-@numba.njit(parallel=True)
+@numba.njit(parallel=True, fastmath=True)
 def max_in_offsets_kernel(content, offsets, mask_rows, mask_content, out):
 
     for iev in numba.prange(offsets.shape[0]-1):
@@ -84,7 +84,7 @@ def max_in_offsets_kernel(content, offsets, mask_rows, mask_content, out):
         out[iev] = accum
 
         
-@numba.njit(parallel=True)
+@numba.njit(parallel=True, fastmath=True)
 def min_in_offsets_kernel(content, offsets, mask_rows, mask_content, out):
 
     for iev in numba.prange(offsets.shape[0]-1):
@@ -104,7 +104,7 @@ def min_in_offsets_kernel(content, offsets, mask_rows, mask_content, out):
                     first = False
         out[iev] = accum
     
-@numba.njit(parallel=True)
+@numba.njit(parallel=True, fastmath=True)
 def get_in_offsets_kernel(content, offsets, indices, mask_rows, mask_content, out):
     for iev in numba.prange(offsets.shape[0]-1):
         if not mask_rows[iev]:
@@ -121,7 +121,7 @@ def get_in_offsets_kernel(content, offsets, indices, mask_rows, mask_content, ou
                 else:
                     index_to_get += 1
         
-@numba.njit(parallel=True)
+@numba.njit(parallel=True, fastmath=True)
 def min_in_offsets_kernel(content, offsets, mask_rows, mask_content, out):
     for iev in numba.prange(offsets.shape[0]-1):
         if not mask_rows[iev]:
@@ -183,32 +183,31 @@ For all events (N), mask the objects in the first collection (M1) if they are cl
     mask_out: output mask, array of (M1, )
 
 """
-@numba.njit(parallel=True)
+@numba.njit(parallel=True, fastmath=True)
 def mask_deltar_first_kernel(etas1, phis1, mask1, offsets1, etas2, phis2, mask2, offsets2, dr2, mask_out):
     
     for iev in numba.prange(len(offsets1)-1):
-        a1 = offsets1[iev]
-        b1 = offsets1[iev+1]
+        a1 = np.uint64(offsets1[iev])
+        b1 = np.uint64(offsets1[iev+1])
         
-        a2 = offsets2[iev]
-        b2 = offsets2[iev+1]
+        a2 = np.uint64(offsets2[iev])
+        b2 = np.uint64(offsets2[iev+1])
         
         for idx1 in range(a1, b1):
             if not mask1[idx1]:
                 continue
                 
-            eta1 = etas1[idx1]
-            phi1 = phis1[idx1]
+            eta1 = np.float32(etas1[idx1])
+            phi1 = np.float32(phis1[idx1])
             for idx2 in range(a2, b2):
                 if not mask2[idx2]:
                     continue
-                eta2 = etas2[idx2]
-                phi2 = phis2[idx2]
+                eta2 = np.float32(etas2[idx2])
+                phi2 = np.float32(phis2[idx2])
                 
                 deta = abs(eta1 - eta2)
                 dphi = np.mod(phi1 - phi2 + math.pi, 2*math.pi) - math.pi
                 
-                #if first object is closer than dr2, mask element will be *disabled*
                 passdr = ((deta**2 + dphi**2) < dr2)
                 mask_out[idx1] = mask_out[idx1] | passdr
                 
@@ -227,12 +226,13 @@ def mask_deltar_first(objs1, mask1, objs2, mask2, drcut):
     return mask_out
 
 def histogram_from_vector(data, weights, bins):        
-    out_w = np.zeros(len(bins) - 1, dtype=np.float32)
-    out_w2 = np.zeros(len(bins) - 1, dtype=np.float32)
+    assert(len(data) == len(weights))
+    out_w = np.zeros(len(bins) - 1, dtype=np.float64)
+    out_w2 = np.zeros(len(bins) - 1, dtype=np.float64)
     fill_histogram(data, weights, bins, out_w, out_w2)
     return out_w, out_w2, bins
     
-@numba.njit(parallel=True)
+@numba.njit(parallel=True, fastmath=True)
 def get_bin_contents_kernel(values, edges, contents, out):
     for i in numba.prange(len(values)):
         v = values[i]
