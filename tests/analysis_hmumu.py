@@ -28,7 +28,6 @@ from hepaccelerate.utils import choose_backend, LumiData, LumiMask
 import hepaccelerate.backend_cpu as backend_cpu
 
 genweight_scalefactor = 1e6
-chunksize = 1
 
 from types import FrameType
 
@@ -475,30 +474,30 @@ def chunks(l, n):
     for i in range(0, len(l), n):
         yield l[i:i + n]
 
-def cache_data(filenames, datastructures, nworkers=16):
+def cache_data(filenames, datastructures, cache_location, nworkers=16):
     if nworkers == 1:
         tot_ev = 0
         tot_mb = 0
-        for result in map(cache_data_multiproc_worker, [(fn, datastructures) for fn in filenames]):
+        for result in map(cache_data_multiproc_worker, [(fn, datastructures, cache_location) for fn in filenames]):
             tot_ev += result[0]
             tot_mb += result[1]
     else:
         with concurrent.futures.ProcessPoolExecutor(max_workers=nworkers) as executor:
             tot_ev = 0
             tot_mb = 0
-            for result in executor.map(cache_data_multiproc_worker, [(fn, datastructures) for fn in filenames]):
+            for result in executor.map(cache_data_multiproc_worker, [(fn, datastructures, cache_location) for fn in filenames]):
                 tot_ev += result[0]
                 tot_mb += result[1]
     return tot_ev, tot_mb
 
-def create_dataset(filenames, datastructures):
-    ds = NanoAODDataset(filenames, datastructures)
+def create_dataset(filenames, datastructures, cache_location):
+    ds = NanoAODDataset(filenames, datastructures, cache_location)
     return ds
 
 def cache_data_multiproc_worker(args):
-    filename, datastructure = args
+    filename, datastructure, cache_location = args
     t0 = time.time()
-    ds = create_dataset([filename], datastructure)
+    ds = create_dataset([filename], datastructure, cache_location)
     ds.numpy_lib = np
     ds.preload()
     ds.make_objects()
@@ -510,7 +509,7 @@ def cache_data_multiproc_worker(args):
     return len(ds), processed_size_mb
 
 class InputGen:
-    def __init__(self, paths, is_mc, nthreads):
+    def __init__(self, paths, is_mc, nthreads, chunksize, cache_location):
         self.paths_chunks = list(chunks(paths, chunksize))
         self.chunk_lock = threading.Lock()
         self.loaded_lock = threading.Lock()
@@ -518,6 +517,7 @@ class InputGen:
         self.num_loaded = 0
         self.is_mc = is_mc
         self.nthreads = nthreads
+        self.cache_location = cache_location
 
     def is_done(self):
         return (self.num_chunk == len(self.paths_chunks)) and (self.num_loaded == len(self.paths_chunks))
@@ -533,7 +533,7 @@ class InputGen:
             self.chunk_lock.release()
             return None
 
-        ds = create_dataset(self.paths_chunks[self.num_chunk], self.is_mc)
+        ds = create_dataset(self.paths_chunks[self.num_chunk], self.is_mc, self.cache_location)
         self.num_chunk += 1
         ds.numpy_lib = numpy
         self.chunk_lock.release()
@@ -594,6 +594,8 @@ def parse_args():
     parser.add_argument('--nthreads', '-t', action='store', help='Number of CPU threads or workers to use', type=int, default=4, required=False)
     parser.add_argument('--datapath', '-p', action='store', help='Prefix to load NanoAOD data from', default="/nvmedata")
     parser.add_argument('--maxfiles', '-m', action='store', help='Maximum number of files to process', default=-1, type=int)
+    parser.add_argument('--chunksize', '-c', action='store', help='Number of files to process simultaneously', default=1, type=int)
+    parser.add_argument('--cache-location', action='store', help='Cache location', default='', type=str)
     args = parser.parse_args()
     return args
 
@@ -629,14 +631,14 @@ def main(datasets, parameters, lumidata, lumimask, pu_corrections):
 
         if "cache" in args.action:
             print("Preparing caches from ROOT files")
-            _nev_total, _processed_size_mb = cache_data(filenames_all, datastructure, nworkers=args.nthreads)
+            _nev_total, _processed_size_mb = cache_data(filenames_all, datastructure, args.cache_location, nworkers=args.nthreads)
             nev_total += _nev_total
             processed_size_mb += _processed_size_mb
 
         if "analyze" in args.action:        
             print("Starting analysis")
 
-            training_set_generator = InputGen(list(filenames_all), datastructure, args.nthreads)
+            training_set_generator = InputGen(list(filenames_all), datastructure, args.nthreads, args.chunksize, args.cache_location)
             threadk = thread_killer()
             threadk.set_tokill(False)
             train_batches_queue = Queue(maxsize=10)
@@ -677,7 +679,6 @@ def main(datasets, parameters, lumidata, lumimask, pu_corrections):
             ret = sum(rets, Results({}))
             if is_mc:
                 ret["gen_sumweights"] = get_gen_sumweights(filenames_all)
-            print("int_events={0:.2E}".format(sum(ret["an1"]["hist_numjet_d"]["puWeight"].contents)))
             ret.save_json("out/{0}.json".format(datasetname))
 
     t1 = time.time()
