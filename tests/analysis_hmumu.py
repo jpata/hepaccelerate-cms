@@ -303,14 +303,12 @@ def select_events_trigger(scalars, mask_events, parameters):
     mask_events = mask_events & scalars["HLT_IsoMu24"] & pvsel
 
 def get_int_lumi(runs, lumis, mask_events, lumidata):
-    print("computing integrated luminosity from {0} lumis".format(len(lumis)))
     processed_runs = NUMPY_LIB.asnumpy(runs[mask_events])
     processed_lumis = NUMPY_LIB.asnumpy(lumis[mask_events])
     runs_lumis = np.zeros((processed_runs.shape[0], 2), dtype=np.uint32)
     runs_lumis[:, 0] = processed_runs[:]
     runs_lumis[:, 1] = processed_lumis[:]
     lumi_proc = lumidata.get_lumi(runs_lumis)
-    print("intlumi=", lumi_proc)
     return lumi_proc
 
 def get_gen_sumweights(filenames):
@@ -331,6 +329,7 @@ def analyze_data(
     lumimask=None,
     lumidata=None,
     parameters={},
+    parameter_set_name="",
     doverify=True,
     debug=True
     ):
@@ -427,7 +426,7 @@ def analyze_data(
     hist_numjet_d = fill_with_weights(ret_jet["num_jets"], weights, ret_mu["selected_events"], NUMPY_LIB.linspace(0, 10, 11))
 
     int_lumi = 0 
-    if not is_mc and not (lumimask is None):
+    if not is_mc and not (lumimask is None) and parameter_set_name == "baseline":
         runs = NUMPY_LIB.asnumpy(scalars["run"])
         lumis = NUMPY_LIB.asnumpy(scalars["luminosityBlock"])
         mask_lumi = NUMPY_LIB.array(lumimask(runs, lumis))
@@ -524,6 +523,7 @@ class InputGen:
         self.is_mc = is_mc
         self.nthreads = nthreads
         self.cache_location = cache_location
+        self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=nthreads)
 
     def is_done(self):
         return (self.num_chunk == len(self.paths_chunks)) and (self.num_loaded == len(self.paths_chunks))
@@ -544,7 +544,8 @@ class InputGen:
         ds.numpy_lib = numpy
         self.chunk_lock.release()
 
-        ds.from_cache(nthreads=16, verbose=True)
+        #load caches on multiple threads
+        ds.from_cache(executor=self.executor, verbose=True)
 
         with self.loaded_lock:
             self.num_loaded += 1
@@ -578,7 +579,7 @@ def event_loop(train_batches_queue, use_cuda, **kwargs):
 
     ret = {}
     for parameter_set_name, parameter_set in parameters.items():
-        ret[parameter_set_name] = ds.analyze(analyze_data, parameters=parameter_set, **kwargs)
+        ret[parameter_set_name] = ds.analyze(analyze_data, parameter_set_name=parameter_set_name, parameters=parameter_set, **kwargs)
     ret["num_events"] = len(ds)
 
     train_batches_queue.task_done()

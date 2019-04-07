@@ -80,7 +80,7 @@ class JaggedStruct(object):
     def memsize(self):
         size_tot = self.offsets.size
         for k, v in self.attrs_data.items():
-            size_tot += v.size
+            size_tot += v.nbytes
         return size_tot
     
     def numevents(self):
@@ -250,7 +250,7 @@ class NanoAODDataset(Dataset):
             for structname in self.names_structs:
                 tot += self.structs[structname][ifile].memsize()
             for evvar in self.names_eventvars:
-                tot += self.eventvars[ifile][evvar].size
+                tot += self.eventvars[ifile][evvar].nbytes
         return tot
  
     def __repr__(self):
@@ -357,19 +357,17 @@ class NanoAODDataset(Dataset):
             )
             m[:] = arr[:]
 
-    def from_cache(self, nthreads=1, verbose=False):
+    def from_cache(self, verbose=False, executor=None):
         t0 = time.time()
 
-        if nthreads == 1:
+        if not executor:
             for ifn in range(len(self.filenames)):
                 ifn, loaded_structs, eventvars = self.from_cache_worker(ifn)
                 for structname in self.names_structs:
                     self.structs[structname] += [loaded_structs[structname]]
                 self.eventvars += [eventvars]
         else:
-            from concurrent.futures import ThreadPoolExecutor
-            with ThreadPoolExecutor(max_workers=nthreads) as executor:
-                results = executor.map(self.from_cache_worker, range(len(self.filenames)))
+            results = executor.map(self.from_cache_worker, range(len(self.filenames)))
             results = list(sorted(results, key=lambda x: x[0]))
             for structname in self.names_structs:
                 self.structs[structname] = [r[1][structname] for r in results]
