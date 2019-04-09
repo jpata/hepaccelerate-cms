@@ -78,11 +78,12 @@ def get_selected_muons(
     else:
         raise Exception("unknown muon id: {0}".format(muon_id_type))
 
+    passes_global_tracker = (muons.isGlobal == 1) & (muons.isTracker == 1)
     passes_subleading_pt = muons.pt > mu_pt_cut_subleading
     passes_leading_pt = muons.pt > mu_pt_cut_leading
     passes_aeta = NUMPY_LIB.abs(muons.eta) < mu_aeta_cut
     muons_passing_id =  (
-        passes_iso & passes_id &
+        passes_global_tracker & passes_iso & passes_id &
         passes_subleading_pt & passes_aeta
     )
 
@@ -289,8 +290,13 @@ def compute_pu_weights(pu_corrections_target, weights, mc_nvtx, reco_nvtx):
 def select_events_trigger(scalars, mask_events, parameters):
 
     flags = [
-        "Flag_HBHENoiseFilter", "Flag_HBHENoiseIsoFilter", "Flag_EcalDeadCellTriggerPrimitiveFilter",
-        "Flag_goodVertices", "Flag_globalSuperTightHalo2016Filter", "Flag_BadPFMuonFilter",
+        #"Flag_BadChargedCandidateFilter",
+        "Flag_BadPFMuonFilter",
+        "Flag_EcalDeadCellTriggerPrimitiveFilter",
+        "Flag_HBHENoiseFilter",
+        "Flag_HBHENoiseIsoFilter",
+        "Flag_globalSuperTightHalo2016Filter",
+        "Flag_goodVertices",
         "Flag_BadChargedCandidateFilter"
     ]
     for flag in flags:
@@ -300,7 +306,7 @@ def select_events_trigger(scalars, mask_events, parameters):
     pvsel = pvsel & (scalars["PV_ndof"] > parameters["NdfPV"])
     pvsel = pvsel & (scalars["PV_z"] < parameters["zPV"])
 
-    mask_events = mask_events & scalars["HLT_IsoMu24"] & pvsel
+    mask_events = mask_events & scalars["HLT_IsoMu27"] & pvsel
 
 def get_int_lumi(runs, lumis, mask_events, lumidata):
     processed_runs = NUMPY_LIB.asnumpy(runs[mask_events])
@@ -380,9 +386,14 @@ def analyze_data(
         print("{0} events passed muon".format(NUMPY_LIB.sum(ret_mu["selected_events"])))
     
     #get the passing jets for events that pass muon selection
-    ret_jet = get_selected_jets(jets, muons,
-        ret_mu["selected_muons"], mask_events, parameters["jet_pt"],
-        parameters["jet_eta"], parameters["jet_mu_dr"], parameters["jet_id"], parameters["jet_puid"]
+    ret_jet = get_selected_jets(
+        jets, muons,
+        ret_mu["selected_muons"], mask_events,
+        parameters["jet_pt"],
+        parameters["jet_eta"],
+        parameters["jet_mu_dr"],
+        parameters["jet_id"],
+        parameters["jet_puid"]
     )    
     if doverify:
         z = ha.min_in_offsets(jets, jets.pt, ret_mu["selected_events"], ret_jet["selected_jets"])
@@ -390,8 +401,6 @@ def analyze_data(
 
         
     inv_mass = compute_inv_mass(muons, ret_mu["selected_events"], ret_mu["selected_muons"])
-    if not is_mc:
-        inv_mass[(inv_mass >= 120) & (inv_mass <= 130)] = 0
  
     inds = NUMPY_LIB.zeros(muons.numevents(), dtype=NUMPY_LIB.int32)
     leading_muon_pt = ha.get_in_offsets(muons.pt, muons.offsets, inds, ret_mu["selected_events"], ret_mu["selected_muons"])
@@ -411,7 +420,7 @@ def analyze_data(
  
   
     hist_npvs_d = fill_with_weights(scalars["PV_npvsGood"], weights, ret_mu["selected_events"], NUMPY_LIB.linspace(0,100,101))
-    hist_inv_mass_d = fill_with_weights(inv_mass, weights, ret_mu["selected_events"], NUMPY_LIB.linspace(60,150,101))
+    hist_inv_mass_d = fill_with_weights(inv_mass, weights, ret_mu["selected_events"], NUMPY_LIB.linspace(50,200,101))
 
     #get histograms of leading and subleading muon momenta
     hist_leading_muon_pt_d = fill_with_weights(leading_muon_pt, weights, ret_mu["selected_events"], NUMPY_LIB.linspace(0.0, 200.0, 101))
@@ -420,20 +429,29 @@ def analyze_data(
     hist_leading_muon_eta_d = fill_with_weights(leading_muon_eta, weights, ret_mu["selected_events"], NUMPY_LIB.linspace(-4.0, 4.0, 101))
     hist_subleading_muon_eta_d = fill_with_weights(subleading_muon_eta, weights, ret_mu["selected_events"], NUMPY_LIB.linspace(-4.0, 4.0, 101))
 
-    hist_leading_jet_pt_d = fill_with_weights(leading_jet_pt, weights, ret_mu["selected_events"] & (ret_jet["num_jets"]>=1), NUMPY_LIB.linspace(30, 200.0, 101))
-    hist_subleading_jet_pt_d = fill_with_weights(subleading_jet_pt, weights, ret_mu["selected_events"] & (ret_jet["num_jets"]>=2), NUMPY_LIB.linspace(30, 100.0, 101))
-    
+    hist_leading_jet_pt_d = fill_with_weights(leading_jet_pt, weights,
+        ret_mu["selected_events"] & (ret_jet["num_jets"]>=1), NUMPY_LIB.linspace(30, 200.0, 101))
+    hist_subleading_jet_pt_d = fill_with_weights(subleading_jet_pt, weights,
+        ret_mu["selected_events"] & (ret_jet["num_jets"]>=2), NUMPY_LIB.linspace(30, 100.0, 101))
     hist_numjet_d = fill_with_weights(ret_jet["num_jets"], weights, ret_mu["selected_events"], NUMPY_LIB.linspace(0, 10, 11))
-
+    
+    masswindow = (((inv_mass >= 110) & (inv_mass <= 120)) | ((inv_mass >= 130) & (inv_mass <= 150))) 
+    hist_leading_jet_pt_m120_130_d = fill_with_weights(leading_jet_pt, weights,
+        ret_mu["selected_events"] & (ret_jet["num_jets"]>=1) & masswindow, NUMPY_LIB.linspace(30, 200.0, 101))
+    hist_subleading_jet_pt_m120_130_d = fill_with_weights(subleading_jet_pt, weights,
+        ret_mu["selected_events"] & (ret_jet["num_jets"]>=2) & masswindow, NUMPY_LIB.linspace(30, 100.0, 101))
+    hist_numjet_m120_130_d = fill_with_weights(ret_jet["num_jets"], weights, ret_mu["selected_events"] & masswindow, NUMPY_LIB.linspace(0, 10, 11))
+    
     int_lumi = 0 
-    if not is_mc and not (lumimask is None) and parameter_set_name == "baseline":
+    if not is_mc and not (lumimask is None):
         runs = NUMPY_LIB.asnumpy(scalars["run"])
         lumis = NUMPY_LIB.asnumpy(scalars["luminosityBlock"])
-        mask_lumi = NUMPY_LIB.array(lumimask(runs, lumis))
-        mask_events = mask_events & mask_lumi
-        #get integrated luminosity in this file
-        if not (lumidata is None): 
-            int_lumi = get_int_lumi(runs, lumis, NUMPY_LIB.asnumpy(mask_events), lumidata)
+        mask_lumi_golden_json = NUMPY_LIB.array(lumimask(runs, lumis))
+        if parameter_set_name == "baseline":
+            mask_events = mask_events & mask_lumi_golden_json
+            #get integrated luminosity in this file
+            if not (lumidata is None): 
+                int_lumi = get_int_lumi(runs, lumis, NUMPY_LIB.asnumpy(mask_lumi_golden_json), lumidata)
     
     ret = Results({
         "int_lumi": int_lumi,
@@ -448,8 +466,11 @@ def analyze_data(
         
         "hist_leading_jet_pt": Results(hist_leading_jet_pt_d),
         "hist_subleading_jet_pt": Results(hist_subleading_jet_pt_d),
-
         "hist_numjet_d": Results(hist_numjet_d),
+        
+        "hist_leading_jet_m120_130_pt": Results(hist_leading_jet_pt_m120_130_d),
+        "hist_subleading_jet_m120_130_pt": Results(hist_subleading_jet_pt_m120_130_d),
+        "hist_numjet_m120_130_d": Results(hist_numjet_m120_130_d),
     })
     
     if is_mc:   
@@ -718,6 +739,7 @@ def create_datastructure(is_mc):
             ("PV_npvsGood", "float32"), 
             ("PV_ndof", "float32"),
             ("PV_z", "float32"),
+            ("Flag_BadChargedCandidateFilter", "bool"),
             ("Flag_HBHENoiseFilter", "bool"),
             ("Flag_HBHENoiseIsoFilter", "bool"),
             ("Flag_EcalDeadCellTriggerPrimitiveFilter", "bool"),
@@ -725,7 +747,7 @@ def create_datastructure(is_mc):
             ("Flag_globalSuperTightHalo2016Filter", "bool"),
             ("Flag_BadPFMuonFilter", "bool"),
             ("Flag_BadChargedCandidateFilter", "bool"),
-            ("HLT_IsoMu24", "bool"),
+            ("HLT_IsoMu27", "bool"),
             ("run", "uint32"),
             ("luminosityBlock", "uint32"),
             ("event", "uint64")
@@ -752,55 +774,7 @@ if __name__ == "__main__":
             "muon_id": "medium",
             "muon_trigger_match_dr": 0.1,
             "jet_mu_dr": 0.4,
-            "jet_pt": 30,
-            "jet_eta": 4.7,
-            "jet_id": "tight",
-            "jet_puid": "loose",
-        },
-        "muon_tight": {
-            "NdfPV": 4,
-            "zPV": 24,
-            "nPV": 0,
-            "muon_pt": 20,
-            "muon_pt_leading": 30,
-            "muon_eta": 2.4,
-            "muon_iso": 0.25,
-            "muon_id": "tight",
-            "muon_trigger_match_dr": 0.1,
-            "jet_mu_dr": 0.4,
-            "jet_pt": 30,
-            "jet_eta": 4.7,
-            "jet_id": "tight",
-            "jet_puid": "loose",
-        },
-        "subleading_muon_pt15": {
-            "NdfPV": 4,
-            "zPV": 24,
-            "nPV": 0,
-            "muon_pt": 15,
-            "muon_pt_leading": 30,
-            "muon_eta": 2.4,
-            "muon_iso": 0.25,
-            "muon_id": "medium",
-            "muon_trigger_match_dr": 0.1,
-            "jet_mu_dr": 0.4,
-            "jet_pt": 30,
-            "jet_eta": 4.7,
-            "jet_id": "tight",
-            "jet_puid": "loose",
-        },
-        "no_jet_mu_clean": {
-            "NdfPV": 4,
-            "zPV": 24,
-            "nPV": 0,
-            "muon_pt": 20,
-            "muon_pt_leading": 30,
-            "muon_eta": 2.4,
-            "muon_iso": 0.25,
-            "muon_id": "medium",
-            "muon_trigger_match_dr": 0.1,
-            "jet_mu_dr": 0.0,
-            "jet_pt": 30,
+            "jet_pt": 30.0,
             "jet_eta": 4.7,
             "jet_id": "tight",
             "jet_puid": "loose",
@@ -812,10 +786,13 @@ if __name__ == "__main__":
         ("ggh", "/store/mc/RunIIFall17NanoAODv4/GluGluHToMuMu_M125_13TeV_amcatnloFXFX_pythia8/NANOAODSIM/*12Apr2018_Nano14Dec2018*/**/*.root", True),
         ("vbf", "/store/mc/RunIIFall17NanoAODv4/VBFHToMuMu_M125_TuneCP5_PSweights_13TeV_amcatnlo_pythia8/NANOAODSIM/*12Apr2018_Nano14Dec2018*/**/*.root", True),
         ("dy", "/store/mc/RunIIFall17NanoAODv4/DYJetsToLL_M-50_TuneCP5_13TeV-amcatnloFXFX-pythia8*/**/*.root", True),
-        ("ttjets_dl", "/store/mc/RunIIFall17NanoAODv4/TTJets_DiLept_TuneCP5_13TeV-madgraphMLM-pythia8/**/*.root", True),
+        ("ttjets_dl", "/store/mc/RunIIFall17NanoAODv4/TTTo2L2Nu_TuneCP5_13TeV-powheg-pythia8/**/*.root", True),
+        ("ttjets_sl", "/store/mc/RunIIFall17NanoAODv4/TTToSemiLeptonic_TuneCP5_13TeV-powheg-pythia8/**/*.root", True),
+#        ("ttjets_dl_madgraph", "/store/mc/RunIIFall17NanoAODv4/TTJets_DiLept_TuneCP5_13TeV-madgraphMLM-pythia8/**/*.root", True),
         ("ww_2l2nu", "/store/mc/RunIIFall17NanoAODv4/WWTo2L2Nu_NNPDF31_TuneCP5_13TeV-powheg-pythia8/**/*.root", True),
         ("wz_3lnu", "/store/mc/RunIIFall17NanoAODv4/WZTo3LNu_13TeV-powheg-pythia8/**/*.root", True),
         ("wz_2l2q", "/store/mc/RunIIFall17NanoAODv4/WZTo2L2Q_13TeV_amcatnloFXFX_madspin_pythia8/**/*.root", True),
+        ("wz_1l1nu2q", "/store/mc/RunIIFall17NanoAODv4/WZTo1L1Nu2Q_13TeV_amcatnloFXFX_madspin_pythia8/**/*.root", True),
         ("zz", "/store/mc/RunIIFall17NanoAODv4/ZZTo2L2Nu_13TeV_powheg_pythia8/**/*.root", True),
     ]
 

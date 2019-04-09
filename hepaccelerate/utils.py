@@ -311,7 +311,7 @@ class NanoAODDataset(Dataset):
         t1 = time.time()
         dt = t1 - t0
         if verbose:
-            print("analyze: processed analysis with {0:.2E} events in {1:.1f} seconds, {2:.2E} Hz".format(len(self), dt, len(self)/dt))
+            print("analyze: processed analysis with {0:.2E} events in {1:.1f} seconds, {2:.2E} Hz, {3:.2E} MB/s".format(len(self), dt, len(self)/dt, self.memsize()/dt/1024.0/1024.0))
         return sum(rets, Results({}))
 
     def to_cache(self, nthreads=1, verbose=False):
@@ -376,8 +376,8 @@ class NanoAODDataset(Dataset):
         t1 = time.time()
         dt = t1 - t0
         if verbose:
-            print("from_cache: loaded cache for {1:.2E} events in {0:.1f} seconds, speed {2:.2E} Hz".format(
-                dt, len(self), len(self)/dt
+            print("from_cache: loaded cache for {1:.2E} events in {0:.1f} seconds, speed {2:.2E} Hz, {3:.2E} MB/s".format(
+                dt, len(self), len(self)/dt, self.memsize()/dt/1024.0/1024.0
             ))
 
     def from_cache_worker(self, ifn):
