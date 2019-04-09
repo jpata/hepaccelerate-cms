@@ -18,6 +18,9 @@ import queue
 import gc
 import numpy as np
 import psutil
+import subprocess
+
+import nvidia_smi
 
 import uproot
 import hepaccelerate
@@ -34,6 +37,12 @@ from types import FrameType
 
 ha = None
 NUMPY_LIB = None
+
+def parse_nvidia_smi():
+    nvidia_smi.nvmlInit()
+    handle = nvidia_smi.nvmlDeviceGetHandleByIndex(0)
+    res = nvidia_smi.nvmlDeviceGetUtilizationRates(handle) 
+    return {"gpu": res.gpu, "mem": res.memory}
 
 class thread_killer(object):
     """Boolean object for signaling a worker thread to terminate
@@ -628,6 +637,25 @@ def parse_args():
     args = parser.parse_args()
     return args
 
+def threaded_metrics(tokill):
+    c = psutil.disk_io_counters()
+    bytes_read_start = c.read_bytes
+
+    while not tokill(): 
+        dt = 0.5
+        
+        c = psutil.disk_io_counters()
+
+        bytes_read_speed = (c.read_bytes - bytes_read_start)/dt/1024.0/1024.0
+        bytes_read_start = c.read_bytes
+
+        d = parse_nvidia_smi()
+        print("IO speed", bytes_read_speed, "MB/s", "CPU", psutil.cpu_percent(), "GPU", d["gpu"], "GPUmem", d["mem"])
+        sys.stdout.flush()
+        time.sleep(dt)
+
+    return
+
 def main(datasets, parameters, lumidata, lumimask, pu_corrections):
     global NUMPY_LIB, ha
 
@@ -677,12 +705,11 @@ def main(datasets, parameters, lumidata, lumimask, pu_corrections):
                     t = Thread(target=threaded_batches_feeder, args=(threadk, train_batches_queue, training_set_generator))
                     t.start()
 
+            t = Thread(target=threaded_metrics, args=(threadk, ))
+            t.start()
+
             rets = []
             num_processed = 0
-
-
-            bytes_read_start = psutil.disk_io_counters().read_bytes
-            nbytes_read = []
 
             #loop over all data, call the analyze function
             while num_processed < len(training_set_generator.paths_chunks):
@@ -706,11 +733,6 @@ def main(datasets, parameters, lumidata, lumimask, pu_corrections):
                 nev_total += nev
                 num_processed += 1
 
-                t1 = time.time()
-                dt = t1 - t0
-
-                nbytes_read_speed += [(c.read_bytes - bytes_read_start)/dt/1024.0/1024.0]
-                print("IO speed", nbytes_read_speed[-1], "MB/s")
 
             #clean up threads
             threadk.set_tokill(True)
