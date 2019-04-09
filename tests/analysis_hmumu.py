@@ -17,6 +17,7 @@ from queue import Queue
 import queue
 import gc
 import numpy as np
+import psutil
 
 import uproot
 import hepaccelerate
@@ -679,8 +680,14 @@ def main(datasets, parameters, lumidata, lumimask, pu_corrections):
             rets = []
             num_processed = 0
 
+
+            bytes_read_start = psutil.disk_io_counters().read_bytes
+            nbytes_read = []
+
             #loop over all data, call the analyze function
             while num_processed < len(training_set_generator.paths_chunks):
+
+                t0 = time.time()
 
                 if not args.async_data:
                     ds = training_set_generator.nextone()
@@ -699,6 +706,11 @@ def main(datasets, parameters, lumidata, lumimask, pu_corrections):
                 nev_total += nev
                 num_processed += 1
 
+                t1 = time.time()
+                dt = t1 - t0
+
+                nbytes_read_speed += [(c.read_bytes - bytes_read_start)/dt/1024.0/1024.0]
+                print("IO speed", nbytes_read_speed[-1], "MB/s")
 
             #clean up threads
             threadk.set_tokill(True)
