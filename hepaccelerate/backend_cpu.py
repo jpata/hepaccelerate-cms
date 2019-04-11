@@ -16,7 +16,7 @@ def searchsorted_devfunc(arr, val):
 @numba.njit(fastmath=False)
 def fill_histogram(data, weights, bins, out_w, out_w2):
     for i in range(len(data)):
-        bin_idx = searchsorted_devfunc(bins, data[i])
+        bin_idx = searchsorted_devfunc(bins, data[i]) - 1
         if bin_idx >=0 and bin_idx < len(out_w):
             out_w[bin_idx] += np.float64(weights[i])
             out_w2[bin_idx] += np.float64(weights[i]**2)
@@ -120,6 +120,23 @@ def get_in_offsets_kernel(content, offsets, indices, mask_rows, mask_content, ou
                     break
                 else:
                     index_to_get += 1
+
+@numba.njit(parallel=True, fastmath=True)
+def set_in_offsets_kernel(content, offsets, indices, target, mask_rows, mask_content):
+    for iev in numba.prange(offsets.shape[0]-1):
+        if not mask_rows[iev]:
+            continue
+        start = offsets[iev]
+        end = offsets[iev + 1]
+        
+        index_to_set = 0
+        for ielem in range(start, end):
+            if mask_content[ielem]:
+                if index_to_set == indices[iev]:
+                    content[ielem] = target[iev]
+                    break
+                else:
+                    index_to_set += 1
         
 @numba.njit(parallel=True, fastmath=True)
 def min_in_offsets_kernel(content, offsets, mask_rows, mask_content, out):

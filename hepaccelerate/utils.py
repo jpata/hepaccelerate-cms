@@ -37,6 +37,12 @@ class Histogram:
         assert(np.all(self.edges == other.edges))
         return Histogram(self.contents +  other.contents, self.contents_w2 +  other.contents_w2, self.edges)
 
+    def __mul__(self, number):
+        return Histogram(number * self.contents, number * number * self.contents_w2, self.edges)
+
+    def __rmul__(self, number):
+        return self.__mul__(number)
+
 class JaggedStruct(object):
     def __init__(self, offsets, attrs_data, prefix, numpy_lib, attr_names_dtypes):
         self.numpy_lib = numpy_lib

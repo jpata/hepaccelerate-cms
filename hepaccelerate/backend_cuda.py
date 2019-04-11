@@ -41,7 +41,7 @@ def fill_histogram(data, weights, bins, out_w, out_w2):
     xstride = cuda.gridsize(1)
     
     for i in range(xi, len(data), xstride):
-        bin_idx = searchsorted_devfunc(bins, data[i])
+        bin_idx = searchsorted_devfunc(bins, data[i]) - 1
         if bin_idx >=0 and bin_idx < len(out_w):
             cuda.atomic.add(out_w, bin_idx, weights[i])
             cuda.atomic.add(out_w2, bin_idx, weights[i]**2)
