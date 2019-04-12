@@ -22,6 +22,8 @@ import psutil
 import subprocess
 import pickle
 import copy
+import graphviz
+import json
 
 import nvidia_smi
 
@@ -41,15 +43,22 @@ from types import FrameType
 ha = None
 NUMPY_LIB = None
 class DecisionTreeNode:
-    def __init__(self, varname, cut, child_left=None, child_right=None):
+    def __init__(self, varname, cut):
         self.varname = varname
         self.cut = cut
         self.cacheval = None
         
-        self.child_left = child_left
-        self.child_right = child_right
         self.id = None
-
+        self.parent = None
+    
+    def add_child_left(self, child):
+        self.child_left = child
+        child.parent = self
+        
+    def add_child_right(self, child):
+        self.child_right = child
+        child.parent = self
+        
     def predict(self, n, data, ret=None, mask=None):
         if mask is None:
             mask = NUMPY_LIB.ones(n, dtype=np.bool)
@@ -71,12 +80,9 @@ class DecisionTreeNode:
         return (self.child_left is None) and (self.child_right is None)
     
     def __repr__(self):
-        s = ""
-        s += "Node[{0} > {1}] {{".format(self.varname, self.cut)
-        s += "l: {0}, ".format(self.child_left)
-        s += "r: {0}".format(self.child_right)
-        s += "}}"
-        return s
+        return "Node(nodes={0}, leaves={1})".format(
+            len(self.get_all_nodes()), len(self.get_all_leaves())
+        )
     
     def get_all_leaves(self):
         leaves = []
@@ -84,10 +90,49 @@ class DecisionTreeNode:
         leaves += self.child_right.get_all_leaves()
         return leaves
     
+    def get_all_nodes(self):
+        nodes = [self]
+        nodes += self.child_left.get_all_nodes()
+        nodes += self.child_right.get_all_nodes()
+        return nodes
+    
+    def assign_ids(self):
+        for inode, node in enumerate(self.get_all_nodes()):
+            node.id = inode
+        for ileaf, leaf in enumerate(self.get_all_leaves()):
+            leaf.id = ileaf
+            leaf.value = ileaf
+            
+    def make_dot(self):
+        dg = graphviz.Digraph(comment='Categorization')
+        DecisionTreeNode.__make_dot_recursive(self, dg)
+        return dg
+    
+    def get_depth(self, d=0):
+        if self.parent is None:
+            return d
+        return self.parent.get_depth(d+1)
+    
+    @staticmethod
+    def __make_dot_recursive(dt, dotgraph):       
+        if isinstance(dt, DecisionTreeNode):
+            label = "{0}>{1}".format(dt.varname, dt.cut)
+            name = "Node({0})".format(dt.id)
+            dotgraph.node(name, label=label, shape="rectangle")
+            child_name_l = DecisionTreeNode.__make_dot_recursive(dt.child_left, dotgraph)
+            child_name_r = DecisionTreeNode.__make_dot_recursive(dt.child_right, dotgraph)
+            dotgraph.edge(name, child_name_l, label="n")
+            dotgraph.edge(name, child_name_r, label="y")
+        elif isinstance(dt, DecisionTreeLeaf):
+            name = "Cat({0})".format(dt.value)
+            dotgraph.node(name, shape="ellipse")
+        return name
+    
 class DecisionTreeLeaf:
-    def __init__(self, value):
-        self.value = value
+    def __init__(self):
+        self.value = None
         self.id = None
+        self.parent = None
 
     def predict(self, n, data, ret, mask):
         ret[mask] = self.value
@@ -99,6 +144,58 @@ class DecisionTreeLeaf:
     
     def get_all_leaves(self):
         return [self]
+    
+    def get_all_nodes(self):
+        return []
+
+    def get_depth(self, d=0):
+        if self.parent is None:
+            return d
+        return self.parent.get_depth(d+1)
+
+def grow_randomly(dt, variable_cuts):
+    leaves = dt.get_all_leaves()
+    ileaf_random = np.random.randint(len(leaves))
+    leaf = leaves[ileaf_random]
+    parent = leaf.parent
+    
+    valid_variables = list(variable_cuts.keys())
+    # p = leaf.parent
+    # while True:
+    #     valid_variables.pop(valid_variables.index(p.varname))
+    #     p = p.parent
+    #     if p is None:
+    #         break
+
+    if len(valid_variables) > 0:
+        random_var = valid_variables[np.random.randint(len(valid_variables))]
+        random_cut = variable_cuts[random_var][np.random.randint(len(variable_cuts[random_var]))]
+
+        new_node = DecisionTreeNode(random_var, random_cut)
+        new_node.add_child_left(DecisionTreeLeaf())
+        new_node.add_child_right(DecisionTreeLeaf())
+
+        if parent.child_left == leaf:
+            parent.add_child_left(new_node)
+        else:
+            parent.add_child_right(new_node)
+
+        dt.assign_ids()
+    
+def prune_randomly(dt):
+    nodes = dt.get_all_nodes()
+    nodes_d2 = [n for n in nodes if n.get_depth()>=1]
+    if len(nodes_d2) > 1:
+        inode_random = np.random.randint(len(nodes_d2))
+        node = nodes_d2[inode_random]
+
+        leaf = DecisionTreeLeaf()
+        parent = node.parent
+        if node == parent.child_left:
+            parent.add_child_left(leaf)
+        else:
+            parent.add_child_right(leaf)
+        dt.assign_ids()
 
 def parse_nvidia_smi():
     nvidia_smi.nvmlInit()
@@ -462,8 +559,8 @@ def analyze_data(
             pu_corrections, weights["nominal"],
             scalars["Pileup_nTrueInt"], scalars["PV_npvsGood"])
         weights["puWeight"] = weights["nominal"] * pu_weights
-        weights["puWeight_up"] = weights["nominal"] * pu_weights_up
-        weights["puWeight_down"] = weights["nominal"] * pu_weights_down
+        #weights["puWeight_up"] = weights["nominal"] * pu_weights_up
+        #weights["puWeight_down"] = weights["nominal"] * pu_weights_down
 
         scalars["genWeight"] = scalars["genWeight"]
 
@@ -529,70 +626,62 @@ def analyze_data(
         assert(NUMPY_LIB.all(subleading_muon_pt[subleading_muon_pt>0] > parameters["muon_pt"]))
 
     hists = {}
-    hists["hist__dimuon__npvs"] = fill_with_weights(scalars["PV_npvsGood"], weights, ret_mu["selected_events"], NUMPY_LIB.linspace(0,100,101))
-    hists["hist__dimuon__inv_mass"] = fill_with_weights(inv_mass, weights, ret_mu["selected_events"], NUMPY_LIB.linspace(50,200,101))
+    #hists["hist__dimuon__npvs"] = fill_with_weights(scalars["PV_npvsGood"], weights, ret_mu["selected_events"], NUMPY_LIB.linspace(0,100,101))
+    #hists["hist__dimuon__inv_mass"] = fill_with_weights(inv_mass, weights, ret_mu["selected_events"], NUMPY_LIB.linspace(50,200,101))
 
-    #get histograms of leading and subleading muon momenta
-    hists["hist__dimuon__leading_muon_pt"] = fill_with_weights(leading_muon_pt, weights, ret_mu["selected_events"], NUMPY_LIB.linspace(0.0, 200.0, 101))
-    hists["hist__dimuon__subleading_muon_pt"] = fill_with_weights(subleading_muon_pt, weights, ret_mu["selected_events"], NUMPY_LIB.linspace(0.0, 200.0, 101))
+    ##get histograms of leading and subleading muon momenta
+    #hists["hist__dimuon__leading_muon_pt"] = fill_with_weights(leading_muon_pt, weights, ret_mu["selected_events"], NUMPY_LIB.linspace(0.0, 200.0, 101))
+    #hists["hist__dimuon__subleading_muon_pt"] = fill_with_weights(subleading_muon_pt, weights, ret_mu["selected_events"], NUMPY_LIB.linspace(0.0, 200.0, 101))
 
-    hists["hist__dimuon__leading_muon_eta"] = fill_with_weights(
-        leading_muon_eta, weights, ret_mu["selected_events"],
-        NUMPY_LIB.linspace(-4.0, 4.0, 101)
-    )
-    hists["hist__dimuon__subleading_muon_eta"] = fill_with_weights(
-        subleading_muon_eta, weights, ret_mu["selected_events"],
-        NUMPY_LIB.linspace(-4.0, 4.0, 101)
-    )
+    #hists["hist__dimuon__leading_muon_eta"] = fill_with_weights(
+    #    leading_muon_eta, weights, ret_mu["selected_events"],
+    #    NUMPY_LIB.linspace(-4.0, 4.0, 101)
+    #)
+    #hists["hist__dimuon__subleading_muon_eta"] = fill_with_weights(
+    #    subleading_muon_eta, weights, ret_mu["selected_events"],
+    #    NUMPY_LIB.linspace(-4.0, 4.0, 101)
+    #)
 
     masswindow_110_150 = ((inv_mass > 110) & (inv_mass < 150))
     masswindow_120_130 = ((inv_mass > 120) & (inv_mass < 130))
 
-    hists["hist__dimuon_invmass_110_150__inv_mass"] = fill_with_weights(
-        inv_mass, weights, ret_mu["selected_events"] & masswindow_110_150,
-        NUMPY_LIB.linspace(110, 150, parameters["inv_mass_bins"])
-    )
+    #hists["hist__dimuon_invmass_110_150__inv_mass"] = fill_with_weights(
+    #    inv_mass, weights, ret_mu["selected_events"] & masswindow_110_150,
+    #    NUMPY_LIB.linspace(110, 150, parameters["inv_mass_bins"])
+    #)
 
-    hists["hist__dimuon_invmass_120_130__inv_mass"] = fill_with_weights(
-        inv_mass, weights, ret_mu["selected_events"] & masswindow_110_150,
-        NUMPY_LIB.linspace(120, 130, parameters["inv_mass_bins"])
-    )
+    #hists["hist__dimuon_invmass_120_130__inv_mass"] = fill_with_weights(
+    #    inv_mass, weights, ret_mu["selected_events"] & masswindow_110_150,
+    #    NUMPY_LIB.linspace(120, 130, parameters["inv_mass_bins"])
+    #)
 
-    categorization_tree = parameters["categorization_tree"]
-    categories = categorization_tree.predict(len(inv_mass), {
-        "dimuon_inv_mass": inv_mass,
-        "dijet_inv_mass": ret_jet["dijet_inv_mass"],
-        "num_jets": ret_jet["num_jets"],
-        "num_jets_btag": ret_jet["num_jets_btag"],
-        "leading_mu_abs_eta": NUMPY_LIB.abs(leading_muon_eta),
-        "additional_leptons": additional_leptons,
-    })
-    
-    #Make histograms for each category
-    for cat in [l.value for l in categorization_tree.get_all_leaves()]:
-        cut = ret_mu["selected_events"] & masswindow_120_130 & (categories == cat)
-        hists["hist__cat{0}__inv_mass".format(int(cat))] = fill_with_weights(
-            inv_mass, weights,
-            cut,
-            NUMPY_LIB.linspace(120, 130, parameters["inv_mass_bins"])
-        )
-        hists["hist__cat{0}__leading_jet_pt".format(int(cat))] = fill_with_weights(
-            leading_jet_pt, weights,
-            cut,
-            NUMPY_LIB.linspace(0, 200, 41)
-        )
-        hists["hist__cat{0}__leading_muon_pt".format(int(cat))] = fill_with_weights(
-            leading_muon_pt, weights,
-            cut,
-            NUMPY_LIB.linspace(0, 200, 41)
-        )
+    for cat_tree_name, cat_tree in parameters["categorization_trees"].items():
+        hists_cat = Results({})
+        categories = cat_tree.predict(len(inv_mass), {
+            "dimuon_inv_mass": inv_mass,
+            "dijet_inv_mass": ret_jet["dijet_inv_mass"],
+            "num_jets": ret_jet["num_jets"],
+            "num_jets_btag": ret_jet["num_jets_btag"],
+            "leading_mu_abs_eta": NUMPY_LIB.abs(leading_muon_eta),
+            "additional_leptons": additional_leptons,
+        })
+        
+        #Make histograms for each category
+        for cat in [l.value for l in cat_tree.get_all_leaves()]:
+            cut = ret_mu["selected_events"] & masswindow_120_130 & (categories == cat)
+            hists_cat["hist__cat{0}__inv_mass".format(int(cat))] = Results(fill_with_weights(
+                inv_mass, weights,
+                cut,
+                NUMPY_LIB.linspace(120, 130, parameters["inv_mass_bins"])
+            ))
+        hists[cat_tree_name] = hists_cat
 
-    masswindow_exclude_120_130 = masswindow_110_150 & (NUMPY_LIB.invert((inv_mass >= 120) & (inv_mass <= 130)))
-    hists["hist__dimuon_invmass_110_150_exclude_120_130_jge1__leading_jet_pt"] = fill_with_weights(leading_jet_pt, weights,
-        ret_mu["selected_events"] & (ret_jet["num_jets"]>=1) & masswindow_exclude_120_130, NUMPY_LIB.linspace(30, 200.0, 101))
-    hists["hist__dimuon_invmass_110_150_exclude_120_130_jge2__subleading_jet_pt"] = fill_with_weights(subleading_jet_pt, weights,
-        ret_mu["selected_events"] & (ret_jet["num_jets"]>=2) & masswindow_exclude_120_130, NUMPY_LIB.linspace(30, 100.0, 101))
-    hists["hist__dimuon_invmass_110_150_exclude_120_130__numjet"] = fill_with_weights(ret_jet["num_jets"], weights, ret_mu["selected_events"] & masswindow_exclude_120_130, NUMPY_LIB.linspace(0, 10, 11))
+    #masswindow_exclude_120_130 = masswindow_110_150 & (NUMPY_LIB.invert((inv_mass >= 120) & (inv_mass <= 130)))
+    #hists["hist__dimuon_invmass_110_150_exclude_120_130_jge1__leading_jet_pt"] = fill_with_weights(leading_jet_pt, weights,
+    #    ret_mu["selected_events"] & (ret_jet["num_jets"]>=1) & masswindow_exclude_120_130, NUMPY_LIB.linspace(30, 200.0, 101))
+    #hists["hist__dimuon_invmass_110_150_exclude_120_130_jge2__subleading_jet_pt"] = fill_with_weights(subleading_jet_pt, weights,
+    #    ret_mu["selected_events"] & (ret_jet["num_jets"]>=2) & masswindow_exclude_120_130, NUMPY_LIB.linspace(30, 100.0, 101))
+    #hists["hist__dimuon_invmass_110_150_exclude_120_130__numjet"] = fill_with_weights(ret_jet["num_jets"], weights, ret_mu["selected_events"] & masswindow_exclude_120_130, NUMPY_LIB.linspace(0, 10, 11))
 
     int_lumi = 0
     if not is_mc and not (lumimask is None):
@@ -709,7 +798,7 @@ class InputGen:
         self.chunk_lock.release()
 
         #load caches on multiple threads
-        ds.from_cache(executor=self.executor, verbose=True)
+        ds.from_cache(executor=self.executor, verbose=False)
 
         with self.loaded_lock:
             self.num_loaded += 1
@@ -789,7 +878,7 @@ def threaded_metrics(tokill, train_batches_queue):
 
     return
 
-def main(datasets, parameters, lumidata, lumimask, pu_corrections):
+def main(outpath, datasets, parameters, lumidata, lumimask, pu_corrections):
     global NUMPY_LIB, ha
 
     nev_total = 0
@@ -811,11 +900,9 @@ def main(datasets, parameters, lumidata, lumimask, pu_corrections):
 
         filenames_all = glob.glob(args.datapath + globpattern, recursive=True)
         filenames_all = [fn for fn in filenames_all if not "Friend" in fn]
-        print("dataset {0} has {1} files".format(datasetname, len(filenames_all)))
+        print("Dataset {0} has {1} files".format(datasetname, len(filenames_all)))
         if args.maxfiles > 0:
             filenames_all = filenames_all[:args.maxfiles]
-
-        print("processing {0} files, {1}".format(len(filenames_all), args.action))
 
         datastructure = create_datastructure(is_mc)
 
@@ -826,7 +913,6 @@ def main(datasets, parameters, lumidata, lumimask, pu_corrections):
             processed_size_mb += _processed_size_mb
 
         if "analyze" in args.action:        
-            print("Starting analysis")
 
             training_set_generator = InputGen(list(filenames_all), datastructure, args.nthreads, args.chunksize, args.cache_location)
             threadk = thread_killer()
@@ -838,8 +924,8 @@ def main(datasets, parameters, lumidata, lumimask, pu_corrections):
                     t = Thread(target=threaded_batches_feeder, args=(threadk, train_batches_queue, training_set_generator))
                     t.start()
 
-            t = Thread(target=threaded_metrics, args=(threadk, train_batches_queue))
-            t.start()
+            #t = Thread(target=threaded_metrics, args=(threadk, train_batches_queue))
+            #t.start()
 
             rets = []
             num_processed = 0
@@ -851,10 +937,10 @@ def main(datasets, parameters, lumidata, lumimask, pu_corrections):
                     if not ds:
                         break
                     train_batches_queue.put(ds)
-
+                sys.stdout.write(".");sys.stdout.flush()
                 ret, nev, memsize = event_loop(
                     train_batches_queue, args.use_cuda, debug=False,
-                    verbose=True, is_mc=is_mc, lumimask=lumimask,
+                    verbose=False, is_mc=is_mc, lumimask=lumimask,
                     lumidata=lumidata,
                     pu_corrections=pu_corrections,
                     parameters=parameters) 
@@ -862,7 +948,7 @@ def main(datasets, parameters, lumidata, lumimask, pu_corrections):
                 processed_size_mb += memsize
                 nev_total += nev
                 num_processed += 1
-
+            print()
 
             #clean up threads
             threadk.set_tokill(True)
@@ -871,7 +957,7 @@ def main(datasets, parameters, lumidata, lumimask, pu_corrections):
             ret = sum(rets, Results({}))
             if is_mc:
                 ret["gen_sumweights"] = get_gen_sumweights(filenames_all)
-            ret.save_json("out/{0}.json".format(datasetname))
+            ret.save_json("{0}/{1}.json".format(outpath, datasetname))
 
     t1 = time.time()
     dt = t1 - t0
@@ -953,21 +1039,88 @@ def sig_naive(s_i, b_i):
     b = np.sum(b_i)
     return s/np.sqrt(s+b)
 
-def load_analysis(mc_samples, cross_sections, lumi):
+def significance_templates(rets, analysis, histogram_names, do_plots=False):
+     
+    Zs = []
+    Zs_naive = []
+    if do_plots:
+        for k in histogram_names:
+            plt.figure(figsize=(4,4))
+            ax = plt.axes()
+            plt.title(k)
+            for samp in sig_samples:
+                h = rets[samp][analysis][k]["puWeight"]
+                plot_hist_step(ax, h.edges, 100*h.contents, 100*np.sqrt(h.contents_w2), kwargs_step={"label":samp})
+            for samp in bkg_samples:
+                h = rets[samp][analysis][k]["puWeight"]
+                plot_hist_step(ax, h.edges, h.contents, np.sqrt(h.contents_w2), kwargs_step={"label":samp})
+
+    #         for name in ["ggh", "tth", "vbf", "wmh", "wph", "zh"]:
+    #             plot_hist(100*rets[name][analysis][k]["puWeight"], label="{0} ({1:.2E})".format(name, np.sum(rets[name][k]["puWeight"].contents)))
+    #         plot_hist(rets["dy"][k]["puWeight"], color="black", marker="o",
+    #             label="DY ({0:.2E})".format(np.sum(rets["dy"][k]["puWeight"].contents)), linewidth=0, elinewidth=1
+    #         )
+            plt.legend(frameon=False, ncol=2)
+            ymin, ymax = ax.get_ylim()
+            ax.set_ylim(ymin, 5*ymax)
+        
+    for i in range(100):
+        arrs_sig = []
+        arrs_bkg = []
+        for hn in histogram_names:
+            
+            arrs = {}
+            for samp in sig_samples + bkg_samples:
+                arrs[samp] = np.random.normal(
+                    rets[samp][analysis][hn]["puWeight"].contents,
+                    np.sqrt(rets[samp][analysis][hn]["puWeight"].contents_w2)
+                )
+        
+            arr_sig = np.sum([arrs[s] for s in sig_samples])
+            arr_bkg = np.sum([arrs[s] for s in bkg_samples])
+            arrs_sig += [arr_sig]
+            arrs_bkg += [arr_bkg]
+            
+        arr_sig = np.hstack(arrs_sig)
+        arr_bkg = np.hstack(arrs_bkg)
+
+        Z = sig_q0_asimov(arr_sig, arr_bkg)
+        Zs += [Z]
+
+        Znaive = sig_naive(arr_sig, arr_bkg)
+        Zs_naive += [Znaive]
+    
+    return (np.mean(Zs), np.std(Zs)), (np.mean(Zs_naive), np.std(Zs_naive))
+
+def compute_significances(r, analyses):
+    Zs = []
+    for an in analyses:
+        templates = [c for c in r["ggh"][an].keys() if "__cat" in c and c.endswith("__inv_mass")]
+        (Z, eZ), (Zc, eZc) = significance_templates(
+            r, an, templates
+        )
+        # print("{0}, Z={1:.3f} +- {2:.3f}, Zc={3:.3f} +- {4:.3f}".format(
+        #     an, Z, eZ, Zc, eZc)
+        # )
+        Zs += [(an, Z)]
+    return sorted(Zs, key=lambda x: x[1], reverse=True)
+
+def load_analysis(outpath, cross_sections, cat_trees):
     res = {}
-    res["data"] = json.load(open("out/data_2017.json"))
-    lumi = res["data"]["baseline"]["int_lumi"]
+    #res["data"] = json.load(open("../out/data_2017.json"))
+    #lumi = res["data"]["baseline"]["int_lumi"]
+    lumi = 41000.0
 
     rets = {
-        k: json.load(open("out/{0}.json".format(k))) for k in mc_samples
+        k: json.load(open("{0}/{1}.json".format(outpath, k))) for k in mc_samples
     }
 
     histograms = {}
     for name in mc_samples:
         ret = rets[name]
         histograms[name] = {}
-        for analysis in ["baseline"]:
-            ret_an = rets[name][analysis]
+        for analysis in cat_trees:
+            ret_an = rets[name]["baseline"][analysis]
             histograms[name][analysis] = {}
             for kn in ret_an.keys():
                 if kn.startswith("hist_"):
@@ -980,7 +1133,7 @@ def load_analysis(mc_samples, cross_sections, lumi):
     return histograms
 
 datasets = [
-    ("data_2017", "/store/data/Run2017*/SingleMuon/NANOAOD/Nano14Dec2018-v1/**/*.root", False),
+#    ("data_2017", "/store/data/Run2017*/SingleMuon/NANOAOD/Nano14Dec2018-v1/**/*.root", False),
     ("ggh", "/store/mc/RunIIFall17NanoAODv4/GluGluHToMuMu_M125_13TeV_amcatnloFXFX_pythia8/NANOAODSIM/*12Apr2018_Nano14Dec2018*/**/*.root", True),
     ("vbf", "/store/mc/RunIIFall17NanoAODv4/VBFHToMuMu_M125_TuneCP5_PSweights_13TeV_amcatnlo_pythia8/NANOAODSIM/*12Apr2018_Nano14Dec2018*/**/*.root", True),
     ("tth", "/store/mc/RunIIFall17NanoAODv4/ttHToMuMu_M125_TuneCP5_13TeV-powheg-pythia8/NANOAODSIM/*12Apr2018_Nano14Dec2018*/**/*.root", True),
@@ -1021,55 +1174,34 @@ sig_samples = ["ggh", "vbf", "tth", "zh", "wmh", "wph"]
 bkg_samples = ["dy", "ttjets_sl", "ttjets_dl", "ww_2l2nu", "wz_3lnu", "wz_2l2q", "wz_1l1nu2q", "zz"]
 mc_samples = sig_samples + bkg_samples
 
-num_leaves = 0
-num_nodes = 0
-def generate_random_cut_tree(maxdepth, depth, variables, variable_cuts, node_proba=0.8):
-    global num_leaves
-    global num_nodes
-    rn = np.random.rand()
-    
-    if depth == maxdepth or (depth>1 and rn>node_proba) or len(variables)==0:
-        leaf = DecisionTreeLeaf(num_leaves)
-        num_leaves += 1
-        return leaf
-    else:
-        sub_variables = copy.deepcopy(variables)
-        random_var = sub_variables.pop(np.random.randint(len(variables)))
-
-        random_cut = variable_cuts[random_var][np.random.randint(len(variable_cuts[random_var]))]
-        
-        child_left = generate_random_cut_tree(maxdepth, depth+1, sub_variables, variable_cuts)
-        child_left.id = num_nodes
-        num_nodes += 1
-        child_right = generate_random_cut_tree(maxdepth, depth+1, sub_variables, variable_cuts)
-        child_right.id = num_nodes
-        num_nodes += 1
-        node = DecisionTreeNode(random_var, random_cut, child_left, child_right)
-        node.id = num_nodes
-        num_nodes += 1
-        return node
-
-def generate_cut_trees(num_trees, maxdepth):
-    global num_leaves
-    global num_nodes
-    cut_trees = []
+def generate_cut_trees(num_trees, varlist, starting_tree):
+    all_trees = []
     for i in range(num_trees):
-        num_leaves = 0
-        num_nodes = 0
-        dt = generate_random_cut_tree(4, 0,
-            ["dijet_inv_mass", "num_jets", "num_jets_btag", "leading_mu_abs_eta", "additional_leptons"],
-            {
-                "dijet_inv_mass": [100,150,200,250,300,350,400],
-                "num_jets": [0,1,2],
-                "num_jets_btag": [0,1],
-                "leading_mu_abs_eta": [0.5, 1.0, 1.5, 2.0],
-                "additional_leptons": [0,1]
-            }
-        )
-        cut_trees += [dt]
-    return cut_trees
+        dtc = starting_tree
+        grow_randomly(dtc, varlist)
+        grow_randomly(dtc, varlist)
+        grow_randomly(dtc, varlist)
+        all_trees += [copy.deepcopy(dtc)]
+        
+        prune_randomly(dtc)
+        while len(dtc.get_all_leaves()) < 4:
+            grow_randomly(dtc, varlist)
+        
+        all_trees += [copy.deepcopy(dtc)]
+    return all_trees
 
 if __name__ == "__main__":
+
+    dt = DecisionTreeNode("additional_leptons", 0)
+    dt.add_child_left(DecisionTreeNode("num_jets", 0))
+    dt.add_child_right(DecisionTreeLeaf())
+    dt.child_left.add_child_left(DecisionTreeLeaf())
+    dt.child_left.add_child_right(DecisionTreeNode("dijet_inv_mass", 400))
+    dt.child_left.child_right.add_child_left(DecisionTreeLeaf())
+    dt.child_left.child_right.add_child_right(DecisionTreeNode("num_jets_btag", 0))
+    dt.child_left.child_right.child_right.add_child_left(DecisionTreeLeaf())
+    dt.child_left.child_right.child_right.add_child_right(DecisionTreeLeaf())
+    dt.assign_ids()
 
     analysis_parameters = {
         "baseline": {
@@ -1095,33 +1227,49 @@ if __name__ == "__main__":
             "extra_electrons_eta": 2.5,
             "extra_electrons_id": "mvaFall17V1Iso_WP90",
 
-            "categorization_tree": DecisionTreeNode(
-                "additional_leptons", 0,
-                DecisionTreeNode("num_jets", 0,
-                    DecisionTreeLeaf(0),
-                    DecisionTreeNode("dijet_inv_mass", 400,
-                        DecisionTreeLeaf(1),
-                        DecisionTreeNode("num_jets_btag", 0,
-                            DecisionTreeLeaf(2),
-                            DecisionTreeLeaf(3)
-                        )
-                    ),
-                ),
-                DecisionTreeLeaf(4)
-            )
+            "categorization_trees": {"simple": copy.deepcopy(dt)}
         }
     }
-    cut_trees = generate_cut_trees(100, 4)
-    for icut, dt in enumerate(cut_trees):
-        an_name = "an_cuts_{0}".format(icut)
-        analysis_parameters[an_name] = copy.deepcopy(analysis_parameters["baseline"])
-        analysis_parameters[an_name]["categorization_tree"] = dt
+    varlist = {
+        "dijet_inv_mass": [50, 100, 150, 200, 250, 300, 350, 400, 500, 600],
+        "num_jets": [0, 1, 2, 3, 4, 5],
+        "num_jets_btag": [0, 1, 2],
+        "leading_mu_abs_eta": [0.5, 1.0, 1.5, 2.0],
+        "additional_leptons": [0,1,3,4]
+    }
 
-    with open('out/parameters.pickle', 'wb') as handle:
-        pickle.dump(analysis_parameters, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
     lumimask = LumiMask("data/Cert_294927-306462_13TeV_EOY2017ReReco_Collisions17_JSON.txt", np, backend_cpu)
     lumidata = LumiData("data/lumi2017.csv")
     pu_corrections_2017 = load_puhist_target("data/RunII_2017_data.root")
 
-    main(datasets, analysis_parameters, lumidata, lumimask, pu_corrections_2017)
+    best_tree = dt
+    Zprev = 0
+    for num_iter in range(10):
+        outpath = "out/iter_{0}".format(num_iter)
+
+        try:
+            os.makedirs(outpath)
+        except FileExistsError as e:
+            pass
+
+        analysis_parameters["baseline"]["categorization_trees"] = {}
+        analysis_parameters["baseline"]["categorization_trees"]["previous_best"] = copy.deepcopy(best_tree)
+
+        cut_trees = generate_cut_trees(200, varlist, best_tree)
+        for icut, dt in enumerate(cut_trees):
+            an_name = "an_cuts_{0}".format(icut)
+            analysis_parameters["baseline"]["categorization_trees"][an_name] = dt
+
+        with open('{0}/parameters.pickle'.format(outpath), 'wb') as handle:
+            pickle.dump(analysis_parameters, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+        main(outpath, datasets, analysis_parameters, lumidata, lumimask, pu_corrections_2017)
+        cut_trees = sorted(list(analysis_parameters["baseline"]["categorization_trees"].keys()), reverse=True)
+        r = load_analysis(outpath, cross_sections, cut_trees)
+        print("computing expected significances")
+        Zs = compute_significances(r, cut_trees)
+        
+        print("optimization", num_iter, Zs[:3], Zprev)
+        best_tree = analysis_parameters["baseline"]["categorization_trees"][Zs[0][0]]
+        Zprev = Zs[0][1]
