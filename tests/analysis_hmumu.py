@@ -1,3 +1,4 @@
+
 import glob
 import time
 import numpy
@@ -19,6 +20,8 @@ import gc
 import numpy as np
 import psutil
 import subprocess
+import pickle
+import copy
 
 import nvidia_smi
 
@@ -45,7 +48,8 @@ class DecisionTreeNode:
         
         self.child_left = child_left
         self.child_right = child_right
-        
+        self.id = None
+
     def predict(self, n, data, ret=None, mask=None):
         if mask is None:
             mask = NUMPY_LIB.ones(n, dtype=np.bool)
@@ -83,7 +87,8 @@ class DecisionTreeNode:
 class DecisionTreeLeaf:
     def __init__(self, value):
         self.value = value
-    
+        self.id = None
+
     def predict(self, n, data, ret, mask):
         ret[mask] = self.value
         return ret, mask
@@ -258,13 +263,14 @@ def get_selected_jets(
 
     jets.masks["pass_dr"] = jets_pass_dr
     selected_jets = selected_jets & jets_pass_dr
-    
+   
+    #produce a mask that selects the first two selected jets 
     first_two_jets = NUMPY_LIB.zeros_like(selected_jets)
     targets = NUMPY_LIB.ones_like(mask_events)
     inds = NUMPY_LIB.zeros_like(mask_events)
-    set_in_offsets_kernel(first_two_jets, jets.offsets, inds, targets, mask_events, selected_jets)
+    ha.set_in_offsets(first_two_jets, jets.offsets, inds, targets, mask_events, selected_jets)
     inds[:] = 1
-    set_in_offsets_kernel(first_two_jets, jets.offsets, inds, targets, mask_events, selected_jets)
+    ha.set_in_offsets(first_two_jets, jets.offsets, inds, targets, mask_events, selected_jets)
 
     dijet_inv_mass = compute_inv_mass(jets, mask_events, selected_jets & first_two_jets)
 
@@ -544,9 +550,14 @@ def analyze_data(
 
     hists["hist__dimuon_invmass_110_150__inv_mass"] = fill_with_weights(
         inv_mass, weights, ret_mu["selected_events"] & masswindow_110_150,
-        NUMPY_LIB.linspace(110, 150, 101)
+        NUMPY_LIB.linspace(110, 150, parameters["inv_mass_bins"])
     )
-    
+
+    hists["hist__dimuon_invmass_120_130__inv_mass"] = fill_with_weights(
+        inv_mass, weights, ret_mu["selected_events"] & masswindow_110_150,
+        NUMPY_LIB.linspace(120, 130, parameters["inv_mass_bins"])
+    )
+
     categorization_tree = parameters["categorization_tree"]
     categories = categorization_tree.predict(len(inv_mass), {
         "dimuon_inv_mass": inv_mass,
@@ -557,11 +568,23 @@ def analyze_data(
         "additional_leptons": additional_leptons,
     })
     
-    for cat in NUMPY_LIB.unique(categories):
+    #Make histograms for each category
+    for cat in [l.value for l in categorization_tree.get_all_leaves()]:
+        cut = ret_mu["selected_events"] & masswindow_120_130 & (categories == cat)
         hists["hist__cat{0}__inv_mass".format(int(cat))] = fill_with_weights(
             inv_mass, weights,
-            ret_mu["selected_events"] & masswindow_120_130 & (categories == cat),
+            cut,
             NUMPY_LIB.linspace(120, 130, parameters["inv_mass_bins"])
+        )
+        hists["hist__cat{0}__leading_jet_pt".format(int(cat))] = fill_with_weights(
+            leading_jet_pt, weights,
+            cut,
+            NUMPY_LIB.linspace(0, 200, 41)
+        )
+        hists["hist__cat{0}__leading_muon_pt".format(int(cat))] = fill_with_weights(
+            leading_muon_pt, weights,
+            cut,
+            NUMPY_LIB.linspace(0, 200, 41)
         )
 
     masswindow_exclude_120_130 = masswindow_110_150 & (NUMPY_LIB.invert((inv_mass >= 120) & (inv_mass <= 130)))
@@ -587,12 +610,14 @@ def analyze_data(
     })
     for histname, hist in hists.items():
         ret[histname] = Results(hist)
-    ret["dimuon_inv_mass"] = [inv_mass]
-    ret["num_jets"] = [ret_jet["num_jets"]]
-    ret["num_jets_btag"] = [ret_jet["num_jets_btag"]]
-    ret["dijet_inv_mass"] = [ret_jet["dijet_inv_mass"]]
-    ret["selected_events"] = [ret_mu["selected_events"]]
-    ret["additional_leptons"] = [additional_leptons]
+
+#save raw data arrays
+#    ret["dimuon_inv_mass"] = [inv_mass]
+#    ret["num_jets"] = [ret_jet["num_jets"]]
+#    ret["num_jets_btag"] = [ret_jet["num_jets_btag"]]
+#    ret["dijet_inv_mass"] = [ret_jet["dijet_inv_mass"]]
+#    ret["selected_events"] = [ret_mu["selected_events"]]
+#    ret["additional_leptons"] = [additional_leptons]
 
     return ret
  
@@ -906,7 +931,146 @@ def create_datastructure(is_mc):
         ]
     return datastructures
 
+def likelihood(data_i, s_i, b_i, mu):
+    b_i[b_i < 0] = 0.0
+    s_i[s_i < 0] = 0.0
+
+    sel = ((s_i>0) & (b_i>0))
+    ret = data_i[sel] * np.log(mu*s_i[sel] + b_i[sel]) - (mu*s_i[sel] + b_i[sel])
+    return np.sum(ret)
+
+def sig_q0_asimov(s_i, b_i):
+    mu = 1
+    data_i = mu * s_i + b_i
+    l0 = likelihood(data_i, s_i, b_i, 0)
+    l1 = likelihood(data_i, s_i, b_i, mu)
+    q0 = -2 * (l0 - l1)
+    Z = np.sqrt(q0)
+    return Z
+
+def sig_naive(s_i, b_i):
+    s = np.sum(s_i)
+    b = np.sum(b_i)
+    return s/np.sqrt(s+b)
+
+def load_analysis(mc_samples, cross_sections, lumi):
+    res = {}
+    res["data"] = json.load(open("out/data_2017.json"))
+    lumi = res["data"]["baseline"]["int_lumi"]
+
+    rets = {
+        k: json.load(open("out/{0}.json".format(k))) for k in mc_samples
+    }
+
+    histograms = {}
+    for name in mc_samples:
+        ret = rets[name]
+        histograms[name] = {}
+        for analysis in ["baseline"]:
+            ret_an = rets[name][analysis]
+            histograms[name][analysis] = {}
+            for kn in ret_an.keys():
+                if kn.startswith("hist_"):
+                    histograms[name][analysis][kn] = {}
+                    for w in ret_an[kn].keys():
+                        h = (1.0 / ret["gen_sumweights"]) * lumi * cross_sections[name] * Histogram.from_dict(ret_an[kn][w])
+                        h.label = "{0} ({1:.1E})".format(name, np.sum(h.contents))
+                        histograms[name][analysis][kn][w] = h
+
+    return histograms
+
+datasets = [
+    ("data_2017", "/store/data/Run2017*/SingleMuon/NANOAOD/Nano14Dec2018-v1/**/*.root", False),
+    ("ggh", "/store/mc/RunIIFall17NanoAODv4/GluGluHToMuMu_M125_13TeV_amcatnloFXFX_pythia8/NANOAODSIM/*12Apr2018_Nano14Dec2018*/**/*.root", True),
+    ("vbf", "/store/mc/RunIIFall17NanoAODv4/VBFHToMuMu_M125_TuneCP5_PSweights_13TeV_amcatnlo_pythia8/NANOAODSIM/*12Apr2018_Nano14Dec2018*/**/*.root", True),
+    ("tth", "/store/mc/RunIIFall17NanoAODv4/ttHToMuMu_M125_TuneCP5_13TeV-powheg-pythia8/NANOAODSIM/*12Apr2018_Nano14Dec2018*/**/*.root", True),
+    ("wmh", "/store/mc/RunIIFall17NanoAODv4/WminusH_HToMuMu_WToAll_M125_13TeV_powheg_pythia8/NANOAODSIM/*12Apr2018_Nano14Dec2018*/**/*.root", True),
+    ("wph", "/store/mc/RunIIFall17NanoAODv4/WplusH_HToMuMu_WToAll_M125_13TeV_powheg_pythia8/NANOAODSIM/*12Apr2018_Nano14Dec2018*/**/*.root", True),
+    ("zh", "/store/mc/RunIIFall17NanoAODv4/ZH_HToMuMu_ZToAll_M125_13TeV_powheg_pythia8/NANOAODSIM/*12Apr2018_Nano14Dec2018*/**/*.root", True),
+    ("dy", "/store/mc/RunIIFall17NanoAODv4/DYJetsToLL_M-50_TuneCP5_13TeV-amcatnloFXFX-pythia8*/**/*.root", True),
+    ("ttjets_dl", "/store/mc/RunIIFall17NanoAODv4/TTTo2L2Nu_TuneCP5_13TeV-powheg-pythia8/**/*.root", True),
+    ("ttjets_sl", "/store/mc/RunIIFall17NanoAODv4/TTToSemiLeptonic_TuneCP5_13TeV-powheg-pythia8/**/*.root", True),
+#        ("ttjets_dl_madgraph", "/store/mc/RunIIFall17NanoAODv4/TTJets_DiLept_TuneCP5_13TeV-madgraphMLM-pythia8/**/*.root", True),
+    ("ww_2l2nu", "/store/mc/RunIIFall17NanoAODv4/WWTo2L2Nu_NNPDF31_TuneCP5_13TeV-powheg-pythia8/**/*.root", True),
+    ("wz_3lnu", "/store/mc/RunIIFall17NanoAODv4/WZTo3LNu_13TeV-powheg-pythia8/**/*.root", True),
+    ("wz_2l2q", "/store/mc/RunIIFall17NanoAODv4/WZTo2L2Q_13TeV_amcatnloFXFX_madspin_pythia8/**/*.root", True),
+    ("wz_1l1nu2q", "/store/mc/RunIIFall17NanoAODv4/WZTo1L1Nu2Q_13TeV_amcatnloFXFX_madspin_pythia8/**/*.root", True),
+    ("zz", "/store/mc/RunIIFall17NanoAODv4/ZZTo2L2Nu_13TeV_powheg_pythia8/**/*.root", True),
+]
+
+cross_sections = {
+    "dy": 5765.4,
+    "ggh": 0.009605,
+    "tth": 0.000110,
+    "vbf": 0.000823,
+    
+    "wmh": 0.000116,
+    "wph": 0.000183,
+    "zh": 0.000192,
+    
+    "ttjets_dl": 85.656,
+    "ttjets_sl": 687.0,
+    "ww_2l2nu": 5.595,
+    "wz_3lnu":  4.42965,
+    "wz_2l2q": 5.595,
+    "wz_1l1nu2q": 11.61,
+    "zz": 16.523
+}
+
+sig_samples = ["ggh", "vbf", "tth", "zh", "wmh", "wph"]
+bkg_samples = ["dy", "ttjets_sl", "ttjets_dl", "ww_2l2nu", "wz_3lnu", "wz_2l2q", "wz_1l1nu2q", "zz"]
+mc_samples = sig_samples + bkg_samples
+
+num_leaves = 0
+num_nodes = 0
+def generate_random_cut_tree(maxdepth, depth, variables, variable_cuts, node_proba=0.8):
+    global num_leaves
+    global num_nodes
+    rn = np.random.rand()
+    
+    if depth == maxdepth or (depth>1 and rn>node_proba) or len(variables)==0:
+        leaf = DecisionTreeLeaf(num_leaves)
+        num_leaves += 1
+        return leaf
+    else:
+        sub_variables = copy.deepcopy(variables)
+        random_var = sub_variables.pop(np.random.randint(len(variables)))
+
+        random_cut = variable_cuts[random_var][np.random.randint(len(variable_cuts[random_var]))]
+        
+        child_left = generate_random_cut_tree(maxdepth, depth+1, sub_variables, variable_cuts)
+        child_left.id = num_nodes
+        num_nodes += 1
+        child_right = generate_random_cut_tree(maxdepth, depth+1, sub_variables, variable_cuts)
+        child_right.id = num_nodes
+        num_nodes += 1
+        node = DecisionTreeNode(random_var, random_cut, child_left, child_right)
+        node.id = num_nodes
+        num_nodes += 1
+        return node
+
+def generate_cut_trees(num_trees, maxdepth):
+    global num_leaves
+    global num_nodes
+    cut_trees = []
+    for i in range(num_trees):
+        num_leaves = 0
+        num_nodes = 0
+        dt = generate_random_cut_tree(4, 0,
+            ["dijet_inv_mass", "num_jets", "num_jets_btag", "leading_mu_abs_eta", "additional_leptons"],
+            {
+                "dijet_inv_mass": [100,150,200,250,300,350,400],
+                "num_jets": [0,1,2],
+                "num_jets_btag": [0,1],
+                "leading_mu_abs_eta": [0.5, 1.0, 1.5, 2.0],
+                "additional_leptons": [0,1]
+            }
+        )
+        cut_trees += [dt]
+    return cut_trees
+
 if __name__ == "__main__":
+
     analysis_parameters = {
         "baseline": {
             "NdfPV": 4,
@@ -923,6 +1087,13 @@ if __name__ == "__main__":
             "jet_eta": 4.7,
             "jet_id": "tight",
             "jet_puid": "loose",
+            "jet_btag": 0.4941,
+
+            "inv_mass_bins": 41,
+
+            "extra_electrons_pt": 5,
+            "extra_electrons_eta": 2.5,
+            "extra_electrons_id": "mvaFall17V1Iso_WP90",
 
             "categorization_tree": DecisionTreeNode(
                 "additional_leptons", 0,
@@ -938,27 +1109,16 @@ if __name__ == "__main__":
                 ),
                 DecisionTreeLeaf(4)
             )
-        },
+        }
     }
+    cut_trees = generate_cut_trees(100, 4)
+    for icut, dt in enumerate(cut_trees):
+        an_name = "an_cuts_{0}".format(icut)
+        analysis_parameters[an_name] = copy.deepcopy(analysis_parameters["baseline"])
+        analysis_parameters[an_name]["categorization_tree"] = dt
 
-    datasets = [
-        ("data_2017", "/store/data/Run2017*/SingleMuon/NANOAOD/Nano14Dec2018-v1/**/*.root", False),
-        ("ggh", "/store/mc/RunIIFall17NanoAODv4/GluGluHToMuMu_M125_13TeV_amcatnloFXFX_pythia8/NANOAODSIM/*12Apr2018_Nano14Dec2018*/**/*.root", True),
-        ("vbf", "/store/mc/RunIIFall17NanoAODv4/VBFHToMuMu_M125_TuneCP5_PSweights_13TeV_amcatnlo_pythia8/NANOAODSIM/*12Apr2018_Nano14Dec2018*/**/*.root", True),
-        ("tth", "/store/mc/RunIIFall17NanoAODv4/ttHToMuMu_M125_TuneCP5_13TeV-powheg-pythia8/NANOAODSIM/*12Apr2018_Nano14Dec2018*/**/*.root", True),
-        ("wmh", "/store/mc/RunIIFall17NanoAODv4/WminusH_HToMuMu_WToAll_M125_13TeV_powheg_pythia8/NANOAODSIM/*12Apr2018_Nano14Dec2018*/**/*.root", True),
-        ("wph", "/store/mc/RunIIFall17NanoAODv4/WplusH_HToMuMu_WToAll_M125_13TeV_powheg_pythia8/NANOAODSIM/*12Apr2018_Nano14Dec2018*/**/*.root", True),
-        ("zh", "/store/mc/RunIIFall17NanoAODv4/ZH_HToMuMu_ZToAll_M125_13TeV_powheg_pythia8/NANOAODSIM/*12Apr2018_Nano14Dec2018*/**/*.root", True),
-        ("dy", "/store/mc/RunIIFall17NanoAODv4/DYJetsToLL_M-50_TuneCP5_13TeV-amcatnloFXFX-pythia8*/**/*.root", True),
-        ("ttjets_dl", "/store/mc/RunIIFall17NanoAODv4/TTTo2L2Nu_TuneCP5_13TeV-powheg-pythia8/**/*.root", True),
-        ("ttjets_sl", "/store/mc/RunIIFall17NanoAODv4/TTToSemiLeptonic_TuneCP5_13TeV-powheg-pythia8/**/*.root", True),
-#        ("ttjets_dl_madgraph", "/store/mc/RunIIFall17NanoAODv4/TTJets_DiLept_TuneCP5_13TeV-madgraphMLM-pythia8/**/*.root", True),
-        ("ww_2l2nu", "/store/mc/RunIIFall17NanoAODv4/WWTo2L2Nu_NNPDF31_TuneCP5_13TeV-powheg-pythia8/**/*.root", True),
-        ("wz_3lnu", "/store/mc/RunIIFall17NanoAODv4/WZTo3LNu_13TeV-powheg-pythia8/**/*.root", True),
-        ("wz_2l2q", "/store/mc/RunIIFall17NanoAODv4/WZTo2L2Q_13TeV_amcatnloFXFX_madspin_pythia8/**/*.root", True),
-        ("wz_1l1nu2q", "/store/mc/RunIIFall17NanoAODv4/WZTo1L1Nu2Q_13TeV_amcatnloFXFX_madspin_pythia8/**/*.root", True),
-        ("zz", "/store/mc/RunIIFall17NanoAODv4/ZZTo2L2Nu_13TeV_powheg_pythia8/**/*.root", True),
-    ]
+    with open('out/parameters.pickle', 'wb') as handle:
+        pickle.dump(analysis_parameters, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
     lumimask = LumiMask("data/Cert_294927-306462_13TeV_EOY2017ReReco_Collisions17_JSON.txt", np, backend_cpu)
     lumidata = LumiData("data/lumi2017.csv")

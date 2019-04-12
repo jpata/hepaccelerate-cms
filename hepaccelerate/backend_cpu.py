@@ -184,6 +184,9 @@ def get_in_offsets(content, offsets, indices, mask_rows, mask_content):
     get_in_offsets_kernel(content, offsets, indices, mask_rows, mask_content, out)
     return out
 
+def set_in_offsets(content, offsets, indices, target, mask_rows, mask_content):
+    set_in_offsets_kernel(content, offsets, indices, target, mask_rows, mask_content)
+
 """
 For all events (N), mask the objects in the first collection (M1) if they are closer than dr2 to any object in the second collection (M2).
 

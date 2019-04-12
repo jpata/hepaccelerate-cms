@@ -156,6 +156,26 @@ def get_in_offsets_cudakernel(content, offsets, indices, mask_rows, mask_content
                     break
                 else:
                     index_to_get += 1
+
+@cuda.jit
+def set_in_offsets_cudakernel(content, offsets, indices, target, mask_rows, mask_content):
+    xi = cuda.grid(1)
+    xstride = cuda.gridsize(1)
+
+    for iev in range(xi, offsets.shape[0]-1, xstride):
+        if not mask_rows[iev]:
+            continue
+        start = offsets[iev]
+        end = offsets[iev + 1]
+        
+        index_to_set = 0
+        for ielem in range(start, end):
+            if mask_content[ielem]:
+                if index_to_set == indices[iev]:
+                    content[ielem] = target[iev]
+                    break
+                else:
+                    index_to_set += 1
         
 @cuda.jit
 def min_in_offsets_cudakernel(content, offsets, mask_rows, mask_content, out):
@@ -210,6 +230,10 @@ def get_in_offsets(content, offsets, indices, mask_rows, mask_content):
     get_in_offsets_cudakernel[32, 1024](content, offsets, indices, mask_rows, mask_content, out)
     cuda.synchronize()
     return out
+
+def set_in_offsets(content, offsets, indices, target, mask_rows, mask_content):
+    set_in_offsets_cudakernel[32, 1024](content, offsets, indices, target, mask_rows, mask_content)
+    cuda.synchronize()
 
 """
 For all events (N), mask the objects in the first collection (M1) if they are closer than dr2 to any object in the second collection (M2).

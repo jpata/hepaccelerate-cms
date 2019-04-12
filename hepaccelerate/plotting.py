@@ -34,27 +34,33 @@ def plot_hist_ratio(hists_mc, hist_data):
 
     ax1 = plt.axes([0.0, 0.23, 1.0, 0.8])
        
-    hmc_tot = np.zeros_like(hist_data["contents"])
-    hmc_tot2 = np.zeros_like(hist_data["contents"])
+    hmc_tot = np.zeros_like(hist_data.contents)
+    hmc_tot2 = np.zeros_like(hist_data.contents)
     for h in hists_mc:
-        plot_hist_step(ax1, h["edges"], hmc_tot + h["xsw"]*h["contents"], hmc_tot2 + h["xsw"]*np.sqrt(h["contents_w2"]), kwargs_step={"label": h.get("label", None)})
-        hmc_tot += h["xsw"]*h["contents"]
-        hmc_tot2 += h["xsw"]*h["contents_w2"]
+        plot_hist_step(ax1, h.edges, hmc_tot + h.contents,
+            hmc_tot2 + np.sqrt(h.contents_w2),
+            kwargs_step={"label": getattr(h, "label", None)}
+        )
+        hmc_tot += h.contents
+        hmc_tot2 += h.contents_w2
 #    plot_hist_step(h["edges"], hmc_tot, np.sqrt(hmc_tot2), kwargs_step={"color": "gray", "label": None})
-    ax1.errorbar(midpoints(hist_data["edges"]), hist_data["contents"], np.sqrt(hist_data["contents_w2"]), marker="o", lw=0, elinewidth=1.0, color="black", ms=3, label=hist_data.get("label", "data"))
+    ax1.errorbar(
+        midpoints(hist_data.edges), hist_data.contents,
+        np.sqrt(hist_data.contents_w2), marker="o", lw=0,
+        elinewidth=1.0, color="black", ms=3, label=getattr(hist_data, "label", None))
     
     ax1.set_yscale("log")
-    ax1.set_ylim(1e-2, 100*np.max(hist_data["contents"]))
+    ax1.set_ylim(1e-2, 100*np.max(hist_data.contents))
     
     #ax1.get_yticklabels()[-1].remove()
     
     ax2 = plt.axes([0.0, 0.0, 1.0, 0.16], sharex=ax1)
 
-    ratio = hist_data["contents"] / hmc_tot
-    ratio_err = np.sqrt(hist_data["contents_w2"]) /hmc_tot
+    ratio = hist_data.contents / hmc_tot
+    ratio_err = np.sqrt(hist_data.contents_w2) /hmc_tot
     ratio[np.isnan(ratio)] = 0
 
-    plt.errorbar(midpoints(hist_data["edges"]), ratio, ratio_err, marker="o", lw=0, elinewidth=1, ms=3, color="black")
+    plt.errorbar(midpoints(hist_data.edges), ratio, ratio_err, marker="o", lw=0, elinewidth=1, ms=3, color="black")
     plt.ylim(0.5, 1.5)
     plt.axhline(1.0, color="black")
     return ax1, ax2

@@ -43,6 +43,10 @@ class Histogram:
     def __rmul__(self, number):
         return self.__mul__(number)
 
+    @staticmethod
+    def from_dict(d):
+        return Histogram(d["contents"], d["contents_w2"], d["edges"])
+
 class JaggedStruct(object):
     def __init__(self, offsets, attrs_data, prefix, numpy_lib, attr_names_dtypes):
         self.numpy_lib = numpy_lib
