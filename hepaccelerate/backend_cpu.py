@@ -137,26 +137,7 @@ def set_in_offsets_kernel(content, offsets, indices, target, mask_rows, mask_con
                     break
                 else:
                     index_to_set += 1
-        
-@numba.njit(parallel=True, fastmath=True)
-def min_in_offsets_kernel(content, offsets, mask_rows, mask_content, out):
-    for iev in numba.prange(offsets.shape[0]-1):
-        if not mask_rows[iev]:
-            continue
-            
-        start = offsets[iev]
-        end = offsets[iev + 1]
-    
-        first = True
-        accum = 0
-        
-        for ielem in range(start, end):
-            if mask_content[ielem]:
-                if first or content[ielem] < accum:
-                    accum = content[ielem]
-                    first = False
-        out[iev] = accum
-        
+
 def sum_in_offsets(struct, content, mask_rows, mask_content, dtype=None):
     if not dtype:
         dtype = content.dtype
