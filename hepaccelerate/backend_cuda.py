@@ -136,7 +136,7 @@ def min_in_offsets_cudakernel(content, offsets, mask_rows, mask_content, out):
                     accum = content[ielem]
                     first = False
         out[iev] = accum
-    
+
 @cuda.jit
 def get_in_offsets_cudakernel(content, offsets, indices, mask_rows, mask_content, out):
     xi = cuda.grid(1)
@@ -176,28 +176,6 @@ def set_in_offsets_cudakernel(content, offsets, indices, target, mask_rows, mask
                     break
                 else:
                     index_to_set += 1
-        
-@cuda.jit
-def min_in_offsets_cudakernel(content, offsets, mask_rows, mask_content, out):
-    xi = cuda.grid(1)
-    xstride = cuda.gridsize(1)
-
-    for iev in range(xi, offsets.shape[0]-1, xstride):
-        if not mask_rows[iev]:
-            continue
-            
-        start = offsets[iev]
-        end = offsets[iev + 1]
-    
-        first = True
-        accum = 0
-        
-        for ielem in range(start, end):
-            if mask_content[ielem]:
-                if first or content[ielem] < accum:
-                    accum = content[ielem]
-                    first = False
-        out[iev] = accum
         
 def sum_in_offsets(struct, content, mask_rows, mask_content, dtype=None):
     if not dtype:
