@@ -138,14 +138,15 @@ We can demonstrate that we can process 1B events in about 4 minutes (from existi
 - 64GB DDR3
 - 6.4TB Intel P4608
 - 1x Titan X 12GB
-- analyzed 978,711,446 events in 62.70 GB of branches
+- analyzed 1,093,479,508 events in 292.86 GB of branches
 
 
 task    | configuration           |time      | speed       | speed
 --------|-------------------------|----------|-------------|-----------
-caching | CPU(16)                 | 1008.8 s | 9.70E+05 Hz | 63.65 MB/s
-analyze | CPU(16)                 | 374.7 s  | 2.61E+06 Hz | 171.38 MB/s
-analyze | GPU(1) CPU(16) batch(8) | 229.4 s  | 4.27E+06 Hz | 279.87 MB/s
+caching | CPU(16)                 | 1611.1 s | 9.70E+05 Hz | 186.13 MB/s
+analyze | CPU(1)                  | 1259.5 s | 8.68E+05 Hz | 238.09 MB/s
+analyze | CPU(16)                 | 850.1 s  | 1.29E+06 Hz | 352.76 MB/s
+analyze | GPU(1) CPU(16)          | 407.2 s  | 2.69E+06 Hz | 736.42 MB/s
 
 
 ## Getting started
@@ -189,14 +190,14 @@ wget https://jpata.web.cern.ch/jpata/singularity/cupy.simg -o singularity/cupy.s
 LC_ALL=C PYTHONPATH=.:$PYTHONPATH singularity exec -B /nvmedata --nv singularity/cupy.simg python3 ...
 ```
 
-## Recommendations on data locality
+## Recommendations on data locality and remote data
 In order to make full use of modern CPUs or GPUs, you want to bring the data as close as possible to where the work is done, otherwise you will spend most of the time waiting for the data to arrive rather than actually performing the computations.
 
 With CMS NanoAOD with event sizes of 1-2 kB/event, 1 million events is approximately 1-2 GB on disk. Therefore, you can fit a significant amount of data used in a HEP analysis on a commodity SSD. In order to copy the data to your local disk, use grid tools such as `gfal-copy` or even `rsync` to fetch it from your nearest Tier2. Preserving the filename structure (`/store/...`) will allow you to easily run the same code on multiple sites.
 
 ## Frequently asked questions
 
- - *Why are you doing this array-based analysis business?* I could not find a tool available with which I could do HEP analysis on data on a local disk with MHz rates.
+ - *Why are you doing this array-based analysis business?* Mainly out of curiosity, and I could not find a tool available with which I could do HEP analysis on data on a local disk with MHz rates. It is possible that dask/spark/RDataFrame will soon work well enough for this purpose, but until then, I can justify writing a few functions.
  - *How does this relate to the awkward-array project?* We use the jagged structure provided by the awkward arrays, but implement common HEP functions such as deltaR matching as parallelizable loops or 'kernels' running directly over the array contents, taking into account the event structure. We make these loops fast with Numba, but allow you to debug them by going back to standard python when disabling the compilation.
  - *How does this relate to the coffea/fnal-columnas-analysis-tools project?* It's very similar, you should check out that project! We implement less methods, mostly by explicit loops in Numba, and on GPUs as well as CPUs.
  - *Why don't you use the array operations (`JaggedArray.sum`, `argcross` etc) implemented in awkward-array?* They are great! However, in order to easily use the same code on either the CPU or GPU, we chose to implement the most common operations explicitly, rather than relying on numpy/cupy to do it internally. This also seems to be faster, at the moment.

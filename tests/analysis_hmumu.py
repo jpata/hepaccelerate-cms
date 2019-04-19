@@ -32,7 +32,7 @@ def parse_args():
     return args
 
 datasets = [
-#    ("data_2017", "/store/data/Run2017*/SingleMuon/NANOAOD/Nano14Dec2018-v1/**/*.root", False),
+    ("data_2017", "/store/data/Run2017*/SingleMuon/NANOAOD/Nano14Dec2018-v1/**/*.root", False),
     ("ggh", "/store/mc/RunIIFall17NanoAODv4/GluGluHToMuMu_M125_13TeV_amcatnloFXFX_pythia8/NANOAODSIM/*12Apr2018_Nano14Dec2018*/**/*.root", True),
     ("vbf", "/store/mc/RunIIFall17NanoAODv4/VBFHToMuMu_M125_TuneCP5_PSweights_13TeV_amcatnlo_pythia8/NANOAODSIM/*12Apr2018_Nano14Dec2018*/**/*.root", True),
     ("tth", "/store/mc/RunIIFall17NanoAODv4/ttHToMuMu_M125_TuneCP5_13TeV-powheg-pythia8/NANOAODSIM/*12Apr2018_Nano14Dec2018*/**/*.root", True),
@@ -131,7 +131,7 @@ if __name__ == "__main__":
     varB = dt2
 
     #make a hundred random trees as a starting point
-    rand_trees = {"rand{0}".format(i): make_random_tree(varlist, 5) for i in range(100)}
+    rand_trees = {"rand{0}".format(i): make_random_tree(varlist, 5) for i in range(1)}
 
     analysis_parameters = {
         "baseline": {
