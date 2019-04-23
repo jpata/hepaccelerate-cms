@@ -142,12 +142,12 @@ We can demonstrate that we can process 1B events in about 4 minutes (from existi
 - analyzed 1,093,479,508 events in 292.86 GB of branches
 
 
-task    | configuration           |time      | speed       | speed
+task    | configuration           | tot time | avg speed   | avg speed
 --------|-------------------------|----------|-------------|-----------
 caching | CPU(16)                 | 1611.1 s | 9.70E+05 Hz | 186.13 MB/s
-analyze | CPU(1)                  | 1259.5 s | 8.68E+05 Hz | 238.09 MB/s
-analyze | CPU(16)                 | 1616.5 s | 6.76E+05 Hz | 185.52 MB/s
-analyze | GPU(1) CPU(16)          | 560.8 s  | 1.95E+06 Hz | 534.71 MB/s
+analyze | CPU(1)                  | 2553.3 s | 4.28E+05 Hz | 117.45 MB/s
+analyze | CPU(16)                 | 1689.7 s | 6.47E+05 Hz | 177.48 MB/s
+analyze | GPU(1) CPU(16)          | 611.5 s  | 1.79E+06 Hz | 490.39 MB/s
 
 
 ## Getting started
