@@ -1,6 +1,12 @@
 import numpy as np
 import copy
-import graphviz
+import sys
+
+try:
+    import graphviz
+except Exception as e:
+    print("Could not import graphviz", file=sys.stderr)
+    pass
 
 class DecisionTreeNode:
     NUMPY_LIB = np

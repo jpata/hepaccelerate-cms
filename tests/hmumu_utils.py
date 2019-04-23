@@ -1,5 +1,4 @@
 import pickle, json
-import nvidia_smi
 import threading
 import uproot
 import copy
@@ -30,6 +29,12 @@ from hepaccelerate.stats import likelihood, sig_q0_asimov, sig_naive
 ha = None
 NUMPY_LIB = None
 genweight_scalefactor = 0.00001
+
+try:
+    import nvidia_smi
+except Exception as e:
+    print("Could not import nvidia_smi", file=sys.stderr)
+    pass
 
 def parse_nvidia_smi():
     """Returns the GPU symmetric multiprocessor and memory usage in %

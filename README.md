@@ -122,12 +122,13 @@ We can process 35M events on a macbook in about 5 minutes.
 - 4-core 2.6GHz i5
 - 8GB DDR3
 - 250GB SSD PT250B over USB3
-- analyzed 35,041,780 events in 2.36 GB of branches
+- analyzed 37,021,788 events in 10.11 GB of branches
 
 task    | configuration  |time     | speed       | speed
 --------|----------------|---------|-------------|-----------
-caching | CPU(4)         | 365.5 s | 9.59E+04 Hz | 6.60 MB/s
-analyze | CPU(4)         | 116.6 s | 3.01E+05 Hz | 20.70 MB/s
+caching | CPU(4)         | 452.6 s | 8.18E+04 Hz | 22.87 MB/s
+analyze | CPU(1)         | 122.9 s | 3.01E+05 Hz | 84.21 MB/s
+analyze | CPU(4)         | 116.6 s | 3.22E+05 Hz | 89.90 MB/s
 
 
 ### High-end workstation, 1B events
