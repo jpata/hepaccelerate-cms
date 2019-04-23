@@ -145,8 +145,8 @@ task    | configuration           |time      | speed       | speed
 --------|-------------------------|----------|-------------|-----------
 caching | CPU(16)                 | 1611.1 s | 9.70E+05 Hz | 186.13 MB/s
 analyze | CPU(1)                  | 1259.5 s | 8.68E+05 Hz | 238.09 MB/s
-analyze | CPU(16)                 | 850.1 s  | 1.29E+06 Hz | 352.76 MB/s
-analyze | GPU(1) CPU(16)          | 407.2 s  | 2.69E+06 Hz | 736.42 MB/s
+analyze | CPU(16)                 | 1616.5 s | 6.76E+05 Hz | 185.52 MB/s
+analyze | GPU(1) CPU(16)          | 560.8 s  | 1.95E+06 Hz | 534.71 MB/s
 
 
 ## Getting started
