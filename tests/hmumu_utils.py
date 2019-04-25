@@ -756,8 +756,8 @@ def run_analysis(args, outpath, datasets, parameters, lumidata, lumimask, pu_cor
                     t = Thread(target=threaded_batches_feeder, args=(threadk, train_batches_queue, training_set_generator))
                     t.start()
 
-            #t = Thread(target=threaded_metrics, args=(threadk, train_batches_queue))
-            #t.start()
+            t = Thread(target=threaded_metrics, args=(threadk, train_batches_queue))
+            t.start()
 
             rets = []
             num_processed = 0

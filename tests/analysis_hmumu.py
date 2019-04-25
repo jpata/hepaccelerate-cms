@@ -28,12 +28,13 @@ def parse_args():
     parser.add_argument('--cache-location', action='store', help='Cache location', default='', type=str)
     parser.add_argument('--out', action='store', help='Output location', default='out', type=str)
     parser.add_argument('--niter', action='store', help='Number of categorization optimization iterations', default=0, type=int)
+    parser.add_argument('--pinned', action='store_true', help='Use CUDA pinned memory')
     args = parser.parse_args()
     return args
 
 datasets = [
-    ("data_2017", "/store/data/Run2017*/SingleMuon/NANOAOD/Nano14Dec2018-v1/**/*.root", False),
-    ("ggh", "/store/mc/RunIIFall17NanoAODv4/GluGluHToMuMu_M125_13TeV_amcatnloFXFX_pythia8/NANOAODSIM/*12Apr2018_Nano14Dec2018*/**/*.root", True),
+#    ("data_2017", "/store/data/Run2017*/SingleMuon/NANOAOD/Nano14Dec2018-v1/**/*.root", False),
+#    ("ggh", "/store/mc/RunIIFall17NanoAODv4/GluGluHToMuMu_M125_13TeV_amcatnloFXFX_pythia8/NANOAODSIM/*12Apr2018_Nano14Dec2018*/**/*.root", True),
 #    ("vbf", "/store/mc/RunIIFall17NanoAODv4/VBFHToMuMu_M125_TuneCP5_PSweights_13TeV_amcatnlo_pythia8/NANOAODSIM/*12Apr2018_Nano14Dec2018*/**/*.root", True),
 #    ("tth", "/store/mc/RunIIFall17NanoAODv4/ttHToMuMu_M125_TuneCP5_13TeV-powheg-pythia8/NANOAODSIM/*12Apr2018_Nano14Dec2018*/**/*.root", True),
 #    ("wmh", "/store/mc/RunIIFall17NanoAODv4/WminusH_HToMuMu_WToAll_M125_13TeV_powheg_pythia8/NANOAODSIM/*12Apr2018_Nano14Dec2018*/**/*.root", True),
@@ -89,7 +90,11 @@ if __name__ == "__main__":
         yappi.set_clock_type('cpu')
         yappi.start(builtins=True)
 
-    args = parse_args()  
+    args = parse_args()
+    if not args.pinned:
+        import cupy
+        cupy.cuda.set_allocator(None)
+        cupy.cuda.set_pinned_memory_allocator(None)
 
     hmumu_utils.NUMPY_LIB, hmumu_utils.ha = choose_backend(args.use_cuda)
     NanoAODDataset.numpy_lib = hmumu_utils.NUMPY_LIB
