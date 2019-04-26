@@ -37,6 +37,16 @@ class Histogram:
         assert(np.all(self.edges == other.edges))
         return Histogram(self.contents +  other.contents, self.contents_w2 +  other.contents_w2, self.edges)
 
+    def __mul__(self, number):
+        return Histogram(number * self.contents, number * number * self.contents_w2, self.edges)
+
+    def __rmul__(self, number):
+        return self.__mul__(number)
+
+    @staticmethod
+    def from_dict(d):
+        return Histogram(d["contents"], d["contents_w2"], d["edges"])
+
 class JaggedStruct(object):
     def __init__(self, offsets, attrs_data, prefix, numpy_lib, attr_names_dtypes):
         self.numpy_lib = numpy_lib
@@ -311,7 +321,7 @@ class NanoAODDataset(Dataset):
         t1 = time.time()
         dt = t1 - t0
         if verbose:
-            print("analyze: processed analysis with {0:.2E} events in {1:.1f} seconds, {2:.2E} Hz".format(len(self), dt, len(self)/dt))
+            print("analyze: processed analysis with {0:.2E} events in {1:.1f} seconds, {2:.2E} Hz, {3:.2E} MB/s".format(len(self), dt, len(self)/dt, self.memsize()/dt/1024.0/1024.0))
         return sum(rets, Results({}))
 
     def to_cache(self, nthreads=1, verbose=False):
@@ -376,8 +386,8 @@ class NanoAODDataset(Dataset):
         t1 = time.time()
         dt = t1 - t0
         if verbose:
-            print("from_cache: loaded cache for {1:.2E} events in {0:.1f} seconds, speed {2:.2E} Hz".format(
-                dt, len(self), len(self)/dt
+            print("from_cache: loaded cache for {1:.2E} events in {0:.1f} seconds, speed {2:.2E} Hz, {3:.2E} MB/s".format(
+                dt, len(self), len(self)/dt, self.memsize()/dt/1024.0/1024.0
             ))
 
     def from_cache_worker(self, ifn):

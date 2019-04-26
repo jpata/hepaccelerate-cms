@@ -122,12 +122,13 @@ We can process 35M events on a macbook in about 5 minutes.
 - 4-core 2.6GHz i5
 - 8GB DDR3
 - 250GB SSD PT250B over USB3
-- analyzed 35,041,780 events in 2.36 GB of branches
+- analyzed 37,021,788 events in 10.11 GB of branches
 
 task    | configuration  |time     | speed       | speed
 --------|----------------|---------|-------------|-----------
-caching | CPU(4)         | 365.5 s | 9.59E+04 Hz | 6.60 MB/s
-analyze | CPU(4)         | 116.6 s | 3.01E+05 Hz | 20.70 MB/s
+caching | CPU(4)         | 452.6 s | 8.18E+04 Hz | 22.87 MB/s
+analyze | CPU(1)         | 122.9 s | 3.01E+05 Hz | 84.21 MB/s
+analyze | CPU(4)         | 116.6 s | 3.22E+05 Hz | 89.90 MB/s
 
 
 ### High-end workstation, 1B events
@@ -138,14 +139,15 @@ We can demonstrate that we can process 1B events in about 4 minutes (from existi
 - 64GB DDR3
 - 6.4TB Intel P4608
 - 1x Titan X 12GB
-- analyzed 978,711,446 events in 62.70 GB of branches
+- analyzed 1,093,479,508 events in 292.86 GB of branches
 
 
-task    | configuration           |time      | speed       | speed
+task    | configuration           | tot time | avg speed   | avg speed
 --------|-------------------------|----------|-------------|-----------
-caching | CPU(16)                 | 1008.8 s | 9.70E+05 Hz | 63.65 MB/s
-analyze | CPU(16)                 | 374.7 s  | 2.61E+06 Hz | 171.38 MB/s
-analyze | GPU(1) CPU(16) batch(8) | 229.4 s  | 4.27E+06 Hz | 279.87 MB/s
+caching | CPU(16)                 | 1611.1 s | 9.70E+05 Hz | 186.13 MB/s
+analyze | CPU(1)                  | 2553.3 s | 4.28E+05 Hz | 117.45 MB/s
+analyze | CPU(16)                 | 1689.7 s | 6.47E+05 Hz | 177.48 MB/s
+analyze | GPU(1) CPU(16)          | 611.5 s  | 1.79E+06 Hz | 490.39 MB/s
 
 
 ## Getting started
@@ -189,16 +191,19 @@ wget https://jpata.web.cern.ch/jpata/singularity/cupy.simg -o singularity/cupy.s
 LC_ALL=C PYTHONPATH=.:$PYTHONPATH singularity exec -B /nvmedata --nv singularity/cupy.simg python3 ...
 ```
 
-## Recommendations on data locality
+## Recommendations on data locality and remote data
 In order to make full use of modern CPUs or GPUs, you want to bring the data as close as possible to where the work is done, otherwise you will spend most of the time waiting for the data to arrive rather than actually performing the computations.
 
 With CMS NanoAOD with event sizes of 1-2 kB/event, 1 million events is approximately 1-2 GB on disk. Therefore, you can fit a significant amount of data used in a HEP analysis on a commodity SSD. In order to copy the data to your local disk, use grid tools such as `gfal-copy` or even `rsync` to fetch it from your nearest Tier2. Preserving the filename structure (`/store/...`) will allow you to easily run the same code on multiple sites.
 
 ## Frequently asked questions
 
- - *How does this relate to the awkward-array project?* We use the jagged structure provided by the awkward arrays, but implement common HEP functions such as deltaR matching as loops or 'kernels' running directly over the array contents, taking into account the event structure. We make these loops fast with Numba, but allow you to debug them by going back to standard python when disabling the compilation.
+ - *Why are you doing this array-based analysis business?* Mainly out of curiosity, and I could not find a tool available with which I could do HEP analysis on data on a local disk with MHz rates. It is possible that dask/spark/RDataFrame will soon work well enough for this purpose, but until then, I can justify writing a few functions.
+ - *How does this relate to the awkward-array project?* We use the jagged structure provided by the awkward arrays, but implement common HEP functions such as deltaR matching as parallelizable loops or 'kernels' running directly over the array contents, taking into account the event structure. We make these loops fast with Numba, but allow you to debug them by going back to standard python when disabling the compilation.
+ - *How does this relate to the coffea/fnal-columnas-analysis-tools project?* It's very similar, you should check out that project! We implement less methods, mostly by explicit loops in Numba, and on GPUs as well as CPUs.
  - *Why don't you use the array operations (`JaggedArray.sum`, `argcross` etc) implemented in awkward-array?* They are great! However, in order to easily use the same code on either the CPU or GPU, we chose to implement the most common operations explicitly, rather than relying on numpy/cupy to do it internally. This also seems to be faster, at the moment.
  - *What if I don't have access to a GPU?* You should still be able to see event processing speeds in the hundreds of kHz to a few MHz for common analysis tasks.
- - How do I plot my histograms that are saved in the JSON? Load the JSON contents and use the `edges` (left bin edges, plus last rightmost edge), `contents` (weighted bin contents) and `contents_w2` (bin contents with squared weights, useful for error calculation) to access the data directly.
+ - *How do I plot my histograms that are saved in the output JSON?* Load the JSON contents and use the `edges` (left bin edges, plus last rightmost edge), `contents` (weighted bin contents) and `contents_w2` (bin contents with squared weights, useful for error calculation) to access the data directly.
  - *I'm a GPU programming expert, and I worry your CUDA kernels are not optimized. Can you comment?* Good question! At the moment, they are indeed not very optimized, as we do a lot of control flow (`if` statements) in them. However, the GPU analysis is still about 2x faster than a pure CPU analysis, as the CPU is more free to work on loading the data, and this gap is expected to increase as the analysis becomes more complicated (more systematics, more templates). At the moment, we see pure GPU processing speeds of about 8-10 MHz for in-memory data, and data loading from cache at about 4-6 MHz. Have a look at the nvidia profiler results [nvprof1](profiling/nvprof1.png), [nvprof2](profiling/nvprof2.png) to see what's going on under the hood. Please give us a hand to make it even better!
  - *What about running this code on multiple machines?* You can do that, currently just using usual batch tools, but we are looking at other ways (dask, joblib, spark) to distribute the analysis across multiple machines. 
+ - *What about running this code on data that is remote (XROOTD)?* You can do that thanks to the `uproot` library, but then you gain very little benefit from having a fast CPU or GPU, as you will spend most of your time just waiting for input.

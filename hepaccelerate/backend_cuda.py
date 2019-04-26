@@ -41,7 +41,7 @@ def fill_histogram(data, weights, bins, out_w, out_w2):
     xstride = cuda.gridsize(1)
     
     for i in range(xi, len(data), xstride):
-        bin_idx = searchsorted_devfunc(bins, data[i])
+        bin_idx = searchsorted_devfunc(bins, data[i]) - 1
         if bin_idx >=0 and bin_idx < len(out_w):
             cuda.atomic.add(out_w, bin_idx, weights[i])
             cuda.atomic.add(out_w2, bin_idx, weights[i]**2)
@@ -136,7 +136,7 @@ def min_in_offsets_cudakernel(content, offsets, mask_rows, mask_content, out):
                     accum = content[ielem]
                     first = False
         out[iev] = accum
-    
+
 @cuda.jit
 def get_in_offsets_cudakernel(content, offsets, indices, mask_rows, mask_content, out):
     xi = cuda.grid(1)
@@ -156,28 +156,26 @@ def get_in_offsets_cudakernel(content, offsets, indices, mask_rows, mask_content
                     break
                 else:
                     index_to_get += 1
-        
+
 @cuda.jit
-def min_in_offsets_cudakernel(content, offsets, mask_rows, mask_content, out):
+def set_in_offsets_cudakernel(content, offsets, indices, target, mask_rows, mask_content):
     xi = cuda.grid(1)
     xstride = cuda.gridsize(1)
 
     for iev in range(xi, offsets.shape[0]-1, xstride):
         if not mask_rows[iev]:
             continue
-            
         start = offsets[iev]
         end = offsets[iev + 1]
-    
-        first = True
-        accum = 0
         
+        index_to_set = 0
         for ielem in range(start, end):
             if mask_content[ielem]:
-                if first or content[ielem] < accum:
-                    accum = content[ielem]
-                    first = False
-        out[iev] = accum
+                if index_to_set == indices[iev]:
+                    content[ielem] = target[iev]
+                    break
+                else:
+                    index_to_set += 1
         
 def sum_in_offsets(struct, content, mask_rows, mask_content, dtype=None):
     if not dtype:
@@ -210,6 +208,10 @@ def get_in_offsets(content, offsets, indices, mask_rows, mask_content):
     get_in_offsets_cudakernel[32, 1024](content, offsets, indices, mask_rows, mask_content, out)
     cuda.synchronize()
     return out
+
+def set_in_offsets(content, offsets, indices, target, mask_rows, mask_content):
+    set_in_offsets_cudakernel[32, 1024](content, offsets, indices, target, mask_rows, mask_content)
+    cuda.synchronize()
 
 """
 For all events (N), mask the objects in the first collection (M1) if they are closer than dr2 to any object in the second collection (M2).
