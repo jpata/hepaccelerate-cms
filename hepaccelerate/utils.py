@@ -12,6 +12,8 @@ import numba
 from numba import types
 from numba.typed import Dict
 
+import awkward
+
 def choose_backend(use_cuda=False):
     if use_cuda:
         print("Using the GPU CUDA backend")
@@ -145,7 +147,27 @@ class JaggedStruct(object):
         if attr in self.attrs_data.keys():
             return self.attrs_data[attr]
         return self.__getattribute__(attr)
- 
+    
+    def __repr__(self):
+        s = "JaggedStruct({0}, Nev={1}, Nobj={2}, attrs=[{3}])".format(
+            self.prefix, self.numevents(), self.numobjects(), ", ".join(sorted(self.attrs_data.keys())))
+        return s
+
+    def compact_struct(self, mask):
+        assert(len(mask) == self.numevents())
+        
+        new_attrs_data = {}
+        new_offsets = None 
+        for attr_name, flat_array in self.attrs_data.items():
+            print(attr_name)
+            ja = awkward.JaggedArray.fromoffsets(self.offsets, flat_array)
+            print(ja.INDEXTYPE)
+            print(ja[mask].INDEXTYPE)
+            ja_reduced = ja[mask].compact()
+            new_attrs_data[attr_name] = ja_reduced.content
+            new_offsets = ja_reduced.offsets
+        return JaggedStruct(new_offsets, new_attrs_data, self.prefix, self.numpy_lib, self.attr_names_dtypes)
+
 class NumpyEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, np.ndarray):
@@ -196,8 +218,6 @@ class Dataset(object):
         self.do_progress = False
 
     def preload(self, nthreads=1, verbose=False):
-        if verbose:
-            print("Loading data from {0} ROOT files to memory".format(len(self.filenames)))
         t0 = time.time()
         for ifn, fn in enumerate(self.filenames):
             fi = uproot.open(fn)

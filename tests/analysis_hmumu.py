@@ -33,22 +33,22 @@ def parse_args():
     return args
 
 datasets = [
-#    ("data_2017", "/store/data/Run2017*/SingleMuon/NANOAOD/Nano14Dec2018-v1/**/*.root", False),
-#    ("ggh", "/store/mc/RunIIFall17NanoAODv4/GluGluHToMuMu_M125_13TeV_amcatnloFXFX_pythia8/NANOAODSIM/*12Apr2018_Nano14Dec2018*/**/*.root", True),
-#    ("vbf", "/store/mc/RunIIFall17NanoAODv4/VBFHToMuMu_M125_TuneCP5_PSweights_13TeV_amcatnlo_pythia8/NANOAODSIM/*12Apr2018_Nano14Dec2018*/**/*.root", True),
-#    ("tth", "/store/mc/RunIIFall17NanoAODv4/ttHToMuMu_M125_TuneCP5_13TeV-powheg-pythia8/NANOAODSIM/*12Apr2018_Nano14Dec2018*/**/*.root", True),
-#    ("wmh", "/store/mc/RunIIFall17NanoAODv4/WminusH_HToMuMu_WToAll_M125_13TeV_powheg_pythia8/NANOAODSIM/*12Apr2018_Nano14Dec2018*/**/*.root", True),
-#    ("wph", "/store/mc/RunIIFall17NanoAODv4/WplusH_HToMuMu_WToAll_M125_13TeV_powheg_pythia8/NANOAODSIM/*12Apr2018_Nano14Dec2018*/**/*.root", True),
-#    ("zh", "/store/mc/RunIIFall17NanoAODv4/ZH_HToMuMu_ZToAll_M125_13TeV_powheg_pythia8/NANOAODSIM/*12Apr2018_Nano14Dec2018*/**/*.root", True),
+    ("data_2017", "/store/data/Run2017*/SingleMuon/NANOAOD/Nano14Dec2018-v1/**/*.root", False),
+    ("ggh", "/store/mc/RunIIFall17NanoAODv4/GluGluHToMuMu_M125_13TeV_amcatnloFXFX_pythia8/NANOAODSIM/*12Apr2018_Nano14Dec2018*/**/*.root", True),
+    ("vbf", "/store/mc/RunIIFall17NanoAODv4/VBFHToMuMu_M125_TuneCP5_PSweights_13TeV_amcatnlo_pythia8/NANOAODSIM/*12Apr2018_Nano14Dec2018*/**/*.root", True),
+    ("tth", "/store/mc/RunIIFall17NanoAODv4/ttHToMuMu_M125_TuneCP5_13TeV-powheg-pythia8/NANOAODSIM/*12Apr2018_Nano14Dec2018*/**/*.root", True),
+    ("wmh", "/store/mc/RunIIFall17NanoAODv4/WminusH_HToMuMu_WToAll_M125_13TeV_powheg_pythia8/NANOAODSIM/*12Apr2018_Nano14Dec2018*/**/*.root", True),
+    ("wph", "/store/mc/RunIIFall17NanoAODv4/WplusH_HToMuMu_WToAll_M125_13TeV_powheg_pythia8/NANOAODSIM/*12Apr2018_Nano14Dec2018*/**/*.root", True),
+    ("zh", "/store/mc/RunIIFall17NanoAODv4/ZH_HToMuMu_ZToAll_M125_13TeV_powheg_pythia8/NANOAODSIM/*12Apr2018_Nano14Dec2018*/**/*.root", True),
     ("dy", "/store/mc/RunIIFall17NanoAODv4/DYJetsToLL_M-50_TuneCP5_13TeV-amcatnloFXFX-pythia8*/**/*.root", True),
-#    ("ttjets_dl", "/store/mc/RunIIFall17NanoAODv4/TTTo2L2Nu_TuneCP5_13TeV-powheg-pythia8/**/*.root", True),
-#    ("ttjets_sl", "/store/mc/RunIIFall17NanoAODv4/TTToSemiLeptonic_TuneCP5_13TeV-powheg-pythia8/**/*.root", True),
+    ("ttjets_dl", "/store/mc/RunIIFall17NanoAODv4/TTTo2L2Nu_TuneCP5_13TeV-powheg-pythia8/**/*.root", True),
+    ("ttjets_sl", "/store/mc/RunIIFall17NanoAODv4/TTToSemiLeptonic_TuneCP5_13TeV-powheg-pythia8/**/*.root", True),
 #        ("ttjets_dl_madgraph", "/store/mc/RunIIFall17NanoAODv4/TTJets_DiLept_TuneCP5_13TeV-madgraphMLM-pythia8/**/*.root", True),
-#    ("ww_2l2nu", "/store/mc/RunIIFall17NanoAODv4/WWTo2L2Nu_NNPDF31_TuneCP5_13TeV-powheg-pythia8/**/*.root", True),
-#    ("wz_3lnu", "/store/mc/RunIIFall17NanoAODv4/WZTo3LNu_13TeV-powheg-pythia8/**/*.root", True),
-#    ("wz_2l2q", "/store/mc/RunIIFall17NanoAODv4/WZTo2L2Q_13TeV_amcatnloFXFX_madspin_pythia8/**/*.root", True),
-#    ("wz_1l1nu2q", "/store/mc/RunIIFall17NanoAODv4/WZTo1L1Nu2Q_13TeV_amcatnloFXFX_madspin_pythia8/**/*.root", True),
-#    ("zz", "/store/mc/RunIIFall17NanoAODv4/ZZTo2L2Nu_13TeV_powheg_pythia8/**/*.root", True),
+    ("ww_2l2nu", "/store/mc/RunIIFall17NanoAODv4/WWTo2L2Nu_NNPDF31_TuneCP5_13TeV-powheg-pythia8/**/*.root", True),
+    ("wz_3lnu", "/store/mc/RunIIFall17NanoAODv4/WZTo3LNu_13TeV-powheg-pythia8/**/*.root", True),
+    ("wz_2l2q", "/store/mc/RunIIFall17NanoAODv4/WZTo2L2Q_13TeV_amcatnloFXFX_madspin_pythia8/**/*.root", True),
+    ("wz_1l1nu2q", "/store/mc/RunIIFall17NanoAODv4/WZTo1L1Nu2Q_13TeV_amcatnloFXFX_madspin_pythia8/**/*.root", True),
+    ("zz", "/store/mc/RunIIFall17NanoAODv4/ZZTo2L2Nu_13TeV_powheg_pythia8/**/*.root", True),
 ]
 
 cross_sections = {
@@ -72,11 +72,11 @@ cross_sections = {
 
 sig_samples = [
     "ggh",
-#    "vbf", "tth", "zh", "wmh", "wph"
+    "vbf", "tth", "zh", "wmh", "wph"
 ]
 bkg_samples = [
     "dy",
-#    "ttjets_sl", "ttjets_dl", "ww_2l2nu", "wz_3lnu", "wz_2l2q", "wz_1l1nu2q", "zz"
+    "ttjets_sl", "ttjets_dl", "ww_2l2nu", "wz_3lnu", "wz_2l2q", "wz_1l1nu2q", "zz"
 ]
 mc_samples = sig_samples + bkg_samples
 
@@ -168,33 +168,8 @@ if __name__ == "__main__":
             "extra_electrons_eta": 2.5,
             "extra_electrons_id": "mvaFall17V1Iso_WP90",
 
-            "categorization_trees": {"varA": copy.deepcopy(dt), "varB": copy.deepcopy(dt2)}
+            "categorization_trees": {"varA": copy.deepcopy(dt)}
         },
-        "muiso_0.2": {
-            "NdfPV": 4,
-            "zPV": 24,
-            "nPV": 0,
-            "muon_pt": 20,
-            "muon_pt_leading": 30,
-            "muon_eta": 2.4,
-            "muon_iso": 0.20,
-            "muon_id": "medium",
-            "muon_trigger_match_dr": 0.1,
-            "jet_mu_dr": 0.4,
-            "jet_pt": 30.0,
-            "jet_eta": 4.7,
-            "jet_id": "tight",
-            "jet_puid": "loose",
-            "jet_btag": 0.4941,
-
-            "inv_mass_bins": 41,
-
-            "extra_electrons_pt": 5,
-            "extra_electrons_eta": 2.5,
-            "extra_electrons_id": "mvaFall17V1Iso_WP90",
-
-            "categorization_trees": {"varA": copy.deepcopy(dt), "varB": copy.deepcopy(dt2)}
-        }
     }
     analysis_parameters["baseline"]["categorization_trees"].update(rand_trees)
 

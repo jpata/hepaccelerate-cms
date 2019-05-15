@@ -420,6 +420,9 @@ def analyze_data(
         parameters["muon_eta"], parameters["muon_iso"],
         parameters["muon_id"], parameters["muon_trigger_match_dr"]
     )
+    
+    #currently does not work
+    #mu_compact = muons.compact_struct(ret_mu["selected_events"])
 
     if doverify:
         z = ha.sum_in_offsets(muons, ret_mu["selected_muons"],
@@ -549,6 +552,12 @@ def analyze_data(
     for histname, hist in hists.items():
         ret[histname] = Results(hist)
 
+    ret["numev_passed"] = get_numev_passed(
+        muons.numevents(), {
+        "trigger": mask_events,
+        "muon": ret_mu["selected_events"]
+    })
+ 
 #save raw data arrays
 #    ret["dimuon_inv_mass"] = [inv_mass]
 #    ret["num_jets"] = [ret_jet["num_jets"]]
@@ -558,6 +567,13 @@ def analyze_data(
 #    ret["additional_leptons"] = [additional_leptons]
 
     return ret
+
+def get_numev_passed(nev, masks):
+    out = Results({})
+    out["all"] = nev
+    for name, mask in masks.items():
+        out[name] = float(NUMPY_LIB.sum(mask))
+    return out
  
 def load_puhist_target(filename):
     fi = uproot.open(filename)
