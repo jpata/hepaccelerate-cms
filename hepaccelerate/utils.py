@@ -159,10 +159,14 @@ class JaggedStruct(object):
         new_attrs_data = {}
         new_offsets = None 
         for attr_name, flat_array in self.attrs_data.items():
-            print(attr_name)
-            ja = awkward.JaggedArray.fromoffsets(self.offsets, flat_array)
-            print(ja.INDEXTYPE)
-            print(ja[mask].INDEXTYPE)
+
+            #https://github.com/scikit-hep/awkward-array/issues/130
+            offsets_int64 = self.offsets.view(np.int64)
+            if np.any(offsets_int64 != self.offsets):
+                raise Exception("Failed to convert offsets from uint64 to int64")
+
+            ja = awkward.JaggedArray.fromoffsets(offsets_int64, flat_array)
+
             ja_reduced = ja[mask].compact()
             new_attrs_data[attr_name] = ja_reduced.content
             new_offsets = ja_reduced.offsets

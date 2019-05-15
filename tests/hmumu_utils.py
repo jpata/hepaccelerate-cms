@@ -421,8 +421,10 @@ def analyze_data(
         parameters["muon_id"], parameters["muon_trigger_match_dr"]
     )
     
-    #currently does not work
-    #mu_compact = muons.compact_struct(ret_mu["selected_events"])
+    muons_compact = muons.compact_struct(ret_mu["selected_events"])
+    jets_compact = jets.compact_struct(ret_mu["selected_events"])
+    print("mu", muons_compact.memsize() / muons.memsize())
+    print("jet", jets_compact.memsize() / jets.memsize())
 
     if doverify:
         z = ha.sum_in_offsets(muons, ret_mu["selected_muons"],
@@ -617,6 +619,16 @@ def create_dataset(filenames, datastructures, cache_location):
     ds = NanoAODDataset(filenames, datastructures, cache_location)
     return ds
 
+def cache_preselection(ds):
+    for ifile in range(len(ds.filenames)):
+        sel = ds.eventvars[ifile]["HLT_IsoMu27"] == 1
+        for structname in ds.structs.keys():
+            struct_compact = ds.structs[structname][ifile].compact_struct(sel)
+            print(structname, struct_compact.memsize() / ds.structs[structname][ifile].memsize())
+            ds.structs[structname][ifile] = struct_compact
+        for evvar_name in ds.eventvars[ifile].keys():
+            ds.eventvars[ifile][evvar_name] = ds.eventvars[ifile][evvar_name][sel]
+
 def cache_data_multiproc_worker(args):
     filename, datastructure, cache_location = args
     t0 = time.time()
@@ -624,6 +636,12 @@ def cache_data_multiproc_worker(args):
     ds.numpy_lib = np
     ds.preload()
     ds.make_objects()
+
+    #put any preselection here
+    print("memsize_pre=", ds.memsize()/1024.0/1024.0)
+    #cache_preselection(ds)
+    print("memsize_post=", ds.memsize()/1024.0/1024.0)
+
     ds.to_cache()
     t1 = time.time()
     dt = t1 - t0
@@ -772,8 +790,8 @@ def run_analysis(args, outpath, datasets, parameters, lumidata, lumimask, pu_cor
                     t = Thread(target=threaded_batches_feeder, args=(threadk, train_batches_queue, training_set_generator))
                     t.start()
 
-            t = Thread(target=threaded_metrics, args=(threadk, train_batches_queue))
-            t.start()
+            #t = Thread(target=threaded_metrics, args=(threadk, train_batches_queue))
+            #t.start()
 
             rets = []
             num_processed = 0
