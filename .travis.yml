@@ -15,6 +15,7 @@ install:
   - pip install awkward
   - pip install uproot
   - pip install numpy --upgrade
+  - pip install numba
 
 script:
-    - PYTHONPATH=. python tests/example.py
+    - PYTHONPATH=. python tests/test_dataset.py
