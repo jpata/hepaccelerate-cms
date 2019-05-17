@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.com/jpata/hepaccelerate.svg?branch=master)](https://travis-ci.com/jpata/hepaccelerate)
+
 # hepaccelerate
 
 Accelerated array analysis on flat ROOT data. Process 1 billion events to histograms in 4 minutes on a single workstation.
