@@ -1,15 +1,13 @@
 # hepaccelerate
 
-Accelerated array analysis on flat ROOT data. Process 1 billion events to histograms in 4 minutes on a single GPU workstation.
-
-Weighted histograms, jet-lepton deltaR matching and pileup weighting directly on the GPU! Or, if you don't have a GPU, no big deal, the same code works on the CPU too, just somewhat slower! No batch jobs or servers required!
+Accelerated array analysis on flat ROOT data. Process 1 billion events to histograms in 4 minutes on a single workstation.
+Weighted histograms, jet-lepton deltaR matching and pileup weighting! Works on both the CPU and GPU!
 
 Required python libraries:
  - python 3
  - uproot
  - awkward-array
  - numba >0.43
- - fnal-column-analysis-tools
 
 Optional libraries for CUDA acceleration:
  - cupy
