@@ -91,7 +91,7 @@ if __name__ == "__main__":
         yappi.start(builtins=True)
 
     args = parse_args()
-    if not args.pinned:
+    if args.use_cuda and not args.pinned:
         import cupy
         cupy.cuda.set_allocator(None)
         cupy.cuda.set_pinned_memory_allocator(None)

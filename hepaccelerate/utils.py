@@ -14,15 +14,17 @@ from numba.typed import Dict
 
 import awkward
 
-def choose_backend(use_cuda=False):
+def choose_backend(use_cuda=False, verbose=False):
     if use_cuda:
-        print("Using the GPU CUDA backend")
+        if verbose:
+            print("Using the GPU CUDA backend")
         import cupy
         NUMPY_LIB = cupy
         import hepaccelerate.backend_cuda as ha
         NUMPY_LIB.searchsorted = ha.searchsorted
     else:
-        print("Using the numpy CPU backend")
+        if verbose:
+            print("Using the numpy CPU backend")
         import numpy as numpy
         NUMPY_LIB = numpy
         import hepaccelerate.backend_cpu as ha
@@ -76,7 +78,7 @@ class JaggedStruct(object):
                 bad_branches += [branch]
                 print("ERROR reading the ROOT TTree: branch {0} declared as {1} but was {2}".format(branch, dtype, arr.dtype), file=sys.stderr)
         if raise_fmterror:
-            raise Exception("Declared data structure did not match ROOT file. The NanoAODDataset data structure did not match the ROOT TTree for the branches: {0}, please see above for more details.".format(bad_branches))
+            raise Exception("Declared data structure did not match ROOT file. The Dataset data structure did not match the ROOT TTree for the branches: {0}, please see above for more details.".format(bad_branches))
     
         self.masks = {}
         self.masks["all"] = self.make_mask()
@@ -159,10 +161,14 @@ class JaggedStruct(object):
         new_attrs_data = {}
         new_offsets = None 
         for attr_name, flat_array in self.attrs_data.items():
-            print(attr_name)
-            ja = awkward.JaggedArray.fromoffsets(self.offsets, flat_array)
-            print(ja.INDEXTYPE)
-            print(ja[mask].INDEXTYPE)
+
+            #https://github.com/scikit-hep/awkward-array/issues/130
+            offsets_int64 = self.offsets.view(np.int64)
+            if np.any(offsets_int64 != self.offsets):
+                raise Exception("Failed to convert offsets from uint64 to int64")
+
+            ja = awkward.JaggedArray.fromoffsets(offsets_int64, flat_array)
+
             ja_reduced = ja[mask].compact()
             new_attrs_data[attr_name] = ja_reduced.content
             new_offsets = ja_reduced.offsets
@@ -177,7 +183,6 @@ class NumpyEncoder(json.JSONEncoder):
         return json.JSONEncoder.default(self, obj)
 
 class Results(dict):
-    
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         
@@ -209,7 +214,7 @@ def progress(count, total, status=''):
     sys.stdout.flush()
 
 
-class Dataset(object):
+class BaseDataset(object):
     def __init__(self, filenames, arrays_to_load, treename):
         self.filenames = filenames
         self.arrays_to_load = arrays_to_load
@@ -246,14 +251,16 @@ class Dataset(object):
     def __len__(self):
         return self.num_events_raw()
 
-class NanoAODDataset(Dataset):
+class Dataset(BaseDataset):
     numpy_lib = np
-    def __init__(self, filenames, datastructures, cache_location=""):
+
+
+    def __init__(self, filenames, datastructures, cache_location="", treename="Events"):
         arrays_to_load = []
         for ds_item, ds_vals in datastructures.items():
             for branch, dtype in ds_vals:
                 arrays_to_load += [branch]
-        super(NanoAODDataset, self).__init__(filenames, arrays_to_load, "Events")
+        super(Dataset, self).__init__(filenames, arrays_to_load, treename)
         
         self.eventvars_dtypes = datastructures.get("EventVariables")
         self.names_eventvars = [evvar for evvar, dtype in self.eventvars_dtypes] 
@@ -284,7 +291,7 @@ class NanoAODDataset(Dataset):
         return tot
  
     def __repr__(self):
-        s = "NanoAODDataset(files={0}, events={1}, {2})".format(len(self.filenames), len(self), ", ".join(self.structs.keys()))
+        s = "DDataset(files={0}, events={1}, {2})".format(len(self.filenames), len(self), ", ".join(self.structs.keys()))
         return s
 
     def get_cache_dir(self, fn):
@@ -299,8 +306,12 @@ class NanoAODDataset(Dataset):
         s += "  EventVariables({0}, {1})".format(len(self), ", ".join(self.names_eventvars))
         return s    
 
+    def load_root(self, nthreads=1, verbose=False):
+        self.preload()
+        self.make_objects()
+
     def preload(self, nthreads=1, verbose=False):
-        super(NanoAODDataset, self).preload(nthreads, verbose)
+        super(Dataset, self).preload(nthreads, verbose)
  
     def build_structs(self, prefix): 
         struct_array = [
@@ -311,20 +322,20 @@ class NanoAODDataset(Dataset):
         ]
         return struct_array
 
-    def make_objects(self):
-        if self.do_progress:
-            print("Making objects with backend={0}".format(self.numpy_lib.__name__))
+    def make_objects(self, verbose=False):
         t0 = time.time()
+
         for structname in self.names_structs:
             self.structs[structname] = self.build_structs(structname)
 
         self.eventvars = [{
-            k: self.numpy_lib.array(data[bytes(k, encoding='ascii')]) for k in self.names_eventvars
+            k: self.numpy_lib.array(data[bytes(k, encoding='ascii')])
+                for k in self.names_eventvars
         } for data in self.data_host]
   
         t1 = time.time()
         dt = t1 - t0
-        if self.do_progress:
+        if verbose:
             print("Made objects in {0:.2E} events in {1:.1f} seconds, {2:.2E} Hz".format(len(self), dt, len(self)/dt))
 
     def analyze(self, analyze_data, verbose=False, **kwargs):
@@ -345,8 +356,6 @@ class NanoAODDataset(Dataset):
         return sum(rets, Results({}))
 
     def to_cache(self, nthreads=1, verbose=False):
-        if self.do_progress:
-            print("Caching dataset")
         t0 = time.time()
         if nthreads == 1:
             for ifn in range(len(self.filenames)):
@@ -433,15 +442,29 @@ class NanoAODDataset(Dataset):
  
     def num_objects_loaded(self, structname):
         n_objects = 0
-        for ifn in range(len(self.structs[structname])):
+        for ifn in range(len(self.filenames)):
             n_objects += self.structs[structname][ifn].numobjects()
         return n_objects
     
     def num_events_loaded(self, structname):
         n_events = 0
-        for ifn in range(len(self.structs[structname])):
+        for ifn in range(len(self.filenames)):
             n_events += self.structs[structname][ifn].numevents()
         return n_events
+
+    def map(self, func):
+        rets = []
+        for ifile in range(len(self.filenames)):
+            ret = func(self, ifile)
+            rets += [ret]
+        return rets
+
+    def compact(self, masks):
+        for ifile in range(len(self.filenames)):
+            for structname in self.names_structs:
+                self.structs[structname][ifile] = self.structs[structname][ifile].compact_struct(masks[ifile])
+            for evvar in self.names_eventvars:
+                self.eventvars[ifile][evvar] = self.eventvars[ifile][evvar][masks[ifile]]
 
     def __len__(self):
         n_events_raw = self.num_events_raw()
@@ -451,6 +474,10 @@ class NanoAODDataset(Dataset):
             return n_events_loaded[kfirst]
         else:
             return n_events_raw
+
+###
+### Ported from fnal-columnar-analysis-tools
+###
 
 class LumiMask(object):
     """
