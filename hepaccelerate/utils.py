@@ -14,15 +14,17 @@ from numba.typed import Dict
 
 import awkward
 
-def choose_backend(use_cuda=False):
+def choose_backend(use_cuda=False, verbose=False):
     if use_cuda:
-        print("Using the GPU CUDA backend")
+        if verbose:
+            print("Using the GPU CUDA backend")
         import cupy
         NUMPY_LIB = cupy
         import hepaccelerate.backend_cuda as ha
         NUMPY_LIB.searchsorted = ha.searchsorted
     else:
-        print("Using the numpy CPU backend")
+        if verbose:
+            print("Using the numpy CPU backend")
         import numpy as numpy
         NUMPY_LIB = numpy
         import hepaccelerate.backend_cpu as ha
@@ -76,7 +78,7 @@ class JaggedStruct(object):
                 bad_branches += [branch]
                 print("ERROR reading the ROOT TTree: branch {0} declared as {1} but was {2}".format(branch, dtype, arr.dtype), file=sys.stderr)
         if raise_fmterror:
-            raise Exception("Declared data structure did not match ROOT file. The NanoAODDataset data structure did not match the ROOT TTree for the branches: {0}, please see above for more details.".format(bad_branches))
+            raise Exception("Declared data structure did not match ROOT file. The Dataset data structure did not match the ROOT TTree for the branches: {0}, please see above for more details.".format(bad_branches))
     
         self.masks = {}
         self.masks["all"] = self.make_mask()
@@ -213,7 +215,7 @@ def progress(count, total, status=''):
     sys.stdout.flush()
 
 
-class Dataset(object):
+class BaseDataset(object):
     def __init__(self, filenames, arrays_to_load, treename):
         self.filenames = filenames
         self.arrays_to_load = arrays_to_load
@@ -250,14 +252,14 @@ class Dataset(object):
     def __len__(self):
         return self.num_events_raw()
 
-class NanoAODDataset(Dataset):
+class Dataset(BaseDataset):
     numpy_lib = np
-    def __init__(self, filenames, datastructures, cache_location=""):
+    def __init__(self, filenames, datastructures, cache_location="", treename="Events"):
         arrays_to_load = []
         for ds_item, ds_vals in datastructures.items():
             for branch, dtype in ds_vals:
                 arrays_to_load += [branch]
-        super(NanoAODDataset, self).__init__(filenames, arrays_to_load, "Events")
+        super(Dataset, self).__init__(filenames, arrays_to_load, treename)
         
         self.eventvars_dtypes = datastructures.get("EventVariables")
         self.names_eventvars = [evvar for evvar, dtype in self.eventvars_dtypes] 
@@ -288,7 +290,7 @@ class NanoAODDataset(Dataset):
         return tot
  
     def __repr__(self):
-        s = "NanoAODDataset(files={0}, events={1}, {2})".format(len(self.filenames), len(self), ", ".join(self.structs.keys()))
+        s = "DDataset(files={0}, events={1}, {2})".format(len(self.filenames), len(self), ", ".join(self.structs.keys()))
         return s
 
     def get_cache_dir(self, fn):
@@ -304,7 +306,7 @@ class NanoAODDataset(Dataset):
         return s    
 
     def preload(self, nthreads=1, verbose=False):
-        super(NanoAODDataset, self).preload(nthreads, verbose)
+        super(Dataset, self).preload(nthreads, verbose)
  
     def build_structs(self, prefix): 
         struct_array = [
@@ -447,6 +449,13 @@ class NanoAODDataset(Dataset):
             n_events += self.structs[structname][ifn].numevents()
         return n_events
 
+    def map(self, func):
+        rets = []
+        for ifile in range(len(ds.filenames)):
+            ret = func(self, ifile)
+            rets += [ret]
+        return rets
+
     def __len__(self):
         n_events_raw = self.num_events_raw()
         n_events_loaded = {k: self.num_events_loaded(k) for k in self.names_structs}
@@ -455,6 +464,10 @@ class NanoAODDataset(Dataset):
             return n_events_loaded[kfirst]
         else:
             return n_events_raw
+
+###
+### Ported from fnal-columnar-analysis-tools
+###
 
 class LumiMask(object):
     """

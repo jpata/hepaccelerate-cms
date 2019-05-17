@@ -420,11 +420,6 @@ def analyze_data(
         parameters["muon_eta"], parameters["muon_iso"],
         parameters["muon_id"], parameters["muon_trigger_match_dr"]
     )
-    
-    muons_compact = muons.compact_struct(ret_mu["selected_events"])
-    jets_compact = jets.compact_struct(ret_mu["selected_events"])
-    print("mu", muons_compact.memsize() / muons.memsize())
-    print("jet", jets_compact.memsize() / jets.memsize())
 
     if doverify:
         z = ha.sum_in_offsets(muons, ret_mu["selected_muons"],
@@ -638,15 +633,15 @@ def cache_data_multiproc_worker(args):
     ds.make_objects()
 
     #put any preselection here
-    print("memsize_pre=", ds.memsize()/1024.0/1024.0)
-    #cache_preselection(ds)
-    print("memsize_post=", ds.memsize()/1024.0/1024.0)
+    processed_size_mb = ds.memsize()/1024.0/1024.0
+    cache_preselection(ds)
+    processed_size_mb_post = ds.memsize()/1024.0/1024.0
 
     ds.to_cache()
     t1 = time.time()
     dt = t1 - t0
-    processed_size_mb = ds.memsize()/1024.0/1024.0
-    print("built cache for {0}, {1:.2f} MB, {2:.2E} Hz, {3:.2f} MB/s".format(filename, processed_size_mb, len(ds)/dt, processed_size_mb/dt))
+    print("built cache for {0}, loaded {1:.2f} MB, cached {2:.2f} MB, {3:.2E} Hz, {4:.2f} MB/s".format(
+        filename, processed_size_mb, processed_size_mb_post, len(ds)/dt, processed_size_mb/dt))
     return len(ds), processed_size_mb
 
 class InputGen:
