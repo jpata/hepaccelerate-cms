@@ -183,7 +183,6 @@ class NumpyEncoder(json.JSONEncoder):
         return json.JSONEncoder.default(self, obj)
 
 class Results(dict):
-    
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         
@@ -254,6 +253,7 @@ class BaseDataset(object):
 
 class Dataset(BaseDataset):
     numpy_lib = np
+    
     def __init__(self, filenames, datastructures,
         datapath="", cache_location="", treename="Events"):
         
@@ -309,6 +309,10 @@ class Dataset(BaseDataset):
         s += "  EventVariables({0}, {1})".format(len(self), ", ".join(self.names_eventvars))
         return s    
 
+    def load_root(self, nthreads=1, verbose=False):
+        self.preload()
+        self.make_objects()
+
     def preload(self, nthreads=1, verbose=False):
         super(Dataset, self).preload(nthreads, verbose)
  
@@ -321,20 +325,20 @@ class Dataset(BaseDataset):
         ]
         return struct_array
 
-    def make_objects(self):
-        if self.do_progress:
-            print("Making objects with backend={0}".format(self.numpy_lib.__name__))
+    def make_objects(self, verbose=False):
         t0 = time.time()
+
         for structname in self.names_structs:
             self.structs[structname] = self.build_structs(structname)
 
         self.eventvars = [{
-            k: self.numpy_lib.array(data[bytes(k, encoding='ascii')]) for k in self.names_eventvars
+            k: self.numpy_lib.array(data[bytes(k, encoding='ascii')])
+                for k in self.names_eventvars
         } for data in self.data_host]
   
         t1 = time.time()
         dt = t1 - t0
-        if self.do_progress:
+        if verbose:
             print("Made objects in {0:.2E} events in {1:.1f} seconds, {2:.2E} Hz".format(len(self), dt, len(self)/dt))
 
     def analyze(self, analyze_data, verbose=False, **kwargs):
@@ -446,22 +450,29 @@ class Dataset(BaseDataset):
  
     def num_objects_loaded(self, structname):
         n_objects = 0
-        for ifn in range(len(self.structs[structname])):
+        for ifn in range(len(self.filenames)):
             n_objects += self.structs[structname][ifn].numobjects()
         return n_objects
     
     def num_events_loaded(self, structname):
         n_events = 0
-        for ifn in range(len(self.structs[structname])):
+        for ifn in range(len(self.filenames)):
             n_events += self.structs[structname][ifn].numevents()
         return n_events
 
     def map(self, func):
         rets = []
-        for ifile in range(len(ds.filenames)):
+        for ifile in range(len(self.filenames)):
             ret = func(self, ifile)
             rets += [ret]
         return rets
+
+    def compact(self, masks):
+        for ifile in range(len(self.filenames)):
+            for structname in self.names_structs:
+                self.structs[structname][ifile] = self.structs[structname][ifile].compact_struct(masks[ifile])
+            for evvar in self.names_eventvars:
+                self.eventvars[ifile][evvar] = self.eventvars[ifile][evvar][masks[ifile]]
 
     def __len__(self):
         n_events_raw = self.num_events_raw()

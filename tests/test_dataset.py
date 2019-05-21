@@ -7,8 +7,12 @@ import hepaccelerate
 from hepaccelerate.utils import Results, Dataset, Histogram, choose_backend
 import uproot
 
+import numpy as np
+
+NUMPY_LIB, ha = choose_backend(use_cuda=False)
+
 def test_load_dataset():
-    NUMPY_LIB, ha = choose_backend(use_cuda=False)
+    print("test_load_dataset")
     
     fi = uproot.open("data/HZZ.root")
     #print(fi.keys())
@@ -45,12 +49,12 @@ def test_load_dataset():
     return dataset
 
 def test_dataset_to_cache():
+    print("test_dataset_to_cache")
     dataset = test_load_dataset()
 
-    dataset.preload()
+    dataset.load_root()
     assert(len(dataset.data_host) == 1)
     
-    dataset.make_objects()
     assert(len(dataset.structs["Jet"]) == 1)
     assert(len(dataset.eventvars) == 1)
 
@@ -58,17 +62,49 @@ def test_dataset_to_cache():
     return dataset
 
 def test_dataset_from_cache():
+    print("test_dataset_from_cache")
     dataset = test_load_dataset()
     dataset.from_cache()
     
     dataset2 = test_load_dataset()
-    dataset2.preload()
-    dataset2.make_objects()
+    dataset2.load_root()
 
     assert(dataset.num_objects_loaded("Jet") == dataset2.num_objects_loaded("Jet"))
     assert(dataset.num_events_loaded("Jet") == dataset2.num_events_loaded("Jet"))
+
+def map_func(dataset, ifile):
+    mu = dataset.structs["Muon"][ifile]
+    mu_pt = np.sqrt(mu.Px**2 + mu.Py**2)
+    mu_pt_pass = mu_pt > 20
+    mask_rows = np.ones(mu.numevents(), dtype=np.bool)
+    mask_content = np.ones(mu.numobjects(), dtype=np.bool)
+    ret = ha.sum_in_offsets(mu, mu_pt_pass, mask_rows, mask_content, dtype=np.int8) 
+    return ret
+
+def test_dataset_map():
+    dataset = test_load_dataset()
+    dataset.load_root()
+
+    rets = dataset.map(map_func)
+    assert(len(rets) == 1)
+    assert(len(rets[0]) == dataset.structs["Muon"][0].numevents())
+    assert(np.sum(rets[0]) > 0)
+    return rets
+
+def test_dataset_compact():
+    dataset = test_load_dataset()
+    dataset.load_root()
+
+    memsize1 = dataset.memsize()
+    rets = dataset.map(map_func)
+    dataset.compact(rets)
+    memsize2 = dataset.memsize()
+    assert(memsize1 > memsize2)
+    print(memsize2/memsize1)
 
 if __name__ == "__main__":
     test_load_dataset()
     test_dataset_to_cache()
     test_dataset_from_cache()
+    test_dataset_map()
+    test_dataset_compact()
