@@ -681,7 +681,7 @@ class InputGen:
         self.chunk_lock.release()
 
         #load caches on multiple threads
-        ds.from_cache(executor=self.executor, verbose=True)
+        ds.from_cache(executor=self.executor, verbose=False)
 
         with self.loaded_lock:
             self.num_loaded += 1
@@ -805,7 +805,7 @@ def run_analysis(args, outpath, datasets, parameters, lumidata, lumimask, pu_cor
                 sys.stdout.write(".");sys.stdout.flush()
                 ret, nev, memsize = event_loop(
                     train_batches_queue, args.use_cuda, debug=False,
-                    verbose=True, is_mc=is_mc, lumimask=lumimask,
+                    verbose=False, is_mc=is_mc, lumimask=lumimask,
                     lumidata=lumidata,
                     pu_corrections=pu_corrections,
                     parameters=parameters) 
