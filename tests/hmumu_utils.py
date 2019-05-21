@@ -649,7 +649,7 @@ def cache_data_multiproc_worker(args):
     return len(ds), processed_size_mb
 
 class InputGen:
-    def __init__(self, paths, is_mc, nthreads, chunksize, cache_location):
+    def __init__(self, paths, is_mc, nthreads, chunksize, cache_location, datapath):
         self.paths_chunks = list(chunks(paths, chunksize))
         self.chunk_lock = threading.Lock()
         self.loaded_lock = threading.Lock()
@@ -658,6 +658,7 @@ class InputGen:
         self.is_mc = is_mc
         self.nthreads = nthreads
         self.cache_location = cache_location
+        self.datapath = datapath
         self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=nthreads)
 
     def is_done(self):
@@ -674,7 +675,7 @@ class InputGen:
             self.chunk_lock.release()
             return None
 
-        ds = create_dataset(self.paths_chunks[self.num_chunk], self.is_mc, self.cache_location)
+        ds = create_dataset(self.paths_chunks[self.num_chunk], self.is_mc, self.cache_location, self.datapath)
         self.num_chunk += 1
         ds.numpy_lib = numpy
         self.chunk_lock.release()
@@ -754,7 +755,6 @@ def run_analysis(args, outpath, datasets, parameters, lumidata, lumimask, pu_cor
     t0 = time.time()
     
     print(args)
-    import pdb;pdb.set_trace()
 
     if args.use_cuda:
         import cupy
@@ -763,9 +763,7 @@ def run_analysis(args, outpath, datasets, parameters, lumidata, lumimask, pu_cor
 
     processed_size_mb = 0
     for datasetname, globpattern, is_mc in datasets:
-
         filenames_all = glob.glob(args.datapath + globpattern, recursive=True)
-        import pdb;pdb.set_trace()
         filenames_all = [fn for fn in filenames_all if not "Friend" in fn]
         print("Dataset {0} has {1} files".format(datasetname, len(filenames_all)))
         if args.maxfiles > 0:
@@ -781,7 +779,7 @@ def run_analysis(args, outpath, datasets, parameters, lumidata, lumimask, pu_cor
 
         if "analyze" in args.action:        
 
-            training_set_generator = InputGen(list(filenames_all), datastructure, args.nthreads, args.chunksize, args.cache_location)
+            training_set_generator = InputGen(list(filenames_all), datastructure, args.nthreads, args.chunksize, args.cache_location, args.datapath)
             threadk = thread_killer()
             threadk.set_tokill(False)
             train_batches_queue = Queue(maxsize=20)
