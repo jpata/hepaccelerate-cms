@@ -254,7 +254,11 @@ class BaseDataset(object):
 
 class Dataset(BaseDataset):
     numpy_lib = np
-    def __init__(self, filenames, datastructures, cache_location="", treename="Events"):
+    def __init__(self, filenames, datastructures,
+        datapath="", cache_location="", treename="Events"):
+        
+        self.datapath = datapath
+
         arrays_to_load = []
         for ds_item, ds_vals in datastructures.items():
             for branch, dtype in ds_vals:
@@ -294,7 +298,7 @@ class Dataset(BaseDataset):
         return s
 
     def get_cache_dir(self, fn):
-        return self.cache_location + fn
+        return self.cache_location + fn.replace(self.datapath, "")
 
     def printout(self):
         s = str(self) 
@@ -351,8 +355,6 @@ class Dataset(BaseDataset):
         return sum(rets, Results({}))
 
     def to_cache(self, nthreads=1, verbose=False):
-        if self.do_progress:
-            print("Caching dataset")
         t0 = time.time()
         if nthreads == 1:
             for ifn in range(len(self.filenames)):
@@ -369,19 +371,24 @@ class Dataset(BaseDataset):
             print("to_cache: created cache for {1:.2E} events in {0:.1f} seconds, speed {2:.2E} Hz".format(
                 dt, len(self), len(self)/dt
             ))
-    
-    def to_cache_worker(self, ifn):
-        if self.do_progress:
-            progress(ifn, len(self.filenames))
-        fn = self.filenames[ifn] 
-        bfn = os.path.basename(fn).replace(".root", "")
-        dn = os.path.dirname(self.get_cache_dir(fn))
 
+    def filename_to_cachedir(self, filename):
+        bfn = os.path.basename(filename).replace(".root", "")
+        dn = os.path.dirname(self.get_cache_dir(filename))
+        return bfn, dn
+
+    @staticmethod
+    def makedir_safe(dn):
         #maybe directory was already created by another worker
         try:
             os.makedirs(dn)
         except FileExistsError as e:
             pass
+    
+    def to_cache_worker(self, ifn):
+        fn = self.filenames[ifn] 
+        bfn, dn = self.filename_to_cachedir(fn)
+        self.makedir_safe(dn)
 
         for structname in self.names_structs:
             self.structs[structname][ifn].save(os.path.join(dn, bfn + ".{0}".format(structname)))
