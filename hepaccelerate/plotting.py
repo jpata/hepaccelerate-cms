@@ -1,8 +1,8 @@
 import matplotlib.pyplot as plt
 import numpy as np
+from hepaccelerate.utils import Histogram
 
 def histstep(ax, edges, contents, **kwargs):
-    
     ymins = []
     ymaxs = []
     xmins = []
@@ -66,11 +66,11 @@ def plot_hist_ratio(hists_mc, hist_data):
     return ax1, ax2
 
 def load_hist(hist_dict):
-    return {
+    return Histogram.from_dict({
         "edges": np.array(hist_dict["edges"]),
         "contents": np.array(hist_dict["contents"]),
         "contents_w2": np.array(hist_dict["contents_w2"]),
-    }
+    })
 
 def mask_inv_mass(hist):
     bin_idx1 = np.searchsorted(hist["edges"], 120) - 1
@@ -97,7 +97,7 @@ if __name__ == "__main__":
 
     import json
 
-    dd = "out"
+    dd = "out/baseline"
 
     res = {}
     genweights = {}
@@ -129,22 +129,23 @@ if __name__ == "__main__":
                 hd = load_hist(res["data"][analysis][var]["nominal"])
 
                 hmc = []
+                print("data", np.sum(hd.contents))
                 for mc_samp in mc_samples:
                     h = load_hist(res[mc_samp][analysis][var][weight])
-                    h["xsw"] = weight_xs[mc_samp]
-                    h["label"] = "{0} ({1:.1E})".format(mc_samp, h["xsw"]*np.sum(h["contents"]))
-                    print(var, weight, mc_samp, h["xsw"]*np.sum(h["contents"]))
-                    if var == "hist_inv_mass_d":
-                        h["contents"][0] = 0
-                        h["contents_w2"][0] = 0
+                    h = h * weight_xs[mc_samp]
+                    h.label = "{0} ({1:.1E})".format(mc_samp, np.sum(h.contents))
+                    print(var, weight, mc_samp, np.sum(h.contents))
+                    #if var == "hist_inv_mass_d":
+                    #    h.contents[0] = 0
+                    #    h.contents_w2[0] = 0
                     hmc += [h]
 
-                hd["label"] = "data ({0:.1E})".format(np.sum(hd["contents"]))
+                hd.label = "data ({0:.1E})".format(np.sum(hd.contents))
 
                 if var == "hist_inv_mass_d":
                     mask_inv_mass(hd)
-                    hd["contents"][0] = 0
-                    hd["contents_w2"][0] = 0
+                #    hd.contents[0] = 0
+                #    hd.contents_w2[0] = 0
 
                 plt.figure(figsize=(4,4))
                 a1, a2 = plot_hist_ratio(hmc, hd)

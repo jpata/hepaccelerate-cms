@@ -41,7 +41,7 @@ def test_load_dataset():
                 ("EventWeight", "float32")
             ]
         }
-    dataset = Dataset(["data/HZZ.root"], datastructures, cache_location="./mycache/", treename="events")
+    dataset = Dataset(["data/HZZ.root"], datastructures, cache_location="./mycache/", treename="events", datapath="")
     assert(dataset.filenames[0] == "data/HZZ.root")
     assert(len(dataset.structs["Jet"]) == 0)
     assert(len(dataset.eventvars) == 0)

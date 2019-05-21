@@ -19,7 +19,7 @@ import concurrent.futures
 import hepaccelerate
 import hepaccelerate.utils
 from hepaccelerate.utils import Results
-from hepaccelerate.utils import NanoAODDataset
+from hepaccelerate.utils import Dataset
 from hepaccelerate.utils import Histogram
 import hepaccelerate.backend_cpu as backend_cpu
 from hepaccelerate.plotting import plot_hist_step
@@ -594,24 +594,24 @@ def chunks(l, n):
     for i in range(0, len(l), n):
         yield l[i:i + n]
 
-def cache_data(filenames, datastructures, cache_location, nworkers=16):
+def cache_data(filenames, datastructures, cache_location, datapath, nworkers=16):
     if nworkers == 1:
         tot_ev = 0
         tot_mb = 0
-        for result in map(cache_data_multiproc_worker, [(fn, datastructures, cache_location) for fn in filenames]):
+        for result in map(cache_data_multiproc_worker, [(fn, datastructures, cache_location, datapath) for fn in filenames]):
             tot_ev += result[0]
             tot_mb += result[1]
     else:
         with concurrent.futures.ProcessPoolExecutor(max_workers=nworkers) as executor:
             tot_ev = 0
             tot_mb = 0
-            for result in executor.map(cache_data_multiproc_worker, [(fn, datastructures, cache_location) for fn in filenames]):
+            for result in executor.map(cache_data_multiproc_worker, [(fn, datastructures, cache_location, datapath) for fn in filenames]):
                 tot_ev += result[0]
                 tot_mb += result[1]
     return tot_ev, tot_mb
 
-def create_dataset(filenames, datastructures, cache_location):
-    ds = NanoAODDataset(filenames, datastructures, cache_location)
+def create_dataset(filenames, datastructures, cache_location, datapath):
+    ds = Dataset(filenames, datastructures, cache_location=cache_location, datapath=datapath, treename="Events")
     return ds
 
 def cache_preselection(ds):
@@ -625,12 +625,16 @@ def cache_preselection(ds):
             ds.eventvars[ifile][evvar_name] = ds.eventvars[ifile][evvar_name][sel]
 
 def cache_data_multiproc_worker(args):
-    filename, datastructure, cache_location = args
+    filename, datastructure, cache_location, datapath = args
     t0 = time.time()
-    ds = create_dataset([filename], datastructure, cache_location)
+    ds = create_dataset([filename], datastructure, cache_location, datapath)
     ds.numpy_lib = np
-    ds.preload()
-    ds.make_objects()
+    try:
+        print("trying to load {0}".format(filename))
+        ds.preload()
+        ds.make_objects()
+    except Exception as e:
+        raise Exception("Failed to load dataset for {0}".format(filename))
 
     #put any preselection here
     processed_size_mb = ds.memsize()/1024.0/1024.0
@@ -645,7 +649,7 @@ def cache_data_multiproc_worker(args):
     return len(ds), processed_size_mb
 
 class InputGen:
-    def __init__(self, paths, is_mc, nthreads, chunksize, cache_location):
+    def __init__(self, paths, is_mc, nthreads, chunksize, cache_location, datapath):
         self.paths_chunks = list(chunks(paths, chunksize))
         self.chunk_lock = threading.Lock()
         self.loaded_lock = threading.Lock()
@@ -654,6 +658,7 @@ class InputGen:
         self.is_mc = is_mc
         self.nthreads = nthreads
         self.cache_location = cache_location
+        self.datapath = datapath
         self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=nthreads)
 
     def is_done(self):
@@ -670,13 +675,13 @@ class InputGen:
             self.chunk_lock.release()
             return None
 
-        ds = create_dataset(self.paths_chunks[self.num_chunk], self.is_mc, self.cache_location)
+        ds = create_dataset(self.paths_chunks[self.num_chunk], self.is_mc, self.cache_location, self.datapath)
         self.num_chunk += 1
         ds.numpy_lib = numpy
         self.chunk_lock.release()
 
         #load caches on multiple threads
-        ds.from_cache(executor=self.executor, verbose=True)
+        ds.from_cache(executor=self.executor, verbose=False)
 
         with self.loaded_lock:
             self.num_loaded += 1
@@ -758,7 +763,6 @@ def run_analysis(args, outpath, datasets, parameters, lumidata, lumimask, pu_cor
 
     processed_size_mb = 0
     for datasetname, globpattern, is_mc in datasets:
-
         filenames_all = glob.glob(args.datapath + globpattern, recursive=True)
         filenames_all = [fn for fn in filenames_all if not "Friend" in fn]
         print("Dataset {0} has {1} files".format(datasetname, len(filenames_all)))
@@ -769,13 +773,13 @@ def run_analysis(args, outpath, datasets, parameters, lumidata, lumimask, pu_cor
 
         if "cache" in args.action:
             print("Preparing caches from ROOT files")
-            _nev_total, _processed_size_mb = cache_data(filenames_all, datastructure, args.cache_location, nworkers=args.nthreads)
+            _nev_total, _processed_size_mb = cache_data(filenames_all, datastructure, args.cache_location, args.datapath, nworkers=args.nthreads)
             nev_total += _nev_total
             processed_size_mb += _processed_size_mb
 
         if "analyze" in args.action:        
 
-            training_set_generator = InputGen(list(filenames_all), datastructure, args.nthreads, args.chunksize, args.cache_location)
+            training_set_generator = InputGen(list(filenames_all), datastructure, args.nthreads, args.chunksize, args.cache_location, args.datapath)
             threadk = thread_killer()
             threadk.set_tokill(False)
             train_batches_queue = Queue(maxsize=20)
@@ -801,7 +805,7 @@ def run_analysis(args, outpath, datasets, parameters, lumidata, lumimask, pu_cor
                 sys.stdout.write(".");sys.stdout.flush()
                 ret, nev, memsize = event_loop(
                     train_batches_queue, args.use_cuda, debug=False,
-                    verbose=True, is_mc=is_mc, lumimask=lumimask,
+                    verbose=False, is_mc=is_mc, lumimask=lumimask,
                     lumidata=lumidata,
                     pu_corrections=pu_corrections,
                     parameters=parameters) 
