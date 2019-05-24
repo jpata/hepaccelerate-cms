@@ -7,6 +7,7 @@ import argparse
 import numpy as np
 import copy
 import pickle
+import shutil
 
 import hepaccelerate.backend_cpu as backend_cpu
 from hepaccelerate.utils import choose_backend, LumiData, LumiMask
@@ -30,9 +31,11 @@ def parse_args():
     parser.add_argument('--out', action='store', help='Output location', default='out', type=str)
     parser.add_argument('--niter', action='store', help='Number of categorization optimization iterations', default=0, type=int)
     parser.add_argument('--pinned', action='store_true', help='Use CUDA pinned memory')
+    parser.add_argument('--filter-datasets', action='store', help='Glob pattern to select datasets', default="*")
     args = parser.parse_args()
     return args
 
+#dataset nickname, filename glob pattern, isMC
 datasets = [
     ("data_2017", "/store/data/Run2017*/SingleMuon/NANOAOD/Nano14Dec2018-v1/**/*.root", False),
 #    ("data_2018", "/store/data/Run2018*/SingleMuon/NANOAOD/Nano14Dec2018_ver2-v1/**/*.root", False),
@@ -98,6 +101,8 @@ if __name__ == "__main__":
         cupy.cuda.set_allocator(None)
         cupy.cuda.set_pinned_memory_allocator(None)
 
+    datasets = [ds for ds in datasets if shutil.fnmatch.fnmatch(ds[0], args.filter_datasets)]
+    print("selected datasets {0} based on pattern {1}".format([ds[0] for ds in datasets], args.filter_datasets))
     hmumu_utils.NUMPY_LIB, hmumu_utils.ha = choose_backend(args.use_cuda)
     Dataset.numpy_lib = hmumu_utils.NUMPY_LIB
     DecisionTreeNode.NUMPY_LIB = hmumu_utils.NUMPY_LIB
@@ -123,25 +128,25 @@ if __name__ == "__main__":
     dt.assign_ids()
     varA = dt
 
-    dt2 = DecisionTreeNode("num_jets_btag", 0)
-    dt2.add_child_left(DecisionTreeNode("additional_leptons", 0))
-    dt2.child_left.add_child_left(DecisionTreeNode("dijet_inv_mass", 400))
-    dt2.child_left.child_left.add_child_right(DecisionTreeLeaf())
-    dt2.child_left.child_left.add_child_left(DecisionTreeNode("dijet_inv_mass", 60))
-    dt2.child_left.child_left.child_left.add_child_left(DecisionTreeLeaf())
-    dt2.child_left.child_left.child_left.add_child_right(DecisionTreeNode("dijet_inv_mass", 110))
-    dt2.child_left.child_left.child_left.child_right.add_child_left(DecisionTreeLeaf())
-    dt2.child_left.child_left.child_left.child_right.add_child_right(DecisionTreeLeaf())
-    dt2.child_left.add_child_right(DecisionTreeNode("additional_leptons", 1))
-    dt2.child_left.child_right.add_child_left(DecisionTreeLeaf())
-    dt2.child_left.child_right.add_child_right(DecisionTreeLeaf())
-    dt2.add_child_right(DecisionTreeNode("additional_leptons", 0))
-    dt2.child_right.add_child_right(DecisionTreeLeaf())
-    dt2.child_right.add_child_left(DecisionTreeNode("num_jets", 4))
-    dt2.child_right.child_left.add_child_right(DecisionTreeLeaf())
-    dt2.child_right.child_left.add_child_left(DecisionTreeLeaf())
-    dt2.assign_ids()
-    varB = dt2
+    # dt2 = DecisionTreeNode("num_jets_btag", 0)
+    # dt2.add_child_left(DecisionTreeNode("additional_leptons", 0))
+    # dt2.child_left.add_child_left(DecisionTreeNode("dijet_inv_mass", 400))
+    # dt2.child_left.child_left.add_child_right(DecisionTreeLeaf())
+    # dt2.child_left.child_left.add_child_left(DecisionTreeNode("dijet_inv_mass", 60))
+    # dt2.child_left.child_left.child_left.add_child_left(DecisionTreeLeaf())
+    # dt2.child_left.child_left.child_left.add_child_right(DecisionTreeNode("dijet_inv_mass", 110))
+    # dt2.child_left.child_left.child_left.child_right.add_child_left(DecisionTreeLeaf())
+    # dt2.child_left.child_left.child_left.child_right.add_child_right(DecisionTreeLeaf())
+    # dt2.child_left.add_child_right(DecisionTreeNode("additional_leptons", 1))
+    # dt2.child_left.child_right.add_child_left(DecisionTreeLeaf())
+    # dt2.child_left.child_right.add_child_right(DecisionTreeLeaf())
+    # dt2.add_child_right(DecisionTreeNode("additional_leptons", 0))
+    # dt2.child_right.add_child_right(DecisionTreeLeaf())
+    # dt2.child_right.add_child_left(DecisionTreeNode("num_jets", 4))
+    # dt2.child_right.child_left.add_child_right(DecisionTreeLeaf())
+    # dt2.child_right.child_left.add_child_left(DecisionTreeLeaf())
+    # dt2.assign_ids()
+    # varB = dt2
 
     #make a hundred random trees as a starting point
     rand_trees = {"rand{0}".format(i): make_random_tree(varlist, 5) for i in range(1)}

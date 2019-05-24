@@ -185,6 +185,17 @@ extern "C" {
             out[i] = rc->kScaleDT(Q, pt[i], eta[i], phi[i], s, m);
         }
     }
+
+    void roccor_kSpreadMC_or_kSmearMC(RoccoR* rc, float* out, int n_elem,
+        int Q, float* pt, float* eta, float* phi, float* genpt, int* tracklayers, float* rand, int s, int m) {
+        for (int i=0; i<n_elem; i++) {
+            if (genpt[i] > 0) {
+                out[i] = rc->kSpreadMC(Q, pt[i], eta[i], phi[i], genpt[i], s, m);
+            } else {
+                out[i] = rc->kSmearMC(Q, pt[i], eta[i], phi[i], tracklayers[i], rand[i], s, m);
+            }
+        }
+    }
 }
 
 #endif

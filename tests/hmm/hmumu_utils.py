@@ -10,6 +10,8 @@ import numpy as np
 import sys
 import os
 
+import numba
+
 import threading
 from threading import Thread
 from queue import Queue
@@ -333,7 +335,7 @@ def compute_pu_weights(pu_corrections_target, weights, mc_nvtx, reco_nvtx):
     
     return pu_weights, pu_weights_up, pu_weights_down
 
-def select_events_trigger(scalars, mask_events, parameters):
+def select_events_trigger(scalars, parameters, mask_events):
 
     flags = [
         #"Flag_BadChargedCandidateFilter",
@@ -373,6 +375,56 @@ def get_gen_sumweights(filenames):
         sumw += arr.sum()
     return sumw
 
+def do_rochester_corrections(
+    is_mc,
+    rochester_corrections,
+    leading_muon,
+    subleading_muon):
+
+    
+    qterm_leading = rochester_correction_muon_qterm(
+        is_mc, rochester_corrections, leading_muon)
+    qterm_subleading = rochester_correction_muon_qterm(
+        is_mc, rochester_corrections, subleading_muon)
+    
+    leading_muon_pt = leading_muon["pt"] * qterm_leading
+    subleading_muon_pt = subleading_muon["pt"] * qterm_subleading
+
+    return leading_muon_pt, subleading_muon_pt
+
+def rochester_correction_muon_qterm(is_mc, rochester_corrections,
+    muon_props):
+    if is_mc:
+        rnd = NUMPY_LIB.random.rand(len(muon_props["pt"])).astype(NUMPY_LIB.float32)
+        qterm = rochester_corrections.compute_kSpreadMC_or_kSmearMC(
+            NUMPY_LIB.asnumpy(muon_props["pt"]),
+            NUMPY_LIB.asnumpy(muon_props["eta"]),
+            NUMPY_LIB.asnumpy(muon_props["phi"]),
+            NUMPY_LIB.asnumpy(muon_props["genpt"]),
+            NUMPY_LIB.asnumpy(muon_props["nTrackerLayers"]),
+            NUMPY_LIB.asnumpy(rnd)
+        )
+    else:
+        qterm = rochester_corrections.compute_kScaleDT(
+            NUMPY_LIB.asnumpy(muon_props["pt"]),
+            NUMPY_LIB.asnumpy(muon_props["eta"]),
+            NUMPY_LIB.asnumpy(muon_props["phi"]))
+
+    print("Rochester correction qterm mean={0:.5f} std={1:.5f} min={2:.5f} max={3:.5f}".format(
+        qterm.mean(), qterm.std(), qterm.min(), qterm.max()))
+    return NUMPY_LIB.array(qterm)
+
+@numba.njit
+def muons_get_genpt(muons_offsets, muons_genPartIdx, genparts_offsets, genparts_pt, out_muons_genpt):
+    #loop over events
+    for iev in numba.prange(len(muons_offsets) - 1):
+        #loop over muons
+        for imu in range(muons_offsets[iev], muons_offsets[iev + 1]):
+            #get index of genparticle that muon was matched to
+            idx_gp = muons_genPartIdx[imu]
+            if idx_gp >= 0:
+                genpt = genparts_pt[genparts_offsets[iev] + idx_gp]
+                out_muons_genpt[imu] = genpt
 
 def analyze_data(
     data,
@@ -393,11 +445,22 @@ def analyze_data(
     trigobj = data["TrigObj"]
     scalars = data["eventvars"]
 
+    #FIXME
+    muons.hepaccelerate_backend = ha
+    jets.hepaccelerate_backend = ha
+
+    #associate the muon genpt
+    if is_mc:
+        genpart = data["GenPart"]
+        muons_genpt = NUMPY_LIB.zeros(muons.numobjects(), dtype=NUMPY_LIB.float32)
+        muons_get_genpt(muons.offsets, muons.genPartIdx, genpart.offsets, genpart.pt, muons_genpt)
+        muons.attrs_data["genpt"] = muons_genpt
+
     # scalars["run"] = NUMPY_LIB.array(scalars["run"], dtype=NUMPY_LIB.uint32)
     # scalars["luminosityBlock"] = NUMPY_LIB.array(scalars["run"], dtype=NUMPY_LIB.uint32)
 
     mask_events = NUMPY_LIB.ones(muons.numevents(), dtype=NUMPY_LIB.bool)
-    select_events_trigger(scalars, mask_events, parameters)
+    select_events_trigger(scalars, parameters, mask_events)
 
     weights = {}
     weights["nominal"] = NUMPY_LIB.ones(muons.numevents(), dtype=NUMPY_LIB.float32)
@@ -423,7 +486,9 @@ def analyze_data(
     )
 
     if doverify:
-        z = ha.sum_in_offsets(muons, ret_mu["selected_muons"],
+        z = ha.sum_in_offsets(
+            muons,
+            ret_mu["selected_muons"],
             ret_mu["selected_events"],
             ret_mu["selected_muons"], dtype=NUMPY_LIB.int8)
         assert(NUMPY_LIB.all(z[z!=0] == 2))
@@ -450,34 +515,23 @@ def analyze_data(
     #get the invariant mass
     inv_mass = compute_inv_mass(muons, ret_mu["selected_events"], ret_mu["selected_muons"])
 
-    # #choose first muon
-    inds = NUMPY_LIB.zeros(muons.numevents(), dtype=NUMPY_LIB.int32)
-    leading_muon_pt = ha.get_in_offsets(muons.pt, muons.offsets, inds, ret_mu["selected_events"], ret_mu["selected_muons"])
-    leading_muon_eta = ha.get_in_offsets(muons.eta, muons.offsets, inds, ret_mu["selected_events"], ret_mu["selected_muons"])
-    leading_muon_phi = ha.get_in_offsets(muons.phi, muons.offsets, inds, ret_mu["selected_events"], ret_mu["selected_muons"])
-    leading_jet_pt = ha.get_in_offsets(jets.pt, jets.offsets, inds, ret_mu["selected_events"], ret_jet["selected_jets"])
-    leading_jet_eta = ha.get_in_offsets(jets.eta, jets.offsets, inds, ret_mu["selected_events"], ret_jet["selected_jets"])
-
-    #choose second muon
-    inds[:] = 1
-    subleading_muon_pt = ha.get_in_offsets(muons.pt, muons.offsets, inds, ret_mu["selected_events"], ret_mu["selected_muons"])
-    subleading_muon_eta = ha.get_in_offsets(muons.eta, muons.offsets, inds, ret_mu["selected_events"], ret_mu["selected_muons"])
-    subleading_muon_phi = ha.get_in_offsets(muons.phi, muons.offsets, inds, ret_mu["selected_events"], ret_mu["selected_muons"])
-    subleading_jet_pt = ha.get_in_offsets(jets.pt, jets.offsets, inds, ret_mu["selected_events"], ret_jet["selected_jets"])
-    subleading_jet_eta = ha.get_in_offsets(jets.eta, jets.offsets, inds, ret_mu["selected_events"], ret_jet["selected_jets"])
+    #create arrays with just the nth particle contents for easier management
+    leading_muon = muons.select_nth(0, ret_mu["selected_events"], ret_mu["selected_muons"])
+    subleading_muon = muons.select_nth(1, ret_mu["selected_events"], ret_mu["selected_muons"])
+    leading_jet = jets.select_nth(0, ret_mu["selected_events"], ret_jet["selected_jets"])
+    subleading_jet = jets.select_nth(1, ret_mu["selected_events"], ret_jet["selected_jets"])
 
     if parameters["do_rochester_corrections"]:
-        roccor_leading = rochester_corrections.compute(NUMPY_LIB.asnumpy(leading_muon_pt), NUMPY_LIB.asnumpy(leading_muon_eta), NUMPY_LIB.asnumpy(leading_muon_phi))
-        leading_muon_pt = leading_muon_pt * roccor_leading
-        roccor_subleading = rochester_corrections.compute(NUMPY_LIB.asnumpy(subleading_muon_pt), NUMPY_LIB.asnumpy(subleading_muon_eta), NUMPY_LIB.asnumpy(subleading_muon_phi))
-        subleading_muon_pt = subleading_muon_pt * roccor_subleading
-        print("roccor_leading", roccor_leading.mean())
-        print("roccor_subleading", roccor_subleading.mean())
+        leading_muon_pt, subleading_muon_pt = do_rochester_corrections(
+            is_mc,
+            rochester_corrections,
+            leading_muon,
+            subleading_muon)
 
     #get the number of additional muons (not OS) that pass ID and iso cuts
-    additional_muons = ha.sum_in_offsets(muons, ret_mu["additional_muon_sel"], ret_mu["selected_events"], ret_mu["additional_muon_sel"], dtype=NUMPY_LIB.int8)
-    additional_electrons = ha.sum_in_offsets(electrons, ret_el["additional_electron_sel"], ret_mu["selected_events"], ret_el["additional_electron_sel"], dtype=NUMPY_LIB.int8)
-    additional_leptons = additional_muons + additional_electrons
+    n_additional_muons = ha.sum_in_offsets(muons, ret_mu["additional_muon_sel"], ret_mu["selected_events"], ret_mu["additional_muon_sel"], dtype=NUMPY_LIB.int8)
+    n_additional_electrons = ha.sum_in_offsets(electrons, ret_el["additional_electron_sel"], ret_mu["selected_events"], ret_el["additional_electron_sel"], dtype=NUMPY_LIB.int8)
+    n_additional_leptons = n_additional_muons + n_additional_electrons
     
     if doverify:
         assert(NUMPY_LIB.all(leading_muon_pt[leading_muon_pt>0] > parameters["muon_pt_leading"]))
@@ -521,8 +575,8 @@ def analyze_data(
             "dijet_inv_mass": ret_jet["dijet_inv_mass"],
             "num_jets": ret_jet["num_jets"],
             "num_jets_btag": ret_jet["num_jets_btag"],
-            "leading_mu_abs_eta": NUMPY_LIB.abs(leading_muon_eta),
-            "additional_leptons": additional_leptons,
+            "leading_mu_abs_eta": NUMPY_LIB.abs(leading_muon["eta"]),
+            "additional_leptons": n_additional_leptons,
         })
         
         #Make histograms for each category
@@ -536,9 +590,9 @@ def analyze_data(
         hists[cat_tree_name] = hists_cat
 
     masswindow_exclude_120_130 = masswindow_110_150 & (NUMPY_LIB.invert((inv_mass >= 120) & (inv_mass <= 130)))
-    hists["hist__dimuon_invmass_110_150_exclude_120_130_jge1__leading_jet_pt"] = fill_with_weights(leading_jet_pt, weights,
+    hists["hist__dimuon_invmass_110_150_exclude_120_130_jge1__leading_jet_pt"] = fill_with_weights(leading_jet["pt"], weights,
        ret_mu["selected_events"] & (ret_jet["num_jets"]>=1) & masswindow_exclude_120_130, NUMPY_LIB.linspace(30, 200.0, 101))
-    hists["hist__dimuon_invmass_110_150_exclude_120_130_jge2__subleading_jet_pt"] = fill_with_weights(subleading_jet_pt, weights,
+    hists["hist__dimuon_invmass_110_150_exclude_120_130_jge2__subleading_jet_pt"] = fill_with_weights(subleading_jet["pt"], weights,
        ret_mu["selected_events"] & (ret_jet["num_jets"]>=2) & masswindow_exclude_120_130, NUMPY_LIB.linspace(30, 100.0, 101))
     hists["hist__dimuon_invmass_110_150_exclude_120_130__numjet"] = fill_with_weights(ret_jet["num_jets"], weights, ret_mu["selected_events"] & masswindow_exclude_120_130, NUMPY_LIB.linspace(0, 10, 11))
 
@@ -846,7 +900,8 @@ def create_datastructure(is_mc):
             ("Muon_phi", "float32"), ("Muon_mass", "float32"),
             ("Muon_pfRelIso04_all", "float32"), ("Muon_mediumId", "bool"),
             ("Muon_tightId", "bool"), ("Muon_charge", "int32"),
-            ("Muon_isGlobal", "bool"), ("Muon_isTracker", "bool")
+            ("Muon_isGlobal", "bool"), ("Muon_isTracker", "bool"),
+            ("Muon_nTrackerLayers", "int32"),
         ],
         "Electron": [
             ("Electron_pt", "float32"), ("Electron_eta", "float32"),
@@ -881,13 +936,19 @@ def create_datastructure(is_mc):
             ("run", "uint32"),
             ("luminosityBlock", "uint32"),
             ("event", "uint64")
-        ]
+        ],
     }
     if is_mc:
         datastructures["EventVariables"] += [
             ("Pileup_nTrueInt", "uint32"),
             ("Generator_weight", "float32"),
             ("genWeight", "float32")
+        ]
+        datastructures["Muon"] += [
+            ("Muon_genPartIdx", "int32"),
+        ]
+        datastructures["GenPart"] = [
+            ("GenPart_pt", "float32"),
         ]
     return datastructures
 
