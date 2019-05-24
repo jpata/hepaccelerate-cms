@@ -1,6 +1,7 @@
 stages:
   - build
   - test
+  - run
 
 libhmm:
   stage: build
@@ -25,3 +26,8 @@ test-dataset:
   stage: test
   script:
     - PYTHONPATH=. singularity exec /bigdata/shared/Software/singularity/ibanks/edge_r.simg python3 tests/test_dataset.py
+
+run-cache:
+  stage: run
+  script:
+    - PYTHONPATH=. singularity exec -B /nvme1 -B /nvme2 -B /cvmfs -B /mnt/hadoop -B /bigdata /bigdata/shared/Software/singularity/ibanks/edge_r.simg python3 tests/hmm/analysis_hmumu.py --datapath /tmp/jpata/hpc/ -a cache --maxfiles 10 --cache-location /nvme2/jpata/temp_cache --nthreads 8
