@@ -20,7 +20,7 @@ def test_rochester():
     roc = RochesterCorrections(libhmm, "data/RoccoR2017v1.txt")
 
     t0 = time.time()
-    print(roc.compute(pt, eta, phi))
+    print(roc.compute_kScaleDT(pt, eta, phi))
     t1 = time.time()
     print(t1 - t0)
 

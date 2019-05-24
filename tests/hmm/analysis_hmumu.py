@@ -162,7 +162,9 @@ if __name__ == "__main__":
             "muon_iso": 0.25,
             "muon_id": "medium",
             "muon_trigger_match_dr": 0.1,
+            
             "do_rochester_corrections": True,
+            "do_lepton_sf": True,
 
             "jet_mu_dr": 0.4,
             "jet_pt": 30.0,
@@ -189,7 +191,9 @@ if __name__ == "__main__":
     
     libhmm = LibHMuMu()
     rochester_corr = RochesterCorrections(libhmm, "data/RoccoR2017v1.txt")
-
+    lepsf_iso = LeptonEfficiencyCorrections(libhmm, "data/leptonSF/RunBCDEF_SF_ISO.root", "NUM_LooseRelIso_DEN_MediumID_pt_abseta")
+    lepsf_id = LeptonEfficiencyCorrections(libhmm, "data/leptonSF/RunBCDEF_SF_ID.root", "NUM_MediumID_DEN_genTracks_pt_abseta")
+    lepsf_trig = LeptonEfficiencyCorrections(libhmm, "data/leptonSF/EfficienciesAndSF_RunBtoF_Nov17Nov2017.root", "IsoMu27_PtEtaBins/pt_abseta_ratio")
 
     #Run baseline analysis
     outpath = "{0}/baseline".format(args.out)
@@ -201,7 +205,7 @@ if __name__ == "__main__":
     with open('{0}/parameters.pickle'.format(outpath), 'wb') as handle:
         pickle.dump(analysis_parameters, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-    run_analysis(args, outpath, datasets, analysis_parameters, lumidata, lumimask, pu_corrections_2017, rochester_corr)
+    run_analysis(args, outpath, datasets, analysis_parameters, lumidata, lumimask, pu_corrections_2017, rochester_corr, lepsf_iso, lepsf_id, lepsf_trig)
 
     # if "analyze" in args.action: 
     #     ans = analysis_parameters["baseline"]["categorization_trees"].keys()

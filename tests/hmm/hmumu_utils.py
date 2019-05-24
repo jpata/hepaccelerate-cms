@@ -433,6 +433,9 @@ def analyze_data(
     lumimask=None,
     lumidata=None,
     rochester_corrections=None,
+    lepsf_iso=None,
+    lepsf_id=None,
+    lepsf_trig=None,
     parameters={},
     parameter_set_name="",
     doverify=False,
@@ -455,6 +458,7 @@ def analyze_data(
         muons_genpt = NUMPY_LIB.zeros(muons.numobjects(), dtype=NUMPY_LIB.float32)
         muons_get_genpt(muons.offsets, muons.genPartIdx, genpart.offsets, genpart.pt, muons_genpt)
         muons.attrs_data["genpt"] = muons_genpt
+
 
     # scalars["run"] = NUMPY_LIB.array(scalars["run"], dtype=NUMPY_LIB.uint32)
     # scalars["luminosityBlock"] = NUMPY_LIB.array(scalars["run"], dtype=NUMPY_LIB.uint32)
@@ -528,6 +532,18 @@ def analyze_data(
             leading_muon,
             subleading_muon)
 
+    if parameters["do_lepton_sf"] and is_mc:
+        sfs = []
+        for mu in [leading_muon, subleading_muon]: 
+            sf_iso = lepsf_iso.compute(leading_muon["pdgId"], leading_muon["pt"], leading_muon["eta"])
+            sf_id = lepsf_id.compute(leading_muon["pdgId"], leading_muon["pt"], leading_muon["eta"])
+            sf_trig = lepsf_trig.compute(leading_muon["pdgId"], leading_muon["pt"], leading_muon["eta"])
+            sfs += [sf_iso, sf_id, sf_trig]
+        sf_tot = sfs[0]
+        for sf in sfs[1:]:
+            sf_tot = sf_tot * sf
+        print("lepton_sf mean={0:.5f} std={1:.5f} min={2:.5f} max={3:.5f}".format(sf_tot.mean(), sf_tot.std(), sf_tot.min(), sf_tot.max()))
+        
     #get the number of additional muons (not OS) that pass ID and iso cuts
     n_additional_muons = ha.sum_in_offsets(muons, ret_mu["additional_muon_sel"], ret_mu["selected_events"], ret_mu["additional_muon_sel"], dtype=NUMPY_LIB.int8)
     n_additional_electrons = ha.sum_in_offsets(electrons, ret_el["additional_electron_sel"], ret_mu["selected_events"], ret_el["additional_electron_sel"], dtype=NUMPY_LIB.int8)
@@ -812,7 +828,7 @@ def threaded_metrics(tokill, train_batches_queue):
 
     return
 
-def run_analysis(args, outpath, datasets, parameters, lumidata, lumimask, pu_corrections, rochester_corrections):
+def run_analysis(args, outpath, datasets, parameters, lumidata, lumimask, pu_corrections, rochester_corrections, lepsf_iso, lepsf_id, lepsf_trig):
     nev_total = 0
     t0 = time.time()
     
@@ -871,6 +887,9 @@ def run_analysis(args, outpath, datasets, parameters, lumidata, lumimask, pu_cor
                     lumidata=lumidata,
                     pu_corrections=pu_corrections,
                     rochester_corrections=rochester_corrections,
+                    lepsf_iso=lepsf_iso,
+                    lepsf_id=lepsf_id,
+                    lepsf_trig=lepsf_trig,
                     parameters=parameters) 
                 rets += [ret]
                 processed_size_mb += memsize
@@ -898,6 +917,7 @@ def create_datastructure(is_mc):
         "Muon": [
             ("Muon_pt", "float32"), ("Muon_eta", "float32"),
             ("Muon_phi", "float32"), ("Muon_mass", "float32"),
+            ("Muon_pdgId", "int32"),
             ("Muon_pfRelIso04_all", "float32"), ("Muon_mediumId", "bool"),
             ("Muon_tightId", "bool"), ("Muon_charge", "int32"),
             ("Muon_isGlobal", "bool"), ("Muon_isTracker", "bool"),
