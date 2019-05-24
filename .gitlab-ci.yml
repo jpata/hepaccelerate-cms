@@ -1,8 +1,8 @@
 stages:
   - build
 
-job 1:
+libhmm:
   stage: build
   script:
-    - pwd
-    - ls
+    - cd tests/hmm
+    - singularity exec /bigdata/shared/Software/singularity/ibanks/edge_r.simg make libhmm.so 
