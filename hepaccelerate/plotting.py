@@ -125,7 +125,7 @@ if __name__ == "__main__":
 
             #weights = res["dy"][analysis][var].keys()85.656
 
-            for weight in ["nominal", "puWeight"]:
+            for weight in ["nominal", "puWeight", "leptonsf"]:
                 hd = load_hist(res["data"][analysis][var]["nominal"])
 
                 hmc = []

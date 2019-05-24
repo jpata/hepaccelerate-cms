@@ -410,8 +410,6 @@ def rochester_correction_muon_qterm(is_mc, rochester_corrections,
             NUMPY_LIB.asnumpy(muon_props["eta"]),
             NUMPY_LIB.asnumpy(muon_props["phi"]))
 
-    print("Rochester correction qterm mean={0:.5f} std={1:.5f} min={2:.5f} max={3:.5f}".format(
-        qterm.mean(), qterm.std(), qterm.min(), qterm.max()))
     return NUMPY_LIB.array(qterm)
 
 @numba.njit
@@ -542,7 +540,7 @@ def analyze_data(
         sf_tot = sfs[0]
         for sf in sfs[1:]:
             sf_tot = sf_tot * sf
-        print("lepton_sf mean={0:.5f} std={1:.5f} min={2:.5f} max={3:.5f}".format(sf_tot.mean(), sf_tot.std(), sf_tot.min(), sf_tot.max()))
+        weights["leptonsf"] = weights["nominal"] * sf_tot
         
     #get the number of additional muons (not OS) that pass ID and iso cuts
     n_additional_muons = ha.sum_in_offsets(muons, ret_mu["additional_muon_sel"], ret_mu["selected_events"], ret_mu["additional_muon_sel"], dtype=NUMPY_LIB.int8)
