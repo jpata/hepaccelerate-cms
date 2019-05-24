@@ -1,7 +1,8 @@
 stages:
   - build
   - test
-  - run
+#  - cache
+  - analyze 
 
 libhmm:
   stage: build
@@ -27,7 +28,17 @@ test-dataset:
   script:
     - PYTHONPATH=. singularity exec /bigdata/shared/Software/singularity/ibanks/edge_r.simg python3 tests/test_dataset.py
 
-run-cache:
-  stage: run
+#run-cache:
+#  timeout: 180
+#  stage: cache
+#  script:
+#    - PYTHONPATH=. singularity exec -B /nvme1 -B /nvme2 -B /cvmfs -B /mnt/hadoop -B /bigdata /bigdata/shared/Software/singularity/ibanks/edge_r.simg python3 tests/hmm/analysis_hmumu.py --datapath /tmp/jpata/hpc/ -a cache --maxfiles 10 --cache-location /nvme2/jpata/temp_cache/${CI_PIPELINE_ID} --nthreads 20
+
+run-analyze:
+  timeout: 180
+  stage: analyze
   script:
-    - PYTHONPATH=. singularity exec -B /nvme1 -B /nvme2 -B /cvmfs -B /mnt/hadoop -B /bigdata /bigdata/shared/Software/singularity/ibanks/edge_r.simg python3 tests/hmm/analysis_hmumu.py --datapath /tmp/jpata/hpc/ -a cache --maxfiles 10 --cache-location /nvme2/jpata/temp_cache --nthreads 8
+    - PYTHONPATH=. singularity exec -B /nvme1 -B /nvme2 -B /cvmfs -B /mnt/hadoop -B /bigdata /bigdata/shared/Software/singularity/ibanks/edge_r.simg python3 tests/hmm/analysis_hmumu.py --datapath /tmp/jpata/hpc/ -a analyze --maxfiles 10 --cache-location /nvme2/jpata/temp_cache/ --nthreads 20
+  artifacts:
+    paths:
+      - out
