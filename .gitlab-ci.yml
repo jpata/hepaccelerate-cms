@@ -15,3 +15,13 @@ test-libhmm:
   stage: test
   script:
     - PYTHONPATH=. singularity exec /bigdata/shared/Software/singularity/ibanks/edge_r.simg python3 tests/hmm/test_libhmm.py
+
+test-utils:
+  stage: test
+  script:
+    - PYTHONPATH=. singularity exec /bigdata/shared/Software/singularity/ibanks/edge_r.simg python3 tests/test_utils.py
+
+test-dataset:
+  stage: test
+  script:
+    - PYTHONPATH=. singularity exec /bigdata/shared/Software/singularity/ibanks/edge_r.simg python3 tests/test_dataset.py
