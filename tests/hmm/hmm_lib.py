@@ -1,8 +1,9 @@
 from cffi import FFI
 import numpy as numpy_lib
+import os
 
 class LibHMM:
-    def __init__(self, libpath):
+    def __init__(self, libpath=os.path.dirname(os.path.realpath(__file__)) + "/libhmm.so"):
         self.ffi = FFI()
         self.ffi.cdef("""
 

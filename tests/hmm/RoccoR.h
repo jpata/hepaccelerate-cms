@@ -180,7 +180,7 @@ extern "C" {
         return new RoccoR(filename);
     }
     
-    double roccor_kScaleDT(RoccoR* rc, float* out, int n_elem, int Q, float* pt, float* eta, float* phi, int s, int m) {
+    void roccor_kScaleDT(RoccoR* rc, float* out, int n_elem, int Q, float* pt, float* eta, float* phi, int s, int m) {
         for (int i=0; i<n_elem; i++) {
             out[i] = rc->kScaleDT(Q, pt[i], eta[i], phi[i], s, m);
         }
