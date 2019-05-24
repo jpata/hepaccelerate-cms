@@ -7,6 +7,9 @@ libhmm:
   script:
     - cd tests/hmm
     - singularity exec /bigdata/shared/Software/singularity/ibanks/edge_r.simg make libhmm.so 
+  artifacts:
+    paths:
+    - tests/hmm/libhmm.so
 
 test-libhmm:
   stage: test
