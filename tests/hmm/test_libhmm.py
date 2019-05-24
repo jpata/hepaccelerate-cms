@@ -1,7 +1,7 @@
 import numpy as numpy_lib
 import time
 
-from hmm_lib import LibHMM, RochesterCorrections, LeptonEfficiencyCorrections
+from hmumu_lib import LibHMuMu, RochesterCorrections, LeptonEfficiencyCorrections
 
 def setup():
     n = 10000000
@@ -10,7 +10,7 @@ def setup():
     phi = 3.14*numpy_lib.random.rand(n).astype('f') - 3.14
     pdgids = numpy_lib.array([13] * n, dtype=numpy_lib.int32)
     
-    libhmm = LibHMM()
+    libhmm = LibHMuMu()
     
     return pt, eta, phi, pdgids, libhmm
 

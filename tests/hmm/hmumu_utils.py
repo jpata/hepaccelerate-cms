@@ -380,6 +380,7 @@ def analyze_data(
     pu_corrections=None,
     lumimask=None,
     lumidata=None,
+    rochester_corrections=None,
     parameters={},
     parameter_set_name="",
     doverify=False,
@@ -453,6 +454,7 @@ def analyze_data(
     inds = NUMPY_LIB.zeros(muons.numevents(), dtype=NUMPY_LIB.int32)
     leading_muon_pt = ha.get_in_offsets(muons.pt, muons.offsets, inds, ret_mu["selected_events"], ret_mu["selected_muons"])
     leading_muon_eta = ha.get_in_offsets(muons.eta, muons.offsets, inds, ret_mu["selected_events"], ret_mu["selected_muons"])
+    leading_muon_phi = ha.get_in_offsets(muons.phi, muons.offsets, inds, ret_mu["selected_events"], ret_mu["selected_muons"])
     leading_jet_pt = ha.get_in_offsets(jets.pt, jets.offsets, inds, ret_mu["selected_events"], ret_jet["selected_jets"])
     leading_jet_eta = ha.get_in_offsets(jets.eta, jets.offsets, inds, ret_mu["selected_events"], ret_jet["selected_jets"])
 
@@ -460,15 +462,23 @@ def analyze_data(
     inds[:] = 1
     subleading_muon_pt = ha.get_in_offsets(muons.pt, muons.offsets, inds, ret_mu["selected_events"], ret_mu["selected_muons"])
     subleading_muon_eta = ha.get_in_offsets(muons.eta, muons.offsets, inds, ret_mu["selected_events"], ret_mu["selected_muons"])
+    subleading_muon_phi = ha.get_in_offsets(muons.phi, muons.offsets, inds, ret_mu["selected_events"], ret_mu["selected_muons"])
     subleading_jet_pt = ha.get_in_offsets(jets.pt, jets.offsets, inds, ret_mu["selected_events"], ret_jet["selected_jets"])
     subleading_jet_eta = ha.get_in_offsets(jets.eta, jets.offsets, inds, ret_mu["selected_events"], ret_jet["selected_jets"])
+
+    if parameters["do_rochester_corrections"]:
+        roccor_leading = rochester_corrections.compute(NUMPY_LIB.asnumpy(leading_muon_pt), NUMPY_LIB.asnumpy(leading_muon_eta), NUMPY_LIB.asnumpy(leading_muon_phi))
+        leading_muon_pt = leading_muon_pt * roccor_leading
+        roccor_subleading = rochester_corrections.compute(NUMPY_LIB.asnumpy(subleading_muon_pt), NUMPY_LIB.asnumpy(subleading_muon_eta), NUMPY_LIB.asnumpy(subleading_muon_phi))
+        subleading_muon_pt = subleading_muon_pt * roccor_subleading
+        print("roccor_leading", roccor_leading.mean())
+        print("roccor_subleading", roccor_subleading.mean())
 
     #get the number of additional muons (not OS) that pass ID and iso cuts
     additional_muons = ha.sum_in_offsets(muons, ret_mu["additional_muon_sel"], ret_mu["selected_events"], ret_mu["additional_muon_sel"], dtype=NUMPY_LIB.int8)
     additional_electrons = ha.sum_in_offsets(electrons, ret_el["additional_electron_sel"], ret_mu["selected_events"], ret_el["additional_electron_sel"], dtype=NUMPY_LIB.int8)
     additional_leptons = additional_muons + additional_electrons
     
-    ret_el
     if doverify:
         assert(NUMPY_LIB.all(leading_muon_pt[leading_muon_pt>0] > parameters["muon_pt_leading"]))
         assert(NUMPY_LIB.all(subleading_muon_pt[subleading_muon_pt>0] > parameters["muon_pt"]))
@@ -619,7 +629,6 @@ def cache_preselection(ds):
         sel = ds.eventvars[ifile]["HLT_IsoMu27"] == 1
         for structname in ds.structs.keys():
             struct_compact = ds.structs[structname][ifile].compact_struct(sel)
-            print(structname, struct_compact.memsize() / ds.structs[structname][ifile].memsize())
             ds.structs[structname][ifile] = struct_compact
         for evvar_name in ds.eventvars[ifile].keys():
             ds.eventvars[ifile][evvar_name] = ds.eventvars[ifile][evvar_name][sel]
@@ -710,7 +719,6 @@ def event_loop(train_batches_queue, use_cuda, **kwargs):
         ds.numpy_lib = cupy
         ds.move_to_device(cupy)
 
-
     parameters = kwargs.pop("parameters")
 
     ret = {}
@@ -750,7 +758,7 @@ def threaded_metrics(tokill, train_batches_queue):
 
     return
 
-def run_analysis(args, outpath, datasets, parameters, lumidata, lumimask, pu_corrections):
+def run_analysis(args, outpath, datasets, parameters, lumidata, lumimask, pu_corrections, rochester_corrections):
     nev_total = 0
     t0 = time.time()
     
@@ -808,6 +816,7 @@ def run_analysis(args, outpath, datasets, parameters, lumidata, lumimask, pu_cor
                     verbose=False, is_mc=is_mc, lumimask=lumimask,
                     lumidata=lumidata,
                     pu_corrections=pu_corrections,
+                    rochester_corrections=rochester_corrections,
                     parameters=parameters) 
                 rets += [ret]
                 processed_size_mb += memsize

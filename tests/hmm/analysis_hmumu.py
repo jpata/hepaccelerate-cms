@@ -15,6 +15,7 @@ from hepaccelerate.decisiontree import DecisionTreeNode, DecisionTreeLeaf
 
 import hmumu_utils
 from hmumu_utils import run_analysis, load_analysis, make_random_tree, load_puhist_target, compute_significances, optimize_categories
+from hmumu_lib import LibHMuMu, RochesterCorrections, LeptonEfficiencyCorrections
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Example HiggsMuMu analysis')
@@ -156,6 +157,8 @@ if __name__ == "__main__":
             "muon_iso": 0.25,
             "muon_id": "medium",
             "muon_trigger_match_dr": 0.1,
+            "do_rochester_corrections": True,
+
             "jet_mu_dr": 0.4,
             "jet_pt": 30.0,
             "jet_eta": 4.7,
@@ -178,6 +181,9 @@ if __name__ == "__main__":
     lumimask = LumiMask("data/Cert_294927-306462_13TeV_EOY2017ReReco_Collisions17_JSON.txt", np, backend_cpu)
     lumidata = LumiData("data/lumi2017.csv")
     pu_corrections_2017 = load_puhist_target("data/RunII_2017_data.root")
+    
+    libhmm = LibHMuMu()
+    rochester_corr = RochesterCorrections(libhmm, "data/RoccoR2017v1.txt")
 
 
     #Run baseline analysis
@@ -190,20 +196,20 @@ if __name__ == "__main__":
     with open('{0}/parameters.pickle'.format(outpath), 'wb') as handle:
         pickle.dump(analysis_parameters, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-    run_analysis(args, outpath, datasets, analysis_parameters, lumidata, lumimask, pu_corrections_2017)
+    run_analysis(args, outpath, datasets, analysis_parameters, lumidata, lumimask, pu_corrections_2017, rochester_corr)
 
-    if "analyze" in args.action: 
-        ans = analysis_parameters["baseline"]["categorization_trees"].keys()
-        r = load_analysis(mc_samples, outpath, cross_sections, ans)
-        Zs = compute_significances(sig_samples, bkg_samples, r, ans)
-        print(Zs[:10])
-        with open('{0}/sigs.pickle'.format(outpath), 'wb') as handle:
-            pickle.dump(Zs, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    # if "analyze" in args.action: 
+    #     ans = analysis_parameters["baseline"]["categorization_trees"].keys()
+    #     r = load_analysis(mc_samples, outpath, cross_sections, ans)
+    #     Zs = compute_significances(sig_samples, bkg_samples, r, ans)
+    #     print(Zs[:10])
+    #     with open('{0}/sigs.pickle'.format(outpath), 'wb') as handle:
+    #         pickle.dump(Zs, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-        #best_tree = copy.deepcopy(analysis_parameters["baseline"]["categorization_trees"][Zs[0][0]])
-        starting_tree = copy.deepcopy(rand_trees["rand0"])
-        optimize_categories(sig_samples, bkg_samples, varlist, datasets, lumidata, lumimask, pu_corrections_2017, cross_sections, args, analysis_parameters, starting_tree)
+    #     #best_tree = copy.deepcopy(analysis_parameters["baseline"]["categorization_trees"][Zs[0][0]])
+    #     starting_tree = copy.deepcopy(rand_trees["rand0"])
+    #     optimize_categories(sig_samples, bkg_samples, varlist, datasets, lumidata, lumimask, pu_corrections_2017, cross_sections, args, analysis_parameters, starting_tree)
 
-        if do_prof:
-            stats = yappi.get_func_stats()
-            stats.save(filename, type='callgrind')
+    if do_prof:
+        stats = yappi.get_func_stats()
+        stats.save(filename, type='callgrind')
