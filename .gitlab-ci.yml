@@ -1,8 +1,14 @@
 stages:
   - build
+  - test
 
 libhmm:
   stage: build
   script:
     - cd tests/hmm
     - singularity exec /bigdata/shared/Software/singularity/ibanks/edge_r.simg make libhmm.so 
+
+test-libhmm:
+  stage: test
+  script:
+    - PYTHONPATH=. singularity exec /bigdata/shared/Software/singularity/ibanks/edge_r.simg python3 tests/hmm/test_libhmm.py
