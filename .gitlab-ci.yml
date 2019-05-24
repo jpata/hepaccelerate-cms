@@ -1,0 +1,55 @@
+stages:
+  - build
+  - test
+  - cache
+  - analyze 
+  - plot
+
+libhmm:
+  stage: build
+  script:
+    - cd tests/hmm
+    - singularity exec /bigdata/shared/Software/singularity/ibanks/edge_r.simg make libhmm.so 
+  artifacts:
+    paths:
+    - tests/hmm/libhmm.so
+
+test-libhmm:
+  stage: test
+  script:
+    - PYTHONPATH=. singularity exec /bigdata/shared/Software/singularity/ibanks/edge_r.simg python3 tests/hmm/test_libhmm.py
+
+test-utils:
+  stage: test
+  script:
+    - PYTHONPATH=. singularity exec /bigdata/shared/Software/singularity/ibanks/edge_r.simg python3 tests/test_utils.py
+
+test-dataset:
+  stage: test
+  script:
+    - PYTHONPATH=. singularity exec /bigdata/shared/Software/singularity/ibanks/edge_r.simg python3 tests/test_dataset.py
+
+run-cache:
+  stage: cache
+  only:
+    variables:
+      - $CI_COMMIT_MESSAGE =~ /ci-rerun-cache/
+  script:
+    - rm -Rf /nvme2/jpata/temp_cache/
+    - PYTHONPATH=. singularity exec -B /nvme1 -B /nvme2 -B /cvmfs -B /mnt/hadoop -B /bigdata /bigdata/shared/Software/singularity/ibanks/edge_r.simg python3 tests/hmm/analysis_hmumu.py --datapath /tmp/jpata/hpc/ -a cache --maxfiles 5 --cache-location /nvme2/jpata/temp_cache/ --nthreads 20
+
+run-analyze:
+  stage: analyze
+  script:
+    - PYTHONPATH=. singularity exec -B /nvme1 -B /nvme2 -B /cvmfs -B /mnt/hadoop -B /bigdata /bigdata/shared/Software/singularity/ibanks/edge_r.simg python3 tests/hmm/analysis_hmumu.py --datapath /tmp/jpata/hpc/ -a analyze --maxfiles 5 --cache-location /nvme2/jpata/temp_cache/ --nthreads 20
+  artifacts:
+    paths:
+      - out
+
+run-plot:
+  stage: plot
+  script:
+    - PYTHONPATH=. singularity exec -B /nvme1 -B /nvme2 -B /cvmfs -B /mnt/hadoop -B /bigdata /bigdata/shared/Software/singularity/ibanks/edge_r.simg python3 hepaccelerate/plotting.py
+  artifacts:
+    paths:
+      - out/baseline/*.pdf

@@ -19,3 +19,4 @@ install:
 
 script:
     - PYTHONPATH=. python tests/test_dataset.py
+    - PYTHONPATH=. python tests/test_utils.py

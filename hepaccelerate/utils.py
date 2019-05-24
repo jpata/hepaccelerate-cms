@@ -54,6 +54,7 @@ class Histogram:
 class JaggedStruct(object):
     def __init__(self, offsets, attrs_data, prefix, numpy_lib, attr_names_dtypes):
         self.numpy_lib = numpy_lib
+        self.hepaccelerate_backend = None
         
         self.offsets = offsets
         self.attrs_data = attrs_data
@@ -155,8 +156,8 @@ class JaggedStruct(object):
             self.prefix, self.numevents(), self.numobjects(), ", ".join(sorted(self.attrs_data.keys())))
         return s
 
-    def compact_struct(self, mask):
-        assert(len(mask) == self.numevents())
+    def compact_struct(self, event_mask):
+        assert(len(event_mask) == self.numevents())
         
         new_attrs_data = {}
         new_offsets = None 
@@ -169,10 +170,35 @@ class JaggedStruct(object):
 
             ja = awkward.JaggedArray.fromoffsets(offsets_int64, flat_array)
 
-            ja_reduced = ja[mask].compact()
+            ja_reduced = ja[event_mask].compact()
             new_attrs_data[attr_name] = ja_reduced.content
             new_offsets = ja_reduced.offsets
         return JaggedStruct(new_offsets, new_attrs_data, self.prefix, self.numpy_lib, self.attr_names_dtypes)
+
+    def select_nth(self, idx, event_mask=None, object_mask=None, attributes=None):
+        if type(idx) == int:
+            inds = self.numpy_lib.zeros(self.numevents(), dtype=self.numpy_lib.int32)
+            inds[:] = idx
+        elif type(idx) == self.numpy_lib.ndarray:
+            inds = idx
+        else:
+            raise TypeError("idx must be int or numpy/cupy ndarray")
+
+        if event_mask is None:
+            event_mask = self.numpy_lib.ones(self.numevents(), dtype=self.numpy_lib.bool)
+
+        if object_mask is None:
+            object_mask = self.numpy_lib.ones(self.numobjects(), dtype=self.numpy_lib.bool)
+
+        if attributes is None:
+            attributes = self.attrs_data.keys()
+
+        new_attrs = {
+            attr_name: self.hepaccelerate_backend.get_in_offsets(getattr(self, attr_name), self.offsets, inds, event_mask, object_mask)
+            for attr_name in attributes
+        }
+
+        return new_attrs
 
 class NumpyEncoder(json.JSONEncoder):
     def default(self, obj):
