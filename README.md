@@ -16,16 +16,17 @@ Optional libraries for CUDA acceleration:
  - cupy
  - cudatoolkit
 
-We also provide a singularity image with the python libraries preinstalled, see below.
-
 ## Sneak peek
 
 This is a minimal example in [tests/example.py](tests/example.py).
 
 ```python
+#usr/bin/env python3
+#Run as PYTHONPATH=. python3 tests/example.py
 import hepaccelerate
-from hepaccelerate.utils import Results, NanoAODDataset, Histogram, choose_backend
+from hepaccelerate.utils import Results, Dataset, Histogram, choose_backend
 
+#choose whether or not to use the GPU backend
 NUMPY_LIB, ha = choose_backend(use_cuda=False)
 
 #define our analysis function
@@ -34,6 +35,9 @@ def analyze_data_function(data, parameters):
 
     num_events = data["num_events"]
     muons = data["Muon"]
+    mu_pt = NUMPY_LIB.sqrt(muons.Px**2 + muons.Py**2)
+    muons.attrs_data["pt"] = mu_pt
+
     mask_events = NUMPY_LIB.ones(muons.numevents(), dtype=NUMPY_LIB.bool)
     mask_muons_passing_pt = muons.pt > parameters["muons_ptcut"]
     num_muons_event = ha.sum_in_offsets(muons, mask_muons_passing_pt, mask_events, muons.masks["all"], NUMPY_LIB.int8)
@@ -43,52 +47,56 @@ def analyze_data_function(data, parameters):
     inds = NUMPY_LIB.zeros(num_events, dtype=NUMPY_LIB.int32)
     leading_muon_pt = ha.get_in_offsets(muons.pt, muons.offsets, inds, mask_events_dimuon, mask_muons_passing_pt)
 
+    #compute a weighted histogram
     weights = NUMPY_LIB.ones(num_events, dtype=NUMPY_LIB.float32)
     bins = NUMPY_LIB.linspace(0,300,101)
     hist_muons_pt = Histogram(*ha.histogram_from_vector(leading_muon_pt[mask_events_dimuon], weights[mask_events_dimuon], bins))
 
+    #save it to the output
     ret["hist_leading_muon_pt"] = hist_muons_pt
     return ret
 
-filename = "/Volumes/Samsung_T3/nanoad//store/mc/RunIIFall17NanoAODv4/DYJetsToLL_M-50_TuneCP5_13TeV-amcatnloFXFX-pythia8/NANOAODSIM/PU2017_12Apr2018_Nano14Dec2018_new_pmx_102X_mc2017_realistic_v6_ext1-v1/00000/8AAF0CFA-542F-8947-973E-A61A78293481.root"
-try_cache = True
+#Load this input file
+filename = "data/HZZ.root"
 
-#predefine which branches to read from the TTree and how they are grouped to objects
+#Predefine which branches to read from the TTree and how they are grouped to objects
+#This will be verified against the actual ROOT TTree when it is loaded
 datastructures = {
-        "Muon": [
-            ("Muon_pt", "float32"),("Muon_eta", "float32"),
-            ("Muon_phi", "float32"), ("Muon_mass", "float32"),
-            ("Muon_pfRelIso04_all", "float32"), ("Muon_mediumId", "bool"),
-            ("Muon_tightId", "bool"), ("Muon_charge", "int32")
-        ],
-        "Jet": [
-            ("Jet_pt", "float32"), ("Jet_eta", "float32"),
-            ("Jet_phi", "float32"), ("Jet_btagDeepB", "float32"),
-            ("Jet_jetId", "int32"), ("Jet_puId", "int32"),
-        ],
-        "EventVariables": [
-            ("HLT_IsoMu24", "bool"),
-            ("run", "uint32"),
-            ("luminosityBlock", "uint32"),
-            ("event", "uint64")
-        ]
+            "Muon": [
+                ("Muon_Px", "float32"),
+                ("Muon_Py", "float32"),
+                ("Muon_Pz", "float32"),
+                ("Muon_E", "float32"),
+                ("Muon_Charge", "int32"),
+                ("Muon_Iso", "float32")
+            ],
+            "Jet": [
+                ("Jet_Px", "float32"),
+                ("Jet_Py", "float32"),
+                ("Jet_Pz", "float32"),
+                ("Jet_E", "float32"),
+                ("Jet_btag", "float32"),
+                ("Jet_ID", "bool")
+            ],
+            "EventVariables": [
+                ("NPrimaryVertices", "int32"),
+                ("triggerIsoMu24", "bool"),
+                ("EventWeight", "float32")
+            ]
     }
 
-dataset = NanoAODDataset([filename], datastructures, cache_location="./mycache/")
+dataset = Dataset([filename], datastructures, cache_location="./mycache/", treename="events", datapath="")
 
-#optionally set try_cache=True to make the the analysis faster the next time around when reading the same branches
-if try_cache:
-    try:
-        dataset.from_cache(verbose=True, nthreads=4)
-    except FileNotFoundError as e:
-        print("Cache not found, creating...")
-        dataset.preload(nthreads=4, verbose=True)
-        dataset.make_objects()
-        dataset.to_cache(verbose=True, nthreads=4)
-else:
-    dataset.preload(nthreads=4, verbose=True)
-    dataset.make_objects()
+#load data to memory
+try:
+    dataset.from_cache(verbose=True)
+    print("Loaded data from cache, did not touch original ROOT files.")
+except FileNotFoundError as e:
+    print("Cache not found, creating...")
+    dataset.load_root()
+    dataset.to_cache()
 
+#process data
 results = dataset.analyze(analyze_data_function, verbose=True, parameters={"muons_ptcut": 30.0})
 results.save_json("out.json")
 ```
@@ -96,7 +104,6 @@ results.save_json("out.json")
 ## Benchmark on a CMS Higgs analysis
 
 The following benchmarks have been carried out with a realistic CMS analysis on NanoAOD. The analysis can be found in [tests/analysis_hmumu.py](tests/analysis_hmumu.py).
-
 
 This proto-analysis implements the following:
 
@@ -108,13 +115,17 @@ This proto-analysis implements the following:
  - [x] on the fly luminosity calculation, golden JSON lumi filtering
  - [x] weighted histograms of muon, jet and event variables
 
-Not yet implemented:
+From original CMS C++ code (CPU only, not included in benchmark), via Python CFFI:
 
- - [ ] muon momentum Rochester corrections
- - [ ] lepton scale factors
+ - [x] muon momentum Rochester corrections
+ - [x] lepton scale factors
+ - [ ] btag scale factors
+
+Not yet implemented
+
  - [ ] in-situ training and evaluation of Higgs-to-bkg discriminators
 
-The analysis is carried out using a single script on a single machine, `tests/analyse_hmumu.py -a cache -a analyze --nthreads N (--use-cuda)`. In order to be able to process a billion events in a few minutes, the first time the analysis is run, the branches that we will use are uncompressed and saved to local disk as numpy files. Without this optional caching step, the upper limit on the processing speed will be dominated by the CPU decompression of the ROOT TTree (first line `caching` in the tables). This means that the second time you run the analysis with reading the same branches, the decompression does not need to be done and we can achieve about 3-4x higher speeds.
+The analysis is carried out using a single script on a single machine, `tests/hmm/analyse_hmumu.py -a cache -a analyze --nthreads N (--use-cuda)`. In order to be able to process a billion events in a few minutes, the first time the analysis is run, the branches that we will use are uncompressed and saved to local disk as numpy files. Without this optional caching step, the upper limit on the processing speed will be dominated by the CPU decompression of the ROOT TTree (first line `caching` in the tables). This means that the second time you run the analysis with reading the same branches, the decompression does not need to be done and we can achieve about 3-4x higher speeds.
 
 ### 2015 Macbook Pro, 35M events
 
@@ -178,19 +189,8 @@ PYTHONPATH=.:$PYTHONPATH python3 tests/simple.py --filelist filelist.txt --from-
 ```
 
 ## Singularity image
-Singularity allows you to try out the package without needing to install the python libraries.
 
-```bash
-#Download the uproot+cupy+numba singularity image from CERN
-wget https://jpata.web.cern.ch/jpata/singularity/cupy.simg -o singularity/cupy.simg
-
-##or on lxplus
-#cp /eos/user/j/jpata/www/singularity/cupy.simg ./singularity/
-##or compile yourself if you have ROOT access on your machine
-#cd singularity;make
-
-LC_ALL=C PYTHONPATH=.:$PYTHONPATH singularity exec -B /nvmedata --nv singularity/cupy.simg python3 ...
-```
+[Singularity image needs to be updated]
 
 ## Recommendations on data locality and remote data
 In order to make full use of modern CPUs or GPUs, you want to bring the data as close as possible to where the work is done, otherwise you will spend most of the time waiting for the data to arrive rather than actually performing the computations.
@@ -208,3 +208,4 @@ With CMS NanoAOD with event sizes of 1-2 kB/event, 1 million events is approxima
  - *I'm a GPU programming expert, and I worry your CUDA kernels are not optimized. Can you comment?* Good question! At the moment, they are indeed not very optimized, as we do a lot of control flow (`if` statements) in them. However, the GPU analysis is still about 2x faster than a pure CPU analysis, as the CPU is more free to work on loading the data, and this gap is expected to increase as the analysis becomes more complicated (more systematics, more templates). At the moment, we see pure GPU processing speeds of about 8-10 MHz for in-memory data, and data loading from cache at about 4-6 MHz. Have a look at the nvidia profiler results [nvprof1](profiling/nvprof1.png), [nvprof2](profiling/nvprof2.png) to see what's going on under the hood. Please give us a hand to make it even better!
  - *What about running this code on multiple machines?* You can do that, currently just using usual batch tools, but we are looking at other ways (dask, joblib, spark) to distribute the analysis across multiple machines. 
  - *What about running this code on data that is remote (XROOTD)?* You can do that thanks to the `uproot` library, but then you gain very little benefit from having a fast CPU or GPU, as you will spend most of your time just waiting for input.
+ - *How much RAM is needed?* The amount of RAM determines how much data can be preloaded to memory. You can either process data in memory all at once, which makes rerunning very fast, or set up a batched pipeline. In case of the batched pipeline, no more than a few GB/thread of RAM is needed.
