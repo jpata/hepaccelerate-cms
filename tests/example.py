@@ -8,7 +8,7 @@ os.environ["NUMBAPRO_LIBDEVICE"] = "/usr/local/cuda/nvvm/libdevice/"
 import numba
 
 import hepaccelerate
-from hepaccelerate.utils import Results, NanoAODDataset, Histogram, choose_backend
+from hepaccelerate.utils import Results, Dataset, Histogram, choose_backend
 
 #choose whether or not to use the GPU backend
 NUMPY_LIB, ha = choose_backend(use_cuda=False)
@@ -19,6 +19,9 @@ def analyze_data_function(data, parameters):
 
     num_events = data["num_events"]
     muons = data["Muon"]
+    mu_pt = NUMPY_LIB.sqrt(muons.Px**2 + muons.Py**2)
+    muons.attrs_data["pt"] = mu_pt
+
     mask_events = NUMPY_LIB.ones(muons.numevents(), dtype=NUMPY_LIB.bool)
     mask_muons_passing_pt = muons.pt > parameters["muons_ptcut"]
     num_muons_event = ha.sum_in_offsets(muons, mask_muons_passing_pt, mask_events, muons.masks["all"], NUMPY_LIB.int8)
@@ -38,48 +41,45 @@ def analyze_data_function(data, parameters):
     return ret
 
 #Load this input file
-filename = "/nvmedata/store/mc/RunIIFall17NanoAODv4/DYJetsToLL_M-50_TuneCP5_13TeV-amcatnloFXFX-pythia8/NANOAODSIM/PU2017_12Apr2018_Nano14Dec2018_new_pmx_102X_mc2017_realistic_v6_ext1-v1/00000/8AAF0CFA-542F-8947-973E-A61A78293481.root"
-#Optionally set try_cache=True to make the the analysis faster the next time around when reading the same branches
-try_cache = True
+filename = "data/HZZ.root"
 
 #Predefine which branches to read from the TTree and how they are grouped to objects
 #This will be verified against the actual ROOT TTree when it is loaded
 datastructures = {
-        "Muon": [
-            ("Muon_pt", "float32"),("Muon_eta", "float32"),
-            ("Muon_phi", "float32"), ("Muon_mass", "float32"),
-            ("Muon_pfRelIso04_all", "float32"), ("Muon_mediumId", "bool"),
-            ("Muon_tightId", "bool"), ("Muon_charge", "int32")
-        ],
-        "Jet": [
-            ("Jet_pt", "float32"), ("Jet_eta", "float32"),
-            ("Jet_phi", "float32"), ("Jet_btagDeepB", "float32"),
-            ("Jet_jetId", "int32"), ("Jet_puId", "int32"),
-        ],
-        "EventVariables": [
-            ("HLT_IsoMu24", "bool"),
-            ("run", "uint32"),
-            ("luminosityBlock", "uint32"),
-            ("event", "uint64")
-        ]
+            "Muon": [
+                ("Muon_Px", "float32"),
+                ("Muon_Py", "float32"),
+                ("Muon_Pz", "float32"), 
+                ("Muon_E", "float32"),
+                ("Muon_Charge", "int32"),
+                ("Muon_Iso", "float32")
+            ],
+            "Jet": [
+                ("Jet_Px", "float32"),
+                ("Jet_Py", "float32"),
+                ("Jet_Pz", "float32"),
+                ("Jet_E", "float32"),
+                ("Jet_btag", "float32"),
+                ("Jet_ID", "bool")
+            ],
+            "EventVariables": [
+                ("NPrimaryVertices", "int32"),
+                ("triggerIsoMu24", "bool"),
+                ("EventWeight", "float32")
+            ]
     }
 
-dataset = NanoAODDataset([filename], datastructures, cache_location="./mycache/")
+dataset = Dataset([filename], datastructures, cache_location="./mycache/", treename="events", datapath="")
 
-if try_cache:
-    print("Trying to load branch data from cache...")
-    try:
-        dataset.from_cache(verbose=True)
-        print("Loaded data from cache, did not touch original ROOT files.")
-    except FileNotFoundError as e:
-        print("Cache not found, creating...")
-        dataset.preload(verbose=True)
-        dataset.make_objects()
-        dataset.to_cache(verbose=True)
-else:
-    print("Loading data directly from ROOT file...")
-    dataset.preload(verbose=True)
-    dataset.make_objects()
+#load data to memory
+try:
+    dataset.from_cache(verbose=True)
+    print("Loaded data from cache, did not touch original ROOT files.")
+except FileNotFoundError as e:
+    print("Cache not found, creating...")
+    dataset.load_root()
+    dataset.to_cache()
 
+#process data
 results = dataset.analyze(analyze_data_function, verbose=True, parameters={"muons_ptcut": 30.0})
 results.save_json("out.json")
