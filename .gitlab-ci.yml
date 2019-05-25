@@ -40,8 +40,22 @@ run-cache:
 
 run-analyze:
   stage: analyze
+  except:
+    variables:
+      - $CI_COMMIT_MESSAGE =~ /ci-rerun-full-analysis/
   script:
     - PYTHONPATH=. singularity exec -B /nvme1 -B /nvme2 -B /cvmfs -B /mnt/hadoop -B /bigdata /bigdata/shared/Software/singularity/ibanks/edge_r.simg python3 tests/hmm/analysis_hmumu.py --datapath /tmp/jpata/hpc/ -a analyze --maxfiles 5 --cache-location /nvme2/jpata/temp_cache/ --nthreads 20
+  artifacts:
+    paths:
+      - out
+
+run-full-analyze:
+  stage: analyze
+  only:
+    variables:
+      - $CI_COMMIT_MESSAGE =~ /ci-rerun-full-analysis/
+  script:
+    - PYTHONPATH=. singularity exec -B /nvme1 -B /nvme2 -B /cvmfs -B /mnt/hadoop -B /bigdata /bigdata/shared/Software/singularity/ibanks/edge_r.simg python3 tests/hmm/analysis_hmumu.py --datapath /tmp/jpata/hpc/ -a analyze --maxfiles -1 --cache-location /nvme2/jpata/mycache2/ --nthreads 20
   artifacts:
     paths:
       - out
