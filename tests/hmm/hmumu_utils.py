@@ -451,11 +451,11 @@ def analyze_data(
     jets.hepaccelerate_backend = ha
 
     #associate the muon genpt
-    if is_mc:
-        genpart = data["GenPart"]
-        muons_genpt = NUMPY_LIB.zeros(muons.numobjects(), dtype=NUMPY_LIB.float32)
-        muons_get_genpt(muons.offsets, muons.genPartIdx, genpart.offsets, genpart.pt, muons_genpt)
-        muons.attrs_data["genpt"] = muons_genpt
+    #if is_mc:
+    #    genpart = data["GenPart"]
+    #    muons_genpt = NUMPY_LIB.zeros(muons.numobjects(), dtype=NUMPY_LIB.float32)
+    #    muons_get_genpt(muons.offsets, muons.genPartIdx, genpart.offsets, genpart.pt, muons_genpt)
+    #    muons.attrs_data["genpt"] = muons_genpt
 
 
     # scalars["run"] = NUMPY_LIB.array(scalars["run"], dtype=NUMPY_LIB.uint32)
@@ -518,10 +518,10 @@ def analyze_data(
     inv_mass = compute_inv_mass(muons, ret_mu["selected_events"], ret_mu["selected_muons"])
 
     #create arrays with just the nth particle contents for easier management
-    leading_muon = muons.select_nth(0, ret_mu["selected_events"], ret_mu["selected_muons"])
-    subleading_muon = muons.select_nth(1, ret_mu["selected_events"], ret_mu["selected_muons"])
-    leading_jet = jets.select_nth(0, ret_mu["selected_events"], ret_jet["selected_jets"])
-    subleading_jet = jets.select_nth(1, ret_mu["selected_events"], ret_jet["selected_jets"])
+    leading_muon = muons.select_nth(0, ret_mu["selected_events"], ret_mu["selected_muons"], attributes=["pt", "eta", "pdgId", "nTrackerLayers"])
+    subleading_muon = muons.select_nth(1, ret_mu["selected_events"], ret_mu["selected_muons"], attributes=["pt", "eta", "pdgId", "nTrackerLayers"])
+    leading_jet = jets.select_nth(0, ret_mu["selected_events"], ret_jet["selected_jets"], attributes=["pt", "eta"])
+    subleading_jet = jets.select_nth(1, ret_mu["selected_events"], ret_jet["selected_jets"], attributes=["pt", "eta"])
 
     if parameters["do_rochester_corrections"]:
         leading_muon_pt, subleading_muon_pt = do_rochester_corrections(
@@ -548,25 +548,26 @@ def analyze_data(
     n_additional_leptons = n_additional_muons + n_additional_electrons
     
     if doverify:
-        assert(NUMPY_LIB.all(leading_muon_pt[leading_muon_pt>0] > parameters["muon_pt_leading"]))
-        assert(NUMPY_LIB.all(subleading_muon_pt[subleading_muon_pt>0] > parameters["muon_pt"]))
+        assert(NUMPY_LIB.all(leading_muon["pt"][leading_muon["pt"]>0] > parameters["muon_pt_leading"]))
+        assert(NUMPY_LIB.all(subleading_muon["pt"][subleading_muon["pt"]>0] > parameters["muon_pt"]))
+
 
     hists = {}
-    #hists["hist__dimuon__npvs"] = fill_with_weights(scalars["PV_npvsGood"], weights, ret_mu["selected_events"], NUMPY_LIB.linspace(0,100,101))
-    #hists["hist__dimuon__inv_mass"] = fill_with_weights(inv_mass, weights, ret_mu["selected_events"], NUMPY_LIB.linspace(50,200,101))
+    hists["hist__dimuon__npvs"] = fill_with_weights(scalars["PV_npvsGood"], weights, ret_mu["selected_events"], NUMPY_LIB.linspace(0,100,101))
+    hists["hist__dimuon__inv_mass"] = fill_with_weights(inv_mass, weights, ret_mu["selected_events"], NUMPY_LIB.linspace(50,200,101))
 
-    ##get histograms of leading and subleading muon momenta
-    #hists["hist__dimuon__leading_muon_pt"] = fill_with_weights(leading_muon_pt, weights, ret_mu["selected_events"], NUMPY_LIB.linspace(0.0, 200.0, 101))
-    #hists["hist__dimuon__subleading_muon_pt"] = fill_with_weights(subleading_muon_pt, weights, ret_mu["selected_events"], NUMPY_LIB.linspace(0.0, 200.0, 101))
+    #get histograms of leading and subleading muon momenta
+    hists["hist__dimuon__leading_muon_pt"] = fill_with_weights(leading_muon["pt"], weights, ret_mu["selected_events"], NUMPY_LIB.linspace(0.0, 200.0, 101))
+    hists["hist__dimuon__subleading_muon_pt"] = fill_with_weights(subleading_muon["pt"], weights, ret_mu["selected_events"], NUMPY_LIB.linspace(0.0, 200.0, 101))
 
-    #hists["hist__dimuon__leading_muon_eta"] = fill_with_weights(
-    #    leading_muon_eta, weights, ret_mu["selected_events"],
-    #    NUMPY_LIB.linspace(-4.0, 4.0, 101)
-    #)
-    #hists["hist__dimuon__subleading_muon_eta"] = fill_with_weights(
-    #    subleading_muon_eta, weights, ret_mu["selected_events"],
-    #    NUMPY_LIB.linspace(-4.0, 4.0, 101)
-    #)
+    hists["hist__dimuon__leading_muon_eta"] = fill_with_weights(
+        leading_muon["eta"], weights, ret_mu["selected_events"],
+        NUMPY_LIB.linspace(-4.0, 4.0, 101)
+    )
+    hists["hist__dimuon__subleading_muon_eta"] = fill_with_weights(
+        subleading_muon["eta"], weights, ret_mu["selected_events"],
+        NUMPY_LIB.linspace(-4.0, 4.0, 101)
+    )
 
     masswindow_110_150 = ((inv_mass >= 110) & (inv_mass < 150))
     masswindow_120_130 = ((inv_mass >= 120) & (inv_mass < 130))
