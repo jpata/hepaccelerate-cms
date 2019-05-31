@@ -716,7 +716,7 @@ def cache_data_multiproc_worker(args):
 
     #put any preselection here
     processed_size_mb = ds.memsize()/1024.0/1024.0
-    cache_preselection(ds)
+    #cache_preselection(ds)
     processed_size_mb_post = ds.memsize()/1024.0/1024.0
 
     ds.to_cache()
@@ -782,8 +782,8 @@ def event_loop(train_batches_queue, use_cuda, **kwargs):
     ds = train_batches_queue.get(block=True)
     #print("event_loop nev={0}, queued={1}".format(len(ds), train_batches_queue.qsize()))
 
+    #copy dataset to GPU and make sure future operations are done on it
     if use_cuda:
-        #copy dataset to GPU and make sure future operations are done on it
         import cupy
         ds.numpy_lib = cupy
         ds.move_to_device(cupy)
@@ -910,6 +910,13 @@ def run_analysis(args, outpath, datasets, parameters, lumidata, lumimask, pu_cor
     print("Overall processed {nev:.2E} ({nev}) events in total {size:.2f} GB, {dt:.1f} seconds, {evspeed:.2E} Hz, {sizespeed:.2f} MB/s".format(
         nev=nev_total, dt=dt, size=processed_size_mb/1024.0, evspeed=nev_total/dt, sizespeed=processed_size_mb/dt)
     )
+
+    bench_ret = {}
+    bench_ret.update(args.__dict__)
+    bench_ret["hostname"] = os.uname()[1]
+    bench_ret["evspeed"] = nev_total/dt/1000/1000
+    with open("analysis_benchmarks.txt", "a") as of:
+        of.write(json.dumps(bench_ret) + '\n')
 
 def create_datastructure(is_mc):
     datastructures = {

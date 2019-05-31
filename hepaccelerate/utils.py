@@ -318,6 +318,11 @@ class Dataset(BaseDataset):
             for evvar in self.names_eventvars:
                 tot += self.eventvars[ifile][evvar].nbytes
         return tot
+
+    def eventsize(self):
+        nev = self.numevents()
+        mem = self.memsize()
+        return mem/nev
  
     def __repr__(self):
         s = "DDataset(files={0}, events={1}, {2})".format(len(self.filenames), len(self), ", ".join(self.structs.keys()))
@@ -479,7 +484,11 @@ class Dataset(BaseDataset):
         for ifn in range(len(self.filenames)):
             n_objects += self.structs[structname][ifn].numobjects()
         return n_objects
-    
+   
+    def numevents(self):
+        structname = list(self.structs.keys())[0]
+        return self.num_events_loaded(structname)
+
     def num_events_loaded(self, structname):
         n_events = 0
         for ifn in range(len(self.filenames)):

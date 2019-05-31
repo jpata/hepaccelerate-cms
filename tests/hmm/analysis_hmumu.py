@@ -29,7 +29,7 @@ def parse_args():
     parser.add_argument('--chunksize', '-c', action='store', help='Number of files to process simultaneously', default=1, type=int)
     parser.add_argument('--cache-location', action='store', help='Cache location', default='', type=str)
     parser.add_argument('--out', action='store', help='Output location', default='out', type=str)
-    parser.add_argument('--niter', action='store', help='Number of categorization optimization iterations', default=0, type=int)
+    parser.add_argument('--niter', action='store', help='Number of categorization optimization iterations', default=1, type=int)
     parser.add_argument('--pinned', action='store_true', help='Use CUDA pinned memory')
     parser.add_argument('--filter-datasets', action='store', help='Glob pattern to select datasets', default="*")
     args = parser.parse_args()
@@ -181,125 +181,12 @@ if __name__ == "__main__":
 
             "categorization_trees": {"varA": copy.deepcopy(dt)}
         },
-        "v1": {
-            "NdfPV": 4,
-            "zPV": 24,
-            "nPV": 0,
-            "muon_pt": 20,
-            "muon_pt_leading": 30,
-            "muon_eta": 2.4,
-            "muon_iso": 0.25,
-            "muon_id": "medium",
-            "muon_trigger_match_dr": 0.1,
-            
-            "do_rochester_corrections": False,
-            "do_lepton_sf": False,
-
-            "jet_mu_dr": 0.4,
-            "jet_pt": 30.0,
-            "jet_eta": 4.7,
-            "jet_id": "tight",
-            "jet_puid": "loose",
-            "jet_btag": 0.4941,
-
-            "inv_mass_bins": 41,
-
-            "extra_electrons_pt": 5,
-            "extra_electrons_eta": 2.5,
-            "extra_electrons_id": "mvaFall17V1Iso_WP90",
-
-            "categorization_trees": {"varA": copy.deepcopy(dt)}
-        },
-        "v2": {
-            "NdfPV": 4,
-            "zPV": 24,
-            "nPV": 0,
-            "muon_pt": 20,
-            "muon_pt_leading": 30,
-            "muon_eta": 2.4,
-            "muon_iso": 0.25,
-            "muon_id": "medium",
-            "muon_trigger_match_dr": 0.1,
-            
-            "do_rochester_corrections": False,
-            "do_lepton_sf": False,
-
-            "jet_mu_dr": 0.4,
-            "jet_pt": 30.0,
-            "jet_eta": 4.7,
-            "jet_id": "tight",
-            "jet_puid": "loose",
-            "jet_btag": 0.4941,
-
-            "inv_mass_bins": 41,
-
-            "extra_electrons_pt": 5,
-            "extra_electrons_eta": 2.5,
-            "extra_electrons_id": "mvaFall17V1Iso_WP90",
-
-            "categorization_trees": {"varA": copy.deepcopy(dt)}
-        },
-        "v3": {
-            "NdfPV": 4,
-            "zPV": 24,
-            "nPV": 0,
-            "muon_pt": 20,
-            "muon_pt_leading": 30,
-            "muon_eta": 2.4,
-            "muon_iso": 0.25,
-            "muon_id": "medium",
-            "muon_trigger_match_dr": 0.1,
-            
-            "do_rochester_corrections": False,
-            "do_lepton_sf": False,
-
-            "jet_mu_dr": 0.4,
-            "jet_pt": 30.0,
-            "jet_eta": 4.7,
-            "jet_id": "tight",
-            "jet_puid": "loose",
-            "jet_btag": 0.4941,
-
-            "inv_mass_bins": 41,
-
-            "extra_electrons_pt": 5,
-            "extra_electrons_eta": 2.5,
-            "extra_electrons_id": "mvaFall17V1Iso_WP90",
-
-            "categorization_trees": {"varA": copy.deepcopy(dt)}
-        },
-        "v4": {
-            "NdfPV": 4,
-            "zPV": 24,
-            "nPV": 0,
-            "muon_pt": 20,
-            "muon_pt_leading": 30,
-            "muon_eta": 2.4,
-            "muon_iso": 0.25,
-            "muon_id": "medium",
-            "muon_trigger_match_dr": 0.1,
-            
-            "do_rochester_corrections": False,
-            "do_lepton_sf": False,
-
-            "jet_mu_dr": 0.4,
-            "jet_pt": 30.0,
-            "jet_eta": 4.7,
-            "jet_id": "tight",
-            "jet_puid": "loose",
-            "jet_btag": 0.4941,
-
-            "inv_mass_bins": 41,
-
-            "extra_electrons_pt": 5,
-            "extra_electrons_eta": 2.5,
-            "extra_electrons_id": "mvaFall17V1Iso_WP90",
-
-            "categorization_trees": {"varA": copy.deepcopy(dt)}
-        },
     }
-    #analysis_parameters["baseline"]["categorization_trees"].update(rand_trees)
 
+    for i in range(args.niter-1):
+        analysis_parameters["v{0}".format(i)] = copy.deepcopy(analysis_parameters["baseline"])
+
+    #analysis_parameters["baseline"]["categorization_trees"].update(rand_trees)
 
     lumimask = LumiMask("data/Cert_294927-306462_13TeV_EOY2017ReReco_Collisions17_JSON.txt", np, backend_cpu)
     lumidata = LumiData("data/lumi2017.csv")
