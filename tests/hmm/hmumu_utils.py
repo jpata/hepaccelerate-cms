@@ -451,11 +451,11 @@ def analyze_data(
     jets.hepaccelerate_backend = ha
 
     #associate the muon genpt
-    #if is_mc:
-    #    genpart = data["GenPart"]
-    #    muons_genpt = NUMPY_LIB.zeros(muons.numobjects(), dtype=NUMPY_LIB.float32)
-    #    muons_get_genpt(muons.offsets, muons.genPartIdx, genpart.offsets, genpart.pt, muons_genpt)
-    #    muons.attrs_data["genpt"] = muons_genpt
+    if is_mc:
+        genpart = data["GenPart"]
+        muons_genpt = NUMPY_LIB.zeros(muons.numobjects(), dtype=NUMPY_LIB.float32)
+        muons_get_genpt(muons.offsets, muons.genPartIdx, genpart.offsets, genpart.pt, muons_genpt)
+        muons.attrs_data["genpt"] = muons_genpt
 
 
     # scalars["run"] = NUMPY_LIB.array(scalars["run"], dtype=NUMPY_LIB.uint32)
@@ -518,8 +518,8 @@ def analyze_data(
     inv_mass = compute_inv_mass(muons, ret_mu["selected_events"], ret_mu["selected_muons"])
 
     #create arrays with just the nth particle contents for easier management
-    leading_muon = muons.select_nth(0, ret_mu["selected_events"], ret_mu["selected_muons"], attributes=["pt", "eta", "pdgId", "nTrackerLayers"])
-    subleading_muon = muons.select_nth(1, ret_mu["selected_events"], ret_mu["selected_muons"], attributes=["pt", "eta", "pdgId", "nTrackerLayers"])
+    leading_muon = muons.select_nth(0, ret_mu["selected_events"], ret_mu["selected_muons"], attributes=["pt", "eta", "phi", "pdgId", "nTrackerLayers", "genpt"])
+    subleading_muon = muons.select_nth(1, ret_mu["selected_events"], ret_mu["selected_muons"], attributes=["pt", "eta", "phi", "pdgId", "nTrackerLayers", "genpt"])
     leading_jet = jets.select_nth(0, ret_mu["selected_events"], ret_jet["selected_jets"], attributes=["pt", "eta"])
     subleading_jet = jets.select_nth(1, ret_mu["selected_events"], ret_jet["selected_jets"], attributes=["pt", "eta"])
 

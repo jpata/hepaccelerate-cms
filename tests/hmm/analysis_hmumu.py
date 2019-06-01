@@ -37,23 +37,23 @@ def parse_args():
 
 #dataset nickname, filename glob pattern, isMC
 datasets = [
-#    ("data_2017", "/store/data/Run2017*/SingleMuon/NANOAOD/Nano14Dec2018-v1/**/*.root", False),
-#    ("data_2018", "/store/data/Run2018*/SingleMuon/NANOAOD/Nano14Dec2018_ver2-v1/**/*.root", False),
-#    ("ggh", "/store/mc/RunIIFall17NanoAODv4/GluGluHToMuMu_M125_13TeV_amcatnloFXFX_pythia8/NANOAODSIM/*12Apr2018_Nano14Dec2018*/**/*.root", True),
-#    ("vbf", "/store/mc/RunIIFall17NanoAODv4/VBFHToMuMu_M125_TuneCP5_PSweights_13TeV_amcatnlo_pythia8/NANOAODSIM/*12Apr2018_Nano14Dec2018*/**/*.root", True),
-#    ("tth", "/store/mc/RunIIFall17NanoAODv4/ttHToMuMu_M125_TuneCP5_13TeV-powheg-pythia8/NANOAODSIM/*12Apr2018_Nano14Dec2018*/**/*.root", True),
-#    ("wmh", "/store/mc/RunIIFall17NanoAODv4/WminusH_HToMuMu_WToAll_M125_13TeV_powheg_pythia8/NANOAODSIM/*12Apr2018_Nano14Dec2018*/**/*.root", True),
-#    ("wph", "/store/mc/RunIIFall17NanoAODv4/WplusH_HToMuMu_WToAll_M125_13TeV_powheg_pythia8/NANOAODSIM/*12Apr2018_Nano14Dec2018*/**/*.root", True),
-#    ("zh", "/store/mc/RunIIFall17NanoAODv4/ZH_HToMuMu_ZToAll_M125_13TeV_powheg_pythia8/NANOAODSIM/*12Apr2018_Nano14Dec2018*/**/*.root", True),
-    ("dy", "/store/mc/RunIIFall17NanoAODv4/DYJetsToLL_M-50_TuneCP5_13TeV-amcatnloFXFX-pythia8/NANOAODSIM/**/*.root", True),
-#    ("dy_vbf", "/store/mc/RunIIFall17NanoAODv4/DYJetsToLL_M-105To160_VBFFilter_TuneCP5_PSweights_13TeV-amcatnloFXFX-pythia8/NANOAODSIM/**/*.root", True),
+    ("data_2017", "/store/data/Run2017*/SingleMuon/NANOAOD/Nano14Dec2018-v1/**/*.root", False),
+    ("data_2018", "/store/data/Run2018*/SingleMuon/NANOAOD/Nano14Dec2018_ver2-v1/**/*.root", False),
+    ("ggh", "/store/mc/RunIIFall17NanoAODv4/GluGluHToMuMu_M125_13TeV_amcatnloFXFX_pythia8/NANOAODSIM/*12Apr2018_Nano14Dec2018*/**/*.root", True),
+    ("vbf", "/store/mc/RunIIFall17NanoAODv4/VBFHToMuMu_M125_TuneCP5_PSweights_13TeV_amcatnlo_pythia8/NANOAODSIM/*12Apr2018_Nano14Dec2018*/**/*.root", True),
+    ("tth", "/store/mc/RunIIFall17NanoAODv4/ttHToMuMu_M125_TuneCP5_13TeV-powheg-pythia8/NANOAODSIM/*12Apr2018_Nano14Dec2018*/**/*.root", True),
+    ("wmh", "/store/mc/RunIIFall17NanoAODv4/WminusH_HToMuMu_WToAll_M125_13TeV_powheg_pythia8/NANOAODSIM/*12Apr2018_Nano14Dec2018*/**/*.root", True),
+    ("wph", "/store/mc/RunIIFall17NanoAODv4/WplusH_HToMuMu_WToAll_M125_13TeV_powheg_pythia8/NANOAODSIM/*12Apr2018_Nano14Dec2018*/**/*.root", True),
+    ("zh", "/store/mc/RunIIFall17NanoAODv4/ZH_HToMuMu_ZToAll_M125_13TeV_powheg_pythia8/NANOAODSIM/*12Apr2018_Nano14Dec2018*/**/*.root", True),
+   ("dy", "/store/mc/RunIIFall17NanoAODv4/DYJetsToLL_M-50_TuneCP5_13TeV-amcatnloFXFX-pythia8/NANOAODSIM/**/*.root", True),
+    ("dy_vbf", "/store/mc/RunIIFall17NanoAODv4/DYJetsToLL_M-105To160_VBFFilter_TuneCP5_PSweights_13TeV-amcatnloFXFX-pythia8/NANOAODSIM/**/*.root", True),
     ("ttjets_dl", "/store/mc/RunIIFall17NanoAODv4/TTTo2L2Nu_TuneCP5_PSweights_13TeV-powheg-pythia8/**/*.root", True),
     ("ttjets_sl", "/store/mc/RunIIFall17NanoAODv4/TTToSemiLeptonic_TuneCP5_13TeV-powheg-pythia8/**/*.root", True),
-#    ("ww_2l2nu", "/store/mc/RunIIFall17NanoAODv4/WWTo2L2Nu_NNPDF31_TuneCP5_13TeV-powheg-pythia8/**/*.root", True),
-#    ("wz_3lnu", "/store/mc/RunIIFall17NanoAODv4/WZTo3LNu_13TeV-powheg-pythia8/**/*.root", True),
-#    ("wz_2l2q", "/store/mc/RunIIFall17NanoAODv4/WZTo2L2Q_13TeV_amcatnloFXFX_madspin_pythia8/**/*.root", True),
-#    ("wz_1l1nu2q", "/store/mc/RunIIFall17NanoAODv4/WZTo1L1Nu2Q_13TeV_amcatnloFXFX_madspin_pythia8/**/*.root", True),
-#    ("zz", "/store/mc/RunIIFall17NanoAODv4/ZZTo2L2Nu_13TeV_powheg_pythia8/**/*.root", True),
+    ("ww_2l2nu", "/store/mc/RunIIFall17NanoAODv4/WWTo2L2Nu_NNPDF31_TuneCP5_13TeV-powheg-pythia8/**/*.root", True),
+    ("wz_3lnu", "/store/mc/RunIIFall17NanoAODv4/WZTo3LNu_13TeV-powheg-pythia8/**/*.root", True),
+    ("wz_2l2q", "/store/mc/RunIIFall17NanoAODv4/WZTo2L2Q_13TeV_amcatnloFXFX_madspin_pythia8/**/*.root", True),
+    ("wz_1l1nu2q", "/store/mc/RunIIFall17NanoAODv4/WZTo1L1Nu2Q_13TeV_amcatnloFXFX_madspin_pythia8/**/*.root", True),
+    ("zz", "/store/mc/RunIIFall17NanoAODv4/ZZTo2L2Nu_13TeV_powheg_pythia8/**/*.root", True),
 ]
 
 cross_sections = {
@@ -163,8 +163,8 @@ if __name__ == "__main__":
             "muon_id": "medium",
             "muon_trigger_match_dr": 0.1,
             
-            "do_rochester_corrections": False,
-            "do_lepton_sf": False,
+            "do_rochester_corrections": True,
+            "do_lepton_sf": True,
 
             "jet_mu_dr": 0.4,
             "jet_pt": 30.0,
@@ -182,9 +182,11 @@ if __name__ == "__main__":
             "categorization_trees": {"varA": copy.deepcopy(dt)}
         },
     }
-
-    for i in range(args.niter-1):
-        analysis_parameters["v{0}".format(i)] = copy.deepcopy(analysis_parameters["baseline"])
+  
+    #add additional analyses for benchmarking purposes 
+    if args.niter > 1:
+        for i in range(args.niter-1):
+            analysis_parameters["v{0}".format(i)] = copy.deepcopy(analysis_parameters["baseline"])
 
     #analysis_parameters["baseline"]["categorization_trees"].update(rand_trees)
 
@@ -192,11 +194,11 @@ if __name__ == "__main__":
     lumidata = LumiData("data/lumi2017.csv")
     pu_corrections_2017 = load_puhist_target("data/RunII_2017_data.root")
     
-    #libhmm = LibHMuMu()
-    #rochester_corr = RochesterCorrections(libhmm, "data/RoccoR2017v1.txt")
-    #lepsf_iso = LeptonEfficiencyCorrections(libhmm, "data/leptonSF/RunBCDEF_SF_ISO.root", "NUM_LooseRelIso_DEN_MediumID_pt_abseta")
-    #lepsf_id = LeptonEfficiencyCorrections(libhmm, "data/leptonSF/RunBCDEF_SF_ID.root", "NUM_MediumID_DEN_genTracks_pt_abseta")
-    #lepsf_trig = LeptonEfficiencyCorrections(libhmm, "data/leptonSF/EfficienciesAndSF_RunBtoF_Nov17Nov2017.root", "IsoMu27_PtEtaBins/pt_abseta_ratio")
+    libhmm = LibHMuMu()
+    rochester_corr = RochesterCorrections(libhmm, "data/RoccoR2017v1.txt")
+    lepsf_iso = LeptonEfficiencyCorrections(libhmm, "data/leptonSF/RunBCDEF_SF_ISO.root", "NUM_LooseRelIso_DEN_MediumID_pt_abseta")
+    lepsf_id = LeptonEfficiencyCorrections(libhmm, "data/leptonSF/RunBCDEF_SF_ID.root", "NUM_MediumID_DEN_genTracks_pt_abseta")
+    lepsf_trig = LeptonEfficiencyCorrections(libhmm, "data/leptonSF/EfficienciesAndSF_RunBtoF_Nov17Nov2017.root", "IsoMu27_PtEtaBins/pt_abseta_ratio")
 
     #Run baseline analysis
     outpath = "{0}/baseline".format(args.out)
@@ -208,7 +210,7 @@ if __name__ == "__main__":
     with open('{0}/parameters.pickle'.format(outpath), 'wb') as handle:
         pickle.dump(analysis_parameters, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-    run_analysis(args, outpath, datasets, analysis_parameters, lumidata, lumimask, pu_corrections_2017, None, None, None, None)#, rochester_corr, lepsf_iso, lepsf_id, lepsf_trig)
+    run_analysis(args, outpath, datasets, analysis_parameters, lumidata, lumimask, pu_corrections_2017, rochester_corr, lepsf_iso, lepsf_id, lepsf_trig)
 
     # if "analyze" in args.action: 
     #     ans = analysis_parameters["baseline"]["categorization_trees"].keys()
