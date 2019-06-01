@@ -3,7 +3,7 @@
 
 # hepaccelerate
 
-Accelerated array analysis on flat ROOT data. Process 1 billion events to histograms in 4 minutes on a single workstation.
+Accelerated array analysis on flat ROOT data. Process 1 billion events to histograms in minutes on a single workstation.
 Weighted histograms, jet-lepton deltaR matching and pileup weighting! Works on both the CPU and GPU!
 
 Required python libraries:
