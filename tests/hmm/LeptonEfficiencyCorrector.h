@@ -44,7 +44,7 @@ extern "C" {
     }
 
     void LeptonEfficiencyCorrector_getSF(LeptonEfficiencyCorrector* c, float* out, int n, int* pdgid, float* pt, float* eta) {
-        #pragma omp simd
+        #pragma omp parallel for
         for (int i=0; i<n; i++) {
             out[i] = c->getSF(pdgid[i], pt[i], eta[i]);
         }

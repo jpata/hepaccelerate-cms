@@ -11,6 +11,7 @@ import sys
 import os
 
 import numba
+import numba.cuda as cuda
 
 import threading
 from threading import Thread
@@ -413,7 +414,7 @@ def rochester_correction_muon_qterm(is_mc, rochester_corrections,
     return NUMPY_LIB.array(qterm)
 
 @numba.njit
-def muons_get_genpt(muons_offsets, muons_genPartIdx, genparts_offsets, genparts_pt, out_muons_genpt):
+def muons_get_genpt_cpu(muons_offsets, muons_genPartIdx, genparts_offsets, genparts_pt, out_muons_genpt):
     #loop over events
     for iev in numba.prange(len(muons_offsets) - 1):
         #loop over muons
@@ -424,8 +425,24 @@ def muons_get_genpt(muons_offsets, muons_genPartIdx, genparts_offsets, genparts_
                 genpt = genparts_pt[genparts_offsets[iev] + idx_gp]
                 out_muons_genpt[imu] = genpt
 
+@cuda.jit
+def muons_get_genpt_cuda(muons_offsets, muons_genPartIdx, genparts_offsets, genparts_pt, out_muons_genpt):
+    #loop over events
+    xi = cuda.grid(1)
+    xstride = cuda.gridsize(1)
+    
+    for iev in range(xi, len(muons_offsets) - 1, xstride):
+        #loop over muons
+        for imu in range(muons_offsets[iev], muons_offsets[iev + 1]):
+            #get index of genparticle that muon was matched to
+            idx_gp = muons_genPartIdx[imu]
+            if idx_gp >= 0:
+                genpt = genparts_pt[genparts_offsets[iev] + idx_gp]
+                out_muons_genpt[imu] = genpt
+
 def analyze_data(
     data,
+    use_cuda=False,
     is_mc=True,
     pu_corrections=None,
     lumimask=None,
@@ -454,7 +471,10 @@ def analyze_data(
     if is_mc:
         genpart = data["GenPart"]
         muons_genpt = NUMPY_LIB.zeros(muons.numobjects(), dtype=NUMPY_LIB.float32)
-        muons_get_genpt(muons.offsets, muons.genPartIdx, genpart.offsets, genpart.pt, muons_genpt)
+        if not use_cuda:
+            muons_get_genpt_cpu(muons.offsets, muons.genPartIdx, genpart.offsets, genpart.pt, muons_genpt)
+        else:
+            muons_get_genpt_cuda[32,1024](muons.offsets, muons.genPartIdx, genpart.offsets, genpart.pt, muons_genpt)
         muons.attrs_data["genpt"] = muons_genpt
 
 
@@ -518,8 +538,11 @@ def analyze_data(
     inv_mass = compute_inv_mass(muons, ret_mu["selected_events"], ret_mu["selected_muons"])
 
     #create arrays with just the nth particle contents for easier management
-    leading_muon = muons.select_nth(0, ret_mu["selected_events"], ret_mu["selected_muons"], attributes=["pt", "eta", "phi", "pdgId", "nTrackerLayers", "genpt"])
-    subleading_muon = muons.select_nth(1, ret_mu["selected_events"], ret_mu["selected_muons"], attributes=["pt", "eta", "phi", "pdgId", "nTrackerLayers", "genpt"])
+    mu_attrs = ["pt", "eta", "phi", "pdgId", "nTrackerLayers"]
+    if is_mc:
+        mu_attrs += ["genpt"]
+    leading_muon = muons.select_nth(0, ret_mu["selected_events"], ret_mu["selected_muons"], attributes=mu_attrs)
+    subleading_muon = muons.select_nth(1, ret_mu["selected_events"], ret_mu["selected_muons"], attributes=mu_attrs)
     leading_jet = jets.select_nth(0, ret_mu["selected_events"], ret_jet["selected_jets"], attributes=["pt", "eta"])
     subleading_jet = jets.select_nth(1, ret_mu["selected_events"], ret_jet["selected_jets"], attributes=["pt", "eta"])
 
@@ -533,13 +556,17 @@ def analyze_data(
     if parameters["do_lepton_sf"] and is_mc:
         sfs = []
         for mu in [leading_muon, subleading_muon]: 
-            sf_iso = lepsf_iso.compute(leading_muon["pdgId"], leading_muon["pt"], leading_muon["eta"])
-            sf_id = lepsf_id.compute(leading_muon["pdgId"], leading_muon["pt"], leading_muon["eta"])
-            sf_trig = lepsf_trig.compute(leading_muon["pdgId"], leading_muon["pt"], leading_muon["eta"])
+            if use_cuda:
+                mu = {k: NUMPY_LIB.asnumpy(v) for k, v in mu.items()}
+            sf_iso = lepsf_iso.compute(mu["pdgId"], mu["pt"], mu["eta"])
+            sf_id = lepsf_id.compute(mu["pdgId"], mu["pt"], mu["eta"])
+            sf_trig = lepsf_trig.compute(mu["pdgId"], mu["pt"], mu["eta"])
             sfs += [sf_iso, sf_id, sf_trig]
         sf_tot = sfs[0]
         for sf in sfs[1:]:
             sf_tot = sf_tot * sf
+        if use_cuda:
+            sf_tot = NUMPY_LIB.array(sf_tot)
         weights["leptonsf"] = weights["nominal"] * sf_tot
         
     #get the number of additional muons (not OS) that pass ID and iso cuts
@@ -792,7 +819,9 @@ def event_loop(train_batches_queue, use_cuda, **kwargs):
 
     ret = {}
     for parameter_set_name, parameter_set in parameters.items():
-        ret[parameter_set_name] = ds.analyze(analyze_data, parameter_set_name=parameter_set_name, parameters=parameter_set, **kwargs)
+        ret[parameter_set_name] = ds.analyze(analyze_data, use_cuda=use_cuda,
+            parameter_set_name=parameter_set_name,
+            parameters=parameter_set, **kwargs)
     ret["num_events"] = len(ds)
 
     train_batches_queue.task_done()
