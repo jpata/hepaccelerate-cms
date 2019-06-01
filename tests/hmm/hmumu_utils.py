@@ -716,7 +716,7 @@ def cache_data_multiproc_worker(args):
 
     #put any preselection here
     processed_size_mb = ds.memsize()/1024.0/1024.0
-    #cache_preselection(ds)
+    cache_preselection(ds)
     processed_size_mb_post = ds.memsize()/1024.0/1024.0
 
     ds.to_cache()
@@ -914,6 +914,8 @@ def run_analysis(args, outpath, datasets, parameters, lumidata, lumimask, pu_cor
     bench_ret = {}
     bench_ret.update(args.__dict__)
     bench_ret["hostname"] = os.uname()[1]
+    bench_ret["nev_total"] = nev_total
+    bench_ret["total_time"] = dt
     bench_ret["evspeed"] = nev_total/dt/1000/1000
     with open("analysis_benchmarks.txt", "a") as of:
         of.write(json.dumps(bench_ret) + '\n')
