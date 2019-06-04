@@ -881,7 +881,7 @@ def run_analysis(args, outpath, datasets, parameters, lumidata, lumimask, pu_cor
        for datasetname, globpattern, is_mc in datasets:
            filenames_all = glob.glob(args.datapath + globpattern, recursive=True)
            filenames_all = [fn for fn in filenames_all if not "Friend" in fn]
-           filenames_cache[datasetname] = filenames_all
+           filenames_cache[datasetname] = [fn.replace(args.datapath, "") for fn in filenames_all]
     
            with open(args.cache_location + "/datasets.json", "w") as fi:
                fi.write(json.dumps(filenames_cache, indent=2))
@@ -891,7 +891,8 @@ def run_analysis(args, outpath, datasets, parameters, lumidata, lumimask, pu_cor
     processed_size_mb = 0
     for datasetname, globpattern, is_mc in datasets:
         filenames_all = filenames_cache[datasetname]
-        
+        filenames_all = [args.datapath + "/" + fn for fn in filenames_all]
+ 
         print("Dataset {0} has {1} files".format(datasetname, len(filenames_all)))
         if args.maxfiles > 0:
             filenames_all = filenames_all[:args.maxfiles]
