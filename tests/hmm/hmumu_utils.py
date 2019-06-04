@@ -700,24 +700,30 @@ def chunks(l, n):
     for i in range(0, len(l), n):
         yield l[i:i + n]
 
-def cache_data(filenames, datastructures, cache_location, datapath, nworkers=16):
+def cache_data(filenames, name, datastructures, cache_location, datapath, is_mc, nworkers=16):
     if nworkers == 1:
         tot_ev = 0
         tot_mb = 0
-        for result in map(cache_data_multiproc_worker, [(fn, datastructures, cache_location, datapath) for fn in filenames]):
+        for result in map(cache_data_multiproc_worker, [(name, fn, datastructures, cache_location, datapath, is_mc) for fn in filenames]):
             tot_ev += result[0]
             tot_mb += result[1]
     else:
         with concurrent.futures.ProcessPoolExecutor(max_workers=nworkers) as executor:
             tot_ev = 0
             tot_mb = 0
-            for result in executor.map(cache_data_multiproc_worker, [(fn, datastructures, cache_location, datapath) for fn in filenames]):
+            for result in executor.map(cache_data_multiproc_worker, [(name, fn, datastructures, cache_location, datapath, is_mc) for fn in filenames]):
                 tot_ev += result[0]
                 tot_mb += result[1]
     return tot_ev, tot_mb
 
-def create_dataset(filenames, datastructures, cache_location, datapath):
-    ds = Dataset(filenames, datastructures, cache_location=cache_location, datapath=datapath, treename="Events")
+def func_filename_precompute_mc(filename):
+    ret = {"genEventSumw": get_gen_sumweights([filename])}
+    return ret
+ 
+def create_dataset(name, filenames, datastructures, cache_location, datapath, is_mc):
+    ds = Dataset(name, filenames, datastructures, cache_location=cache_location, datapath=datapath, treename="Events")
+    if is_mc:
+        ds.func_filename_precompute = func_filename_precompute_mc
     return ds
 
 def cache_preselection(ds):
@@ -730,14 +736,13 @@ def cache_preselection(ds):
             ds.eventvars[ifile][evvar_name] = ds.eventvars[ifile][evvar_name][sel]
 
 def cache_data_multiproc_worker(args):
-    filename, datastructure, cache_location, datapath = args
+    name, filename, datastructure, cache_location, datapath, is_mc = args
     t0 = time.time()
-    ds = create_dataset([filename], datastructure, cache_location, datapath)
+    ds = create_dataset(name, [filename], datastructure, cache_location, datapath, is_mc)
     ds.numpy_lib = np
     try:
         print("trying to load {0}".format(filename))
-        ds.preload()
-        ds.make_objects()
+        ds.load_root()
     except Exception as e:
         raise Exception("Failed to load dataset for {0}".format(filename))
 
@@ -754,7 +759,8 @@ def cache_data_multiproc_worker(args):
     return len(ds), processed_size_mb
 
 class InputGen:
-    def __init__(self, paths, is_mc, nthreads, chunksize, cache_location, datapath):
+    def __init__(self, name, paths, is_mc, nthreads, chunksize, cache_location, datapath):
+        self.name = name
         self.paths_chunks = list(chunks(paths, chunksize))
         self.chunk_lock = threading.Lock()
         self.loaded_lock = threading.Lock()
@@ -780,14 +786,13 @@ class InputGen:
             self.chunk_lock.release()
             return None
 
-        ds = create_dataset(self.paths_chunks[self.num_chunk], self.is_mc, self.cache_location, self.datapath)
+        ds = create_dataset(self.name, self.paths_chunks[self.num_chunk], self.is_mc, self.cache_location, self.datapath, self.is_mc)
         self.num_chunk += 1
         ds.numpy_lib = numpy
         self.chunk_lock.release()
 
         #load caches on multiple threads
         ds.from_cache(executor=self.executor, verbose=False)
-
         with self.loaded_lock:
             self.num_loaded += 1
 
@@ -832,9 +837,9 @@ def event_loop(train_batches_queue, use_cuda, **kwargs):
         pinned_mempool = cupy.get_default_pinned_memory_pool()
         mempool.free_all_blocks()
         pinned_mempool.free_all_blocks()
-    
+     
+    ret["cache_metadata"] = ds.cache_metadata 
     return ret, len(ds), ds.memsize()/1024.0/1024.0
-
 
 
 def threaded_metrics(tokill, train_batches_queue):
@@ -867,10 +872,26 @@ def run_analysis(args, outpath, datasets, parameters, lumidata, lumimask, pu_cor
     else:
         os.environ["NUMBA_NUM_THREADS"] = str(args.nthreads)
 
+    if "cache" in args.action:
+       try:
+           os.makedirs(args.cache_location)
+       except Exception as e:
+           pass
+       filenames_cache = {}
+       for datasetname, globpattern, is_mc in datasets:
+           filenames_all = glob.glob(args.datapath + globpattern, recursive=True)
+           filenames_all = [fn for fn in filenames_all if not "Friend" in fn]
+           filenames_cache[datasetname] = filenames_all
+    
+           with open(args.cache_location + "/datasets.json", "w") as fi:
+               fi.write(json.dumps(filenames_cache, indent=2))
+    else:
+       filenames_cache = json.load(open(args.cache_location + "/datasets.json", "r"))
+ 
     processed_size_mb = 0
     for datasetname, globpattern, is_mc in datasets:
-        filenames_all = glob.glob(args.datapath + globpattern, recursive=True)
-        filenames_all = [fn for fn in filenames_all if not "Friend" in fn]
+        filenames_all = filenames_cache[datasetname]
+        
         print("Dataset {0} has {1} files".format(datasetname, len(filenames_all)))
         if args.maxfiles > 0:
             filenames_all = filenames_all[:args.maxfiles]
@@ -879,13 +900,13 @@ def run_analysis(args, outpath, datasets, parameters, lumidata, lumimask, pu_cor
 
         if "cache" in args.action:
             print("Preparing caches from ROOT files")
-            _nev_total, _processed_size_mb = cache_data(filenames_all, datastructure, args.cache_location, args.datapath, nworkers=args.nthreads)
+            _nev_total, _processed_size_mb = cache_data(filenames_all, datasetname, datastructure, args.cache_location, args.datapath, is_mc, nworkers=args.nthreads)
             nev_total += _nev_total
             processed_size_mb += _processed_size_mb
 
         if "analyze" in args.action:        
 
-            training_set_generator = InputGen(list(filenames_all), datastructure, args.nthreads, args.chunksize, args.cache_location, args.datapath)
+            training_set_generator = InputGen(datasetname, list(filenames_all), datastructure, args.nthreads, args.chunksize, args.cache_location, args.datapath)
             threadk = thread_killer()
             threadk.set_tokill(False)
             train_batches_queue = Queue(maxsize=20)
@@ -900,7 +921,8 @@ def run_analysis(args, outpath, datasets, parameters, lumidata, lumimask, pu_cor
 
             rets = []
             num_processed = 0
-
+           
+            cache_metadata = []
             #loop over all data, call the analyze function
             while num_processed < len(training_set_generator.paths_chunks):
                 if not args.async_data:
@@ -921,7 +943,7 @@ def run_analysis(args, outpath, datasets, parameters, lumidata, lumimask, pu_cor
                     parameters=parameters) 
                 rets += [ret]
                 processed_size_mb += memsize
-                nev_total += nev
+                nev_total += sum([md["numevents"] for md in ret["cache_metadata"]])
                 num_processed += 1
             print()
 
@@ -930,10 +952,11 @@ def run_analysis(args, outpath, datasets, parameters, lumidata, lumimask, pu_cor
 
             #save output
             ret = sum(rets, Results({}))
+            print([md["precomputed_results"]["genEventSumw"] for md in ret["cache_metadata"]]) 
             if is_mc:
-                ret["gen_sumweights"] = get_gen_sumweights(filenames_all)
+                ret["gen_sumweights"] = sum([md["precomputed_results"]["genEventSumw"] for md in ret["cache_metadata"]])
             ret.save_json("{0}/{1}.json".format(outpath, datasetname))
-
+    
     t1 = time.time()
     dt = t1 - t0
     print("Overall processed {nev:.2E} ({nev}) events in total {size:.2f} GB, {dt:.1f} seconds, {evspeed:.2E} Hz, {sizespeed:.2f} MB/s".format(

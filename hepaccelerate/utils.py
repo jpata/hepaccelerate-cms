@@ -280,10 +280,11 @@ class BaseDataset(object):
 class Dataset(BaseDataset):
     numpy_lib = np
     
-    def __init__(self, filenames, datastructures,
+    def __init__(self, name, filenames, datastructures,
         datapath="", cache_location="", treename="Events"):
         
         self.datapath = datapath
+        self.name = name
 
         arrays_to_load = []
         for ds_item, ds_vals in datastructures.items():
@@ -302,6 +303,9 @@ class Dataset(BaseDataset):
         for structname in self.names_structs:
             self.structs[structname] = []
         self.eventvars = []
+
+        self.func_filename_precompute = None
+        self.cache_metadata = []
 
     def move_to_device(self, numpy_lib):
         for ifile in range(len(self.filenames)):
@@ -343,6 +347,7 @@ class Dataset(BaseDataset):
     def load_root(self, nthreads=1, verbose=False):
         self.preload()
         self.make_objects()
+        self.cache_metadata = self.create_cache_metadata()
 
     def preload(self, nthreads=1, verbose=False):
         super(Dataset, self).preload(nthreads, verbose)
@@ -391,15 +396,17 @@ class Dataset(BaseDataset):
 
     def to_cache(self, nthreads=1, verbose=False):
         t0 = time.time()
+        
         if nthreads == 1:
             for ifn in range(len(self.filenames)):
                 self.to_cache_worker(ifn)
         else:
             from concurrent.futures import ThreadPoolExecutor
+            results = []
             with ThreadPoolExecutor(max_workers=nthreads) as executor:
-                results = executor.map(self.to_cache_worker, range(len(self.filenames)))
-            results = [r for r in results]
-
+                executor.map(self.to_cache_worker, range(len(self.filenames)))
+        
+         
         t1 = time.time()
         dt = t1 - t0
         if verbose:
@@ -419,7 +426,21 @@ class Dataset(BaseDataset):
             os.makedirs(dn)
         except FileExistsError as e:
             pass
-    
+
+    def create_cache_metadata(self):
+        
+        ret_cache_metadata = []
+        for ifn in range(len(self.filenames)):
+            fn = self.filenames[ifn] 
+            
+            precomputed_results = {}
+            if not (self.func_filename_precompute is None):
+                precomputed_results = self.func_filename_precompute(fn)
+            cache_metadata = {"filename": fn, "precomputed_results": precomputed_results, "numevents": self.numevents()}
+            ret_cache_metadata += [cache_metadata]
+        return ret_cache_metadata
+
+ 
     def to_cache_worker(self, ifn):
         fn = self.filenames[ifn] 
         bfn, dn = self.filename_to_cachedir(fn)
@@ -434,23 +455,31 @@ class Dataset(BaseDataset):
                 dtype=dtype, mode='write', shape=(len(arr))
             )
             m[:] = arr[:]
+        
+        cache_metadata = self.cache_metadata[ifn] 
+        with open(os.path.join(dn, bfn + ".cache.json".format(attr)), "w") as fi:
+            fi.write(json.dumps(cache_metadata, indent=2))
+
+        return
 
     def from_cache(self, verbose=False, executor=None):
         t0 = time.time()
 
         if not executor:
             for ifn in range(len(self.filenames)):
-                ifn, loaded_structs, eventvars = self.from_cache_worker(ifn)
+                ifn, loaded_structs, eventvars, cache_metadata = self.from_cache_worker(ifn)
                 for structname in self.names_structs:
                     self.structs[structname] += [loaded_structs[structname]]
                 self.eventvars += [eventvars]
+                self.cache_metadata = [cache_metadata]
         else:
             results = executor.map(self.from_cache_worker, range(len(self.filenames)))
             results = list(sorted(results, key=lambda x: x[0]))
             for structname in self.names_structs:
                 self.structs[structname] = [r[1][structname] for r in results]
             self.eventvars = [r[2] for r in results] 
-
+            self.cache_metadata = [r[3] for r in results]
+        
         t1 = time.time()
         dt = t1 - t0
         if verbose:
@@ -476,8 +505,11 @@ class Dataset(BaseDataset):
                 dtype=dtype, mode='r'
             )
             eventvars[attr] = self.numpy_lib.array(m)
+        
+        with open(os.path.join(dn, bfn + ".cache.json".format(attr)), "r") as fi:
+            cache_metadata = json.load(fi)
 
-        return ifn, loaded_structs, eventvars
+        return ifn, loaded_structs, eventvars, cache_metadata
  
     def num_objects_loaded(self, structname):
         n_objects = 0
