@@ -953,7 +953,6 @@ def run_analysis(args, outpath, datasets, parameters, lumidata, lumimask, pu_cor
 
             #save output
             ret = sum(rets, Results({}))
-            print([md["precomputed_results"]["genEventSumw"] for md in ret["cache_metadata"]]) 
             if is_mc:
                 ret["gen_sumweights"] = sum([md["precomputed_results"]["genEventSumw"] for md in ret["cache_metadata"]])
             ret.save_json("{0}/{1}.json".format(outpath, datasetname))
