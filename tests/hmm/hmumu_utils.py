@@ -440,6 +440,76 @@ def muons_get_genpt_cuda(muons_offsets, muons_genPartIdx, genparts_offsets, genp
                 genpt = genparts_pt[genparts_offsets[iev] + idx_gp]
                 out_muons_genpt[imu] = genpt
 
+#'softJet5' - # of soft EWK jets with pt > 5 GeV
+#'dRmm' - Delta R between two muons
+#'dEtamm' - Delta eta between two muons
+#'dPhimm' - Delta Phi between two muons
+#'M_jj' - dijet mass
+#'pt_jj' - dijet pt
+#'eta_jj' - dijet eta
+#'phi_jj' - dijet phi
+#'M_mmjj' - mass of dimuon + dijet system
+#'eta_mmjj' - eta of dimuon + dijet system
+#'phi_mmjj' - phi of dimuon + dijet system
+#'dEta_jj' - delta eta between two jets
+#'Zep' - zeppenfeld variable
+#'dRmin_mj' - Min delta R between a muon and jet
+#'dRmax_mj' - Max delta R between a muon and jet
+#'dRmin_mmj' - Min delta R between dimuon and jet
+#'dRmax_mmj' - Max delta R between dimuon and jet
+#'leadingJet_pt' - Leading jet pt
+#'subleadingJet_pt' - sub-leading jet pt 
+#'leadingJet_eta' - leading jet eta
+#'subleadingJet_eta' - sub-leading jet eta
+#'leadingJet_qgl' - leading jet qgl
+#'subleadingJet_qgl' - sub - leading jet qgl
+#'cthetaCS' - cosine of collins Soper frame angle
+#'Higgs_pt' - dimuon pt
+#'Higgs_eta' - dimuon eta
+
+def dimuon_vars(leading_muon, subleading_muon):
+    deta = leading_muon["eta"] - subleading_muon["eta"] 
+    dphi = leading_muon["phi"] - subleading_muon["phi"]
+    dr = NUMPY_LIB.sqrt(deta**2 + dphi**2)
+    ret = NUMPY_LIB.stack([deta, dphi, dr]) 
+    return ret
+
+def to_cartesian(arrs):
+    pt = arrs["pt"]
+    eta = arrs["eta"]
+    phi = arrs["phi"]
+    mass = arrs["mass"]
+    px = pt * NUMPY_LIB.cos(phi)
+    py = pt * NUMPY_LIB.sin(phi)
+    pz = pt * NUMPY_LIB.sinh(eta)
+    e = NUMPY_LIB.sqrt(px**2 + py**2 + pz**2 + mass**2)
+    return {"px": px, "py": py, "pz": pz, "e": e}
+
+def to_spherical(arrs):
+    px = arrs["px"]
+    py = arrs["py"]
+    pz = arrs["pz"]
+    e = arrs["e"]
+    pt = NUMPY_LIB.sqrt(px**2 + py**2)
+    eta = NUMPY_LIB.arcsinh(pz / pt)
+    phi = NUMPY_LIB.arccos(px / pt)
+    mass = NUMPY_LIB.sqrt(e**2 - (px**2 + py**2 + pz**2))
+    return {"pt": pt, "eta": eta, "phi": phi, "mass": mass}
+ 
+def dijet_vars(leading_jet, subleading_jet):
+    j1 = to_cartesian(leading_jet)
+    j2 = to_cartesian(subleading_jet)
+    
+    dijet = {k: j1[k] + j2[k] for k in ["px", "py", "pz", "e"]}
+    dijet_sph = to_spherical(dijet)
+    ret = NUMPY_LIB.stack([dijet_sph["mass"], dijet_sph["pt"]])  
+    return ret
+
+def dnn_variables(leading_muon, subleading_muon, leading_jet, subleading_jet):
+    ret_mu = dimuon_vars(leading_muon, subleading_muon)
+    ret_jet = dijet_vars(leading_jet, subleading_jet)
+    return NUMPY_LIB.vstack([ret_mu, ret_jet])
+
 def analyze_data(
     data,
     use_cuda=False,
@@ -538,13 +608,15 @@ def analyze_data(
     inv_mass = compute_inv_mass(muons, ret_mu["selected_events"], ret_mu["selected_muons"])
 
     #create arrays with just the nth particle contents for easier management
-    mu_attrs = ["pt", "eta", "phi", "pdgId", "nTrackerLayers"]
+    mu_attrs = ["pt", "eta", "phi", "mass", "pdgId", "nTrackerLayers"]
     if is_mc:
         mu_attrs += ["genpt"]
     leading_muon = muons.select_nth(0, ret_mu["selected_events"], ret_mu["selected_muons"], attributes=mu_attrs)
     subleading_muon = muons.select_nth(1, ret_mu["selected_events"], ret_mu["selected_muons"], attributes=mu_attrs)
-    leading_jet = jets.select_nth(0, ret_mu["selected_events"], ret_jet["selected_jets"], attributes=["pt", "eta"])
-    subleading_jet = jets.select_nth(1, ret_mu["selected_events"], ret_jet["selected_jets"], attributes=["pt", "eta"])
+    leading_jet = jets.select_nth(0, ret_mu["selected_events"], ret_jet["selected_jets"], attributes=["pt", "eta", "phi", "mass"])
+    subleading_jet = jets.select_nth(1, ret_mu["selected_events"], ret_jet["selected_jets"], attributes=["pt", "eta", "phi", "mass"])
+
+    dnn_vars = dnn_variables(leading_muon, subleading_muon, leading_jet, subleading_jet)
 
     if parameters["do_rochester_corrections"]:
         leading_muon_pt, subleading_muon_pt = do_rochester_corrections(
@@ -863,6 +935,7 @@ def threaded_metrics(tokill, train_batches_queue):
 
 def run_analysis(args, outpath, datasets, parameters, lumidata, lumimask, pu_corrections, rochester_corrections, lepsf_iso, lepsf_id, lepsf_trig):
     nev_total = 0
+    nev_loaded = 0
     t0 = time.time()
     
     print(args)
@@ -945,6 +1018,7 @@ def run_analysis(args, outpath, datasets, parameters, lumidata, lumimask, pu_cor
                 rets += [ret]
                 processed_size_mb += memsize
                 nev_total += sum([md["numevents"] for md in ret["cache_metadata"]])
+                nev_loaded += nev
                 num_processed += 1
             print()
 
@@ -959,8 +1033,8 @@ def run_analysis(args, outpath, datasets, parameters, lumidata, lumimask, pu_cor
     
     t1 = time.time()
     dt = t1 - t0
-    print("Overall processed {nev:.2E} ({nev}) events in total {size:.2f} GB, {dt:.1f} seconds, {evspeed:.2E} Hz, {sizespeed:.2f} MB/s".format(
-        nev=nev_total, dt=dt, size=processed_size_mb/1024.0, evspeed=nev_total/dt, sizespeed=processed_size_mb/dt)
+    print("Overall processed {nev:.2E} ({nev_loaded:.2E} loaded) events in total {size:.2f} GB, {dt:.1f} seconds, {evspeed:.2E} Hz, {sizespeed:.2f} MB/s".format(
+        nev=nev_total, nev_loaded=nev_loaded, dt=dt, size=processed_size_mb/1024.0, evspeed=nev_total/dt, sizespeed=processed_size_mb/dt)
     )
 
     bench_ret = {}
