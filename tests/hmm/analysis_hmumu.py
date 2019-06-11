@@ -89,12 +89,6 @@ if __name__ == "__main__":
 
     do_prof = False
 
-    if do_prof:
-        import yappi
-        filename = 'callgrind.filename.prof'
-        yappi.set_clock_type('cpu')
-        yappi.start(builtins=True)
-
     args = parse_args()
     if args.use_cuda and not args.pinned:
         import cupy
@@ -210,7 +204,19 @@ if __name__ == "__main__":
     with open('{0}/parameters.pickle'.format(outpath), 'wb') as handle:
         pickle.dump(analysis_parameters, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-    run_analysis(args, outpath, datasets, analysis_parameters, lumidata, lumimask, pu_corrections_2017, rochester_corr, lepsf_iso, lepsf_id, lepsf_trig)
+    if do_prof:
+        import yappi
+        filename = 'analysis.prof'
+        yappi.set_clock_type('cpu')
+        yappi.start(builtins=True)
+   
+    if not args.use_cuda: 
+        os.environ["CUDA_VISIBLE_DEVICES"]="-1"
+    import tensorflow as tf
+    import keras
+    dnn_model = keras.models.load_model("data/dnn_model.h5")
+
+    run_analysis(args, outpath, datasets, analysis_parameters, lumidata, lumimask, pu_corrections_2017, rochester_corr, lepsf_iso, lepsf_id, lepsf_trig, dnn_model)
 
     # if "analyze" in args.action: 
     #     ans = analysis_parameters["baseline"]["categorization_trees"].keys()

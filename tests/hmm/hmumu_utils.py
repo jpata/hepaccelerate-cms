@@ -440,6 +440,32 @@ def muons_get_genpt_cuda(muons_offsets, muons_genPartIdx, genparts_offsets, genp
                 genpt = genparts_pt[genparts_offsets[iev] + idx_gp]
                 out_muons_genpt[imu] = genpt
 
+
+def to_cartesian(arrs):
+    pt = arrs["pt"]
+    eta = arrs["eta"]
+    phi = arrs["phi"]
+    mass = arrs["mass"]
+    px = pt * NUMPY_LIB.cos(phi)
+    py = pt * NUMPY_LIB.sin(phi)
+    pz = pt * NUMPY_LIB.sinh(eta)
+    e = NUMPY_LIB.sqrt(px**2 + py**2 + pz**2 + mass**2)
+    return {"px": px, "py": py, "pz": pz, "e": e}
+
+def to_spherical(arrs):
+    px = arrs["px"]
+    py = arrs["py"]
+    pz = arrs["pz"]
+    e = arrs["e"]
+    pt = NUMPY_LIB.sqrt(px**2 + py**2)
+    eta = NUMPY_LIB.arcsinh(pz / pt)
+    phi = NUMPY_LIB.arccos(px / pt)
+    mass = NUMPY_LIB.sqrt(e**2 - (px**2 + py**2 + pz**2))
+    return {"pt": pt, "eta": eta, "phi": phi, "mass": mass}
+
+def deltar():
+    pass
+
 #'softJet5' - # of soft EWK jets with pt > 5 GeV
 #'dRmm' - Delta R between two muons
 #'dEtamm' - Delta eta between two muons
@@ -467,48 +493,49 @@ def muons_get_genpt_cuda(muons_offsets, muons_genPartIdx, genparts_offsets, genp
 #'Higgs_pt' - dimuon pt
 #'Higgs_eta' - dimuon eta
 
-def dimuon_vars(leading_muon, subleading_muon):
-    deta = leading_muon["eta"] - subleading_muon["eta"] 
-    dphi = leading_muon["phi"] - subleading_muon["phi"]
-    dr = NUMPY_LIB.sqrt(deta**2 + dphi**2)
-    ret = NUMPY_LIB.stack([deta, dphi, dr]) 
-    return ret
-
-def to_cartesian(arrs):
-    pt = arrs["pt"]
-    eta = arrs["eta"]
-    phi = arrs["phi"]
-    mass = arrs["mass"]
-    px = pt * NUMPY_LIB.cos(phi)
-    py = pt * NUMPY_LIB.sin(phi)
-    pz = pt * NUMPY_LIB.sinh(eta)
-    e = NUMPY_LIB.sqrt(px**2 + py**2 + pz**2 + mass**2)
-    return {"px": px, "py": py, "pz": pz, "e": e}
-
-def to_spherical(arrs):
-    px = arrs["px"]
-    py = arrs["py"]
-    pz = arrs["pz"]
-    e = arrs["e"]
-    pt = NUMPY_LIB.sqrt(px**2 + py**2)
-    eta = NUMPY_LIB.arcsinh(pz / pt)
-    phi = NUMPY_LIB.arccos(px / pt)
-    mass = NUMPY_LIB.sqrt(e**2 - (px**2 + py**2 + pz**2))
-    return {"pt": pt, "eta": eta, "phi": phi, "mass": mass}
- 
-def dijet_vars(leading_jet, subleading_jet):
-    j1 = to_cartesian(leading_jet)
-    j2 = to_cartesian(subleading_jet)
-    
-    dijet = {k: j1[k] + j2[k] for k in ["px", "py", "pz", "e"]}
-    dijet_sph = to_spherical(dijet)
-    ret = NUMPY_LIB.stack([dijet_sph["mass"], dijet_sph["pt"]])  
-    return ret
+dnn_varlist_order = ['softJet5', 'dRmm', 'dEtamm', 'dPhimm', 'M_jj', 'pt_jj', 'eta_jj', 'phi_jj', 'M_mmjj', 'eta_mmjj', 'phi_mmjj', 'dEta_jj', 'Zep', 'dRmin_mj', 'dRmax_mj', 'dRmin_mmj', 'dRmax_mmj', 'leadingJet_pt', 'subleadingJet_pt', 'leadingJet_eta', 'subleadingJet_eta', 'leadingJet_qgl', 'subleadingJet_qgl', 'cthetaCS', 'Higgs_pt', 'Higgs_eta']
 
 def dnn_variables(leading_muon, subleading_muon, leading_jet, subleading_jet):
-    ret_mu = dimuon_vars(leading_muon, subleading_muon)
-    ret_jet = dijet_vars(leading_jet, subleading_jet)
-    return NUMPY_LIB.vstack([ret_mu, ret_jet])
+    mm_deta = leading_muon["eta"] - subleading_muon["eta"] 
+    mm_dphi = leading_muon["phi"] - subleading_muon["phi"]
+    mm_dr = NUMPY_LIB.sqrt(mm_deta**2 + mm_dphi**2)
+    
+    jj_deta = leading_jet["eta"] - subleading_jet["eta"]
+ 
+    m1 = to_cartesian(leading_muon)    
+    m2 = to_cartesian(subleading_muon)    
+    mm = {k: m1[k] + m2[k] for k in ["px", "py", "pz", "e"]}
+    mm_sph = to_spherical(mm)
+ 
+    j1 = to_cartesian(leading_jet)
+    j2 = to_cartesian(subleading_jet)
+    jj = {k: j1[k] + j2[k] for k in ["px", "py", "pz", "e"]}
+    jj_sph = to_spherical(jj)
+   
+    mmjj = {k: j1[k] + j2[k] + m1[k] + m2[k] for k in ["px", "py", "pz", "e"]} 
+    mmjj_sph = to_spherical(mmjj)
+
+
+    return {"dEtamm": mm_deta, "dPhimm": mm_dphi, "dRmm": mm_dr,
+        "M_jj": jj_sph["mass"], "pt_jj": jj_sph["pt"], "eta_jj": jj_sph["eta"], "phi_jj": jj_sph["phi"],
+        "M_mmjj": mmjj_sph["mass"], "eta_mmjj": mmjj_sph["eta"], "phi_mmjj": mmjj_sph["phi"],
+        "dEta_jj": jj_deta,
+        "leadingJet_pt": leading_jet["pt"], "subleadingJet_pt": subleading_jet["pt"],
+        "leadingJet_eta": leading_jet["eta"], "subleadingJet_eta": subleading_jet["eta"],
+        "leadingJet_qgl": NUMPY_LIB.zeros_like(mm_deta),
+        "subleadingJet_qgl": NUMPY_LIB.zeros_like(mm_deta), 
+        "cthetaCS": NUMPY_LIB.zeros_like(mm_deta),
+        "softJet5": NUMPY_LIB.zeros_like(mm_deta),
+        "dRmin_mj": NUMPY_LIB.zeros_like(mm_deta),
+        "dRmax_mj": NUMPY_LIB.zeros_like(mm_deta),
+        "dRmin_mmj": NUMPY_LIB.zeros_like(mm_deta),
+        "dRmax_mmj": NUMPY_LIB.zeros_like(mm_deta),
+        "Zep": NUMPY_LIB.zeros_like(mm_deta),
+        "Higgs_pt": mm_sph["pt"], "Higgs_eta": mm_sph["eta"],
+    }
+
+def apply_mask(arr_dict, mask):
+    return {k: v[mask] for k, v in arr_dict.items()}
 
 def analyze_data(
     data,
@@ -521,6 +548,7 @@ def analyze_data(
     lepsf_iso=None,
     lepsf_id=None,
     lepsf_trig=None,
+    dnn_model=None,
     parameters={},
     parameter_set_name="",
     doverify=False,
@@ -616,7 +644,25 @@ def analyze_data(
     leading_jet = jets.select_nth(0, ret_mu["selected_events"], ret_jet["selected_jets"], attributes=["pt", "eta", "phi", "mass"])
     subleading_jet = jets.select_nth(1, ret_mu["selected_events"], ret_jet["selected_jets"], attributes=["pt", "eta", "phi", "mass"])
 
-    dnn_vars = dnn_variables(leading_muon, subleading_muon, leading_jet, subleading_jet)
+    #compute DNN input variables in 2 muon, >=2jet region
+    dnn_presel = (ret_mu["selected_events"]) & (ret_jet["num_jets"] >= 2)
+    nev_dnn_presel = NUMPY_LIB.sum(dnn_presel)
+    leading_muon_s = apply_mask(leading_muon, dnn_presel)
+    subleading_muon_s = apply_mask(subleading_muon, dnn_presel)
+    leading_jet_s = apply_mask(leading_jet, dnn_presel)
+    subleading_jet_s = apply_mask(subleading_jet, dnn_presel)
+    dnn_vars = dnn_variables(leading_muon_s, subleading_muon_s, leading_jet_s, subleading_jet_s)
+    if dnn_model:
+        dnn_vars_arr = NUMPY_LIB.vstack([dnn_vars[k] for k in dnn_varlist_order]).T
+        #for TF, need to convert library to numpy, as it doesn't accept cupy arrays
+        dnn_pred = dnn_model.predict(NUMPY_LIB.asnumpy(dnn_vars_arr), batch_size=10000)[:, 0]
+    else:
+        dnn_pred = NUMPY_LIB.zeros(nev_dnn_presel)
+
+    #print("dnn vars")
+    #for vn in dnn_vars.keys():
+    #    subarr = dnn_vars[vn]
+    #    print(vn, subarr.mean(), subarr.std())
 
     if parameters["do_rochester_corrections"]:
         leading_muon_pt, subleading_muon_pt = do_rochester_corrections(
@@ -933,7 +979,7 @@ def threaded_metrics(tokill, train_batches_queue):
 
     return
 
-def run_analysis(args, outpath, datasets, parameters, lumidata, lumimask, pu_corrections, rochester_corrections, lepsf_iso, lepsf_id, lepsf_trig):
+def run_analysis(args, outpath, datasets, parameters, lumidata, lumimask, pu_corrections, rochester_corrections, lepsf_iso, lepsf_id, lepsf_trig, dnn_model):
     nev_total = 0
     nev_loaded = 0
     t0 = time.time()
@@ -1014,7 +1060,8 @@ def run_analysis(args, outpath, datasets, parameters, lumidata, lumimask, pu_cor
                     lepsf_iso=lepsf_iso,
                     lepsf_id=lepsf_id,
                     lepsf_trig=lepsf_trig,
-                    parameters=parameters) 
+                    parameters=parameters,
+                    dnn_model=dnn_model) 
                 rets += [ret]
                 processed_size_mb += memsize
                 nev_total += sum([md["numevents"] for md in ret["cache_metadata"]])

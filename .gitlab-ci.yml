@@ -5,8 +5,9 @@ stages:
   - analyze 
   - plot
 
+#image used to compile and run code
 variables:
-  singularity_image: /bigdata/shared/Software/singularity/gpuservers/singularity/images/cupy.simg 
+  singularity_image: /bigdata/shared/Software/singularity/ibanks/edge_r.simg
 
 libhmm:
   stage: build
