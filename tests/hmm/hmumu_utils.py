@@ -627,6 +627,9 @@ def analyze_data(
     electrons = data["Electron"]
     trigobj = data["TrigObj"]
     scalars = data["eventvars"]
+   
+    #output histograms 
+    hists = {}
 
     #FIXME
     muons.hepaccelerate_backend = ha
@@ -711,6 +714,31 @@ def analyze_data(
     leading_jet = jets.select_nth(0, ret_mu["selected_events"], ret_jet["selected_jets"], attributes=["pt", "eta", "phi", "mass", "qgl"])
     subleading_jet = jets.select_nth(1, ret_mu["selected_events"], ret_jet["selected_jets"], attributes=["pt", "eta", "phi", "mass", "qgl"])
 
+    if parameters["do_rochester_corrections"]:
+        leading_muon_pt, subleading_muon_pt = do_rochester_corrections(
+            is_mc,
+            rochester_corrections,
+            leading_muon,
+            subleading_muon)
+        leading_muon["pt"][:] = leading_muon_pt[:]
+        subleading_muon["pt"][:] = subleading_muon_pt[:]
+
+    if parameters["do_lepton_sf"] and is_mc:
+        sfs = []
+        for mu in [leading_muon, subleading_muon]: 
+            if use_cuda:
+                mu = {k: NUMPY_LIB.asnumpy(v) for k, v in mu.items()}
+            sf_iso = lepsf_iso.compute(mu["pdgId"], mu["pt"], mu["eta"])
+            sf_id = lepsf_id.compute(mu["pdgId"], mu["pt"], mu["eta"])
+            sf_trig = lepsf_trig.compute(mu["pdgId"], mu["pt"], mu["eta"])
+            sfs += [sf_iso, sf_id, sf_trig]
+        sf_tot = sfs[0]
+        for sf in sfs[1:]:
+            sf_tot = sf_tot * sf
+        if use_cuda:
+            sf_tot = NUMPY_LIB.array(sf_tot)
+        weights["leptonsf"] = weights["nominal"] * sf_tot
+    
     #compute DNN input variables in 2 muon, >=2jet region
     dnn_presel = (ret_mu["selected_events"]) & (ret_jet["num_jets"] >= 2)
     nev_dnn_presel = NUMPY_LIB.sum(dnn_presel)
@@ -728,42 +756,22 @@ def analyze_data(
         dnn_pred = dnn_model.predict(NUMPY_LIB.asnumpy(dnn_vars_arr), batch_size=10000)[:, 0]
     else:
         dnn_pred = NUMPY_LIB.zeros(nev_dnn_presel)
-    dnn_mask = NUMPY_LIB.ones(nev_dnn_presel)
+ 
+    dnn_mask = NUMPY_LIB.ones(nev_dnn_presel, dtype=NUMPY_LIB.bool)
+    weights_dnn = {k: w[dnn_presel] for k, w in weights.items()}
     hists["hist__dnn_presel__dnn_pred"] = fill_with_weights(
-       dnn_pred, weights, dnn_mask,
-       NUMPY_LIB.linspace(0, 1, 20)
+       dnn_pred, weights_dnn, dnn_mask,
+       NUMPY_LIB.linspace(0.0, 1.0, 20)
     )
 
     for vn in dnn_varlist_order:
         subarr = dnn_vars[vn]
         hb = dnn_input_histogram_bins[vn]
         hists["hist__dnn_presel__{0}".format(vn)] = fill_with_weights(
-           subarr, weights, dnn_mask,
+           subarr, weights_dnn, dnn_mask,
            NUMPY_LIB.linspace(*hb)
         )
 
-    if parameters["do_rochester_corrections"]:
-        leading_muon_pt, subleading_muon_pt = do_rochester_corrections(
-            is_mc,
-            rochester_corrections,
-            leading_muon,
-            subleading_muon)
-
-    if parameters["do_lepton_sf"] and is_mc:
-        sfs = []
-        for mu in [leading_muon, subleading_muon]: 
-            if use_cuda:
-                mu = {k: NUMPY_LIB.asnumpy(v) for k, v in mu.items()}
-            sf_iso = lepsf_iso.compute(mu["pdgId"], mu["pt"], mu["eta"])
-            sf_id = lepsf_id.compute(mu["pdgId"], mu["pt"], mu["eta"])
-            sf_trig = lepsf_trig.compute(mu["pdgId"], mu["pt"], mu["eta"])
-            sfs += [sf_iso, sf_id, sf_trig]
-        sf_tot = sfs[0]
-        for sf in sfs[1:]:
-            sf_tot = sf_tot * sf
-        if use_cuda:
-            sf_tot = NUMPY_LIB.array(sf_tot)
-        weights["leptonsf"] = weights["nominal"] * sf_tot
         
     #get the number of additional muons (not OS) that pass ID and iso cuts
     n_additional_muons = ha.sum_in_offsets(muons, ret_mu["additional_muon_sel"], ret_mu["selected_events"], ret_mu["additional_muon_sel"], dtype=NUMPY_LIB.int8)
@@ -775,7 +783,6 @@ def analyze_data(
         assert(NUMPY_LIB.all(subleading_muon["pt"][subleading_muon["pt"]>0] > parameters["muon_pt"]))
 
 
-    hists = {}
     hists["hist__dimuon__npvs"] = fill_with_weights(scalars["PV_npvsGood"], weights, ret_mu["selected_events"], NUMPY_LIB.linspace(0,100,101))
     hists["hist__dimuon__inv_mass"] = fill_with_weights(inv_mass, weights, ret_mu["selected_events"], NUMPY_LIB.linspace(50,200,101))
 
