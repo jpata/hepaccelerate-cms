@@ -376,6 +376,17 @@ def get_gen_sumweights(filenames):
         sumw += arr.sum()
     return sumw
 
+"""
+Applies rocheter corrections on leading and subleading muons, returns the corrected pt
+
+    is_mc: bool
+    rochester_corrections: RochesterCorrections object that contains calibration data
+    leading_muon: dict of str -> array of the leading muon properties
+    subleading_muon: dict of str -> array of the subleading muon properties
+
+    returns: arrays of leading and subleading muon corrected pt
+
+"""
 def do_rochester_corrections(
     is_mc,
     rochester_corrections,
@@ -393,7 +404,17 @@ def do_rochester_corrections(
 
     return leading_muon_pt, subleading_muon_pt
 
-def rochester_correction_muon_qterm(is_mc, rochester_corrections,
+"""
+Computes the Rochester correction q-term for an array of muons.
+
+    is_mc: bool
+    rochester_corrections: RochesterCorrections object that contains calibration data
+    muon_props: dict of str -> array of the muon properties
+
+    returns: array of the computed q-term values
+"""
+def rochester_correction_muon_qterm(
+    is_mc, rochester_corrections,
     muon_props):
     if is_mc:
         rnd = NUMPY_LIB.random.rand(len(muon_props["pt"])).astype(NUMPY_LIB.float32)
@@ -413,6 +434,8 @@ def rochester_correction_muon_qterm(is_mc, rochester_corrections,
 
     return NUMPY_LIB.array(qterm)
 
+
+#Custom kernels to get the pt of the muon based on the matched genPartIdx of the reco muon
 @numba.njit
 def muons_get_genpt_cpu(muons_offsets, muons_genPartIdx, genparts_offsets, genparts_pt, out_muons_genpt):
     #loop over events
@@ -452,6 +475,13 @@ def to_cartesian(arrs):
     e = NUMPY_LIB.sqrt(px**2 + py**2 + pz**2 + mass**2)
     return {"px": px, "py": py, "pz": pz, "e": e}
 
+"""
+Given a a dictionary of arrays of cartesian coordinates (px, py, pz, e),
+computes the array of spherical coordinates (pt, eta, phi, m)
+
+    arrs: dict of str -> array
+    returns: dict of str -> array
+"""
 def to_spherical(arrs):
     px = arrs["px"]
     py = arrs["py"]
@@ -463,6 +493,13 @@ def to_spherical(arrs):
     mass = NUMPY_LIB.sqrt(e**2 - (px**2 + py**2 + pz**2))
     return {"pt": pt, "eta": eta, "phi": phi, "mass": mass}
 
+"""
+Given two objects, computes the dr = sqrt(deta^2+dphi^2) between them.
+    obj1: array of spherical coordinates (pt, eta, phi, m) for the first object
+    obj2: array of spherical coordinates for the second object
+
+    returns: arrays of deta, dphi, dr
+"""
 def deltar(obj1, obj2):
     deta = obj1["eta"] - obj2["eta"] 
     dphi = obj1["phi"] - obj2["phi"]
@@ -500,6 +537,7 @@ def deltar(obj1, obj2):
 
 """
 Fills the DNN input variables based on two muons and two jets.
+    leading_muon: spherical coordinate data of the leading muon
 """
 def dnn_variables(leading_muon, subleading_muon, leading_jet, subleading_jet, nsoft):
     #delta eta, phi and R between two muons
@@ -571,6 +609,11 @@ def dnn_variables(leading_muon, subleading_muon, leading_jet, subleading_jet, ns
         "Higgs_eta": mm_sph["eta"],
     }
 
+"""
+Given an dictionary with arrays and a mask, applies the mask on all arrays
+    arr_dict: dict of key -> array for input data
+    mask: mask with the same length as the arrays
+"""
 def apply_mask(arr_dict, mask):
     return {k: v[mask] for k, v in arr_dict.items()}
 
