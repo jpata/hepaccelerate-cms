@@ -498,36 +498,6 @@ def deltar(obj1, obj2):
 #'Higgs_pt' - dimuon pt
 #'Higgs_eta' - dimuon eta
 
-dnn_varlist_order = ['softJet5', 'dRmm', 'dEtamm', 'dPhimm', 'M_jj', 'pt_jj', 'eta_jj', 'phi_jj', 'M_mmjj', 'eta_mmjj', 'phi_mmjj', 'dEta_jj', 'Zep', 'dRmin_mj', 'dRmax_mj', 'dRmin_mmj', 'dRmax_mmj', 'leadingJet_pt', 'subleadingJet_pt', 'leadingJet_eta', 'subleadingJet_eta', 'leadingJet_qgl', 'subleadingJet_qgl', 'cthetaCS', 'Higgs_pt', 'Higgs_eta']
-dnn_input_histogram_bins = {
-    "softJet5": (0,10,10),
-    "dRmm": (0,2,20),
-    "dEtamm": (-2,2,20),
-    "dPhimm": (-2,2,20),
-    "M_jj": (0,400,20),
-    "pt_jj": (0,400,20),
-    "eta_jj": (-3,3,20),
-    "phi_jj": (-3,3,20),
-    "M_mmjj": (0,400,20),
-    "eta_mmjj": (-3,3,20),
-    "phi_mmjj": (-3,3,20),
-    "dEta_jj": (-3,3,20),
-    "Zep": (-2,2,20),
-    "dRmin_mj": (0,2,20),
-    "dRmax_mj": (0,2,20),
-    "dRmin_mmj": (0,2,20),
-    "dRmax_mmj": (0,2,20),
-    "leadingJet_pt": (0, 200, 20),
-    "subleadingJet_pt": (0, 200, 20),
-    "leadingJet_eta": (0, 200, 20),
-    "subleadingJet_eta": (0, 200, 20),
-    "leadingJet_qgl": (0, 200, 20),
-    "subleadingJet_qgl": (0, 200, 20),
-    "cthetaCS": (-1, 1, 20),
-    "Higgs_pt": (0, 200, 20),
-    "Higgs_eta": (-3, 3, 20),
-}
-
 """
 Fills the DNN input variables based on two muons and two jets.
 """
@@ -604,6 +574,40 @@ def dnn_variables(leading_muon, subleading_muon, leading_jet, subleading_jet, ns
 def apply_mask(arr_dict, mask):
     return {k: v[mask] for k, v in arr_dict.items()}
 
+# 1. Compute the DNN input variables in a given preselection
+# 2. Evaluate the DNN model
+# 3. Fill histograms with DNN inputs and output
+def compute_fill_dnn(parameters, use_cuda, dnn_presel, dnn_model, scalars, leading_muon, subleading_muon, leading_jet, subleading_jet, weights, hists):
+    nev_dnn_presel = NUMPY_LIB.sum(dnn_presel)
+    if use_cuda:
+        nev_dnn_presel = nev_dnn_presel[0]
+    leading_muon_s = apply_mask(leading_muon, dnn_presel)
+    subleading_muon_s = apply_mask(subleading_muon, dnn_presel)
+    leading_jet_s = apply_mask(leading_jet, dnn_presel)
+    subleading_jet_s = apply_mask(subleading_jet, dnn_presel)
+    nsoft = scalars["SoftActivityJetNjets5"][dnn_presel]
+    dnn_vars = dnn_variables(leading_muon_s, subleading_muon_s, leading_jet_s, subleading_jet_s, nsoft)
+    if dnn_model:
+        dnn_vars_arr = NUMPY_LIB.vstack([dnn_vars[k] for k in parameters["dnn_varlist_order"]]).T
+        #for TF, need to convert library to numpy, as it doesn't accept cupy arrays
+        dnn_pred = dnn_model.predict(NUMPY_LIB.asnumpy(dnn_vars_arr), batch_size=10000)[:, 0]
+    else:
+        dnn_pred = NUMPY_LIB.zeros(nev_dnn_presel)
+ 
+    dnn_mask = NUMPY_LIB.ones(nev_dnn_presel, dtype=NUMPY_LIB.bool)
+    weights_dnn = {k: w[dnn_presel] for k, w in weights.items()}
+    hists["hist__dnn_presel__dnn_pred"] = fill_with_weights(
+       dnn_pred, weights_dnn, dnn_mask,
+       NUMPY_LIB.linspace(-1.0, 1.0, 20)
+    )
+
+    for vn in parameters["dnn_varlist_order"]:
+        subarr = dnn_vars[vn]
+        hb = parameters["dnn_input_histogram_bins"][vn]
+        hists["hist__dnn_presel__{0}".format(vn)] = fill_with_weights(
+           subarr, weights_dnn, dnn_mask,
+           NUMPY_LIB.linspace(*hb)
+        )
 def analyze_data(
     data,
     use_cuda=False,
@@ -738,40 +742,12 @@ def analyze_data(
         if use_cuda:
             sf_tot = NUMPY_LIB.array(sf_tot)
         weights["leptonsf"] = weights["nominal"] * sf_tot
-    
+
     #compute DNN input variables in 2 muon, >=2jet region
     dnn_presel = (ret_mu["selected_events"]) & (ret_jet["num_jets"] >= 2)
-    nev_dnn_presel = NUMPY_LIB.sum(dnn_presel)
-    if use_cuda:
-        nev_dnn_presel = nev_dnn_presel[0]
-    leading_muon_s = apply_mask(leading_muon, dnn_presel)
-    subleading_muon_s = apply_mask(subleading_muon, dnn_presel)
-    leading_jet_s = apply_mask(leading_jet, dnn_presel)
-    subleading_jet_s = apply_mask(subleading_jet, dnn_presel)
-    nsoft = scalars["SoftActivityJetNjets5"][dnn_presel]
-    dnn_vars = dnn_variables(leading_muon_s, subleading_muon_s, leading_jet_s, subleading_jet_s, nsoft)
-    if dnn_model:
-        dnn_vars_arr = NUMPY_LIB.vstack([dnn_vars[k] for k in dnn_varlist_order]).T
-        #for TF, need to convert library to numpy, as it doesn't accept cupy arrays
-        dnn_pred = dnn_model.predict(NUMPY_LIB.asnumpy(dnn_vars_arr), batch_size=10000)[:, 0]
-    else:
-        dnn_pred = NUMPY_LIB.zeros(nev_dnn_presel)
- 
-    dnn_mask = NUMPY_LIB.ones(nev_dnn_presel, dtype=NUMPY_LIB.bool)
-    weights_dnn = {k: w[dnn_presel] for k, w in weights.items()}
-    hists["hist__dnn_presel__dnn_pred"] = fill_with_weights(
-       dnn_pred, weights_dnn, dnn_mask,
-       NUMPY_LIB.linspace(0.0, 1.0, 20)
-    )
-
-    for vn in dnn_varlist_order:
-        subarr = dnn_vars[vn]
-        hb = dnn_input_histogram_bins[vn]
-        hists["hist__dnn_presel__{0}".format(vn)] = fill_with_weights(
-           subarr, weights_dnn, dnn_mask,
-           NUMPY_LIB.linspace(*hb)
-        )
-
+    compute_fill_dnn(parameters, use_cuda, dnn_presel, dnn_model,
+        scalars, leading_muon, subleading_muon, leading_jet, subleading_jet,
+        weights, hists)
         
     #get the number of additional muons (not OS) that pass ID and iso cuts
     n_additional_muons = ha.sum_in_offsets(muons, ret_mu["additional_muon_sel"], ret_mu["selected_events"], ret_mu["additional_muon_sel"], dtype=NUMPY_LIB.int8)
@@ -781,7 +757,6 @@ def analyze_data(
     if doverify:
         assert(NUMPY_LIB.all(leading_muon["pt"][leading_muon["pt"]>0] > parameters["muon_pt_leading"]))
         assert(NUMPY_LIB.all(subleading_muon["pt"][subleading_muon["pt"]>0] > parameters["muon_pt"]))
-
 
     hists["hist__dimuon__npvs"] = fill_with_weights(scalars["PV_npvsGood"], weights, ret_mu["selected_events"], NUMPY_LIB.linspace(0,100,101))
     hists["hist__dimuon__inv_mass"] = fill_with_weights(inv_mass, weights, ret_mu["selected_events"], NUMPY_LIB.linspace(50,200,101))
@@ -841,6 +816,7 @@ def analyze_data(
        ret_mu["selected_events"] & (ret_jet["num_jets"]>=2) & masswindow_exclude_120_130, NUMPY_LIB.linspace(30, 100.0, 101))
     hists["hist__dimuon_invmass_110_150_exclude_120_130__numjet"] = fill_with_weights(ret_jet["num_jets"], weights, ret_mu["selected_events"] & masswindow_exclude_120_130, NUMPY_LIB.linspace(0, 10, 11))
 
+    #Compute integrated luminosity on data sample
     int_lumi = 0
     if not is_mc and not (lumimask is None):
         runs = NUMPY_LIB.asnumpy(scalars["run"])

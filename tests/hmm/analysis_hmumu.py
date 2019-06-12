@@ -173,6 +173,37 @@ if __name__ == "__main__":
             "extra_electrons_eta": 2.5,
             "extra_electrons_id": "mvaFall17V1Iso_WP90",
 
+
+            "dnn_varlist_order": ['softJet5', 'dRmm', 'dEtamm', 'dPhimm', 'M_jj', 'pt_jj', 'eta_jj', 'phi_jj', 'M_mmjj', 'eta_mmjj', 'phi_mmjj', 'dEta_jj', 'Zep', 'dRmin_mj', 'dRmax_mj', 'dRmin_mmj', 'dRmax_mmj', 'leadingJet_pt', 'subleadingJet_pt', 'leadingJet_eta', 'subleadingJet_eta', 'leadingJet_qgl', 'subleadingJet_qgl', 'cthetaCS', 'Higgs_pt', 'Higgs_eta'],
+            "dnn_input_histogram_bins": {
+                "softJet5": (0,10,10),
+                "dRmm": (0,2,20),
+                "dEtamm": (-2,2,20),
+                "dPhimm": (-2,2,20),
+                "M_jj": (0,400,20),
+                "pt_jj": (0,400,20),
+                "eta_jj": (-3,3,20),
+                "phi_jj": (-3,3,20),
+                "M_mmjj": (0,400,20),
+                "eta_mmjj": (-3,3,20),
+                "phi_mmjj": (-3,3,20),
+                "dEta_jj": (-3,3,20),
+                "Zep": (-2,2,20),
+                "dRmin_mj": (0,2,20),
+                "dRmax_mj": (0,2,20),
+                "dRmin_mmj": (0,2,20),
+                "dRmax_mmj": (0,2,20),
+                "leadingJet_pt": (0, 200, 20),
+                "subleadingJet_pt": (0, 200, 20),
+                "leadingJet_eta": (0, 200, 20),
+                "subleadingJet_eta": (0, 200, 20),
+                "leadingJet_qgl": (0, 200, 20),
+                "subleadingJet_qgl": (0, 200, 20),
+                "cthetaCS": (-1, 1, 20),
+                "Higgs_pt": (0, 200, 20),
+                "Higgs_eta": (-3, 3, 20),
+            },
+
             "categorization_trees": {"varA": copy.deepcopy(dt)}
         },
     }
@@ -210,10 +241,12 @@ if __name__ == "__main__":
         yappi.set_clock_type('cpu')
         yappi.start(builtins=True)
    
+    #disable GPU for tensorflow
     if not args.use_cuda: 
         os.environ["CUDA_VISIBLE_DEVICES"]="-1"
     import tensorflow as tf
     import keras
+    #load DNN model
     dnn_model = keras.models.load_model("data/dnn_model.h5")
 
     run_analysis(args, outpath, datasets, analysis_parameters, lumidata, lumimask, pu_corrections_2017, rochester_corr, lepsf_iso, lepsf_id, lepsf_trig, dnn_model)
