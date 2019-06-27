@@ -12,6 +12,7 @@ variables:
 libhmm:
   stage: build
   script:
+    - git submodule update
     - cd tests/hmm
     - singularity exec ${singularity_image} make libhmm.so 
   artifacts:
