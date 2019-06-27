@@ -23,16 +23,6 @@ test-libhmm:
   script:
     - PYTHONPATH=hepaccelerate-lib:. singularity exec ${singularity_image} python3 tests/hmm/test_libhmm.py
 
-test-utils:
-  stage: test
-  script:
-    - PYTHONPATH=hepaccelerate-lib:. singularity exec ${singularity_image} python3 tests/test_utils.py
-
-test-dataset:
-  stage: test
-  script:
-    - PYTHONPATH=hepaccelerate-lib:. singularity exec ${singularity_image} python3 tests/test_dataset.py
-
 run-cache:
   stage: cache
   only:
