@@ -3,4 +3,4 @@
 
 # hepaccelerate-cms
 
-CMS-specific accelerated analysis code
+CMS-specific accelerated analysis code based on the [hepaccelerate](https://github.com/jpata/hepaccelerate) library.

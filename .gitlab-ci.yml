@@ -21,7 +21,7 @@ libhmm:
 test-libhmm:
   stage: test
   script:
-    - PYTHONPATH=hepaccelerate-lib:. singularity exec ${singularity_image} python3 tests/hmm/test_libhmm.py
+    - PYTHONPATH=hepaccelerate:. singularity exec ${singularity_image} python3 tests/hmm/test_libhmm.py
 
 run-cache:
   stage: cache
@@ -30,7 +30,7 @@ run-cache:
       - $CI_COMMIT_MESSAGE =~ /ci-rerun-cache/
   script:
     - rm -Rf /nvme2/jpata/temp_cache/
-    - PYTHONPATH=hepaccelerate-lib:. singularity exec --nv -B /nvme1 -B /nvme2 -B /cvmfs -B /mnt/hadoop -B /bigdata ${singularity_image} python3 tests/hmm/analysis_hmumu.py --datapath /tmp/jpata/hpc/ -a cache --maxfiles 5 --cache-location /nvme2/jpata/temp_cache/ --nthreads 20
+    - PYTHONPATH=hepaccelerate:. singularity exec --nv -B /nvme1 -B /nvme2 -B /cvmfs -B /mnt/hadoop -B /bigdata ${singularity_image} python3 tests/hmm/analysis_hmumu.py --datapath /tmp/jpata/hpc/ -a cache --maxfiles 5 --cache-location /nvme2/jpata/temp_cache/ --nthreads 20
 
 run-analyze:
   stage: analyze
@@ -38,7 +38,7 @@ run-analyze:
     variables:
       - $CI_COMMIT_MESSAGE =~ /ci-rerun-full-analysis/
   script:
-    - PYTHONPATH=hepaccelerate-lib:. singularity exec --nv -B /nvme1 -B /nvme2 -B /cvmfs -B /mnt/hadoop -B /bigdata ${singularity_image} python3 tests/hmm/analysis_hmumu.py --datapath /tmp/jpata/hpc/ -a analyze --maxfiles 5 --cache-location /nvme2/jpata/temp_cache/ --nthreads 20
+    - PYTHONPATH=hepaccelerate:. singularity exec --nv -B /nvme1 -B /nvme2 -B /cvmfs -B /mnt/hadoop -B /bigdata ${singularity_image} python3 tests/hmm/analysis_hmumu.py --datapath /tmp/jpata/hpc/ -a analyze --maxfiles 5 --cache-location /nvme2/jpata/temp_cache/ --nthreads 20
   artifacts:
     paths:
       - out
@@ -49,7 +49,7 @@ run-full-analyze:
     variables:
       - $CI_COMMIT_MESSAGE =~ /ci-rerun-full-analysis/
   script:
-    - PYTHONPATH=hepaccelerate-lib:. singularity exec --nv -B /nvme1 -B /nvme2 -B /cvmfs -B /mnt/hadoop -B /bigdata ${singularity_image} python3 tests/hmm/analysis_hmumu.py --datapath /tmp/jpata/hpc/ -a analyze --maxfiles -1 --cache-location /nvme2/jpata/mycache_all_presel/ --nthreads 20
+    - PYTHONPATH=hepaccelerate:. singularity exec --nv -B /nvme1 -B /nvme2 -B /cvmfs -B /mnt/hadoop -B /bigdata ${singularity_image} python3 tests/hmm/analysis_hmumu.py --datapath /tmp/jpata/hpc/ -a analyze --maxfiles -1 --cache-location /nvme2/jpata/mycache_all_presel/ --nthreads 20
   artifacts:
     paths:
       - out
@@ -57,7 +57,7 @@ run-full-analyze:
 run-plot:
   stage: plot
   script:
-    - PYTHONPATH=hepaccelerate-lib:. singularity exec --nv -B /nvme1 -B /nvme2 -B /cvmfs -B /mnt/hadoop -B /bigdata ${singularity_image} python3 hepaccelerate/plotting.py
+    - PYTHONPATH=hepaccelerate:. singularity exec --nv -B /nvme1 -B /nvme2 -B /cvmfs -B /mnt/hadoop -B /bigdata ${singularity_image} python3 hepaccelerate/plotting.py
   artifacts:
     paths:
       - out/baseline/*.pdf

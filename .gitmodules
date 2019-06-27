@@ -1,0 +1,3 @@
+[submodule "hepaccelerate"]
+	path = hepaccelerate
+	url = https://github.com/jpata/hepaccelerate.git
