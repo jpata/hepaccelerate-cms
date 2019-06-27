@@ -25,9 +25,9 @@ from hepaccelerate.utils import Results
 from hepaccelerate.utils import Dataset
 from hepaccelerate.utils import Histogram
 import hepaccelerate.backend_cpu as backend_cpu
-from hepaccelerate.plotting import plot_hist_step
-from hepaccelerate.decisiontree import DecisionTreeNode, DecisionTreeLeaf, make_random_node, grow_randomly, make_random_tree, prune_randomly, generate_cut_trees
-from hepaccelerate.stats import likelihood, sig_q0_asimov, sig_naive
+from cmsutils.plotting import plot_hist_step
+from cmsutils.decisiontree import DecisionTreeNode, DecisionTreeLeaf, make_random_node, grow_randomly, make_random_tree, prune_randomly, generate_cut_trees
+from cmsutils.stats import likelihood, sig_q0_asimov, sig_naive
 
 ha = None
 NUMPY_LIB = None
@@ -622,8 +622,11 @@ def apply_mask(arr_dict, mask):
 # 3. Fill histograms with DNN inputs and output
 def compute_fill_dnn(parameters, use_cuda, dnn_presel, dnn_model, scalars, leading_muon, subleading_muon, leading_jet, subleading_jet, weights, hists):
     nev_dnn_presel = NUMPY_LIB.sum(dnn_presel)
+
+    #for some reason, on the cuda backend, the sum does not return a simple number
     if use_cuda:
-        nev_dnn_presel = nev_dnn_presel[0]
+        nev_dnn_presel = int(NUMPY_LIB.asnumpy(nev_dnn_presel).flatten()[0])
+
     leading_muon_s = apply_mask(leading_muon, dnn_presel)
     subleading_muon_s = apply_mask(subleading_muon, dnn_presel)
     leading_jet_s = apply_mask(leading_jet, dnn_presel)
@@ -633,7 +636,7 @@ def compute_fill_dnn(parameters, use_cuda, dnn_presel, dnn_model, scalars, leadi
     if dnn_model:
         dnn_vars_arr = NUMPY_LIB.vstack([dnn_vars[k] for k in parameters["dnn_varlist_order"]]).T
         #for TF, need to convert library to numpy, as it doesn't accept cupy arrays
-        dnn_pred = dnn_model.predict(NUMPY_LIB.asnumpy(dnn_vars_arr), batch_size=10000)[:, 0]
+        dnn_pred = NUMPY_LIB.array(dnn_model.predict(NUMPY_LIB.asnumpy(dnn_vars_arr), batch_size=10000)[:, 0])
     else:
         dnn_pred = NUMPY_LIB.zeros(nev_dnn_presel)
  

@@ -12,7 +12,7 @@ import shutil
 import hepaccelerate.backend_cpu as backend_cpu
 from hepaccelerate.utils import choose_backend, LumiData, LumiMask
 from hepaccelerate.utils import Dataset
-from hepaccelerate.decisiontree import DecisionTreeNode, DecisionTreeLeaf
+from cmsutils.decisiontree import DecisionTreeNode, DecisionTreeLeaf
 
 import hmumu_utils
 from hmumu_utils import run_analysis, load_analysis, make_random_tree, load_puhist_target, compute_significances, optimize_categories
@@ -244,7 +244,15 @@ if __name__ == "__main__":
     #disable GPU for tensorflow
     if not args.use_cuda: 
         os.environ["CUDA_VISIBLE_DEVICES"]="-1"
-    import tensorflow as tf
+        import tensorflow as tf
+    else:
+        from keras.backend.tensorflow_backend import set_session
+        import tensorflow as tf
+        config = tf.ConfigProto()
+        config.gpu_options.allow_growth = True
+        config.gpu_options.visible_device_list = "0"
+        set_session(tf.Session(config=config))
+    
     import keras
     #load DNN model
     dnn_model = keras.models.load_model("data/dnn_model.h5")
