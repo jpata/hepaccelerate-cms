@@ -32,7 +32,7 @@ run-cache:
       - $CI_COMMIT_MESSAGE =~ /ci-rerun-cache/
   script:
     - rm -Rf /nvme1/jpata/gitlab-ci-cache/
-    - PYTHONPATH=hepaccelerate:. singularity exec --nv -B /nvme1 -B /nvme2 -B /cvmfs -B /mnt/hadoop -B /bigdata ${singularity_image} python3 tests/hmm/analysis_hmumu.py --datapath /tmp/jpata/hpc/ -a cache --maxfiles 5 --cache-location /nvme1/jpata/gitlab-ci-cache/ --nthreads 20
+    - PYTHONPATH=hepaccelerate:. singularity exec --nv -B /nvme1 -B /nvme2 -B /cvmfs -B /mnt/hadoop -B /bigdata ${singularity_image} python3 tests/hmm/analysis_hmumu.py --datapath /storage/user/jpata/ -a cache --maxfiles 5 --cache-location /nvme1/jpata/gitlab-ci-cache/ --nthreads 20
 
 run-analyze:
   stage: analyze
@@ -40,7 +40,7 @@ run-analyze:
     variables:
       - $CI_COMMIT_MESSAGE =~ /ci-rerun-full-analysis/
   script:
-    - PYTHONPATH=hepaccelerate:. singularity exec --nv -B /nvme1 -B /nvme2 -B /cvmfs -B /mnt/hadoop -B /bigdata ${singularity_image} python3 tests/hmm/analysis_hmumu.py --datapath /tmp/jpata/hpc/ -a analyze --maxfiles 5 --cache-location /nvme1/jpata/gitlab-ci-cache/ --nthreads 20
+    - PYTHONPATH=hepaccelerate:. singularity exec --nv -B /nvme1 -B /nvme2 -B /cvmfs -B /mnt/hadoop -B /bigdata ${singularity_image} python3 tests/hmm/analysis_hmumu.py --datapath /storage/user/jpata/ -a analyze --maxfiles 5 --cache-location /nvme1/jpata/gitlab-ci-cache/ --nthreads 20
   artifacts:
     paths:
       - out
@@ -51,7 +51,7 @@ run-full-analyze:
     variables:
       - $CI_COMMIT_MESSAGE =~ /ci-rerun-full-analysis/
   script:
-    - PYTHONPATH=hepaccelerate:. singularity exec --nv -B /nvme1 -B /nvme2 -B /cvmfs -B /mnt/hadoop -B /bigdata ${singularity_image} python3 tests/hmm/analysis_hmumu.py --datapath /tmp/jpata/hpc/ -a analyze --maxfiles -1 --cache-location /nvme2/jpata/mycache_all_presel/ --nthreads 20
+    - PYTHONPATH=hepaccelerate:. singularity exec --nv -B /nvme1 -B /nvme2 -B /cvmfs -B /mnt/hadoop -B /bigdata ${singularity_image} python3 tests/hmm/analysis_hmumu.py --datapath /storage/user/jpata/ -a analyze --maxfiles -1 --cache-location /nvme2/jpata/mycache_all_presel/ --nthreads 20
   artifacts:
     paths:
       - out
