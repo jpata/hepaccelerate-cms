@@ -16,8 +16,9 @@ install:
   - pip install uproot
   - pip install numpy --upgrade
   - pip install numba
+  - pip install psutil
+  - pip install matplotlib
+  - pip install git+https://github.com/jpata/hepaccelerate@v0.1.0
 
 script:
-    - PYTHONPATH=. python tests/test_dataset.py
-    - PYTHONPATH=. python tests/test_utils.py
-    - PYTHONPATH=. python tests/example.py
+    - PYTHONPATH=. python tests/hmm/hmumu_utils.py

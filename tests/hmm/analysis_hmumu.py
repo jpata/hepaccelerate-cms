@@ -12,7 +12,7 @@ import shutil
 import hepaccelerate.backend_cpu as backend_cpu
 from hepaccelerate.utils import choose_backend, LumiData, LumiMask
 from hepaccelerate.utils import Dataset
-from hepaccelerate.decisiontree import DecisionTreeNode, DecisionTreeLeaf
+from cmsutils.decisiontree import DecisionTreeNode, DecisionTreeLeaf
 
 import hmumu_utils
 from hmumu_utils import run_analysis, load_analysis, make_random_tree, load_puhist_target, compute_significances, optimize_categories
@@ -29,7 +29,7 @@ def parse_args():
     parser.add_argument('--chunksize', '-c', action='store', help='Number of files to process simultaneously', default=1, type=int)
     parser.add_argument('--cache-location', action='store', help='Cache location', default='', type=str)
     parser.add_argument('--out', action='store', help='Output location', default='out', type=str)
-    parser.add_argument('--niter', action='store', help='Number of categorization optimization iterations', default=0, type=int)
+    parser.add_argument('--niter', action='store', help='Number of categorization optimization iterations', default=1, type=int)
     parser.add_argument('--pinned', action='store_true', help='Use CUDA pinned memory')
     parser.add_argument('--filter-datasets', action='store', help='Glob pattern to select datasets', default="*")
     args = parser.parse_args()
@@ -45,9 +45,9 @@ datasets = [
     ("wmh", "/store/mc/RunIIFall17NanoAODv4/WminusH_HToMuMu_WToAll_M125_13TeV_powheg_pythia8/NANOAODSIM/*12Apr2018_Nano14Dec2018*/**/*.root", True),
     ("wph", "/store/mc/RunIIFall17NanoAODv4/WplusH_HToMuMu_WToAll_M125_13TeV_powheg_pythia8/NANOAODSIM/*12Apr2018_Nano14Dec2018*/**/*.root", True),
     ("zh", "/store/mc/RunIIFall17NanoAODv4/ZH_HToMuMu_ZToAll_M125_13TeV_powheg_pythia8/NANOAODSIM/*12Apr2018_Nano14Dec2018*/**/*.root", True),
-    ("dy", "/store/mc/RunIIFall17NanoAODv4/DYJetsToLL_M-50_TuneCP5_13TeV-amcatnloFXFX-pythia8/NANOAODSIM/**/*.root", True),
+   ("dy", "/store/mc/RunIIFall17NanoAODv4/DYJetsToLL_M-50_TuneCP5_13TeV-amcatnloFXFX-pythia8/NANOAODSIM/**/*.root", True),
     ("dy_vbf", "/store/mc/RunIIFall17NanoAODv4/DYJetsToLL_M-105To160_VBFFilter_TuneCP5_PSweights_13TeV-amcatnloFXFX-pythia8/NANOAODSIM/**/*.root", True),
-    ("ttjets_dl", "/store/mc/RunIIFall17NanoAODv4/TTTo2L2Nu_TuneCP5_13TeV-powheg-pythia8/**/*.root", True),
+    ("ttjets_dl", "/store/mc/RunIIFall17NanoAODv4/TTTo2L2Nu_TuneCP5_PSweights_13TeV-powheg-pythia8/**/*.root", True),
     ("ttjets_sl", "/store/mc/RunIIFall17NanoAODv4/TTToSemiLeptonic_TuneCP5_13TeV-powheg-pythia8/**/*.root", True),
     ("ww_2l2nu", "/store/mc/RunIIFall17NanoAODv4/WWTo2L2Nu_NNPDF31_TuneCP5_13TeV-powheg-pythia8/**/*.root", True),
     ("wz_3lnu", "/store/mc/RunIIFall17NanoAODv4/WZTo3LNu_13TeV-powheg-pythia8/**/*.root", True),
@@ -88,12 +88,6 @@ mc_samples = sig_samples + bkg_samples
 if __name__ == "__main__":
 
     do_prof = False
-
-    if do_prof:
-        import yappi
-        filename = 'callgrind.filename.prof'
-        yappi.set_clock_type('cpu')
-        yappi.start(builtins=True)
 
     args = parse_args()
     if args.use_cuda and not args.pinned:
@@ -179,11 +173,47 @@ if __name__ == "__main__":
             "extra_electrons_eta": 2.5,
             "extra_electrons_id": "mvaFall17V1Iso_WP90",
 
+
+            "dnn_varlist_order": ['softJet5', 'dRmm', 'dEtamm', 'dPhimm', 'M_jj', 'pt_jj', 'eta_jj', 'phi_jj', 'M_mmjj', 'eta_mmjj', 'phi_mmjj', 'dEta_jj', 'Zep', 'dRmin_mj', 'dRmax_mj', 'dRmin_mmj', 'dRmax_mmj', 'leadingJet_pt', 'subleadingJet_pt', 'leadingJet_eta', 'subleadingJet_eta', 'leadingJet_qgl', 'subleadingJet_qgl', 'cthetaCS', 'Higgs_pt', 'Higgs_eta'],
+            "dnn_input_histogram_bins": {
+                "softJet5": (0,10,10),
+                "dRmm": (0,2,20),
+                "dEtamm": (-2,2,20),
+                "dPhimm": (-2,2,20),
+                "M_jj": (0,400,20),
+                "pt_jj": (0,400,20),
+                "eta_jj": (-3,3,20),
+                "phi_jj": (-3,3,20),
+                "M_mmjj": (0,400,20),
+                "eta_mmjj": (-3,3,20),
+                "phi_mmjj": (-3,3,20),
+                "dEta_jj": (-3,3,20),
+                "Zep": (-2,2,20),
+                "dRmin_mj": (0,2,20),
+                "dRmax_mj": (0,2,20),
+                "dRmin_mmj": (0,2,20),
+                "dRmax_mmj": (0,2,20),
+                "leadingJet_pt": (0, 200, 20),
+                "subleadingJet_pt": (0, 200, 20),
+                "leadingJet_eta": (0, 200, 20),
+                "subleadingJet_eta": (0, 200, 20),
+                "leadingJet_qgl": (0, 200, 20),
+                "subleadingJet_qgl": (0, 200, 20),
+                "cthetaCS": (-1, 1, 20),
+                "Higgs_pt": (0, 200, 20),
+                "Higgs_eta": (-3, 3, 20),
+            },
+
             "categorization_trees": {"varA": copy.deepcopy(dt)}
         },
     }
-    analysis_parameters["baseline"]["categorization_trees"].update(rand_trees)
+  
+    #add additional analyses for benchmarking purposes 
+    if args.niter > 1:
+        for i in range(args.niter-1):
+            analysis_parameters["v{0}".format(i)] = copy.deepcopy(analysis_parameters["baseline"])
 
+    #analysis_parameters["baseline"]["categorization_trees"].update(rand_trees)
 
     lumimask = LumiMask("data/Cert_294927-306462_13TeV_EOY2017ReReco_Collisions17_JSON.txt", np, backend_cpu)
     lumidata = LumiData("data/lumi2017.csv")
@@ -205,7 +235,29 @@ if __name__ == "__main__":
     with open('{0}/parameters.pickle'.format(outpath), 'wb') as handle:
         pickle.dump(analysis_parameters, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-    run_analysis(args, outpath, datasets, analysis_parameters, lumidata, lumimask, pu_corrections_2017, rochester_corr, lepsf_iso, lepsf_id, lepsf_trig)
+    if do_prof:
+        import yappi
+        filename = 'analysis.prof'
+        yappi.set_clock_type('cpu')
+        yappi.start(builtins=True)
+   
+    #disable GPU for tensorflow
+    if not args.use_cuda: 
+        os.environ["CUDA_VISIBLE_DEVICES"]="-1"
+        import tensorflow as tf
+    else:
+        from keras.backend.tensorflow_backend import set_session
+        import tensorflow as tf
+        config = tf.ConfigProto()
+        config.gpu_options.allow_growth = True
+        config.gpu_options.visible_device_list = "0"
+        set_session(tf.Session(config=config))
+    
+    import keras
+    #load DNN model
+    dnn_model = keras.models.load_model("data/dnn_model.h5")
+
+    run_analysis(args, outpath, datasets, analysis_parameters, lumidata, lumimask, pu_corrections_2017, rochester_corr, lepsf_iso, lepsf_id, lepsf_trig, dnn_model)
 
     # if "analyze" in args.action: 
     #     ans = analysis_parameters["baseline"]["categorization_trees"].keys()

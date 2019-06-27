@@ -11,6 +11,7 @@ import sys
 import os
 
 import numba
+import numba.cuda as cuda
 
 import threading
 from threading import Thread
@@ -24,9 +25,9 @@ from hepaccelerate.utils import Results
 from hepaccelerate.utils import Dataset
 from hepaccelerate.utils import Histogram
 import hepaccelerate.backend_cpu as backend_cpu
-from hepaccelerate.plotting import plot_hist_step
-from hepaccelerate.decisiontree import DecisionTreeNode, DecisionTreeLeaf, make_random_node, grow_randomly, make_random_tree, prune_randomly, generate_cut_trees
-from hepaccelerate.stats import likelihood, sig_q0_asimov, sig_naive
+from cmsutils.plotting import plot_hist_step
+from cmsutils.decisiontree import DecisionTreeNode, DecisionTreeLeaf, make_random_node, grow_randomly, make_random_tree, prune_randomly, generate_cut_trees
+from cmsutils.stats import likelihood, sig_q0_asimov, sig_naive
 
 ha = None
 NUMPY_LIB = None
@@ -375,6 +376,17 @@ def get_gen_sumweights(filenames):
         sumw += arr.sum()
     return sumw
 
+"""
+Applies rocheter corrections on leading and subleading muons, returns the corrected pt
+
+    is_mc: bool
+    rochester_corrections: RochesterCorrections object that contains calibration data
+    leading_muon: dict of str -> array of the leading muon properties
+    subleading_muon: dict of str -> array of the subleading muon properties
+
+    returns: arrays of leading and subleading muon corrected pt
+
+"""
 def do_rochester_corrections(
     is_mc,
     rochester_corrections,
@@ -392,7 +404,17 @@ def do_rochester_corrections(
 
     return leading_muon_pt, subleading_muon_pt
 
-def rochester_correction_muon_qterm(is_mc, rochester_corrections,
+"""
+Computes the Rochester correction q-term for an array of muons.
+
+    is_mc: bool
+    rochester_corrections: RochesterCorrections object that contains calibration data
+    muon_props: dict of str -> array of the muon properties
+
+    returns: array of the computed q-term values
+"""
+def rochester_correction_muon_qterm(
+    is_mc, rochester_corrections,
     muon_props):
     if is_mc:
         rnd = NUMPY_LIB.random.rand(len(muon_props["pt"])).astype(NUMPY_LIB.float32)
@@ -412,8 +434,10 @@ def rochester_correction_muon_qterm(is_mc, rochester_corrections,
 
     return NUMPY_LIB.array(qterm)
 
+
+#Custom kernels to get the pt of the muon based on the matched genPartIdx of the reco muon
 @numba.njit
-def muons_get_genpt(muons_offsets, muons_genPartIdx, genparts_offsets, genparts_pt, out_muons_genpt):
+def muons_get_genpt_cpu(muons_offsets, muons_genPartIdx, genparts_offsets, genparts_pt, out_muons_genpt):
     #loop over events
     for iev in numba.prange(len(muons_offsets) - 1):
         #loop over muons
@@ -424,8 +448,215 @@ def muons_get_genpt(muons_offsets, muons_genPartIdx, genparts_offsets, genparts_
                 genpt = genparts_pt[genparts_offsets[iev] + idx_gp]
                 out_muons_genpt[imu] = genpt
 
+@cuda.jit
+def muons_get_genpt_cuda(muons_offsets, muons_genPartIdx, genparts_offsets, genparts_pt, out_muons_genpt):
+    #loop over events
+    xi = cuda.grid(1)
+    xstride = cuda.gridsize(1)
+    
+    for iev in range(xi, len(muons_offsets) - 1, xstride):
+        #loop over muons
+        for imu in range(muons_offsets[iev], muons_offsets[iev + 1]):
+            #get index of genparticle that muon was matched to
+            idx_gp = muons_genPartIdx[imu]
+            if idx_gp >= 0:
+                genpt = genparts_pt[genparts_offsets[iev] + idx_gp]
+                out_muons_genpt[imu] = genpt
+
+
+def to_cartesian(arrs):
+    pt = arrs["pt"]
+    eta = arrs["eta"]
+    phi = arrs["phi"]
+    mass = arrs["mass"]
+    px = pt * NUMPY_LIB.cos(phi)
+    py = pt * NUMPY_LIB.sin(phi)
+    pz = pt * NUMPY_LIB.sinh(eta)
+    e = NUMPY_LIB.sqrt(px**2 + py**2 + pz**2 + mass**2)
+    return {"px": px, "py": py, "pz": pz, "e": e}
+
+"""
+Given a a dictionary of arrays of cartesian coordinates (px, py, pz, e),
+computes the array of spherical coordinates (pt, eta, phi, m)
+
+    arrs: dict of str -> array
+    returns: dict of str -> array
+"""
+def to_spherical(arrs):
+    px = arrs["px"]
+    py = arrs["py"]
+    pz = arrs["pz"]
+    e = arrs["e"]
+    pt = NUMPY_LIB.sqrt(px**2 + py**2)
+    eta = NUMPY_LIB.arcsinh(pz / pt)
+    phi = NUMPY_LIB.arccos(px / pt)
+    mass = NUMPY_LIB.sqrt(e**2 - (px**2 + py**2 + pz**2))
+    return {"pt": pt, "eta": eta, "phi": phi, "mass": mass}
+
+"""
+Given two objects, computes the dr = sqrt(deta^2+dphi^2) between them.
+    obj1: array of spherical coordinates (pt, eta, phi, m) for the first object
+    obj2: array of spherical coordinates for the second object
+
+    returns: arrays of deta, dphi, dr
+"""
+def deltar(obj1, obj2):
+    deta = obj1["eta"] - obj2["eta"] 
+    dphi = obj1["phi"] - obj2["phi"]
+
+    dr = NUMPY_LIB.sqrt(deta**2 + dphi**2)
+    
+    return deta, dphi, dr 
+
+#'softJet5' - # of soft EWK jets with pt > 5 GeV
+#'dRmm' - Delta R between two muons
+#'dEtamm' - Delta eta between two muons
+#'dPhimm' - Delta Phi between two muons
+#'M_jj' - dijet mass
+#'pt_jj' - dijet pt
+#'eta_jj' - dijet eta
+#'phi_jj' - dijet phi
+#'M_mmjj' - mass of dimuon + dijet system
+#'eta_mmjj' - eta of dimuon + dijet system
+#'phi_mmjj' - phi of dimuon + dijet system
+#'dEta_jj' - delta eta between two jets
+#'Zep' - zeppenfeld variable
+#'dRmin_mj' - Min delta R between a muon and jet
+#'dRmax_mj' - Max delta R between a muon and jet
+#'dRmin_mmj' - Min delta R between dimuon and jet
+#'dRmax_mmj' - Max delta R between dimuon and jet
+#'leadingJet_pt' - Leading jet pt
+#'subleadingJet_pt' - sub-leading jet pt 
+#'leadingJet_eta' - leading jet eta
+#'subleadingJet_eta' - sub-leading jet eta
+#'leadingJet_qgl' - leading jet qgl
+#'subleadingJet_qgl' - sub - leading jet qgl
+#'cthetaCS' - cosine of collins Soper frame angle
+#'Higgs_pt' - dimuon pt
+#'Higgs_eta' - dimuon eta
+
+"""
+Fills the DNN input variables based on two muons and two jets.
+    leading_muon: spherical coordinate data of the leading muon
+"""
+def dnn_variables(leading_muon, subleading_muon, leading_jet, subleading_jet, nsoft):
+    #delta eta, phi and R between two muons
+    mm_deta, mm_dphi, mm_dr = deltar(leading_muon, subleading_muon)
+    
+    #delta eta between jets 
+    jj_deta = leading_jet["eta"] - subleading_jet["eta"]
+
+    #muons in cartesian, create dimuon system 
+    m1 = to_cartesian(leading_muon)    
+    m2 = to_cartesian(subleading_muon)    
+    mm = {k: m1[k] + m2[k] for k in ["px", "py", "pz", "e"]}
+    mm_sph = to_spherical(mm)
+
+    #jets in cartesian, create dimuon system 
+    j1 = to_cartesian(leading_jet)
+    j2 = to_cartesian(subleading_jet)
+    jj = {k: j1[k] + j2[k] for k in ["px", "py", "pz", "e"]}
+    jj_sph = to_spherical(jj)
+  
+    #create dimuon-dijet system 
+    mmjj = {k: j1[k] + j2[k] + m1[k] + m2[k] for k in ["px", "py", "pz", "e"]} 
+    mmjj_sph = to_spherical(mmjj)
+
+    #compute deltaR between all muons and jets
+    dr_mjs = []
+    for mu in [leading_muon, subleading_muon]:
+        for jet in [leading_jet, subleading_jet]:
+            _, _, dr_mj = deltar(mu, jet)
+            dr_mjs += [dr_mj]
+    dr_mj = NUMPY_LIB.vstack(dr_mjs)
+    dRmin_mj = NUMPY_LIB.min(dr_mj, axis=0) 
+    dRmax_mj = NUMPY_LIB.max(dr_mj, axis=0) 
+    
+    #compute deltaR between dimuon system and both jets 
+    dr_mmjs = []
+    for jet in [leading_jet, subleading_jet]:
+        _, _, dr_mmj = deltar(mm_sph, jet)
+        dr_mmjs += [dr_mmj]
+    dr_mmj = NUMPY_LIB.vstack(dr_mmjs)
+    dRmin_mmj = NUMPY_LIB.min(dr_mmj, axis=0) 
+    dRmax_mmj = NUMPY_LIB.max(dr_mmj, axis=0)
+
+    #Zeppenfeld variable
+    Zep = (mm_sph["eta"] - 0.5*(leading_jet["eta"] + subleading_jet["eta"]))
+
+    #Collin-Soper frame variable
+    cthetaCS = 2*(m1["pz"] * m2["e"] - m1["e"]*m2["pz"]) / (mm_sph["mass"] * NUMPY_LIB.sqrt(NUMPY_LIB.power(mm_sph["mass"], 2) + NUMPY_LIB.power(mm_sph["pt"], 2)))
+
+    return {
+        "dEtamm": mm_deta, "dPhimm": mm_dphi, "dRmm": mm_dr,
+        "M_jj": jj_sph["mass"], "pt_jj": jj_sph["pt"], "eta_jj": jj_sph["eta"], "phi_jj": jj_sph["phi"],
+        "M_mmjj": mmjj_sph["mass"], "eta_mmjj": mmjj_sph["eta"], "phi_mmjj": mmjj_sph["phi"],
+        "dEta_jj": jj_deta,
+        "leadingJet_pt": leading_jet["pt"],
+        "subleadingJet_pt": subleading_jet["pt"],
+        "leadingJet_eta": leading_jet["eta"],
+        "subleadingJet_eta": subleading_jet["eta"],
+        "dRmin_mj": dRmin_mj,
+        "dRmax_mj": dRmax_mj,
+        "dRmin_mmj": dRmin_mmj,
+        "dRmax_mmj": dRmax_mmj,
+        "Zep": Zep,
+        "leadingJet_qgl": leading_jet["qgl"],
+        "subleadingJet_qgl": subleading_jet["qgl"], 
+        "cthetaCS": cthetaCS,
+        "softJet5": nsoft,
+        "Higgs_pt": mm_sph["pt"],
+        "Higgs_eta": mm_sph["eta"],
+    }
+
+"""
+Given an dictionary with arrays and a mask, applies the mask on all arrays
+    arr_dict: dict of key -> array for input data
+    mask: mask with the same length as the arrays
+"""
+def apply_mask(arr_dict, mask):
+    return {k: v[mask] for k, v in arr_dict.items()}
+
+# 1. Compute the DNN input variables in a given preselection
+# 2. Evaluate the DNN model
+# 3. Fill histograms with DNN inputs and output
+def compute_fill_dnn(parameters, use_cuda, dnn_presel, dnn_model, scalars, leading_muon, subleading_muon, leading_jet, subleading_jet, weights, hists):
+    nev_dnn_presel = NUMPY_LIB.sum(dnn_presel)
+
+    #for some reason, on the cuda backend, the sum does not return a simple number
+    if use_cuda:
+        nev_dnn_presel = int(NUMPY_LIB.asnumpy(nev_dnn_presel).flatten()[0])
+
+    leading_muon_s = apply_mask(leading_muon, dnn_presel)
+    subleading_muon_s = apply_mask(subleading_muon, dnn_presel)
+    leading_jet_s = apply_mask(leading_jet, dnn_presel)
+    subleading_jet_s = apply_mask(subleading_jet, dnn_presel)
+    nsoft = scalars["SoftActivityJetNjets5"][dnn_presel]
+    dnn_vars = dnn_variables(leading_muon_s, subleading_muon_s, leading_jet_s, subleading_jet_s, nsoft)
+    if dnn_model:
+        dnn_vars_arr = NUMPY_LIB.vstack([dnn_vars[k] for k in parameters["dnn_varlist_order"]]).T
+        #for TF, need to convert library to numpy, as it doesn't accept cupy arrays
+        dnn_pred = NUMPY_LIB.array(dnn_model.predict(NUMPY_LIB.asnumpy(dnn_vars_arr), batch_size=10000)[:, 0])
+    else:
+        dnn_pred = NUMPY_LIB.zeros(nev_dnn_presel)
+ 
+    dnn_mask = NUMPY_LIB.ones(nev_dnn_presel, dtype=NUMPY_LIB.bool)
+    weights_dnn = {k: w[dnn_presel] for k, w in weights.items()}
+    hists["hist__dnn_presel__dnn_pred"] = fill_with_weights(
+       dnn_pred, weights_dnn, dnn_mask,
+       NUMPY_LIB.linspace(-1.0, 1.0, 20)
+    )
+
+    for vn in parameters["dnn_varlist_order"]:
+        subarr = dnn_vars[vn]
+        hb = parameters["dnn_input_histogram_bins"][vn]
+        hists["hist__dnn_presel__{0}".format(vn)] = fill_with_weights(
+           subarr, weights_dnn, dnn_mask,
+           NUMPY_LIB.linspace(*hb)
+        )
 def analyze_data(
     data,
+    use_cuda=False,
     is_mc=True,
     pu_corrections=None,
     lumimask=None,
@@ -434,6 +665,7 @@ def analyze_data(
     lepsf_iso=None,
     lepsf_id=None,
     lepsf_trig=None,
+    dnn_model=None,
     parameters={},
     parameter_set_name="",
     doverify=False,
@@ -445,6 +677,9 @@ def analyze_data(
     electrons = data["Electron"]
     trigobj = data["TrigObj"]
     scalars = data["eventvars"]
+   
+    #output histograms 
+    hists = {}
 
     #FIXME
     muons.hepaccelerate_backend = ha
@@ -454,7 +689,10 @@ def analyze_data(
     if is_mc:
         genpart = data["GenPart"]
         muons_genpt = NUMPY_LIB.zeros(muons.numobjects(), dtype=NUMPY_LIB.float32)
-        muons_get_genpt(muons.offsets, muons.genPartIdx, genpart.offsets, genpart.pt, muons_genpt)
+        if not use_cuda:
+            muons_get_genpt_cpu(muons.offsets, muons.genPartIdx, genpart.offsets, genpart.pt, muons_genpt)
+        else:
+            muons_get_genpt_cuda[32,1024](muons.offsets, muons.genPartIdx, genpart.offsets, genpart.pt, muons_genpt)
         muons.attrs_data["genpt"] = muons_genpt
 
 
@@ -514,14 +752,17 @@ def analyze_data(
         assert(NUMPY_LIB.all(z[z>0] > parameters["jet_pt"]))
 
 
-    #get the invariant mass
+    #get the invariant mass of the dimuon system
     inv_mass = compute_inv_mass(muons, ret_mu["selected_events"], ret_mu["selected_muons"])
 
-    #create arrays with just the nth particle contents for easier management
-    leading_muon = muons.select_nth(0, ret_mu["selected_events"], ret_mu["selected_muons"])
-    subleading_muon = muons.select_nth(1, ret_mu["selected_events"], ret_mu["selected_muons"])
-    leading_jet = jets.select_nth(0, ret_mu["selected_events"], ret_jet["selected_jets"])
-    subleading_jet = jets.select_nth(1, ret_mu["selected_events"], ret_jet["selected_jets"])
+    #create arrays with just the leading and subleading particle contents for easier management
+    mu_attrs = ["pt", "eta", "phi", "mass", "pdgId", "nTrackerLayers"]
+    if is_mc:
+        mu_attrs += ["genpt"]
+    leading_muon = muons.select_nth(0, ret_mu["selected_events"], ret_mu["selected_muons"], attributes=mu_attrs)
+    subleading_muon = muons.select_nth(1, ret_mu["selected_events"], ret_mu["selected_muons"], attributes=mu_attrs)
+    leading_jet = jets.select_nth(0, ret_mu["selected_events"], ret_jet["selected_jets"], attributes=["pt", "eta", "phi", "mass", "qgl"])
+    subleading_jet = jets.select_nth(1, ret_mu["selected_events"], ret_jet["selected_jets"], attributes=["pt", "eta", "phi", "mass", "qgl"])
 
     if parameters["do_rochester_corrections"]:
         leading_muon_pt, subleading_muon_pt = do_rochester_corrections(
@@ -529,18 +770,30 @@ def analyze_data(
             rochester_corrections,
             leading_muon,
             subleading_muon)
+        leading_muon["pt"][:] = leading_muon_pt[:]
+        subleading_muon["pt"][:] = subleading_muon_pt[:]
 
     if parameters["do_lepton_sf"] and is_mc:
         sfs = []
         for mu in [leading_muon, subleading_muon]: 
-            sf_iso = lepsf_iso.compute(leading_muon["pdgId"], leading_muon["pt"], leading_muon["eta"])
-            sf_id = lepsf_id.compute(leading_muon["pdgId"], leading_muon["pt"], leading_muon["eta"])
-            sf_trig = lepsf_trig.compute(leading_muon["pdgId"], leading_muon["pt"], leading_muon["eta"])
+            if use_cuda:
+                mu = {k: NUMPY_LIB.asnumpy(v) for k, v in mu.items()}
+            sf_iso = lepsf_iso.compute(mu["pdgId"], mu["pt"], mu["eta"])
+            sf_id = lepsf_id.compute(mu["pdgId"], mu["pt"], mu["eta"])
+            sf_trig = lepsf_trig.compute(mu["pdgId"], mu["pt"], mu["eta"])
             sfs += [sf_iso, sf_id, sf_trig]
         sf_tot = sfs[0]
         for sf in sfs[1:]:
             sf_tot = sf_tot * sf
+        if use_cuda:
+            sf_tot = NUMPY_LIB.array(sf_tot)
         weights["leptonsf"] = weights["nominal"] * sf_tot
+
+    #compute DNN input variables in 2 muon, >=2jet region
+    dnn_presel = (ret_mu["selected_events"]) & (ret_jet["num_jets"] >= 2)
+    compute_fill_dnn(parameters, use_cuda, dnn_presel, dnn_model,
+        scalars, leading_muon, subleading_muon, leading_jet, subleading_jet,
+        weights, hists)
         
     #get the number of additional muons (not OS) that pass ID and iso cuts
     n_additional_muons = ha.sum_in_offsets(muons, ret_mu["additional_muon_sel"], ret_mu["selected_events"], ret_mu["additional_muon_sel"], dtype=NUMPY_LIB.int8)
@@ -548,25 +801,24 @@ def analyze_data(
     n_additional_leptons = n_additional_muons + n_additional_electrons
     
     if doverify:
-        assert(NUMPY_LIB.all(leading_muon_pt[leading_muon_pt>0] > parameters["muon_pt_leading"]))
-        assert(NUMPY_LIB.all(subleading_muon_pt[subleading_muon_pt>0] > parameters["muon_pt"]))
+        assert(NUMPY_LIB.all(leading_muon["pt"][leading_muon["pt"]>0] > parameters["muon_pt_leading"]))
+        assert(NUMPY_LIB.all(subleading_muon["pt"][subleading_muon["pt"]>0] > parameters["muon_pt"]))
 
-    hists = {}
-    #hists["hist__dimuon__npvs"] = fill_with_weights(scalars["PV_npvsGood"], weights, ret_mu["selected_events"], NUMPY_LIB.linspace(0,100,101))
-    #hists["hist__dimuon__inv_mass"] = fill_with_weights(inv_mass, weights, ret_mu["selected_events"], NUMPY_LIB.linspace(50,200,101))
+    hists["hist__dimuon__npvs"] = fill_with_weights(scalars["PV_npvsGood"], weights, ret_mu["selected_events"], NUMPY_LIB.linspace(0,100,101))
+    hists["hist__dimuon__inv_mass"] = fill_with_weights(inv_mass, weights, ret_mu["selected_events"], NUMPY_LIB.linspace(50,200,101))
 
-    ##get histograms of leading and subleading muon momenta
-    #hists["hist__dimuon__leading_muon_pt"] = fill_with_weights(leading_muon_pt, weights, ret_mu["selected_events"], NUMPY_LIB.linspace(0.0, 200.0, 101))
-    #hists["hist__dimuon__subleading_muon_pt"] = fill_with_weights(subleading_muon_pt, weights, ret_mu["selected_events"], NUMPY_LIB.linspace(0.0, 200.0, 101))
+    #get histograms of leading and subleading muon momenta
+    hists["hist__dimuon__leading_muon_pt"] = fill_with_weights(leading_muon["pt"], weights, ret_mu["selected_events"], NUMPY_LIB.linspace(0.0, 200.0, 101))
+    hists["hist__dimuon__subleading_muon_pt"] = fill_with_weights(subleading_muon["pt"], weights, ret_mu["selected_events"], NUMPY_LIB.linspace(0.0, 200.0, 101))
 
-    #hists["hist__dimuon__leading_muon_eta"] = fill_with_weights(
-    #    leading_muon_eta, weights, ret_mu["selected_events"],
-    #    NUMPY_LIB.linspace(-4.0, 4.0, 101)
-    #)
-    #hists["hist__dimuon__subleading_muon_eta"] = fill_with_weights(
-    #    subleading_muon_eta, weights, ret_mu["selected_events"],
-    #    NUMPY_LIB.linspace(-4.0, 4.0, 101)
-    #)
+    hists["hist__dimuon__leading_muon_eta"] = fill_with_weights(
+        leading_muon["eta"], weights, ret_mu["selected_events"],
+        NUMPY_LIB.linspace(-4.0, 4.0, 101)
+    )
+    hists["hist__dimuon__subleading_muon_eta"] = fill_with_weights(
+        subleading_muon["eta"], weights, ret_mu["selected_events"],
+        NUMPY_LIB.linspace(-4.0, 4.0, 101)
+    )
 
     masswindow_110_150 = ((inv_mass >= 110) & (inv_mass < 150))
     masswindow_120_130 = ((inv_mass >= 120) & (inv_mass < 130))
@@ -610,6 +862,7 @@ def analyze_data(
        ret_mu["selected_events"] & (ret_jet["num_jets"]>=2) & masswindow_exclude_120_130, NUMPY_LIB.linspace(30, 100.0, 101))
     hists["hist__dimuon_invmass_110_150_exclude_120_130__numjet"] = fill_with_weights(ret_jet["num_jets"], weights, ret_mu["selected_events"] & masswindow_exclude_120_130, NUMPY_LIB.linspace(0, 10, 11))
 
+    #Compute integrated luminosity on data sample
     int_lumi = 0
     if not is_mc and not (lumimask is None):
         runs = NUMPY_LIB.asnumpy(scalars["run"])
@@ -672,24 +925,30 @@ def chunks(l, n):
     for i in range(0, len(l), n):
         yield l[i:i + n]
 
-def cache_data(filenames, datastructures, cache_location, datapath, nworkers=16):
+def cache_data(filenames, name, datastructures, cache_location, datapath, is_mc, nworkers=16):
     if nworkers == 1:
         tot_ev = 0
         tot_mb = 0
-        for result in map(cache_data_multiproc_worker, [(fn, datastructures, cache_location, datapath) for fn in filenames]):
+        for result in map(cache_data_multiproc_worker, [(name, fn, datastructures, cache_location, datapath, is_mc) for fn in filenames]):
             tot_ev += result[0]
             tot_mb += result[1]
     else:
         with concurrent.futures.ProcessPoolExecutor(max_workers=nworkers) as executor:
             tot_ev = 0
             tot_mb = 0
-            for result in executor.map(cache_data_multiproc_worker, [(fn, datastructures, cache_location, datapath) for fn in filenames]):
+            for result in executor.map(cache_data_multiproc_worker, [(name, fn, datastructures, cache_location, datapath, is_mc) for fn in filenames]):
                 tot_ev += result[0]
                 tot_mb += result[1]
     return tot_ev, tot_mb
 
-def create_dataset(filenames, datastructures, cache_location, datapath):
-    ds = Dataset(filenames, datastructures, cache_location=cache_location, datapath=datapath, treename="Events")
+def func_filename_precompute_mc(filename):
+    ret = {"genEventSumw": get_gen_sumweights([filename])}
+    return ret
+ 
+def create_dataset(name, filenames, datastructures, cache_location, datapath, is_mc):
+    ds = Dataset(name, filenames, datastructures, cache_location=cache_location, datapath=datapath, treename="Events")
+    if is_mc:
+        ds.func_filename_precompute = func_filename_precompute_mc
     return ds
 
 def cache_preselection(ds):
@@ -702,14 +961,13 @@ def cache_preselection(ds):
             ds.eventvars[ifile][evvar_name] = ds.eventvars[ifile][evvar_name][sel]
 
 def cache_data_multiproc_worker(args):
-    filename, datastructure, cache_location, datapath = args
+    name, filename, datastructure, cache_location, datapath, is_mc = args
     t0 = time.time()
-    ds = create_dataset([filename], datastructure, cache_location, datapath)
+    ds = create_dataset(name, [filename], datastructure, cache_location, datapath, is_mc)
     ds.numpy_lib = np
     try:
         print("trying to load {0}".format(filename))
-        ds.preload()
-        ds.make_objects()
+        ds.load_root()
     except Exception as e:
         raise Exception("Failed to load dataset for {0}".format(filename))
 
@@ -726,7 +984,8 @@ def cache_data_multiproc_worker(args):
     return len(ds), processed_size_mb
 
 class InputGen:
-    def __init__(self, paths, is_mc, nthreads, chunksize, cache_location, datapath):
+    def __init__(self, name, paths, is_mc, nthreads, chunksize, cache_location, datapath):
+        self.name = name
         self.paths_chunks = list(chunks(paths, chunksize))
         self.chunk_lock = threading.Lock()
         self.loaded_lock = threading.Lock()
@@ -752,14 +1011,13 @@ class InputGen:
             self.chunk_lock.release()
             return None
 
-        ds = create_dataset(self.paths_chunks[self.num_chunk], self.is_mc, self.cache_location, self.datapath)
+        ds = create_dataset(self.name, self.paths_chunks[self.num_chunk], self.is_mc, self.cache_location, self.datapath, self.is_mc)
         self.num_chunk += 1
         ds.numpy_lib = numpy
         self.chunk_lock.release()
 
         #load caches on multiple threads
         ds.from_cache(executor=self.executor, verbose=False)
-
         with self.loaded_lock:
             self.num_loaded += 1
 
@@ -781,8 +1039,8 @@ def event_loop(train_batches_queue, use_cuda, **kwargs):
     ds = train_batches_queue.get(block=True)
     #print("event_loop nev={0}, queued={1}".format(len(ds), train_batches_queue.qsize()))
 
+    #copy dataset to GPU and make sure future operations are done on it
     if use_cuda:
-        #copy dataset to GPU and make sure future operations are done on it
         import cupy
         ds.numpy_lib = cupy
         ds.move_to_device(cupy)
@@ -791,7 +1049,9 @@ def event_loop(train_batches_queue, use_cuda, **kwargs):
 
     ret = {}
     for parameter_set_name, parameter_set in parameters.items():
-        ret[parameter_set_name] = ds.analyze(analyze_data, parameter_set_name=parameter_set_name, parameters=parameter_set, **kwargs)
+        ret[parameter_set_name] = ds.analyze(analyze_data, use_cuda=use_cuda,
+            parameter_set_name=parameter_set_name,
+            parameters=parameter_set, **kwargs)
     ret["num_events"] = len(ds)
 
     train_batches_queue.task_done()
@@ -802,9 +1062,9 @@ def event_loop(train_batches_queue, use_cuda, **kwargs):
         pinned_mempool = cupy.get_default_pinned_memory_pool()
         mempool.free_all_blocks()
         pinned_mempool.free_all_blocks()
-    
+     
+    ret["cache_metadata"] = ds.cache_metadata 
     return ret, len(ds), ds.memsize()/1024.0/1024.0
-
 
 
 def threaded_metrics(tokill, train_batches_queue):
@@ -826,8 +1086,9 @@ def threaded_metrics(tokill, train_batches_queue):
 
     return
 
-def run_analysis(args, outpath, datasets, parameters, lumidata, lumimask, pu_corrections, rochester_corrections, lepsf_iso, lepsf_id, lepsf_trig):
+def run_analysis(args, outpath, datasets, parameters, lumidata, lumimask, pu_corrections, rochester_corrections, lepsf_iso, lepsf_id, lepsf_trig, dnn_model):
     nev_total = 0
+    nev_loaded = 0
     t0 = time.time()
     
     print(args)
@@ -837,10 +1098,27 @@ def run_analysis(args, outpath, datasets, parameters, lumidata, lumimask, pu_cor
     else:
         os.environ["NUMBA_NUM_THREADS"] = str(args.nthreads)
 
+    if "cache" in args.action:
+       try:
+           os.makedirs(args.cache_location)
+       except Exception as e:
+           pass
+       filenames_cache = {}
+       for datasetname, globpattern, is_mc in datasets:
+           filenames_all = glob.glob(args.datapath + globpattern, recursive=True)
+           filenames_all = [fn for fn in filenames_all if not "Friend" in fn]
+           filenames_cache[datasetname] = [fn.replace(args.datapath, "") for fn in filenames_all]
+    
+           with open(args.cache_location + "/datasets.json", "w") as fi:
+               fi.write(json.dumps(filenames_cache, indent=2))
+    else:
+       filenames_cache = json.load(open(args.cache_location + "/datasets.json", "r"))
+ 
     processed_size_mb = 0
     for datasetname, globpattern, is_mc in datasets:
-        filenames_all = glob.glob(args.datapath + globpattern, recursive=True)
-        filenames_all = [fn for fn in filenames_all if not "Friend" in fn]
+        filenames_all = filenames_cache[datasetname]
+        filenames_all = [args.datapath + "/" + fn for fn in filenames_all]
+ 
         print("Dataset {0} has {1} files".format(datasetname, len(filenames_all)))
         if args.maxfiles > 0:
             filenames_all = filenames_all[:args.maxfiles]
@@ -849,13 +1127,13 @@ def run_analysis(args, outpath, datasets, parameters, lumidata, lumimask, pu_cor
 
         if "cache" in args.action:
             print("Preparing caches from ROOT files")
-            _nev_total, _processed_size_mb = cache_data(filenames_all, datastructure, args.cache_location, args.datapath, nworkers=args.nthreads)
+            _nev_total, _processed_size_mb = cache_data(filenames_all, datasetname, datastructure, args.cache_location, args.datapath, is_mc, nworkers=args.nthreads)
             nev_total += _nev_total
             processed_size_mb += _processed_size_mb
 
         if "analyze" in args.action:        
 
-            training_set_generator = InputGen(list(filenames_all), datastructure, args.nthreads, args.chunksize, args.cache_location, args.datapath)
+            training_set_generator = InputGen(datasetname, list(filenames_all), datastructure, args.nthreads, args.chunksize, args.cache_location, args.datapath)
             threadk = thread_killer()
             threadk.set_tokill(False)
             train_batches_queue = Queue(maxsize=20)
@@ -870,7 +1148,8 @@ def run_analysis(args, outpath, datasets, parameters, lumidata, lumimask, pu_cor
 
             rets = []
             num_processed = 0
-
+           
+            cache_metadata = []
             #loop over all data, call the analyze function
             while num_processed < len(training_set_generator.paths_chunks):
                 if not args.async_data:
@@ -888,10 +1167,12 @@ def run_analysis(args, outpath, datasets, parameters, lumidata, lumimask, pu_cor
                     lepsf_iso=lepsf_iso,
                     lepsf_id=lepsf_id,
                     lepsf_trig=lepsf_trig,
-                    parameters=parameters) 
+                    parameters=parameters,
+                    dnn_model=dnn_model) 
                 rets += [ret]
                 processed_size_mb += memsize
-                nev_total += nev
+                nev_total += sum([md["numevents"] for md in ret["cache_metadata"]])
+                nev_loaded += nev
                 num_processed += 1
             print()
 
@@ -901,14 +1182,23 @@ def run_analysis(args, outpath, datasets, parameters, lumidata, lumimask, pu_cor
             #save output
             ret = sum(rets, Results({}))
             if is_mc:
-                ret["gen_sumweights"] = get_gen_sumweights(filenames_all)
+                ret["gen_sumweights"] = sum([md["precomputed_results"]["genEventSumw"] for md in ret["cache_metadata"]])
             ret.save_json("{0}/{1}.json".format(outpath, datasetname))
-
+    
     t1 = time.time()
     dt = t1 - t0
-    print("Overall processed {nev:.2E} ({nev}) events in total {size:.2f} GB, {dt:.1f} seconds, {evspeed:.2E} Hz, {sizespeed:.2f} MB/s".format(
-        nev=nev_total, dt=dt, size=processed_size_mb/1024.0, evspeed=nev_total/dt, sizespeed=processed_size_mb/dt)
+    print("Overall processed {nev:.2E} ({nev_loaded:.2E} loaded) events in total {size:.2f} GB, {dt:.1f} seconds, {evspeed:.2E} Hz, {sizespeed:.2f} MB/s".format(
+        nev=nev_total, nev_loaded=nev_loaded, dt=dt, size=processed_size_mb/1024.0, evspeed=nev_total/dt, sizespeed=processed_size_mb/dt)
     )
+
+    bench_ret = {}
+    bench_ret.update(args.__dict__)
+    bench_ret["hostname"] = os.uname()[1]
+    bench_ret["nev_total"] = nev_total
+    bench_ret["total_time"] = dt
+    bench_ret["evspeed"] = nev_total/dt/1000/1000
+    with open("analysis_benchmarks.txt", "a") as of:
+        of.write(json.dumps(bench_ret) + '\n')
 
 def create_datastructure(is_mc):
     datastructures = {
@@ -930,6 +1220,7 @@ def create_datastructure(is_mc):
             ("Jet_pt", "float32"), ("Jet_eta", "float32"),
             ("Jet_phi", "float32"), ("Jet_mass", "float32"),
             ("Jet_btagDeepB", "float32"),
+            ("Jet_qgl", "float32"),
             ("Jet_jetId", "int32"), ("Jet_puId", "int32"),
         ],
         "TrigObj": [
@@ -953,7 +1244,8 @@ def create_datastructure(is_mc):
             ("HLT_IsoMu27", "bool"),
             ("run", "uint32"),
             ("luminosityBlock", "uint32"),
-            ("event", "uint64")
+            ("event", "uint64"),
+            ("SoftActivityJetNjets5", "int32")
         ],
     }
     if is_mc:

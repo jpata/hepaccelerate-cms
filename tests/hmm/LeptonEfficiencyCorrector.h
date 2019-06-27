@@ -19,8 +19,8 @@ class LeptonEfficiencyCorrector {
   void init(std::vector<std::string> files, std::vector<std::string> histos);
   void setLeptons(int nLep, int *lepPdgId, float *lepPt, float *lepEta);
 
-  float getSF(int pdgid, float pt, float eta);
-  float getSFErr(int pdgid, float pt, float eta);
+  float getSF(int pdgid, float pt, float eta) const;
+  float getSFErr(int pdgid, float pt, float eta) const;
   const std::vector<float> & run();
 
 private:
@@ -44,6 +44,7 @@ extern "C" {
     }
 
     void LeptonEfficiencyCorrector_getSF(LeptonEfficiencyCorrector* c, float* out, int n, int* pdgid, float* pt, float* eta) {
+        #pragma omp parallel for
         for (int i=0; i<n; i++) {
             out[i] = c->getSF(pdgid[i], pt[i], eta[i]);
         }
