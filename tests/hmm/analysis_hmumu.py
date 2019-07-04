@@ -18,9 +18,12 @@ import hmumu_utils
 from hmumu_utils import run_analysis, load_analysis, make_random_tree, load_puhist_target, compute_significances, optimize_categories
 from hmumu_lib import LibHMuMu, RochesterCorrections, LeptonEfficiencyCorrections
 
+import os
+from coffea.util import USE_CUPY
+
 def parse_args():
     parser = argparse.ArgumentParser(description='Example HiggsMuMu analysis')
-    parser.add_argument('--use-cuda', action='store_true', help='Use the CUDA backend')
+    #parser.add_argument('--use-cuda', action='store_true', help='Use the CUDA backend')
     parser.add_argument('--async-data', action='store_true', help='Load data on a separate thread')
     parser.add_argument('--action', '-a', action='append', help='List of actions to do', choices=['cache', 'analyze'], required=True)
     parser.add_argument('--nthreads', '-t', action='store', help='Number of CPU threads or workers to use', type=int, default=4, required=False)
@@ -85,11 +88,70 @@ bkg_samples = [
 ]
 mc_samples = sig_samples + bkg_samples
 
+from coffea.lookup_tools import extractor
+from coffea.jetmet_tools import FactorizedJetCorrector
+from coffea.jetmet_tools import JetResolution
+from coffea.jetmet_tools import JetCorrectionUncertainty
+from coffea.jetmet_tools import JetResolutionScaleFactor
+
+class JetMetCorrections:
+    def __init__(self, do_factorized_jec_unc=False):
+        extract = extractor()
+        
+        extract.add_weight_sets(['* * coffea/tests/samples/Summer16_23Sep2016V3_MC_L1FastJet_AK4PFPuppi.jec.txt.gz',
+                                 '* * coffea/tests/samples/Summer16_23Sep2016V3_MC_L2L3Residual_AK4PFPuppi.jec.txt.gz',
+                                 '* * coffea/tests/samples/Summer16_23Sep2016V3_MC_L2Relative_AK4PFPuppi.jec.txt.gz',
+                                 '* * coffea/tests/samples/Summer16_23Sep2016V3_MC_L3Absolute_AK4PFPuppi.jec.txt.gz',
+                                 '* * coffea/tests/samples/Summer16_23Sep2016V3_MC_UncertaintySources_AK4PFPuppi.junc.txt.gz',
+                                 '* * coffea/tests/samples/Summer16_23Sep2016V3_MC_Uncertainty_AK4PFPuppi.junc.txt.gz',
+                                 '* * coffea/tests/samples/Spring16_25nsV10_MC_PtResolution_AK4PFPuppi.jr.txt.gz',
+                                 '* * coffea/tests/samples/Spring16_25nsV10_MC_SF_AK4PFPuppi.jersf.txt.gz'])
+        
+        extract.finalize()
+        evaluator = extract.make_evaluator()
+        
+        jec_names = ['Summer16_23Sep2016V3_MC_L1FastJet_AK4PFPuppi',
+                     'Summer16_23Sep2016V3_MC_L2Relative_AK4PFPuppi',
+                     'Summer16_23Sep2016V3_MC_L2L3Residual_AK4PFPuppi',
+                     'Summer16_23Sep2016V3_MC_L3Absolute_AK4PFPuppi']
+        
+        self.jec = FactorizedJetCorrector(**{name: evaluator[name] for name in jec_names})
+        
+        test_eta = np.array([0.2, 1.8, 3.4])
+        test_Rho = np.array([1.0, 1.2, 1.3])
+        test_pt = np.array([100.0, 200.0, 300.0])
+        test_A = np.array([5.0, 6.0, 7.0])
+        
+        #corr = corrector.getCorrection(JetEta=test_eta, Rho=test_Rho, JetPt=test_pt, JetA=test_A)
+        #print(corr)
+        
+        jer_names = ['Spring16_25nsV10_MC_PtResolution_AK4PFPuppi']
+        self.jer = JetResolution(**{name: evaluator[name] for name in jer_names})
+        #resos = reso.getResolution(JetEta=test_eta, Rho=test_Rho, JetPt=test_pt)
+        #print(list(resos))
+            
+        jersf_names = ['Spring16_25nsV10_MC_SF_AK4PFPuppi']
+        self.jersf = JetResolutionScaleFactor(**{name: evaluator[name] for name in jersf_names})
+        #resosfs = resosf.getScaleFactor(JetEta=test_eta) 
+        #print(list(resosfs))
+        
+        junc_names = ['Summer16_23Sep2016V3_MC_Uncertainty_AK4PFPuppi']
+        #levels = []
+        if do_factorized_jec_unc:
+            for name in dir(evaluator):
+                if 'Summer16_23Sep2016V3_MC_UncertaintySources_AK4PFPuppi' in name:
+                    junc_names.append(name)
+                    #levels.append(name.split('_')[-1])
+        self.jesunc = JetCorrectionUncertainty(**{name: evaluator[name] for name in junc_names})
+        #juncs = junc.getUncertainty(JetEta=test_eta, JetPt=test_pt)
+        #juncs = list(juncs)
+
 if __name__ == "__main__":
 
     do_prof = False
 
     args = parse_args()
+    args.use_cuda = USE_CUPY
     if args.use_cuda and not args.pinned:
         import cupy
         cupy.cuda.set_allocator(None)
@@ -159,7 +221,8 @@ if __name__ == "__main__":
             
             "do_rochester_corrections": True,
             "do_lepton_sf": True,
-
+            
+            "do_jec": True, 
             "jet_mu_dr": 0.4,
             "jet_pt": 30.0,
             "jet_eta": 4.7,
@@ -224,6 +287,7 @@ if __name__ == "__main__":
     lepsf_iso = LeptonEfficiencyCorrections(libhmm, "data/leptonSF/RunBCDEF_SF_ISO.root", "NUM_LooseRelIso_DEN_MediumID_pt_abseta")
     lepsf_id = LeptonEfficiencyCorrections(libhmm, "data/leptonSF/RunBCDEF_SF_ID.root", "NUM_MediumID_DEN_genTracks_pt_abseta")
     lepsf_trig = LeptonEfficiencyCorrections(libhmm, "data/leptonSF/EfficienciesAndSF_RunBtoF_Nov17Nov2017.root", "IsoMu27_PtEtaBins/pt_abseta_ratio")
+    jetmet_corrections = JetMetCorrections()
 
     #Run baseline analysis
     outpath = "{0}/baseline".format(args.out)
@@ -257,7 +321,10 @@ if __name__ == "__main__":
     #load DNN model
     dnn_model = keras.models.load_model("data/dnn_model.h5")
 
-    run_analysis(args, outpath, datasets, analysis_parameters, lumidata, lumimask, pu_corrections_2017, rochester_corr, lepsf_iso, lepsf_id, lepsf_trig, dnn_model)
+    run_analysis(args, outpath, datasets, analysis_parameters,
+        lumidata, lumimask, pu_corrections_2017, rochester_corr,
+        lepsf_iso, lepsf_id, lepsf_trig, dnn_model,
+        jetmet_corrections)
 
     # if "analyze" in args.action: 
     #     ans = analysis_parameters["baseline"]["categorization_trees"].keys()

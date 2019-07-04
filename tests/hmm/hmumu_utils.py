@@ -296,6 +296,17 @@ def fill_with_weights(values, weight_dict, mask, bins):
     }
     return ret
 
+def update_histograms_systematic(hists, hist_name, systematic_name, values, weight_dict, mask, bins):
+    if hist_name not in hists:
+        hists[hist_name] = {}
+    ret = fill_with_weights(values, weight_dict, mask, bins)
+    if systematic_name[0] == "nominal":
+        hists[hist_name].update(ret)
+    else:
+        syst_string = systematic_name[0] + "__" + systematic_name[1]
+        ret = {syst_string: ret["nominal"]}
+        hists[hist_name].update(ret)
+
 def remove_inf_nan(arr):
     arr[np.isinf(arr)] = 0
     arr[np.isnan(arr)] = 0
@@ -434,8 +445,8 @@ def rochester_correction_muon_qterm(
 
     return NUMPY_LIB.array(qterm)
 
-
-#Custom kernels to get the pt of the muon based on the matched genPartIdx of the reco muon
+# Custom kernels to get the pt of the muon based on the matched genPartIdx of the reco muon
+# Implement them here as they are too specific to NanoAOD for the hepaccelerate library
 @numba.njit
 def muons_get_genpt_cpu(muons_offsets, muons_genPartIdx, genparts_offsets, genparts_pt, out_muons_genpt):
     #loop over events
@@ -508,36 +519,40 @@ def deltar(obj1, obj2):
     
     return deta, dphi, dr 
 
-#'softJet5' - # of soft EWK jets with pt > 5 GeV
-#'dRmm' - Delta R between two muons
-#'dEtamm' - Delta eta between two muons
-#'dPhimm' - Delta Phi between two muons
-#'M_jj' - dijet mass
-#'pt_jj' - dijet pt
-#'eta_jj' - dijet eta
-#'phi_jj' - dijet phi
-#'M_mmjj' - mass of dimuon + dijet system
-#'eta_mmjj' - eta of dimuon + dijet system
-#'phi_mmjj' - phi of dimuon + dijet system
-#'dEta_jj' - delta eta between two jets
-#'Zep' - zeppenfeld variable
-#'dRmin_mj' - Min delta R between a muon and jet
-#'dRmax_mj' - Max delta R between a muon and jet
-#'dRmin_mmj' - Min delta R between dimuon and jet
-#'dRmax_mmj' - Max delta R between dimuon and jet
-#'leadingJet_pt' - Leading jet pt
-#'subleadingJet_pt' - sub-leading jet pt 
-#'leadingJet_eta' - leading jet eta
-#'subleadingJet_eta' - sub-leading jet eta
-#'leadingJet_qgl' - leading jet qgl
-#'subleadingJet_qgl' - sub - leading jet qgl
-#'cthetaCS' - cosine of collins Soper frame angle
-#'Higgs_pt' - dimuon pt
-#'Higgs_eta' - dimuon eta
-
 """
 Fills the DNN input variables based on two muons and two jets.
     leading_muon: spherical coordinate data of the leading muon
+    subleading_muon: spherical coordinate data of the subleading muon
+    leading_jet: spherical coordinate data + QGL of the leading jet
+    subleading_jet: spherical coordinate data + QGL of the subleading jet
+    nsoft: number of soft jets
+    
+    'softJet5' - # of soft EWK jets with pt > 5 GeV
+    'dRmm' - Delta R between two muons
+    'dEtamm' - Delta eta between two muons
+    'dPhimm' - Delta Phi between two muons
+    'M_jj' - dijet mass
+    'pt_jj' - dijet pt
+    'eta_jj' - dijet eta
+    'phi_jj' - dijet phi
+    'M_mmjj' - mass of dimuon + dijet system
+    'eta_mmjj' - eta of dimuon + dijet system
+    'phi_mmjj' - phi of dimuon + dijet system
+    'dEta_jj' - delta eta between two jets
+    'Zep' - zeppenfeld variable
+    'dRmin_mj' - Min delta R between a muon and jet
+    'dRmax_mj' - Max delta R between a muon and jet
+    'dRmin_mmj' - Min delta R between dimuon and jet
+    'dRmax_mmj' - Max delta R between dimuon and jet
+    'leadingJet_pt' - Leading jet pt
+    'subleadingJet_pt' - sub-leading jet pt 
+    'leadingJet_eta' - leading jet eta
+    'subleadingJet_eta' - sub-leading jet eta
+    'leadingJet_qgl' - leading jet qgl
+    'subleadingJet_qgl' - sub - leading jet qgl
+    'cthetaCS' - cosine of collins Soper frame angle
+    'Higgs_pt' - dimuon pt
+    'Higgs_eta' - dimuon eta
 """
 def dnn_variables(leading_muon, subleading_muon, leading_jet, subleading_jet, nsoft):
     #delta eta, phi and R between two muons
@@ -617,6 +632,12 @@ Given an dictionary with arrays and a mask, applies the mask on all arrays
 def apply_mask(arr_dict, mask):
     return {k: v[mask] for k, v in arr_dict.items()}
 
+def select_weights(weights, jet_systematic_scenario):
+    if jet_systematic_scenario[0] == "nominal":
+        return weights
+    else:
+        return {"nominal": weights["nominal"]}
+
 # 1. Compute the DNN input variables in a given preselection
 # 2. Evaluate the DNN model
 # 3. Fill histograms with DNN inputs and output
@@ -640,6 +661,7 @@ def compute_fill_dnn(parameters, use_cuda, dnn_presel, dnn_model, scalars, leadi
     else:
         dnn_pred = NUMPY_LIB.zeros(nev_dnn_presel)
  
+    #Fill the histograms with DNN inputs
     dnn_mask = NUMPY_LIB.ones(nev_dnn_presel, dtype=NUMPY_LIB.bool)
     weights_dnn = {k: w[dnn_presel] for k, w in weights.items()}
     hists["hist__dnn_presel__dnn_pred"] = fill_with_weights(
@@ -654,156 +676,74 @@ def compute_fill_dnn(parameters, use_cuda, dnn_presel, dnn_model, scalars, leadi
            subarr, weights_dnn, dnn_mask,
            NUMPY_LIB.linspace(*hb)
         )
-def analyze_data(
-    data,
-    use_cuda=False,
-    is_mc=True,
-    pu_corrections=None,
-    lumimask=None,
-    lumidata=None,
-    rochester_corrections=None,
-    lepsf_iso=None,
-    lepsf_id=None,
-    lepsf_trig=None,
-    dnn_model=None,
-    parameters={},
-    parameter_set_name="",
-    doverify=False,
-    debug=False
-    ):
 
-    muons = data["Muon"]
-    jets = data["Jet"]
-    electrons = data["Electron"]
-    trigobj = data["TrigObj"]
-    scalars = data["eventvars"]
-   
-    #output histograms 
-    hists = {}
-
-    #FIXME
-    muons.hepaccelerate_backend = ha
-    jets.hepaccelerate_backend = ha
-
-    #associate the muon genpt
-    if is_mc:
-        genpart = data["GenPart"]
-        muons_genpt = NUMPY_LIB.zeros(muons.numobjects(), dtype=NUMPY_LIB.float32)
-        if not use_cuda:
-            muons_get_genpt_cpu(muons.offsets, muons.genPartIdx, genpart.offsets, genpart.pt, muons_genpt)
-        else:
-            muons_get_genpt_cuda[32,1024](muons.offsets, muons.genPartIdx, genpart.offsets, genpart.pt, muons_genpt)
-        muons.attrs_data["genpt"] = muons_genpt
-
-
-    # scalars["run"] = NUMPY_LIB.array(scalars["run"], dtype=NUMPY_LIB.uint32)
-    # scalars["luminosityBlock"] = NUMPY_LIB.array(scalars["run"], dtype=NUMPY_LIB.uint32)
-
-    mask_events = NUMPY_LIB.ones(muons.numevents(), dtype=NUMPY_LIB.bool)
-    select_events_trigger(scalars, parameters, mask_events)
-
-    weights = {}
-    weights["nominal"] = NUMPY_LIB.ones(muons.numevents(), dtype=NUMPY_LIB.float32)
-
-    if is_mc:
-        weights["nominal"] = weights["nominal"] * scalars["genWeight"] * genweight_scalefactor
-        pu_weights, pu_weights_up, pu_weights_down = compute_pu_weights(
-            pu_corrections, weights["nominal"],
-            scalars["Pileup_nTrueInt"], scalars["PV_npvsGood"])
-        weights["puWeight"] = weights["nominal"] * pu_weights
-        #weights["puWeight_up"] = weights["nominal"] * pu_weights_up
-        #weights["puWeight_down"] = weights["nominal"] * pu_weights_down
-
-        scalars["genWeight"] = scalars["genWeight"]
-
-
-    #get the two leading muons after applying all muon selection
-    ret_mu = get_selected_muons(
-        muons, trigobj, mask_events,
-        parameters["muon_pt_leading"], parameters["muon_pt"],
-        parameters["muon_eta"], parameters["muon_iso"],
-        parameters["muon_id"], parameters["muon_trigger_match_dr"]
-    )
-
-    if doverify:
-        z = ha.sum_in_offsets(
-            muons,
-            ret_mu["selected_muons"],
-            ret_mu["selected_events"],
-            ret_mu["selected_muons"], dtype=NUMPY_LIB.int8)
-        assert(NUMPY_LIB.all(z[z!=0] == 2))
-
-    ret_el = get_selected_electrons(electrons, parameters["extra_electrons_pt"], parameters["extra_electrons_eta"], parameters["extra_electrons_id"])
+def apply_jec(jets, scalars, parameters, jetmet_corrections, NUMPY_LIB, use_cuda, is_mc):
+    # Change rho from a per-event variable to per-jet by broadcasting the
+    # value of each event to all the jets in the event
+    jets_rho = NUMPY_LIB.zeros_like(jets.pt)
+    ha.broadcast(scalars["fixedGridRhoFastjetAll"], jets.offsets, jets_rho)
     
-    #get the passing jets for events that pass muon selection
-    ret_jet = get_selected_jets(
-        jets, muons,
-        ret_mu["selected_muons"], mask_events,
-        parameters["jet_pt"],
-        parameters["jet_eta"],
-        parameters["jet_mu_dr"],
-        parameters["jet_id"],
-        parameters["jet_puid"],
-        parameters["jet_btag"]
-    )
-    
-    if doverify:
-        z = ha.min_in_offsets(jets, jets.pt, ret_mu["selected_events"], ret_jet["selected_jets"])
-        assert(NUMPY_LIB.all(z[z>0] > parameters["jet_pt"]))
+    # Get the uncorrected jet pt and mass
+    pt_jec_jer_central = jets.pt
+    raw_pt = jets.pt * (1.0 - jets.rawFactor)
+    raw_mass = jets.mass * (1.0 - jets.rawFactor) 
 
+    # Need to use the CPU for JEC/JER currently
+    if use_cuda:
+        raw_pt = NUMPY_LIB.asnumpy(raw_pt)
+        eta = NUMPY_LIB.asnumpy(jets.eta)
+        rho = NUMPY_LIB.asnumpy(jets_rho)
+        area = NUMPY_LIB.asnumpy(jets.area)
+    else:
+        pt = raw_pt
+        eta = jets.eta
+        rho = jets_rho
+        area = jets.area
 
-    #get the invariant mass of the dimuon system
-    inv_mass = compute_inv_mass(muons, ret_mu["selected_events"], ret_mu["selected_muons"])
+    #dictionary of jet systematic scenario name -> jet pt vector
+    #the data vectors can be large, so it is possible to use a lambda function instead
+    #which upon calling will return a jet pt vector
+    jet_pt_syst = {
+        ("raw_jets", ""): NUMPY_LIB.array(raw_pt),
+        ("nominal", ""): pt_jec_jer_central,
+    }
 
-    #create arrays with just the leading and subleading particle contents for easier management
-    mu_attrs = ["pt", "eta", "phi", "mass", "pdgId", "nTrackerLayers"]
-    if is_mc:
-        mu_attrs += ["genpt"]
-    leading_muon = muons.select_nth(0, ret_mu["selected_events"], ret_mu["selected_muons"], attributes=mu_attrs)
-    subleading_muon = muons.select_nth(1, ret_mu["selected_events"], ret_mu["selected_muons"], attributes=mu_attrs)
-    leading_jet = jets.select_nth(0, ret_mu["selected_events"], ret_jet["selected_jets"], attributes=["pt", "eta", "phi", "mass", "qgl"])
-    subleading_jet = jets.select_nth(1, ret_mu["selected_events"], ret_jet["selected_jets"], attributes=["pt", "eta", "phi", "mass", "qgl"])
+    #Jet energy corrections
+    if parameters["do_jec"]:
+        #compute and apply jet corrections
+        corr = jetmet_corrections.jec.getCorrection(JetPt=raw_pt, Rho=rho, JetEta=eta, JetA=area)
+        corr = NUMPY_LIB.array(corr)
+        pt_jec = NUMPY_LIB.array(raw_pt) * corr 
+        mass_jec = raw_mass * corr
 
-    if parameters["do_rochester_corrections"]:
-        leading_muon_pt, subleading_muon_pt = do_rochester_corrections(
-            is_mc,
-            rochester_corrections,
-            leading_muon,
-            subleading_muon)
-        leading_muon["pt"][:] = leading_muon_pt[:]
-        subleading_muon["pt"][:] = subleading_muon_pt[:]
-
-    if parameters["do_lepton_sf"] and is_mc:
-        sfs = []
-        for mu in [leading_muon, subleading_muon]: 
-            if use_cuda:
-                mu = {k: NUMPY_LIB.asnumpy(v) for k, v in mu.items()}
-            sf_iso = lepsf_iso.compute(mu["pdgId"], mu["pt"], mu["eta"])
-            sf_id = lepsf_id.compute(mu["pdgId"], mu["pt"], mu["eta"])
-            sf_trig = lepsf_trig.compute(mu["pdgId"], mu["pt"], mu["eta"])
-            sfs += [sf_iso, sf_id, sf_trig]
-        sf_tot = sfs[0]
-        for sf in sfs[1:]:
-            sf_tot = sf_tot * sf
-        if use_cuda:
-            sf_tot = NUMPY_LIB.array(sf_tot)
-        weights["leptonsf"] = weights["nominal"] * sf_tot
-
-    #compute DNN input variables in 2 muon, >=2jet region
-    dnn_presel = (ret_mu["selected_events"]) & (ret_jet["num_jets"] >= 2)
-    compute_fill_dnn(parameters, use_cuda, dnn_presel, dnn_model,
-        scalars, leading_muon, subleading_muon, leading_jet, subleading_jet,
-        weights, hists)
+        resos = jetmet_corrections.jer.getResolution(JetEta=eta, Rho=rho, JetPt=NUMPY_LIB.asnumpy(pt_jec))
+        resosfs = jetmet_corrections.jersf.getScaleFactor(JetEta=eta) 
+        resos = NUMPY_LIB.array(resos)
+        resosfs = NUMPY_LIB.array(resosfs)
+        jer_smear = resos * NUMPY_LIB.random.normal(size=len(pt_jec))
+        jer_smear_central = 1 + NUMPY_LIB.sqrt(resosfs[:, 0]  ** 2 - 1.0) * jer_smear
+        jer_smear_up = 1 + NUMPY_LIB.sqrt(resosfs[:, 1]  ** 2 - 1.0) * jer_smear
+        jer_smear_down = 1 + NUMPY_LIB.sqrt(resosfs[:, 2]  ** 2 - 1.0) * jer_smear
+        pt_jec_jer_central = pt_jec * jer_smear_central
+        pt_jec_jer_up = pt_jec * jer_smear_up
+        pt_jec_jer_down = pt_jec * jer_smear_down
         
-    #get the number of additional muons (not OS) that pass ID and iso cuts
-    n_additional_muons = ha.sum_in_offsets(muons, ret_mu["additional_muon_sel"], ret_mu["selected_events"], ret_mu["additional_muon_sel"], dtype=NUMPY_LIB.int8)
-    n_additional_electrons = ha.sum_in_offsets(electrons, ret_el["additional_electron_sel"], ret_mu["selected_events"], ret_el["additional_electron_sel"], dtype=NUMPY_LIB.int8)
-    n_additional_leptons = n_additional_muons + n_additional_electrons
-    
-    if doverify:
-        assert(NUMPY_LIB.all(leading_muon["pt"][leading_muon["pt"]>0] > parameters["muon_pt_leading"]))
-        assert(NUMPY_LIB.all(subleading_muon["pt"][subleading_muon["pt"]>0] > parameters["muon_pt"]))
+        if is_mc:
+            jesunc = dict(list(jetmet_corrections.jesunc.getUncertainty(JetPt=NUMPY_LIB.array(pt_jec_jer_central), JetEta=jets.eta))) 
 
+            jet_pt_syst[("jer", "up")] = pt_jec_jer_up
+            jet_pt_syst[("jer", "down")] = pt_jec_jer_down
+
+            #add variated jet momenta, but lazily as callable functions to save GPU memory
+            for unc_name, arr in jesunc.items():
+                pt_jer = pt_jec_jer_central / corr
+                jet_pt_syst[(unc_name, "up")] = lambda pt_jer=pt_jer, name=unc_name: pt_jer * NUMPY_LIB.array(jesunc[name][:, 0])
+                jet_pt_syst[(unc_name, "down")] = lambda pt_jer=pt_jer, name=unc_name: pt_jer * NUMPY_LIB.array(jesunc[name][:, 1]) 
+
+    #dictionary of variated 
+    return jet_pt_syst
+
+def fill_muon_hists(hists, scalars, weights, ret_mu, inv_mass, leading_muon, subleading_muon, parameters, masswindow_110_150, masswindow_120_130, NUMPY_LIB):
     hists["hist__dimuon__npvs"] = fill_with_weights(scalars["PV_npvsGood"], weights, ret_mu["selected_events"], NUMPY_LIB.linspace(0,100,101))
     hists["hist__dimuon__inv_mass"] = fill_with_weights(inv_mass, weights, ret_mu["selected_events"], NUMPY_LIB.linspace(50,200,101))
 
@@ -820,9 +760,6 @@ def analyze_data(
         NUMPY_LIB.linspace(-4.0, 4.0, 101)
     )
 
-    masswindow_110_150 = ((inv_mass >= 110) & (inv_mass < 150))
-    masswindow_120_130 = ((inv_mass >= 120) & (inv_mass < 130))
-
     hists["hist__dimuon_invmass_110_150__inv_mass"] = fill_with_weights(
        inv_mass, weights, ret_mu["selected_events"] & masswindow_110_150,
        NUMPY_LIB.linspace(110, 150, parameters["inv_mass_bins"])
@@ -833,34 +770,249 @@ def analyze_data(
        NUMPY_LIB.linspace(120, 130, parameters["inv_mass_bins"])
     )
 
-    cut_pre = ret_mu["selected_events"] & masswindow_120_130
-    for cat_tree_name, cat_tree in parameters["categorization_trees"].items():
-        hists_cat = Results({})
-        categories = cat_tree.predict(len(inv_mass), {
-            "dimuon_inv_mass": inv_mass,
-            "dijet_inv_mass": ret_jet["dijet_inv_mass"],
-            "num_jets": ret_jet["num_jets"],
-            "num_jets_btag": ret_jet["num_jets_btag"],
-            "leading_mu_abs_eta": NUMPY_LIB.abs(leading_muon["eta"]),
-            "additional_leptons": n_additional_leptons,
-        })
-        
-        #Make histograms for each category
-        for cat in [l.value for l in cat_tree.get_all_leaves()]:
-            cut = cut_pre & (categories == cat)
-            hists_cat["hist__cat{0}__inv_mass".format(int(cat))] = Results(fill_with_weights(
-                inv_mass, weights,
-                cut,
-                NUMPY_LIB.linspace(120, 130, parameters["inv_mass_bins"])
-            ))
-        hists[cat_tree_name] = hists_cat
+def compute_lepton_sf(leading_muon, subleading_muon, lepsf_iso, lepsf_id, lepsf_trig, use_cuda, NUMPY_LIB):
+    sfs = []
+    for mu in [leading_muon, subleading_muon]: 
+        if use_cuda:
+            mu = {k: NUMPY_LIB.asnumpy(v) for k, v in mu.items()}
+        sf_iso = lepsf_iso.compute(mu["pdgId"], mu["pt"], mu["eta"])
+        sf_id = lepsf_id.compute(mu["pdgId"], mu["pt"], mu["eta"])
+        sf_trig = lepsf_trig.compute(mu["pdgId"], mu["pt"], mu["eta"])
+        sfs += [sf_iso, sf_id, sf_trig]
 
+    #multiply all weights
+    sf_tot = sfs[0]
+    for sf in sfs[1:]:
+        sf_tot = sf_tot * sf
+
+    #move to GPU
+    if use_cuda:
+        sf_tot = NUMPY_LIB.array(sf_tot)
+
+    return sf_tot
+
+def analyze_data(
+    data,
+    use_cuda=False,
+    is_mc=True,
+    pu_corrections=None,
+    lumimask=None,
+    lumidata=None,
+    rochester_corrections=None,
+    lepsf_iso=None,
+    lepsf_id=None,
+    lepsf_trig=None,
+    dnn_model=None,
+    jetmet_corrections=None,
+    parameters={},
+    parameter_set_name="",
+    doverify=False,
+    debug=False
+    ):
+
+    muons = data["Muon"]
+    jets = data["Jet"]
+    electrons = data["Electron"]
+    trigobj = data["TrigObj"]
+    scalars = data["eventvars"]
+   
+    #output histograms 
+    hists = {}
+
+    #temporary hack
+    muons.hepaccelerate_backend = ha
+    jets.hepaccelerate_backend = ha
+
+    #associate the muon genpt to reco muons based on the NanoAOD index
+    if is_mc:
+        genpart = data["GenPart"]
+        muons_genpt = NUMPY_LIB.zeros(muons.numobjects(), dtype=NUMPY_LIB.float32)
+        if not use_cuda:
+            muons_get_genpt_cpu(muons.offsets, muons.genPartIdx, genpart.offsets, genpart.pt, muons_genpt)
+        else:
+            muons_get_genpt_cuda[32,1024](muons.offsets, muons.genPartIdx, genpart.offsets, genpart.pt, muons_genpt)
+        muons.attrs_data["genpt"] = muons_genpt
+
+
+    # scalars["run"] = NUMPY_LIB.array(scalars["run"], dtype=NUMPY_LIB.uint32)
+    # scalars["luminosityBlock"] = NUMPY_LIB.array(scalars["run"], dtype=NUMPY_LIB.uint32)
+
+    #Get the mask of events that pass trigger selection
+    mask_events = NUMPY_LIB.ones(muons.numevents(), dtype=NUMPY_LIB.bool)
+    select_events_trigger(scalars, parameters, mask_events)
+
+    #Compute event weights
+    weights = {}
+    weights["nominal"] = NUMPY_LIB.ones(muons.numevents(), dtype=NUMPY_LIB.float32)
+
+    if is_mc:
+        weights["nominal"] = weights["nominal"] * scalars["genWeight"] * genweight_scalefactor
+        pu_weights, pu_weights_up, pu_weights_down = compute_pu_weights(
+            pu_corrections, weights["nominal"],
+            scalars["Pileup_nTrueInt"], scalars["PV_npvsGood"])
+        weights["puWeight_up"] = weights["nominal"] * pu_weights_up
+        weights["puWeight_down"] = weights["nominal"] * pu_weights_down
+        weights["nominal"] = weights["nominal"] * pu_weights
+
+    #get the two leading muons after applying all muon selection
+    ret_mu = get_selected_muons(
+        muons, trigobj, mask_events,
+        parameters["muon_pt_leading"], parameters["muon_pt"],
+        parameters["muon_eta"], parameters["muon_iso"],
+        parameters["muon_id"], parameters["muon_trigger_match_dr"]
+    )
+
+    #Just a check to verify that there are exactly 2 muons per event
+    if doverify:
+        z = ha.sum_in_offsets(
+            muons,
+            ret_mu["selected_muons"],
+            ret_mu["selected_events"],
+            ret_mu["selected_muons"], dtype=NUMPY_LIB.int8)
+        assert(NUMPY_LIB.all(z[z!=0] == 2))
+
+    # Get the selected electrons
+    ret_el = get_selected_electrons(electrons, parameters["extra_electrons_pt"], parameters["extra_electrons_eta"], parameters["extra_electrons_id"])
+    
+    # Get the invariant mass of the dimuon system and compute mass windows
+    inv_mass = compute_inv_mass(muons, ret_mu["selected_events"], ret_mu["selected_muons"])
+    masswindow_110_150 = ((inv_mass >= 110) & (inv_mass < 150))
+    masswindow_120_130 = ((inv_mass >= 120) & (inv_mass < 130))
     masswindow_exclude_120_130 = masswindow_110_150 & (NUMPY_LIB.invert((inv_mass >= 120) & (inv_mass <= 130)))
-    hists["hist__dimuon_invmass_110_150_exclude_120_130_jge1__leading_jet_pt"] = fill_with_weights(leading_jet["pt"], weights,
-       ret_mu["selected_events"] & (ret_jet["num_jets"]>=1) & masswindow_exclude_120_130, NUMPY_LIB.linspace(30, 200.0, 101))
-    hists["hist__dimuon_invmass_110_150_exclude_120_130_jge2__subleading_jet_pt"] = fill_with_weights(subleading_jet["pt"], weights,
-       ret_mu["selected_events"] & (ret_jet["num_jets"]>=2) & masswindow_exclude_120_130, NUMPY_LIB.linspace(30, 100.0, 101))
-    hists["hist__dimuon_invmass_110_150_exclude_120_130__numjet"] = fill_with_weights(ret_jet["num_jets"], weights, ret_mu["selected_events"] & masswindow_exclude_120_130, NUMPY_LIB.linspace(0, 10, 11))
+
+    # Create arrays with just the leading and subleading particle contents for easier management
+    mu_attrs = ["pt", "eta", "phi", "mass", "pdgId", "nTrackerLayers"]
+    if is_mc:
+        mu_attrs += ["genpt"]
+    leading_muon = muons.select_nth(0, ret_mu["selected_events"], ret_mu["selected_muons"], attributes=mu_attrs)
+    subleading_muon = muons.select_nth(1, ret_mu["selected_events"], ret_mu["selected_muons"], attributes=mu_attrs)
+    if doverify:
+        assert(NUMPY_LIB.all(leading_muon["pt"][leading_muon["pt"]>0] > parameters["muon_pt_leading"]))
+        assert(NUMPY_LIB.all(subleading_muon["pt"][subleading_muon["pt"]>0] > parameters["muon_pt"]))
+
+    #Apply Rochester corrections to leading and subleading muon momenta
+    if parameters["do_rochester_corrections"]:
+        leading_muon_pt, subleading_muon_pt = do_rochester_corrections(
+            is_mc,
+            rochester_corrections,
+            leading_muon,
+            subleading_muon)
+        leading_muon["pt"][:] = leading_muon_pt[:]
+        subleading_muon["pt"][:] = subleading_muon_pt[:]
+
+    #Compute lepton scale factors
+    if parameters["do_lepton_sf"] and is_mc:
+        sf_tot = compute_lepton_sf(leading_muon, subleading_muon, lepsf_iso, lepsf_id, lepsf_trig, use_cuda, NUMPY_LIB)
+        weights["leptonsf"] = weights["nominal"] * sf_tot
+
+    #get the number of additional muons (not OS) that pass ID and iso cuts
+    n_additional_muons = ha.sum_in_offsets(muons, ret_mu["additional_muon_sel"], ret_mu["selected_events"], ret_mu["additional_muon_sel"], dtype=NUMPY_LIB.int8)
+    n_additional_electrons = ha.sum_in_offsets(electrons, ret_el["additional_electron_sel"], ret_mu["selected_events"], ret_el["additional_electron_sel"], dtype=NUMPY_LIB.int8)
+    n_additional_leptons = n_additional_muons + n_additional_electrons
+
+    fill_muon_hists(hists, scalars, weights, ret_mu, inv_mass, leading_muon, subleading_muon, parameters, masswindow_110_150, masswindow_120_130, NUMPY_LIB)
+
+    #Apply JEC, create a dictionary of variated jet momenta
+    jet_pt_syst = apply_jec(jets, scalars, parameters, jetmet_corrections, NUMPY_LIB, use_cuda, is_mc)
+
+    # Loop over all jet momentum variations and do analysis that depends on jets
+    for jet_syst_name, jet_pt_vec in jet_pt_syst.items():
+
+        # For events where the JEC/JER was variated, fill only the nominal weight
+        weights_selected = select_weights(weights, jet_syst_name)
+
+        # In case the pt vector is a function, we evaluate it
+        # This is used for GPUs to transfer the pt vector only when needed
+        if callable(jet_pt_vec):
+            jet_pt_vec = jet_pt_vec()
+
+        # Configure the jet pt vector to the variated one
+        # Would need to also do the mass here
+        jets.pt = jet_pt_vec
+
+        #get the passing jets for events that pass muon selection
+        ret_jet = get_selected_jets(
+            jets, muons,
+            ret_mu["selected_muons"], mask_events,
+            parameters["jet_pt"],
+            parameters["jet_eta"],
+            parameters["jet_mu_dr"],
+            parameters["jet_id"],
+            parameters["jet_puid"],
+            parameters["jet_btag"]
+        )
+
+        # Get the data for the leading and subleading jets as contiguous vectors
+        leading_jet = jets.select_nth(0, ret_mu["selected_events"], ret_jet["selected_jets"], attributes=["pt", "eta", "phi", "mass", "qgl"])
+        subleading_jet = jets.select_nth(1, ret_mu["selected_events"], ret_jet["selected_jets"], attributes=["pt", "eta", "phi", "mass", "qgl"])
+
+        #Check that there are no jets with a pt lower than the cut in the selected events
+        if doverify:
+            z = ha.min_in_offsets(jets, jets.pt, ret_mu["selected_events"], ret_jet["selected_jets"])
+            assert(NUMPY_LIB.all(z[z>0] > parameters["jet_pt"]))
+
+        #compute DNN input variables in 2 muon, >=2jet region
+        dnn_presel = (ret_mu["selected_events"]) & (ret_jet["num_jets"] >= 2)
+
+        #Compute the DNN inputs, the DNN output, fill the DNN input and output variable histograms
+        hists_dnn = {}
+        compute_fill_dnn(parameters, use_cuda, dnn_presel, dnn_model,
+            scalars, leading_muon, subleading_muon, leading_jet, subleading_jet,
+            weights_selected, hists_dnn)
+
+        #Put the DNN histograms into the result dictionary
+        for k, v in hists_dnn.items():
+            if k not in hists:
+                hists[k] = {}
+            if jet_syst_name[0] == "nominal":
+                hists[k].update(hists_dnn[k])
+            else:
+                hists[k][jet_syst_name[0] + "__" + jet_syst_name[1]] = hists_dnn[k]["nominal"]
+
+        #Split the events into categories based on the categorization cut tree
+        cut_pre = ret_mu["selected_events"] & masswindow_120_130
+        for cat_tree_name, cat_tree in parameters["categorization_trees"].items():
+            hists_cat = Results({})
+            categories = cat_tree.predict(len(inv_mass), {
+                "dimuon_inv_mass": inv_mass,
+                "dijet_inv_mass": ret_jet["dijet_inv_mass"],
+                "num_jets": ret_jet["num_jets"],
+                "num_jets_btag": ret_jet["num_jets_btag"],
+                "leading_mu_abs_eta": NUMPY_LIB.abs(leading_muon["eta"]),
+                "additional_leptons": n_additional_leptons,
+            })
+            
+            #Make histograms for each category
+            for cat in [l.value for l in cat_tree.get_all_leaves()]:
+                #Choose events that pass this category
+                cut = cut_pre & (categories == cat)
+                #Fill the invariant mass distribution for each category
+                hists_cat["hist__cat{0}__inv_mass".format(int(cat))] = Results(fill_with_weights(
+                    inv_mass, weights_selected,
+                    cut,
+                    NUMPY_LIB.linspace(120, 130, parameters["inv_mass_bins"])
+                ))
+            hists[cat_tree_name] = hists_cat
+
+        update_histograms_systematic(
+            hists,
+            "hist__dimuon_invmass_110_150_exclude_120_130_jge1__leading_jet_pt",
+            jet_syst_name, leading_jet["pt"], weights_selected,
+           ret_mu["selected_events"] & (ret_jet["num_jets"]>=1) & masswindow_exclude_120_130, NUMPY_LIB.linspace(30, 200.0, 101))
+
+        update_histograms_systematic(
+            hists,
+            "hist__dimuon_invmass_110_150_exclude_120_130_jge2__subleading_jet_pt",
+            jet_syst_name, subleading_jet["pt"], weights_selected,
+           ret_mu["selected_events"] & (ret_jet["num_jets"]>=2) & masswindow_exclude_120_130, NUMPY_LIB.linspace(30, 100.0, 101))
+
+        update_histograms_systematic(
+            hists,
+            "hist__dimuon_invmass_110_150_exclude_120_130__numjet",
+            jet_syst_name, ret_jet["num_jets"], weights_selected,
+           ret_mu["selected_events"] & masswindow_exclude_120_130, NUMPY_LIB.linspace(0, 10, 11))
+
+    #end of jet systematic loop
 
     #Compute integrated luminosity on data sample
     int_lumi = 0
@@ -874,11 +1026,13 @@ def analyze_data(
             if not (lumidata is None):
                 int_lumi = get_int_lumi(runs, lumis, NUMPY_LIB.asnumpy(mask_lumi_golden_json), lumidata)
 
+    # Collect results
     ret = Results({
         "int_lumi": int_lumi,
     })
-    for histname, hist in hists.items():
-        ret[histname] = Results(hist)
+
+    for histname, r in hists.items():
+        ret[histname] = Results(r)
 
     ret["numev_passed"] = get_numev_passed(
         muons.numevents(), {
@@ -1018,6 +1172,7 @@ class InputGen:
 
         #load caches on multiple threads
         ds.from_cache(executor=self.executor, verbose=False)
+        ds.merge_inplace()
         with self.loaded_lock:
             self.num_loaded += 1
 
@@ -1086,7 +1241,9 @@ def threaded_metrics(tokill, train_batches_queue):
 
     return
 
-def run_analysis(args, outpath, datasets, parameters, lumidata, lumimask, pu_corrections, rochester_corrections, lepsf_iso, lepsf_id, lepsf_trig, dnn_model):
+def run_analysis(args, outpath, datasets, parameters,
+    lumidata, lumimask, pu_corrections, rochester_corrections,
+    lepsf_iso, lepsf_id, lepsf_trig, dnn_model, jetmet_corrections):
     nev_total = 0
     nev_loaded = 0
     t0 = time.time()
@@ -1168,7 +1325,8 @@ def run_analysis(args, outpath, datasets, parameters, lumidata, lumimask, pu_cor
                     lepsf_id=lepsf_id,
                     lepsf_trig=lepsf_trig,
                     parameters=parameters,
-                    dnn_model=dnn_model) 
+                    dnn_model=dnn_model,
+                    jetmet_corrections=jetmet_corrections) 
                 rets += [ret]
                 processed_size_mb += memsize
                 nev_total += sum([md["numevents"] for md in ret["cache_metadata"]])
@@ -1222,6 +1380,7 @@ def create_datastructure(is_mc):
             ("Jet_btagDeepB", "float32"),
             ("Jet_qgl", "float32"),
             ("Jet_jetId", "int32"), ("Jet_puId", "int32"),
+            ("Jet_area", "float32"), ("Jet_rawFactor", "float32")
         ],
         "TrigObj": [
             ("TrigObj_pt", "float32"),
@@ -1245,7 +1404,8 @@ def create_datastructure(is_mc):
             ("run", "uint32"),
             ("luminosityBlock", "uint32"),
             ("event", "uint64"),
-            ("SoftActivityJetNjets5", "int32")
+            ("SoftActivityJetNjets5", "int32"),
+            ("fixedGridRhoFastjetAll", "float32")
         ],
     }
     if is_mc:

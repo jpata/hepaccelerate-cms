@@ -125,7 +125,7 @@ if __name__ == "__main__":
 
             #weights = res["dy"][analysis][var].keys()85.656
 
-            for weight in ["nominal", "puWeight", "leptonsf"]:
+            for weight in ["nominal", "leptonsf"]:
                 hd = load_hist(res["data"][analysis][var]["nominal"])
 
                 hmc = []
@@ -150,6 +150,7 @@ if __name__ == "__main__":
                 plt.figure(figsize=(4,4))
                 a1, a2 = plot_hist_ratio(hmc, hd)
                 a2.grid(which="both", linewidth=0.5)
+                # Ratio axis ticks
                 ts = a2.set_yticks([0.5, 1.0, 1.5], minor=False)
                 ts = a2.set_yticks([0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5], minor=True)
 

@@ -7,7 +7,7 @@ stages:
 
 #image used to compile and run code
 variables:
-  singularity_image: /bigdata/shared/Software/singularity/ibanks/edge_r.simg
+  singularity_image: /bigdata/shared/Software/singularity/gpuservers/singularity/images/cupy.simg
 
 libhmm:
   stage: build
