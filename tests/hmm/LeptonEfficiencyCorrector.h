@@ -16,7 +16,7 @@ class LeptonEfficiencyCorrector {
   //LeptonEfficiencyCorrector(std::vector<std::string> files, std::vector<std::string> histos);
   ~LeptonEfficiencyCorrector() {}
 
-  void init(std::vector<std::string> files, std::vector<std::string> histos);
+  void init(std::vector<std::string> files, std::vector<std::string> histos, std::vector<float> weights);
   void setLeptons(int nLep, int *lepPdgId, float *lepPt, float *lepEta);
 
   float getSF(int pdgid, float pt, float eta) const;
@@ -25,6 +25,7 @@ class LeptonEfficiencyCorrector {
 
 private:
   std::vector<TH2F*> effmaps_;
+  std::vector<float> weights_;
   std::vector<float> ret_;
   int nLep_;
   float *Lep_eta_, *Lep_pt_;
@@ -32,14 +33,23 @@ private:
 };
 
 extern "C" {
-    LeptonEfficiencyCorrector* new_LeptonEfficiencyCorrector(const char* file, const char* histo) {
+    LeptonEfficiencyCorrector* new_LeptonEfficiencyCorrector(int n, const char** file, const char** histo, float* weights) {
         std::vector<std::string> v_files;
-        v_files.push_back(file);
+        for (int i=0; i < n; i++) {
+          v_files.push_back(file[i]);
+        }
         std::vector<std::string> v_histos;
-        v_histos.push_back(histo);
+        for (int i=0; i < n; i++) {
+          v_histos.push_back(histo[i]);
+        }
+
+        std::vector<float> v_weights;
+        for (int i=0; i < n; i++) {
+          v_weights.push_back(weights[i]);
+        }
 
         auto* ret = new LeptonEfficiencyCorrector();
-        ret->init(v_files, v_histos);
+        ret->init(v_files, v_histos, v_weights);
         return ret;
     }
 

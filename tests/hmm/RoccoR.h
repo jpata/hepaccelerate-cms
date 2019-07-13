@@ -180,21 +180,21 @@ extern "C" {
         return new RoccoR(filename);
     }
     
-    void roccor_kScaleDT(RoccoR* rc, float* out, int n_elem, int Q, float* pt, float* eta, float* phi, int s, int m) {
+    void roccor_kScaleDT(RoccoR* rc, float* out, int n_elem, int* charge, float* pt, float* eta, float* phi, int s, int m) {
         #pragma omp parallel for
         for (int i=0; i<n_elem; i++) {
-            out[i] = rc->kScaleDT(Q, pt[i], eta[i], phi[i], s, m);
+            out[i] = rc->kScaleDT(charge[i], pt[i], eta[i], phi[i], s, m);
         }
     }
 
     void roccor_kSpreadMC_or_kSmearMC(RoccoR* rc, float* out, int n_elem,
-        int Q, float* pt, float* eta, float* phi, float* genpt, int* tracklayers, float* rand, int s, int m) {
+        int* charge, float* pt, float* eta, float* phi, float* genpt, int* tracklayers, float* rand, int s, int m) {
         #pragma omp parallel for
         for (int i=0; i<n_elem; i++) {
             if (genpt[i] > 0) {
-                out[i] = rc->kSpreadMC(Q, pt[i], eta[i], phi[i], genpt[i], s, m);
+                out[i] = rc->kSpreadMC(charge[i], pt[i], eta[i], phi[i], genpt[i], s, m);
             } else {
-                out[i] = rc->kSmearMC(Q, pt[i], eta[i], phi[i], tracklayers[i], rand[i], s, m);
+                out[i] = rc->kSmearMC(charge[i], pt[i], eta[i], phi[i], tracklayers[i], rand[i], s, m);
             }
         }
     }

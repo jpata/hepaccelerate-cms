@@ -1,4 +1,4 @@
-CXX      = g++ -fPIC -fopenmp
+CXX      = g++ -fPIC
 
 CXXFLAGS= $(shell root-config --cflags)
 LIBS    = $(shell root-config --libs)
