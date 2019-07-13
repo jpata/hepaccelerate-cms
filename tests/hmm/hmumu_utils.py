@@ -1235,6 +1235,8 @@ def analyze_data(
 
         if save_dnn_vars:
             dnn_vars_np = {k: NUMPY_LIB.asnumpy(v) for k, v in dnn_vars.items()}
+            if is_mc:
+                dnn_vars_np["genweight"] = scalars["genWeight"][dnn_presel] 
             numpy.savez("/storage/user/jpata/hmm/dnn_vars/{0}/{1}_{2}.npz".format(dataset_era, dataset_name, dataset_num_chunk), kwds=dnn_vars_np)
 
         #Put the DNN histograms into the result dictionary
