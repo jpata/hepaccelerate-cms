@@ -42,13 +42,13 @@ cd hepaccelerate-cms
 git submodule init
 git submodule update
 
-#Start the singularity shell
-singularity shell -B /storage /bigdata/shared/Software/singularity/gpuservers/singularity/images/cupy.simg
+#Compile the C++ helpers
+cd tests/hmm
+singularity exec /bigdata/shared/Software/singularity/gpuservers/singularity/images/cupy.simg make
+cd ../..
 
-Singularity cupy.simg:~> cd tests/hmm
-Singularity cupy.simg:~> make
-Singularity cupy.simg:~> cd ../..
-Singularity cupy.simg:~> ./test.sh
+#Run the code (small dataset by default, edit the file to change this)
+./tests/hmm/run.sh
 ~~~
 
 
