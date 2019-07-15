@@ -29,40 +29,196 @@ from cmsutils.plotting import plot_hist_step
 from cmsutils.decisiontree import DecisionTreeNode, DecisionTreeLeaf, make_random_node, grow_randomly, make_random_tree, prune_randomly, generate_cut_trees
 from cmsutils.stats import likelihood, sig_q0_asimov, sig_naive
 
+#global variables need to be configured here for the hepaccelerate backend and numpy library
 ha = None
 NUMPY_LIB = None
+
+#Used to scale the genweight to prevent a numerical overflow
 genweight_scalefactor = 0.00001
 
+#Use these to turn on debugging
 debug = False
 debug_event_ids = []
 
-try:
-    import nvidia_smi
-except Exception as e:
-    print("Could not import nvidia_smi", file=sys.stderr)
-    pass
+#Main analysis entry point
+def run_analysis(
+    args, outpath, datasets, parameters,
+    chunksize, maxfiles,
+    lumidata, lumimask, pu_corrections, rochester_corrections,
+    lepsf_iso, lepsf_id, lepsf_trig, dnn_model, jetmet_corrections):
 
-def parse_nvidia_smi():
-    """Returns the GPU symmetric multiprocessor and memory usage in %
-    """
-    nvidia_smi.nvmlInit()
-    handle = nvidia_smi.nvmlDeviceGetHandleByIndex(0)
-    res = nvidia_smi.nvmlDeviceGetUtilizationRates(handle) 
-    return {"gpu": res.gpu, "mem": res.memory}
+    #Keep track of number of events
+    nev_total = 0
+    nev_loaded = 0
+    t0 = time.time()
+    
+    if "cache" in args.action:
+       print("Will retrieve dataset filenames based on existing ROOT files on filesystem in datapath={0}".format(args.datapath)) 
+       try:
+           os.makedirs(args.cache_location)
+       except Exception as e:
+           pass
+       filenames_cache = {}
+       for datasetname, dataset_era, globpattern, is_mc in datasets:
+           filenames_all = glob.glob(args.datapath + globpattern, recursive=True)
+           filenames_all = [fn for fn in filenames_all if not "Friend" in fn]
+           filenames_cache[datasetname + "_" + dataset_era] = [fn.replace(args.datapath, "") for fn in filenames_all]
+   
+       #save all dataset filenames to a json file 
+       print("Creating a json dump of all the dataset filenames")
+       with open(args.cache_location + "/datasets.json", "w") as fi:
+           fi.write(json.dumps(filenames_cache, indent=2))
+    else:
+       print("Loading list of filenames loaded from {0}/datasets.json".format(args.cache_location))
+       filenames_cache = json.load(open(args.cache_location + "/datasets.json", "r"))
 
-class thread_killer(object):
-    """Boolean object for signaling a worker thread to terminate
-    """
-    def __init__(self):
-        self.lock = threading.Lock()
-        self.to_kill = False
+    for dataset, filenames in filenames_cache.items():
+        print("dataset {0} consists of {1} ROOT files".format(dataset, len(filenames)))
+ 
+    processed_size_mb = 0
+    for datasetname, dataset_era, globpattern, is_mc in datasets:
+        filenames_all = filenames_cache[datasetname + "_" + dataset_era]
+        filenames_all = [args.datapath + "/" + fn for fn in filenames_all]
+ 
+        print("Processing dataset {0}_{1}".format(datasetname, dataset_era))
+        if maxfiles[dataset_era] > 0:
+            filenames_all = filenames_all[:maxfiles[dataset_era]]
+
+        datastructure = create_datastructure(is_mc, dataset_era)
+
+        if "cache" in args.action:
+ 
+            print("Running the 'cache' step of the analysis, ROOT files will be opened and branches will be uncompressed")
+
+            #Used for preselection in the cache
+            hlt_bits = parameters["baseline"]["hlt_bits"][dataset_era]
+                
+            _nev_total, _processed_size_mb = cache_data(
+                filenames_all, datasetname, datastructure,
+                args.cache_location, args.datapath, is_mc,
+                hlt_bits,
+                nworkers=args.nthreads)
+            nev_total += _nev_total
+            processed_size_mb += _processed_size_mb
+
+        if "analyze" in args.action:
+            print("Running the 'analyze' step of the analysis, loading cached branch data and using it in physics code via analyze_data()")
+
+            #Create a thread that will load data in the background
+            training_set_generator = InputGen(
+                datasetname, dataset_era, list(filenames_all), datastructure,
+                args.nthreads, chunksize[dataset_era], args.cache_location, args.datapath)
+            threadk = thread_killer()
+            threadk.set_tokill(False)
+            train_batches_queue = Queue(maxsize=20)
+            
+            #Start the thread if using a multithreaded approach
+            if args.async_data:
+                for _ in range(1):
+                    t = Thread(target=threaded_batches_feeder, args=(threadk, train_batches_queue, training_set_generator))
+                    t.start()
+
+            rets = []
+            num_processed = 0
+           
+            cache_metadata = []
+            #loop over all data, call the analyze function
+            while num_processed < len(training_set_generator.paths_chunks):
+
+                # In case we are processing data synchronously, just load the dataset here
+                # and put to queue.
+                if not args.async_data:
+                    ds = training_set_generator.nextone()
+                    if ds is None:
+                        break
+                    train_batches_queue.put(ds)
+
+                #Progress indicator for each chunk of files
+                sys.stdout.write(".");sys.stdout.flush()
+
+                #Process the dataset
+                ret, nev, memsize = event_loop(
+                    train_batches_queue,
+                    args.use_cuda,
+                    verbose=False, is_mc=is_mc, lumimask=lumimask,
+                    lumidata=lumidata,
+                    pu_corrections=pu_corrections,
+                    rochester_corrections=rochester_corrections,
+                    lepsf_iso=lepsf_iso,
+                    lepsf_id=lepsf_id,
+                    lepsf_trig=lepsf_trig,
+                    parameters=parameters,
+                    dnn_model=dnn_model,
+                    jetmet_corrections=jetmet_corrections,
+                    do_sync = args.do_sync) 
+
+                rets += [ret]
+                processed_size_mb += memsize
+                nev_total += sum([md["numevents"] for md in ret["cache_metadata"]])
+                nev_loaded += nev
+                num_processed += 1
+            print()
+
+            #clean up threads
+            threadk.set_tokill(True)
+
+            #save output
+            ret = sum(rets, Results({}))
+            if is_mc:
+                ret["gen_sumweights"] = sum([md["precomputed_results"]["genEventSumw"] for md in ret["cache_metadata"]])
+            ret.save_json("{0}/{1}_{2}.json".format(outpath, datasetname, dataset_era))
     
-    def __call__(self):
-        return self.to_kill
-    
-    def set_tokill(self,tokill):
-        with self.lock:
-            self.to_kill = tokill
+    t1 = time.time()
+    dt = t1 - t0
+    print("Overall processed {nev:.2E} ({nev_loaded:.2E} loaded) events in total {size:.2f} GB, {dt:.1f} seconds, {evspeed:.2E} Hz, {sizespeed:.2f} MB/s".format(
+        nev=nev_total, nev_loaded=nev_loaded, dt=dt, size=processed_size_mb/1024.0, evspeed=nev_total/dt, sizespeed=processed_size_mb/dt)
+    )
+
+    bench_ret = {}
+    bench_ret.update(args.__dict__)
+    bench_ret["hostname"] = os.uname()[1]
+    bench_ret["nev_total"] = nev_total
+    bench_ret["total_time"] = dt
+    bench_ret["evspeed"] = nev_total/dt/1000/1000
+    with open("analysis_benchmarks.txt", "a") as of:
+        of.write(json.dumps(bench_ret) + '\n')
+
+def event_loop(train_batches_queue, use_cuda, **kwargs):
+    ds = train_batches_queue.get(block=True)
+    #print("event_loop nev={0}, queued={1}".format(len(ds), train_batches_queue.qsize()))
+
+    #copy dataset to GPU and make sure future operations are done on it
+    if use_cuda:
+        import cupy
+        ds.numpy_lib = cupy
+        ds.move_to_device(cupy)
+
+    parameters = kwargs.pop("parameters")
+
+    ret = {}
+    for parameter_set_name, parameter_set in parameters.items():
+        ret[parameter_set_name] = ds.analyze(
+            analyze_data,
+            use_cuda = use_cuda,
+            parameter_set_name = parameter_set_name,
+            parameters = parameter_set,
+            dataset_era = ds.era,
+            dataset_name = ds.name,
+            dataset_num_chunk = ds.num_chunk,
+            **kwargs)
+    ret["num_events"] = len(ds)
+
+    train_batches_queue.task_done()
+
+    #clean up CUDA memory
+    if use_cuda:
+        mempool = cupy.get_default_memory_pool()
+        pinned_mempool = cupy.get_default_pinned_memory_pool()
+        mempool.free_all_blocks()
+        pinned_mempool.free_all_blocks()
+     
+    ret["cache_metadata"] = ds.cache_metadata 
+    return ret, len(ds), ds.memsize()/1024.0/1024.0
 
 def get_histogram(data, weights, bins):
     """Given N-unit vectors of data and weights, returns the histogram in bins
@@ -1430,264 +1586,7 @@ def cache_data_multiproc_worker(args):
         filename, processed_size_mb, processed_size_mb_post, len(ds)/dt, processed_size_mb/dt))
     return len(ds), processed_size_mb
 
-class InputGen:
-    def __init__(self, name, era, paths, is_mc, nthreads, chunksize, cache_location, datapath):
-        self.name = name
-        self.era = era
-        self.paths_chunks = list(chunks(paths, chunksize))
-        self.chunk_lock = threading.Lock()
-        self.loaded_lock = threading.Lock()
-        self.num_chunk = 0
-        self.num_loaded = 0
-        self.is_mc = is_mc
-        self.nthreads = nthreads
-        self.cache_location = cache_location
-        self.datapath = datapath
-        self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=nthreads)
-
-    def is_done(self):
-        return (self.num_chunk == len(self.paths_chunks)) and (self.num_loaded == len(self.paths_chunks))
- 
-    def __iter__(self):
-        return self.generator()
-
-    #did not make this a generator to simplify handling the thread locks
-    def nextone(self):
-        self.chunk_lock.acquire()
-
-        if self.num_chunk > 0 and self.num_chunk == len(self.paths_chunks):
-            self.chunk_lock.release()
-            print("Generator is done: num_chunk={0}, len(self.paths_chunks)={1}".format(self.num_chunk, len(self.paths_chunks)))
-            return None
-
-        ds = create_dataset(
-            self.name, self.paths_chunks[self.num_chunk],
-            self.is_mc, self.cache_location, self.datapath, self.is_mc)
-
-        ds.era = self.era
-        ds.numpy_lib = numpy
-        ds.num_chunk = self.num_chunk
-        self.num_chunk += 1
-        self.chunk_lock.release()
-
-        # Load caches on multiple threads
-        ds.from_cache(executor=self.executor, verbose=False)
-
-        # Merge data arrays from multiple files into one big array
-        ds.merge_inplace()
-
-        # Increment the counter for number of loaded datasets
-        with self.loaded_lock:
-            self.num_loaded += 1
-
-        return ds
-
-    def __call__(self):
-        return self.__iter__()
-
-def threaded_batches_feeder(tokill, batches_queue, dataset_generator):
-    while not tokill():
-        ds = dataset_generator.nextone()
-        if ds is None:
-            break 
-        batches_queue.put(ds, block=True)
-    #print("Cleaning up threaded_batches_feeder worker", threading.get_ident())
-    return
-
-def event_loop(train_batches_queue, use_cuda, **kwargs):
-    ds = train_batches_queue.get(block=True)
-    #print("event_loop nev={0}, queued={1}".format(len(ds), train_batches_queue.qsize()))
-
-    #copy dataset to GPU and make sure future operations are done on it
-    if use_cuda:
-        import cupy
-        ds.numpy_lib = cupy
-        ds.move_to_device(cupy)
-
-    parameters = kwargs.pop("parameters")
-
-    ret = {}
-    for parameter_set_name, parameter_set in parameters.items():
-        ret[parameter_set_name] = ds.analyze(
-            analyze_data,
-            use_cuda = use_cuda,
-            parameter_set_name = parameter_set_name,
-            parameters = parameter_set,
-            dataset_era = ds.era,
-            dataset_name = ds.name,
-            dataset_num_chunk = ds.num_chunk,
-            **kwargs)
-    ret["num_events"] = len(ds)
-
-    train_batches_queue.task_done()
-
-    #clean up CUDA memory
-    if use_cuda:
-        mempool = cupy.get_default_memory_pool()
-        pinned_mempool = cupy.get_default_pinned_memory_pool()
-        mempool.free_all_blocks()
-        pinned_mempool.free_all_blocks()
-     
-    ret["cache_metadata"] = ds.cache_metadata 
-    return ret, len(ds), ds.memsize()/1024.0/1024.0
-
-
-def threaded_metrics(tokill, train_batches_queue):
-    c = psutil.disk_io_counters()
-    bytes_read_start = c.read_bytes
-
-    while not tokill(): 
-        dt = 0.5
-        
-        c = psutil.disk_io_counters()
-
-        bytes_read_speed = (c.read_bytes - bytes_read_start)/dt/1024.0/1024.0
-        bytes_read_start = c.read_bytes
-
-        d = parse_nvidia_smi()
-        print("metrics", time.time(), "IO speed", bytes_read_speed, "MB/s", "CPU", psutil.cpu_percent(), "GPU", d["gpu"], "GPUmem", d["mem"], "qsize", train_batches_queue.qsize())
-        sys.stdout.flush()
-        time.sleep(dt)
-
-    return
-
-def run_analysis(args, outpath, datasets, parameters,
-    chunksize, maxfiles,
-    lumidata, lumimask, pu_corrections, rochester_corrections,
-    lepsf_iso, lepsf_id, lepsf_trig, dnn_model, jetmet_corrections):
-    nev_total = 0
-    nev_loaded = 0
-    t0 = time.time()
-    
-    print(args)
-
-    if args.use_cuda:
-        import cupy
-    else:
-        os.environ["NUMBA_NUM_THREADS"] = str(args.nthreads)
-
-    if "cache" in args.action:
-       try:
-           os.makedirs(args.cache_location)
-       except Exception as e:
-           pass
-       filenames_cache = {}
-       for datasetname, dataset_era, globpattern, is_mc in datasets:
-           filenames_all = glob.glob(args.datapath + globpattern, recursive=True)
-           filenames_all = [fn for fn in filenames_all if not "Friend" in fn]
-           filenames_cache[datasetname + "_" + dataset_era] = [fn.replace(args.datapath, "") for fn in filenames_all]
-    
-           with open(args.cache_location + "/datasets.json", "w") as fi:
-               fi.write(json.dumps(filenames_cache, indent=2))
-    else:
-       filenames_cache = json.load(open(args.cache_location + "/datasets.json", "r"))
- 
-    processed_size_mb = 0
-    for datasetname, dataset_era, globpattern, is_mc in datasets:
-        filenames_all = filenames_cache[datasetname + "_" + dataset_era]
-        filenames_all = [args.datapath + "/" + fn for fn in filenames_all]
- 
-        print("Dataset {0}_{1} has {2} files".format(datasetname, dataset_era, len(filenames_all)))
-        if maxfiles[dataset_era] > 0:
-            filenames_all = filenames_all[:maxfiles[dataset_era]]
-
-        datastructure = create_datastructure(is_mc, dataset_era)
-
-        if "cache" in args.action:
- 
-            #Used for preselection in the cache
-            hlt_bits = parameters["baseline"]["hlt_bits"][dataset_era]
-            print("Preparing caches from ROOT files")
-                
-            _nev_total, _processed_size_mb = cache_data(
-                filenames_all, datasetname, datastructure,
-                args.cache_location, args.datapath, is_mc,
-                hlt_bits,
-                nworkers=args.nthreads)
-            nev_total += _nev_total
-            processed_size_mb += _processed_size_mb
-
-        if "analyze" in args.action:        
-
-            training_set_generator = InputGen(
-                datasetname, dataset_era, list(filenames_all), datastructure,
-                args.nthreads, chunksize[dataset_era], args.cache_location, args.datapath)
-            threadk = thread_killer()
-            threadk.set_tokill(False)
-            train_batches_queue = Queue(maxsize=20)
-            
-            if args.async_data:
-                for _ in range(1):
-                    t = Thread(target=threaded_batches_feeder, args=(threadk, train_batches_queue, training_set_generator))
-                    t.start()
-
-            #t = Thread(target=threaded_metrics, args=(threadk, train_batches_queue))
-            #t.start()
-
-            rets = []
-            num_processed = 0
-           
-            cache_metadata = []
-            #loop over all data, call the analyze function
-            while num_processed < len(training_set_generator.paths_chunks):
-
-                # In case we are processing data synchronously, just load the dataset here
-                # and put to queue.
-                if not args.async_data:
-                    ds = training_set_generator.nextone()
-                    if ds is None:
-                        break
-                    train_batches_queue.put(ds)
-
-                #Progress indicator
-                sys.stdout.write(".");sys.stdout.flush()
-
-                #Process the dataset
-                ret, nev, memsize = event_loop(
-                    train_batches_queue,
-                    args.use_cuda,
-                    verbose=False, is_mc=is_mc, lumimask=lumimask,
-                    lumidata=lumidata,
-                    pu_corrections=pu_corrections,
-                    rochester_corrections=rochester_corrections,
-                    lepsf_iso=lepsf_iso,
-                    lepsf_id=lepsf_id,
-                    lepsf_trig=lepsf_trig,
-                    parameters=parameters,
-                    dnn_model=dnn_model,
-                    jetmet_corrections=jetmet_corrections,
-                    do_sync = args.do_sync) 
-                rets += [ret]
-                processed_size_mb += memsize
-                nev_total += sum([md["numevents"] for md in ret["cache_metadata"]])
-                nev_loaded += nev
-                num_processed += 1
-            print()
-
-            #clean up threads
-            threadk.set_tokill(True)
-
-            #save output
-            ret = sum(rets, Results({}))
-            if is_mc:
-                ret["gen_sumweights"] = sum([md["precomputed_results"]["genEventSumw"] for md in ret["cache_metadata"]])
-            ret.save_json("{0}/{1}_{2}.json".format(outpath, datasetname, dataset_era))
-    
-    t1 = time.time()
-    dt = t1 - t0
-    print("Overall processed {nev:.2E} ({nev_loaded:.2E} loaded) events in total {size:.2f} GB, {dt:.1f} seconds, {evspeed:.2E} Hz, {sizespeed:.2f} MB/s".format(
-        nev=nev_total, nev_loaded=nev_loaded, dt=dt, size=processed_size_mb/1024.0, evspeed=nev_total/dt, sizespeed=processed_size_mb/dt)
-    )
-
-    bench_ret = {}
-    bench_ret.update(args.__dict__)
-    bench_ret["hostname"] = os.uname()[1]
-    bench_ret["nev_total"] = nev_total
-    bench_ret["total_time"] = dt
-    bench_ret["evspeed"] = nev_total/dt/1000/1000
-    with open("analysis_benchmarks.txt", "a") as of:
-        of.write(json.dumps(bench_ret) + '\n')
-
+#Branches to load from the ROOT files
 def create_datastructure(is_mc, dataset_era):
     datastructures = {
         "Muon": [
@@ -1781,6 +1680,93 @@ def create_datastructure(is_mc, dataset_era):
         ]
 
     return datastructures
+
+###
+### Threading stuff
+###
+
+def threaded_batches_feeder(tokill, batches_queue, dataset_generator):
+    while not tokill():
+        ds = dataset_generator.nextone()
+        if ds is None:
+            break 
+        batches_queue.put(ds, block=True)
+    #print("Cleaning up threaded_batches_feeder worker", threading.get_ident())
+    return
+
+class thread_killer(object):
+    """Boolean object for signaling a worker thread to terminate
+    """
+    def __init__(self):
+        self.lock = threading.Lock()
+        self.to_kill = False
+    
+    def __call__(self):
+        return self.to_kill
+    
+    def set_tokill(self,tokill):
+        with self.lock:
+            self.to_kill = tokill
+
+class InputGen:
+    def __init__(self, name, era, paths, is_mc, nthreads, chunksize, cache_location, datapath):
+        self.name = name
+        self.era = era
+        self.paths_chunks = list(chunks(paths, chunksize))
+        self.chunk_lock = threading.Lock()
+        self.loaded_lock = threading.Lock()
+        self.num_chunk = 0
+        self.num_loaded = 0
+        self.is_mc = is_mc
+        self.nthreads = nthreads
+        self.cache_location = cache_location
+        self.datapath = datapath
+        self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=nthreads)
+
+    def is_done(self):
+        return (self.num_chunk == len(self.paths_chunks)) and (self.num_loaded == len(self.paths_chunks))
+ 
+    def __iter__(self):
+        return self.generator()
+
+    #did not make this a generator to simplify handling the thread locks
+    def nextone(self):
+        self.chunk_lock.acquire()
+
+        if self.num_chunk > 0 and self.num_chunk == len(self.paths_chunks):
+            self.chunk_lock.release()
+            print("Generator is done: num_chunk={0}, len(self.paths_chunks)={1}".format(self.num_chunk, len(self.paths_chunks)))
+            return None
+
+        ds = create_dataset(
+            self.name, self.paths_chunks[self.num_chunk],
+            self.is_mc, self.cache_location, self.datapath, self.is_mc)
+
+        ds.era = self.era
+        ds.numpy_lib = numpy
+        ds.num_chunk = self.num_chunk
+        self.num_chunk += 1
+        self.chunk_lock.release()
+
+        # Load caches on multiple threads
+        ds.from_cache(executor=self.executor, verbose=False)
+
+        # Merge data arrays from multiple files into one big array
+        ds.merge_inplace()
+
+        # Increment the counter for number of loaded datasets
+        with self.loaded_lock:
+            self.num_loaded += 1
+
+        return ds
+
+    def __call__(self):
+        return self.__iter__()
+
+
+###
+### Functions not currently used
+###
 
 def significance_templates(sig_samples, bkg_samples, rets, analysis, histogram_names, do_plots=False, ntoys=1):
      
@@ -1910,3 +1896,30 @@ def optimize_categories(sig_samples, bkg_samples, varlist, datasets, lumidata, l
         Zprev = Zs[0][1]
 
     return best_tree
+
+def parse_nvidia_smi():
+    """Returns the GPU symmetric multiprocessor and memory usage in %
+    """
+    nvidia_smi.nvmlInit()
+    handle = nvidia_smi.nvmlDeviceGetHandleByIndex(0)
+    res = nvidia_smi.nvmlDeviceGetUtilizationRates(handle) 
+    return {"gpu": res.gpu, "mem": res.memory}
+
+def threaded_metrics(tokill, train_batches_queue):
+    c = psutil.disk_io_counters()
+    bytes_read_start = c.read_bytes
+
+    while not tokill(): 
+        dt = 0.5
+        
+        c = psutil.disk_io_counters()
+
+        bytes_read_speed = (c.read_bytes - bytes_read_start)/dt/1024.0/1024.0
+        bytes_read_start = c.read_bytes
+
+        d = parse_nvidia_smi()
+        print("metrics", time.time(), "IO speed", bytes_read_speed, "MB/s", "CPU", psutil.cpu_percent(), "GPU", d["gpu"], "GPUmem", d["mem"], "qsize", train_batches_queue.qsize())
+        sys.stdout.flush()
+        time.sleep(dt)
+
+    return

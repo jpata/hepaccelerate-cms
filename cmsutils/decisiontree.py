@@ -2,12 +2,6 @@ import numpy as np
 import copy
 import sys
 
-try:
-    import graphviz
-except Exception as e:
-    print("Could not import graphviz", file=sys.stderr)
-    pass
-
 class DecisionTreeNode:
     NUMPY_LIB = np
     def __init__(self, varname, cut):
@@ -71,6 +65,7 @@ class DecisionTreeNode:
             leaf.value = ileaf
             
     def make_dot(self):
+        import graphviz
         dg = graphviz.Digraph(comment='Categorization')
         DecisionTreeNode.__make_dot_recursive(self, dg)
         return dg

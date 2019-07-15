@@ -22,20 +22,17 @@ import os
 from coffea.util import USE_CUPY
 
 def parse_args():
-    parser = argparse.ArgumentParser(description='Example HiggsMuMu analysis')
-    #parser.add_argument('--use-cuda', action='store_true', help='Use the CUDA backend')
-    parser.add_argument('--async-data', action='store_true', help='Load data on a separate thread')
-    parser.add_argument('--action', '-a', action='append', help='List of actions to do', choices=['cache', 'analyze'], required=True)
+    parser = argparse.ArgumentParser(description='Caltech HiggsMuMu analysis')
+    parser.add_argument('--async-data', action='store_true', help='Load data on a separate thread, faster but disable for debugging')
+    parser.add_argument('--action', '-a', action='append', help='List of analysis steps to do', choices=['cache', 'analyze'], required=True)
     parser.add_argument('--nthreads', '-t', action='store', help='Number of CPU threads or workers to use', type=int, default=4, required=False)
-    parser.add_argument('--datapath', '-p', action='store', help='Prefix to load NanoAOD data from', default="/nvmedata")
-    parser.add_argument('--maxfiles', '-m', action='store', help='Maximum number of files to process', default=-1, type=int)
-    parser.add_argument('--chunksize', '-c', action='store', help='Number of files to process simultaneously', default=2, type=int)
+    parser.add_argument('--datapath', '-p', action='store', help='Prefix to load NanoAOD data from, e.g. /mnt/hadoop', required=True)
+    parser.add_argument('--maxfiles', '-m', action='store', help='Maximum number of files to process for each dataset', default=1, type=int)
+    parser.add_argument('--chunksize', '-c', action='store', help='Number of files to process simultaneously (larger is faster)', default=5, type=int)
     parser.add_argument('--cache-location', action='store', help='Cache location', default='./mycache', type=str)
     parser.add_argument('--out', action='store', help='Output location', default='out', type=str)
-    parser.add_argument('--niter', action='store', help='Number of categorization optimization iterations', default=1, type=int)
     parser.add_argument('--pinned', action='store_true', help='Use CUDA pinned memory')
-    parser.add_argument('--filter-datasets', action='store', help='Glob pattern to select datasets', default="*")
-    parser.add_argument('--do-sync', action='store_true', help='Run synchronization datasets')
+    parser.add_argument('--do-sync', action='store_true', help='Run only synchronization datasets')
     args = parser.parse_args()
     return args
 
@@ -197,8 +194,9 @@ if __name__ == "__main__":
     if args.do_sync:
         datasets = datasets_sync
 
-    datasets = [ds for ds in datasets if shutil.fnmatch.fnmatch(ds[0], args.filter_datasets)]
-    print("selected datasets {0} based on pattern {1}".format([ds[0] for ds in datasets], args.filter_datasets))
+    for ds in datasets:
+        print("Will process dataset", ds)
+
     hmumu_utils.NUMPY_LIB, hmumu_utils.ha = choose_backend(args.use_cuda)
     Dataset.numpy_lib = hmumu_utils.NUMPY_LIB
     DecisionTreeNode.NUMPY_LIB = hmumu_utils.NUMPY_LIB
@@ -216,6 +214,7 @@ if __name__ == "__main__":
     dt.assign_ids()
     varA = dt
 
+    # not used
     # dt2 = DecisionTreeNode("num_jets_btag", 0)
     # dt2.add_child_left(DecisionTreeNode("additional_leptons", 0))
     # dt2.child_left.add_child_left(DecisionTreeNode("dijet_inv_mass", 400))
@@ -246,6 +245,7 @@ if __name__ == "__main__":
     # }
     # rand_trees = {"rand{0}".format(i): make_random_tree(varlist, 5) for i in range(1)}
 
+    # All analysis definitions (cut values etc) should go here
     analysis_parameters = {
         "baseline": {
 
@@ -290,7 +290,7 @@ if __name__ == "__main__":
             "extra_electrons_iso": 0.4,
             "extra_electrons_id": "mvaFall17V1Iso_WP90",
 
-
+            #Irene's DNN input variable order for keras
             "dnn_varlist_order": ['softJet5', 'dRmm', 'dEtamm', 'dPhimm', 'M_jj', 'pt_jj', 'eta_jj', 'phi_jj', 'M_mmjj', 'eta_mmjj', 'phi_mmjj', 'dEta_jj', 'Zep', 'dRmin_mj', 'dRmax_mj', 'dRmin_mmj', 'dRmax_mmj', 'leadingJet_pt', 'subleadingJet_pt', 'leadingJet_eta', 'subleadingJet_eta', 'leadingJet_qgl', 'subleadingJet_qgl', 'cthetaCS', 'Higgs_pt', 'Higgs_eta'],
             "dnn_input_histogram_bins": {
                 "softJet5": (0,10,10),
@@ -324,11 +324,6 @@ if __name__ == "__main__":
             "categorization_trees": {}
         },
     }
-  
-    #add additional analyses for benchmarking purposes 
-    if args.niter > 1:
-        for i in range(args.niter-1):
-            analysis_parameters["v{0}".format(i)] = copy.deepcopy(analysis_parameters["baseline"])
 
     #analysis_parameters["baseline"]["categorization_trees"].update(rand_trees)
 
