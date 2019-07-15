@@ -33,10 +33,26 @@ Best results can be had if the CMS data is stored locally on a filesystem (few T
 A prebuilt singularity image with the GPU libraries is also provided: [link](http://login-1.hep.caltech.edu/~jpata/cupy.simg)
 
 
+## Installation on Caltech T2 or GPU machine
+
+On Caltech, an existing singularity image can be used to get the required python libraries.
+~~~
+git clone https://github.com/jpata/hepaccelerate-cms.git
+cd hepaccelerate-cms
+git submodule init
+git submodule update
+
+#Start the singularity shell
+singularity shell -B /storage /bigdata/shared/Software/singularity/gpuservers/singularity/images/cupy.simg
+
+Singularity cupy.simg:~> cd tests/hmm
+Singularity cupy.simg:~> make
+Singularity cupy.simg:~> cd ../..
+Singularity cupy.simg:~> ./test.sh
+~~~
+
 
 # Misc notes
-
-
 Luminosity, details on how to set up on this [link](https://cms-service-lumi.web.cern.ch/cms-service-lumi/brilwsdoc.html).
 ~~~
 export PATH=$HOME/.local/bin:/cvmfs/cms-bril.cern.ch/brilconda/bin:$PATH

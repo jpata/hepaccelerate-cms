@@ -42,17 +42,17 @@ def parse_args():
 # dataset nickname, datataking era, filename glob pattern, isMC
 datasets = [
 # Official 2017 NanoAOD
-    ("data", "2017", "/store/data/Run2017*/SingleMuon/NANOAOD/Nano14Dec2018-v1/**/*.root", False),
-    ("ggh", "2017", "/store/mc/RunIIFall17NanoAODv4/GluGluHToMuMu_M125_13TeV_amcatnloFXFX_pythia8/NANOAODSIM/*12Apr2018_Nano14Dec2018*/**/*.root", True),
-    ("vbf", "2017", "/store/mc/RunIIFall17NanoAODv4/VBFHToMuMu_M125_TuneCP5_PSweights_13TeV_amcatnlo_pythia8/NANOAODSIM/*12Apr2018_Nano14Dec2018*/**/*.root", True),
+    ("data", "2017", "/store/data/Run2017*/SingleMuon/NANOAOD/Nano1June2019-v1/**/*.root", False),
+    ("ggh", "2017", "/store/mc/RunIIFall17NanoAODv5/GluGluHToMuMu_M125_13TeV_amcatnloFXFX_pythia8/**/*.root", True),
+    ("vbf", "2017", "/store/mc/RunIIFall17NanoAODv5/VBFHToMuMu_M-125_TuneCP5_PSweights_13TeV_powheg_pythia8/**/*.root", True),
 #    ("tth", "2017", "/store/mc/RunIIFall17NanoAODv4/ttHToMuMu_M125_TuneCP5_13TeV-powheg-pythia8/NANOAODSIM/*12Apr2018_Nano14Dec2018*/**/*.root", True),
 #    ("wmh", "2017", "/store/mc/RunIIFall17NanoAODv4/WminusH_HToMuMu_WToAll_M125_13TeV_powheg_pythia8/NANOAODSIM/*12Apr2018_Nano14Dec2018*/**/*.root", True),
 #    ("wph", "2017", "/store/mc/RunIIFall17NanoAODv4/WplusH_HToMuMu_WToAll_M125_13TeV_powheg_pythia8/NANOAODSIM/*12Apr2018_Nano14Dec2018*/**/*.root", True),
 #    ("zh", "2017", "/store/mc/RunIIFall17NanoAODv4/ZH_HToMuMu_ZToAll_M125_13TeV_powheg_pythia8/NANOAODSIM/*12Apr2018_Nano14Dec2018*/**/*.root", True),
-    ("dy", "2017", "/store/mc/RunIIFall17NanoAODv4/DYJetsToLL_M-50_TuneCP5_13TeV-amcatnloFXFX-pythia8/NANOAODSIM/**/*.root", True),
-    ("dy_m105_160", "2017", "/store/mc/RunIIFall17NanoAODv4/DYJetsToLL_M-105To160_TuneCP5_PSweights_13TeV-madgraphMLM-pythia8/NANOAODSIM/**/*.root", True),
-    ("dy_m105_160_vbf", "2017", "/store/mc/RunIIFall17NanoAODv4/DYJetsToLL_M-105To160_VBFFilter_TuneCP5_PSweights_13TeV-amcatnloFXFX-pythia8/NANOAODSIM/**/*.root", True),
-    ("ttjets_dl", "2017", "/store/mc/RunIIFall17NanoAODv4/TTTo2L2Nu_TuneCP5_PSweights_13TeV-powheg-pythia8/**/*.root", True),
+    ("dy", "2017", "/store/mc/RunIIFall17NanoAODv5/DYJetsToLL_M-50_TuneCP5_13TeV-amcatnloFXFX-pythia8/**/*.root", True),
+    ("dy_m105_160", "2017", "/store/mc/RunIIFall17NanoAODv5/DYJetsToLL_M-105To160_TuneCP5_PSweights_13TeV-amcatnloFXFX-pythia8/NANOAODSIM/**/*.root", True),
+    ("dy_m105_160_vbf", "2017", "/store/mc/RunIIFall17NanoAODv5/DYJetsToLL_M-105To160_VBFFilter_TuneCP5_PSweights_13TeV-amcatnloFXFX-pythia8/**/*.root", True),
+    ("ttjets_dl", "2017", "/store/mc/RunIIFall17NanoAODv5/TTTo2L2Nu_TuneCP5_PSweights_13TeV-powheg-pythia8/**/*.root", True),
 #    ("ttjets_sl", "2017", "/store/mc/RunIIFall17NanoAODv4/TTToSemiLeptonic_TuneCP5_13TeV-powheg-pythia8/**/*.root", True),
 #    ("ww_2l2nu", "2017", "/store/mc/RunIIFall17NanoAODv4/WWTo2L2Nu_NNPDF31_TuneCP5_13TeV-powheg-pythia8/**/*.root", True),
 #    ("wz_3lnu", "2017", "/store/mc/RunIIFall17NanoAODv4/WZTo3LNu_13TeV-powheg-pythia8/**/*.root", True),
@@ -62,17 +62,21 @@ datasets = [
   
 # 2016 NanoAOD
     ("dy", "2016", "/store/mc/RunIISummer16NanoAODv5/DYJetsToLL_M-50_TuneCUETP8M1_13TeV-amcatnloFXFX-pythia8/**/*.root", True),
+    ("dy_m105_160", "2016", "/store/mc/RunIISummer16NanoAODv5/DYJetsToLL_M-105To160_TuneCP5_PSweights_13TeV-amcatnloFXFX-pythia8/**/*.root", True),
+    ("dy_m105_160_vbf", "2016", "/store/mc/RunIISummer16NanoAODv5/DYJetsToLL_M-105To160_VBFFilter_TuneCUETP8M1_13TeV-amcatnloFXFX-pythia8/**/*.root", True),
     ("ggh", "2016", "/store/mc/RunIISummer16NanoAODv5/GluGlu_HToMuMu_M125_13TeV_powheg_pythia8/**/*.root", True),
     ("ttjets_dl", "2016", "/store/mc/RunIISummer16NanoAODv5/TTTo2L2Nu_TuneCP5_PSweights_13TeV-powheg-pythia8/**/*.root", True),
     ("vbf", "2016", "/store/mc/RunIISummer16NanoAODv5/VBFHToMuMu_M125_TuneCP5_PSweights_13TeV_amcatnlo_pythia8/**/*.root", True),
     ("data", "2016", "/store/data/Run2016*/SingleMuon/NANOAOD/Nano1June2019*/**/*.root", False),
 
 # 2018 NanoAOD
-    ("dy", "2018", "/store/mc/RunIIAutumn18NanoAODv4/DYJetsToLL_M-50_TuneCP5_13TeV-madgraphMLM-pythia8/**/*.root", True),
-    ("ggh", "2018", "/store/mc/RunIIAutumn18NanoAODv4/GluGluHToMuMu_M-125_TuneCP5_PSweights_13TeV_powheg_pythia8/**/*.root", True),
-    ("ttjets_dl", "2018", "/store/mc/RunIIAutumn18NanoAODv4/TTTo2L2Nu_TuneCP5_13TeV-powheg-pythia8/**/*.root", True),
-    ("vbf", "2018", "/store/mc/RunIIAutumn18NanoAODv4/VBFHToMuMu_M125_TuneCP5_PSweights_13TeV_amcatnlo_pythia8/**/*.root", True),
-    ("data", "2018", "/store/data/Run2018*/SingleMuon/NANOAOD/Nano14Dec2018*/**/*.root", False),
+    ("dy", "2018", "/store/mc/RunIIAutumn18NanoAODv5/DYJetsToLL_M-50_TuneCP5_13TeV-amcatnloFXFX-pythia8/**/*.root", True),
+    ("dy_m105_160", "2018", "/store/mc/RunIIAutumn18NanoAODv5/DYJetsToLL_M-105To160_TuneCP5_PSweights_13TeV-amcatnloFXFX-pythia8/**/*.root", True),
+    ("dy_m105_160_vbf", "2018", "/store/mc/RunIIAutumn18NanoAODv5/DYJetsToLL_M-105To160_VBFFilter_TuneCP5_PSweights_13TeV-amcatnloFXFX-pythia8/**/*.root", True),
+    ("ggh", "2018", "/store/mc/RunIIAutumn18NanoAODv5/GluGluHToMuMu_M-125_TuneCP5_PSweights_13TeV_powheg_pythia8/**/*.root", True),
+    ("ttjets_dl", "2018", "/store/mc/RunIIAutumn18NanoAODv5/TTTo2L2Nu_TuneCP5_13TeV-powheg-pythia8/**/*.root", True),
+    ("vbf", "2018", "/store/mc/RunIIAutumn18NanoAODv5/VBFHToMuMu_M125_TuneCP5_PSweights_13TeV_amcatnlo_pythia8/**/*.root", True),
+    ("data", "2018", "/store/data/Run2018*/SingleMuon/NANOAOD/Nano1June2019-v1/**/*.root", False),
 ]
 
 # How many NanoAOD files to load to memory simultaneously.

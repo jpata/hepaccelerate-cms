@@ -1236,8 +1236,14 @@ def analyze_data(
         if save_dnn_vars:
             dnn_vars_np = {k: NUMPY_LIB.asnumpy(v) for k, v in dnn_vars.items()}
             if is_mc:
-                dnn_vars_np["genweight"] = scalars["genWeight"][dnn_presel] 
-            numpy.savez("/storage/user/jpata/hmm/dnn_vars/{0}/{1}_{2}.npz".format(dataset_era, dataset_name, dataset_num_chunk), kwds=dnn_vars_np)
+                dnn_vars_np["genweight"] = NUMPY_LIB.asnumpy(scalars["genWeight"][dnn_presel])
+            arrs = []
+            names = []
+            for k, v in dnn_vars_np.items():
+                arrs += [v]
+                names += [k]
+            arrdata = np.core.records.fromarrays(arrs, names=names)
+            np.save("/storage/user/jpata/hmm/dnn_vars/{0}/{1}_{2}.npy".format(dataset_era, dataset_name, dataset_num_chunk), arrdata, allow_pickle=False)
 
         #Put the DNN histograms into the result dictionary
         for k, v in hists_dnn.items():
@@ -1406,6 +1412,10 @@ def cache_data_multiproc_worker(args):
     t0 = time.time()
     ds = create_dataset(name, [filename], datastructure, cache_location, datapath, is_mc)
     ds.numpy_lib = np
+
+    if ds.check_cache():
+        return 0, 0
+
     ds.load_root()
 
     #put any preselection here
