@@ -53,6 +53,7 @@ def run_analysis(
     t0 = time.time()
     
     if "cache" in args.action:
+       print("Running the 'cache' step of the analysis, ROOT files will be opened and branches will be uncompressed")
        print("Will retrieve dataset filenames based on existing ROOT files on filesystem in datapath={0}".format(args.datapath)) 
        try:
            os.makedirs(args.cache_location)
@@ -69,6 +70,7 @@ def run_analysis(
        with open(args.cache_location + "/datasets.json", "w") as fi:
            fi.write(json.dumps(filenames_cache, indent=2))
     else:
+       print("Running the 'analyze' step of the analysis, loading cached branch data and using it in physics code via analyze_data()")
        print("Loading list of filenames loaded from {0}/datasets.json".format(args.cache_location))
        filenames_cache = json.load(open(args.cache_location + "/datasets.json", "r"))
 
@@ -87,8 +89,6 @@ def run_analysis(
         datastructure = create_datastructure(is_mc, dataset_era)
 
         if "cache" in args.action:
- 
-            print("Running the 'cache' step of the analysis, ROOT files will be opened and branches will be uncompressed")
 
             #Used for preselection in the cache
             hlt_bits = parameters["baseline"]["hlt_bits"][dataset_era]
@@ -101,8 +101,7 @@ def run_analysis(
             nev_total += _nev_total
             processed_size_mb += _processed_size_mb
 
-        if "analyze" in args.action:
-            print("Running the 'analyze' step of the analysis, loading cached branch data and using it in physics code via analyze_data()")
+        elif "analyze" in args.action:
 
             #Create a thread that will load data in the background
             training_set_generator = InputGen(
@@ -1536,9 +1535,12 @@ def cache_data(filenames, name, datastructures, cache_location, datapath, is_mc,
                 tot_mb += result[1]
     return tot_ev, tot_mb
 
+"""Given a ROOT file, run any checks that can only be done
+on the original file. In our case, we need to access the number
+of generated events.
+"""
 def func_filename_precompute_mc(filename):
     ret = {"genEventSumw": get_gen_sumweights([filename])}
-    print(filename, ret)
     return ret
  
 def create_dataset(name, filenames, datastructures, cache_location, datapath, is_mc):
