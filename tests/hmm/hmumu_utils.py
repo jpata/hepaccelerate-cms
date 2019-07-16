@@ -9,6 +9,7 @@ import numpy
 import numpy as np
 import sys
 import os
+import gc
 
 import numba
 import numba.cuda as cuda
@@ -109,7 +110,7 @@ def run_analysis(
                 args.nthreads, chunksize[dataset_era], args.cache_location, args.datapath)
             threadk = thread_killer()
             threadk.set_tokill(False)
-            train_batches_queue = Queue(maxsize=20)
+            train_batches_queue = Queue(maxsize=10)
             
             #Start the thread if using a multithreaded approach
             if args.async_data:
@@ -160,6 +161,7 @@ def run_analysis(
 
             #clean up threads
             threadk.set_tokill(True)
+            gc.collect()
 
             #save output
             ret = sum(rets, Results({}))
@@ -893,7 +895,7 @@ def compute_fill_dnn(parameters, use_cuda, dnn_presel, dnn_model, scalars, leadi
     subleading_jet_s = apply_mask(subleading_jet, dnn_presel)
     nsoft = scalars["SoftActivityJetNjets5"][dnn_presel]
     dnn_vars = dnn_variables(leading_muon_s, subleading_muon_s, leading_jet_s, subleading_jet_s, nsoft)
-    if dnn_model and nev_dnn_presel > 0:
+    if (not (dnn_model is None)) and nev_dnn_presel > 0:
         dnn_vars_arr = NUMPY_LIB.vstack([dnn_vars[k] for k in parameters["dnn_varlist_order"]]).T
         #for TF, need to convert library to numpy, as it doesn't accept cupy arrays
         dnn_pred = NUMPY_LIB.array(dnn_model.predict(NUMPY_LIB.asnumpy(dnn_vars_arr), batch_size=10000)[:, 0])
@@ -1737,7 +1739,7 @@ class InputGen:
 
         if self.num_chunk > 0 and self.num_chunk == len(self.paths_chunks):
             self.chunk_lock.release()
-            print("Generator is done: num_chunk={0}, len(self.paths_chunks)={1}".format(self.num_chunk, len(self.paths_chunks)))
+            #print("Generator is done: num_chunk={0}, len(self.paths_chunks)={1}".format(self.num_chunk, len(self.paths_chunks)))
             return None
 
         ds = create_dataset(
