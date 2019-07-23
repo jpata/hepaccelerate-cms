@@ -25,6 +25,7 @@ class LeptonEfficiencyCorrector {
 
 private:
   std::vector<TH2F*> effmaps_;
+  std::vector<WeightCalculatorFromHistogram> weightcalc_;
   std::vector<float> weights_;
   std::vector<float> ret_;
   int nLep_;

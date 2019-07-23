@@ -16,6 +16,10 @@ class LibHMuMu:
             void* new_LeptonEfficiencyCorrector(int n, const char** file, const char** histo, float* weights);
             void LeptonEfficiencyCorrector_getSF(void* c, float* out, int n, int* pdgid, float* pt, float* eta);
 
+            const void* new_gbr(const char* weightfile);
+            int gbr_get_nvariables(const void* gbr);
+            void gbr_eval(const void* gbr, float* out, int nev, int nfeatures, float* inputs_matrix);
+
         """)
         self.libhmm = self.ffi.dlopen(libpath)
 
@@ -25,6 +29,10 @@ class LibHMuMu:
 
         self.new_LeptonEfficiencyCorrector = self.libhmm.new_LeptonEfficiencyCorrector
         self.LeptonEfficiencyCorrector_getSF = self.libhmm.LeptonEfficiencyCorrector_getSF
+
+        self.new_gbr = self.libhmm.new_gbr
+        self.gbr_get_nvariables = self.libhmm.gbr_get_nvariables
+        self.gbr_eval = self.libhmm.gbr_eval
 
     def cast_as(self, dtype_string, arr):
         return self.ffi.cast(dtype_string, arr.ctypes.data)
@@ -88,3 +96,24 @@ class LeptonEfficiencyCorrections:
             self.libhmm.cast_as("float *", pts),
             self.libhmm.cast_as("float *", etas))
         return out
+
+class GBREvaluator:
+    def __init__(self, libhmm, weightfile):
+        self.libhmm = libhmm
+        self.c_class = self.libhmm.new_gbr(libhmm.ffi.new("char[]", weightfile.encode("ascii")))
+
+    def compute(self, features):
+        nev = features.shape[0]
+        nfeat = features.shape[1]
+        out = numpy_lib.zeros(nev, dtype=numpy_lib.float32)
+
+        self.libhmm.gbr_eval(
+            self.c_class,
+            self.libhmm.cast_as("float *", out),
+            nev, nfeat,
+            self.libhmm.cast_as("float *", features.ravel())
+        )
+        return out
+
+    def get_bdt_nfeatures(self):
+        return self.libhmm.gbr_get_nvariables(self.c_class)
