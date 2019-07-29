@@ -142,7 +142,7 @@ class AnalysisCorrections:
     def __init__(self, args, do_tensorflow=True, gpu_memory_fraction=0.2):
         self.lumimask = {
             "2016": LumiMask("data/Cert_271036-284044_13TeV_23Sep2016ReReco_Collisions16_JSON.txt", np, backend_cpu),
-            "2017": LumiMask("data/Cert_294927-306462_13TeV_EOY2017ReReco_Collisions17_JSON.txt", np, backend_cpu),
+            "2017": LumiMask("data/Cert_294927-306462_13TeV_EOY2017ReReco_Collisions17_JSON_v1.txt", np, backend_cpu),
             "2018": LumiMask("data/Cert_314472-325175_13TeV_17SeptEarlyReReco2018ABC_PromptEraD_Collisions18_JSON.txt", np, backend_cpu),
         }
 
@@ -173,7 +173,7 @@ class AnalysisCorrections:
         #https://twiki.cern.ch/twiki/bin/viewauth/CMS/RochcorMuon
         self.rochester_corrections = {
             "2016": RochesterCorrections(self.libhmm, "data/RoccoR2016.txt"),
-            "2017": RochesterCorrections(self.libhmm, "data/RoccoR2017v1.txt"),
+            "2017": RochesterCorrections(self.libhmm, "data/RoccoR2017.txt"),
             "2018": RochesterCorrections(self.libhmm, "data/RoccoR2018.txt")
         }
 
