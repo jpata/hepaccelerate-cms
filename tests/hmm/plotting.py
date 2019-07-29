@@ -6,10 +6,183 @@ from collections import OrderedDict
 import uproot
 
 import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 
 import copy
+import multiprocessing
+
+from pars import catnames, varnames, analysis_names, shape_systematics
+from scipy.stats import wasserstein_distance
+
+import argparse
+import pickle
+import glob
+
+def parse_args():
+    parser = argparse.ArgumentParser(description='Caltech HiggsMuMu analysis plotting')
+    parser.add_argument('--input', action='store', type=str, help='Input directory from the previous step')
+    parser.add_argument('--keep-processes', action='append', help='Keep only certain processes, defaults to all', default=None)
+    parser.add_argument('--histnames', action='append', help='Process only these histograms, defaults to all', default=None)
+    args = parser.parse_args()
+    return args
+
+def assign_plot_title_label(histname):
+    spl = histname.split("__")
+    varname_nice = "UNKNOWN"
+    catname_nice = "UNKNOWN"
+    print(spl)
+    if len(spl) == 3:
+        catname = spl[1]
+        varname = spl[2]
+        catname_nice = catnames[catname]
+        if varname in varnames:
+            varname_nice = varnames[varname]
+        else:
+            varname_nice = varname
+            print("WARNING: please define {0} in pars.py".format(varname))
+            
+    return varname_nice, catname_nice
+             
+def plot_hist_ratio(hists_mc, hist_data,
+        total_err_stat=None,
+        total_err_stat_syst=None,
+        figure=None):
+    if not figure:
+        figure = plt.figure(figsize=(5,5), dpi=100)
+
+    ax1 = plt.axes([0.0, 0.23, 1.0, 0.8])
+       
+    hmc_tot = np.zeros_like(hist_data.contents)
+    hmc_tot2 = np.zeros_like(hist_data.contents)
+    for h in hists_mc:
+        plot_hist_step(ax1, h.edges, hmc_tot + h.contents,
+            np.sqrt(hmc_tot2 + h.contents_w2),
+            kwargs_step={"label": getattr(h, "label", None)}
+        )
+        hmc_tot += h.contents
+        hmc_tot2 += h.contents_w2
+#    plot_hist_step(h["edges"], hmc_tot, np.sqrt(hmc_tot2), kwargs_step={"color": "gray", "label": None})
+    ax1.errorbar(
+        midpoints(hist_data.edges), hist_data.contents,
+        np.sqrt(hist_data.contents_w2), marker=".", lw=0,
+        elinewidth=1.0, color="black", ms=3, label=getattr(hist_data, "label", None))
+    
+    if not (total_err_stat_syst is None):
+        histstep(ax1, hist_data.edges, hmc_tot + total_err_stat_syst, color="blue", linewidth=1, linestyle="--", label="stat+syst")
+        histstep(ax1, hist_data.edges, hmc_tot - total_err_stat_syst, color="blue", linewidth=1, linestyle="--")
+    
+    if not (total_err_stat is None):
+        histstep(ax1, hist_data.edges, hmc_tot + total_err_stat, color="gray", linewidth=1, linestyle="--", label="stat")
+        histstep(ax1, hist_data.edges, hmc_tot - total_err_stat, color="gray", linewidth=1, linestyle="--")
+
+        
+    ax1.set_yscale("log")
+    ax1.set_ylim(1e-2, 100*np.max(hist_data.contents))
+    
+    #ax1.get_yticklabels()[-1].remove()
+    
+    ax2 = plt.axes([0.0, 0.0, 1.0, 0.16], sharex=ax1)
+
+    ratio = hist_data.contents / hmc_tot
+    ratio_err = np.sqrt(hist_data.contents_w2) /hmc_tot
+    ratio[np.isnan(ratio)] = 0
+
+    plt.errorbar(midpoints(hist_data.edges), ratio, ratio_err, marker=".", lw=0, elinewidth=1, ms=3, color="black")
+
+    if not (total_err_stat_syst is None):
+        ratio_up = (hmc_tot + total_err_stat_syst) / hmc_tot
+        ratio_down = (hmc_tot - total_err_stat_syst) / hmc_tot
+        ratio_down[np.isnan(ratio_down)] = 1
+        ratio_down[np.isnan(ratio_up)] = 1
+        histstep(ax2, hist_data.edges, ratio_up, color="blue", linewidth=1, linestyle="--")
+        histstep(ax2, hist_data.edges, ratio_down, color="blue", linewidth=1, linestyle="--")
+
+    if not (total_err_stat is None):
+        ratio_up = (hmc_tot + total_err_stat) / hmc_tot
+        ratio_down = (hmc_tot - total_err_stat) / hmc_tot
+        ratio_down[np.isnan(ratio_down)] = 1
+        ratio_down[np.isnan(ratio_up)] = 1
+        histstep(ax2, hist_data.edges, ratio_up, color="gray", linewidth=1, linestyle="--")
+        histstep(ax2, hist_data.edges, ratio_down, color="gray", linewidth=1, linestyle="--")
+
+                
+    plt.ylim(0.5, 1.5)
+    plt.axhline(1.0, color="black")
+    
+    return ax1, ax2
+
+def make_pdf_plot(args):
+    res, hd, mc_samples, analysis, var, weight, weight_xs, int_lumi, outdir, datataking_year = args
+
+    hist_template = copy.deepcopy(hd)
+    hist_template.contents[:] = 0
+    hist_template.contents_w2[:] = 0
+   
+    
+    hmc = []
+    
+    for mc_samp in mc_samples:
+        h = res[mc_samp][analysis][var][weight]
+        h = h * weight_xs[mc_samp]
+        h.label = "{0} ({1:.1E})".format(mc_samp, np.sum(h.contents))
+                
+        hmc += [h]
+    
+    htot_nominal = sum(hmc, hist_template)
+    htot_variated = {}
+    hdelta_quadrature = np.zeros_like(hist_template.contents)
+    
+    for sdir in ["__up", "__down"]:
+        for unc in shape_systematics:
+            if (unc + sdir) in res[mc_samp][analysis][var]:
+                htot_variated[unc + sdir] = sum([
+                    res[mc_samp][analysis][var][unc + sdir]* weight_xs[mc_samp] for mc_samp in mc_samples
+                ], hist_template)
+                hdelta_quadrature += (htot_nominal.contents - htot_variated[unc+sdir].contents)**2
+            
+    hdelta_quadrature_stat = np.sqrt(htot_nominal.contents_w2)
+    hdelta_quadrature_stat_syst = np.sqrt(hdelta_quadrature_stat**2 + hdelta_quadrature)
+    hd.label = "data ({0:.1E})".format(np.sum(hd.contents))
+
+    if var == "hist_inv_mass_d":
+        mask_inv_mass(hd)
+    #    hd.contents[0] = 0
+    #    hd.contents_w2[0] = 0
+
+    plt.figure(figsize=(4,4))
+    a1, a2 = plot_hist_ratio(hmc, hd,
+        total_err_stat=hdelta_quadrature_stat, total_err_stat_syst=hdelta_quadrature_stat_syst)
+    a2.grid(which="both", linewidth=0.5)
+    # Ratio axis ticks
+    ts = a2.set_yticks([0.5, 1.0, 1.5], minor=False)
+    ts = a2.set_yticks([0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5], minor=True)
+
+    #a2.set_yticks(np.linspace(0.5,1.5, ))
+    if var.startswith("hist_numjet"):
+        a1.set_xticks(hd["edges"])
+
+    a1.text(0.015,0.99, r"CMS internal, $L = {0:.2f}\ pb^{{-1}}$ ({1})".format(
+        int_lumi, datataking_year) + 
+        "\nd/m={0:.2f}".format(np.sum(hd.contents)/np.sum(htot_nominal.contents)) + 
+        ", wd={0:.2E}".format(wasserstein_distance(htot_nominal.contents/np.sum(htot_nominal.contents), hd.contents/np.sum(hd.contents))),
+        horizontalalignment='left',
+        verticalalignment='top',
+        transform=a1.transAxes,
+        fontsize=6
+    )
+    handles, labels = a1.get_legend_handles_labels()
+    a1.legend(handles[::-1], labels[::-1], frameon=False, fontsize=4, loc=1, ncol=2)
+    
+    varname, catname = assign_plot_title_label(var)
+    
+    a1.set_title(catname + " ({0})".format(analysis_names[analysis]))
+    a2.set_xlabel(varname)
+    
+    binwidth = np.diff(hd.edges)[0]
+    a1.set_ylabel("events / bin [{0:.1f}]".format(binwidth))
+    plt.savefig(outdir + "/{0}_{1}_{2}.pdf".format(analysis, var, weight), bbox_inches="tight")
+    plt.savefig(outdir + "/{0}_{1}_{2}.png".format(analysis, var, weight), bbox_inches="tight", dpi=100)
+    
+    return htot_nominal, hd, htot_variated, hdelta_quadrature
 
 def histstep(ax, edges, contents, **kwargs):
     ymins = []
@@ -38,42 +211,6 @@ def plot_hist_step(ax, edges, contents, errors, kwargs_step={}, kwargs_errorbar=
     line = histstep(ax, edges, contents, **kwargs_step)
     ax.errorbar(midpoints(edges), contents, errors, lw=0, elinewidth=1, color=line.get_color()[0], **kwargs_errorbar)
 
-def plot_hist_ratio(hists_mc, hist_data):
-    plt.figure(figsize=(4,4), dpi=100)
-
-    ax1 = plt.axes([0.0, 0.23, 1.0, 0.8])
-       
-    hmc_tot = np.zeros_like(hist_data.contents)
-    hmc_tot2 = np.zeros_like(hist_data.contents)
-    for h in hists_mc:
-        plot_hist_step(ax1, h.edges, hmc_tot + h.contents,
-            np.sqrt(hmc_tot2 + h.contents_w2),
-            kwargs_step={"label": getattr(h, "label", None)}
-        )
-        hmc_tot += h.contents
-        hmc_tot2 += h.contents_w2
-#    plot_hist_step(h["edges"], hmc_tot, np.sqrt(hmc_tot2), kwargs_step={"color": "gray", "label": None})
-    ax1.errorbar(
-        midpoints(hist_data.edges), hist_data.contents,
-        np.sqrt(hist_data.contents_w2), marker="o", lw=0,
-        elinewidth=1.0, color="black", ms=3, label=getattr(hist_data, "label", None))
-    
-    ax1.set_yscale("log")
-    ax1.set_ylim(1e-2, 100*np.max(hist_data.contents))
-    
-    #ax1.get_yticklabels()[-1].remove()
-    
-    ax2 = plt.axes([0.0, 0.0, 1.0, 0.16], sharex=ax1)
-
-    ratio = hist_data.contents / hmc_tot
-    ratio_err = np.sqrt(hist_data.contents_w2) /hmc_tot
-    ratio[np.isnan(ratio)] = 0
-
-    plt.errorbar(midpoints(hist_data.edges), ratio, ratio_err, marker="o", lw=0, elinewidth=1, ms=3, color="black")
-    plt.ylim(0.5, 1.5)
-    plt.axhline(1.0, color="black")
-    return ax1, ax2
-
 def load_hist(hist_dict):
     return Histogram.from_dict({
         "edges": np.array(hist_dict["edges"]),
@@ -90,14 +227,15 @@ def mask_inv_mass(hist):
 def create_variated_histos(
     hdict,
     baseline="nominal",
-    variations=["puWeight", "jes", "jer"]):
+    variations=shape_systematics):
  
     if not baseline in hdict.keys():
+        import pdb;pdb.set_trace()
         raise KeyError("baseline histogram missing")
     
     hbase = copy.deepcopy(hdict[baseline])
     ret = Results(OrderedDict())
-    ret["nominal"] = Histogram.from_dict(hbase)
+    ret["nominal"] = hbase
     for variation in variations:
         for vdir in ["up", "down"]:
             print("create_variated_histos", variation, vdir)
@@ -112,14 +250,17 @@ def create_variated_histos(
                 hret = hbase
             else:
                 hret = hdict[sname]
-            ret[sname2] = Histogram.from_dict(hret)
+            ret[sname2] = hret
     return ret
 
 def create_datacard(dict_procs, parameter_name, all_processes, histname, baseline, variations, weight_xs):
     
     ret = Results(OrderedDict())
     event_counts = {}
+
+    hists_mc = []
  
+    print("create_datacard processes=", all_processes)
     for proc in all_processes:
         print("create_datacard", proc)
         rr = dict_procs[proc][parameter_name][histname]
@@ -133,25 +274,30 @@ def create_datacard(dict_procs, parameter_name, all_processes, histname, baselin
 
         for syst_name, histo in variated_histos.items():
             if proc != "data":
-                histo = histo * weight_xs[proc]       
+                histo = histo * weight_xs[proc]
 
             if syst_name == "nominal":
 
                 event_counts[proc] = np.sum(histo.contents)
                 print(proc, syst_name, np.sum(histo.contents))
                 if np.sum(histo.contents) < 0.00000001:
-                    print("abnormally small mc", np.sum(histo.contents), np.sum(variated_histos["nominal"].contents))
-
+                    print("ERROR: abnormally small mc", np.sum(histo.contents), np.sum(variated_histos["nominal"].contents))
+                if proc != "data":
+                    hists_mc += [histo]
             #create histogram name for combine datacard
             hist_name = "{0}__{2}".format(proc, histname, syst_name)
             if hist_name == "data__nominal":
-                hist_name = "data"
+                hist_name = "data_obs"
             hist_name = hist_name.replace("__nominal", "")
             
-            if hist_name in ret:
-                import pdb;pdb.set_trace()
             ret[hist_name] = copy.deepcopy(histo)
-    
+
+    assert(len(hists_mc) > 0)
+    hist_mc_tot = copy.deepcopy(hists_mc[0])
+    for h in hists_mc[:1]:
+        hist_mc_tot += h
+    ret["data_fake"] = hist_mc_tot
+ 
     return ret, event_counts
 
 def save_datacard(dc, outfile):
@@ -159,6 +305,9 @@ def save_datacard(dc, outfile):
     for histo_name in dc.keys():
         fi[histo_name] = to_th1(dc[histo_name], histo_name)
     fi.close()
+
+def create_datacard_combine_wrap(args):
+    return create_datacard_combine(*args)
 
 def create_datacard_combine(
     dict_procs, parameter_name,
@@ -172,7 +321,9 @@ def create_datacard_combine(
     txtfile_name
     ):
     
-    dc, event_counts = create_datacard(dict_procs, parameter_name, all_processes, histname, baseline, variations, weight_xs)
+    dc, event_counts = create_datacard(
+        dict_procs, parameter_name, all_processes,
+        histname, baseline, variations, weight_xs)
     rootfile_name = txtfile_name.replace(".txt", ".root")
     
     save_datacard(dc, rootfile_name)
@@ -376,143 +527,51 @@ def PrintDatacard(categories, event_counts, filenames, ofname):
     dcof.write("# Execute with:\n")
     dcof.write("# combine -n {0} -M FitDiagnostics -t -1 {1} \n".format(cat.full_name, os.path.basename(ofname)))
 
-def make_pdf_plot(args):
-    res, hd, mc_samples, analysis, var, weight, weight_xs, int_lumi, outdir = args
-
-    hmc = []
-    for mc_samp in mc_samples:
-        h = load_hist(res[mc_samp][analysis][var][weight])
-        h = h * weight_xs[mc_samp]
-        h.label = "{0} ({1:.1E})".format(mc_samp, np.sum(h.contents))
-        #if var == "hist_inv_mass_d":
-        #    h.contents[0] = 0
-        #    h.contents_w2[0] = 0
-        hmc += [h]
-
-    hd.label = "data ({0:.1E})".format(np.sum(hd.contents))
-
-    if var == "hist_inv_mass_d":
-        mask_inv_mass(hd)
-    #    hd.contents[0] = 0
-    #    hd.contents_w2[0] = 0
-
-    plt.figure(figsize=(4,4))
-    a1, a2 = plot_hist_ratio(hmc, hd)
-    a2.grid(which="both", linewidth=0.5)
-    # Ratio axis ticks
-    ts = a2.set_yticks([0.5, 1.0, 1.5], minor=False)
-    ts = a2.set_yticks([0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5], minor=True)
-
-    #a2.set_yticks(np.linspace(0.5,1.5, ))
-    if var.startswith("hist_numjet"):
-        a1.set_xticks(hd["edges"])
-
-    a1.text(0.01,0.99, r"CMS internal, $L = {0:.1f}\ pb^{{-1}}$".format(int_lumi),
-        horizontalalignment='left', verticalalignment='top', transform=a1.transAxes
-    )
-    a1.set_title(" ".join([var, weight]))
-    handles, labels = a1.get_legend_handles_labels()
-    a1.legend(handles[::-1], labels[::-1], frameon=False, fontsize=4, loc=1)
-
-    plt.savefig(outdir + "/{0}_{1}_{2}.pdf".format(analysis, var, weight), bbox_inches="tight")
-
 if __name__ == "__main__":
 
-    #in picobarns
-    #from https://docs.google.com/presentation/d/1OMnGnSs8TIiPPVOEKV8EbWS8YBgEsoMH0r0Js5v5tIQ/edit#slide=id.g3f663e4489_0_20
-    cross_sections = {
-        "dy": 5765.4,
-        "dy_0j": 4620.52,
-        "dy_1j": 859.59,
-        "dy_2j": 338.26,
-        "dy_m105_160_mg": 46.9479,
-        "dy_m105_160_vbf_mg": 2.02,
-        "dy_m105_160_amc": 41.81,
-        "dy_m105_160_vbf_amc": 41.81*0.0425242,
-        "ggh": 0.009605,
-        "vbf": 0.000823,
-        "ttjets_dl": 85.656,
-        "ttjets_sl": 687.0,
-        "ww_2l2nu": 5.595,
-        "wz_3lnu":  4.42965,
-        "wz_2l2q": 5.595,
-        "wz_1l1nu2q": 11.61,
-        "zz": 16.523,
-        "st_top": 136.02,
-        "st_t_antitop": 80.95,
-        "st_tw_top": 35.85,
-        "st_tw_antitop": 35.85,
-        "ewk_lljj_mll105_160": 0.0508896, 
-    }
+    cmdline_args = parse_args()
 
-    import json
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
 
-    mc_samples_combine_H = [
-        "ggh",
-        "vbf",
-        #"wz_1l1nu2q",
-        "wz_3lnu",
-       "ww_2l2nu", "wz_2l2q", "zz",
-       "ewk_lljj_mll105_160",
-       #"st_top",
-       #"st_t_antitop",
-       "st_tw_top",
-       "st_tw_antitop",
-       "ttjets_sl", "ttjets_dl",
-       "dy_m105_160_amc", "dy_m105_160_vbf_amc",
-    ]
+    pool = multiprocessing.Pool(12)
 
-    mc_samples_combine_Z = [
-        "ggh",
-        "vbf",
-        #"wz_1l1nu2q",
-        "wz_3lnu", 
-       "ww_2l2nu", "wz_2l2q", "zz",
-       "ewk_lljj_mll105_160",
-        #"st_top",
-        #"st_t_antitop",
-       "st_tw_top",
-       "st_tw_antitop",
-       "ttjets_sl", "ttjets_dl",
-        "dy_0j", "dy_1j", "dy_2j",
-    ]
-    mc_samples_load = list(set(mc_samples_combine_H + mc_samples_combine_Z))
-    signal_samples = ["ggh", "vbf"]
-    shape_systematics = ["jes", "jer", "puWeight"]
-    common_scale_uncertainties = {
-        "lumi": 1.025,
-    }
-    scale_uncertainties = {
-        "ww_2l2nu": {"VVxsec": 1.10},
-        "wz_3lnu": {"VVxsec": 1.10},
-        "wz_2l2q": {"VVxsec": 1.10},
-        "wz_2l2q": {"VVxsec": 1.10},
-        "zz": {"VVxsec": 1.10},
-        "wjets": {"WJetsxsec": 1.10},
-        "dy_m105_160_amc": {"DYxsec": 1.10},
-        "dy_m105_160__vbf_amc": {"DYxsec": 1.10},
-        "ttjets_sl": {"TTxsec": 1.05},
-        "ttjets_dl": {"TTxsec": 1.05},
-        "st_t_top": {"STxsec": 1.05},
-        "st_t_antitop": {"STxsec": 1.05},
-        "st_tw_top": {"STxsec": 1.05},
-        "st_tw_antitop": {"STxsec": 1.05},
-    }
+    from pars import cross_sections, categories
+    from pars import signal_samples, shape_systematics, common_scale_uncertainties, scale_uncertainties
 
+    #create a list of all the processes that need to be loaded from the result files
+    mc_samples_load = set()
+    for catname, category_dict in categories.items():
+        for process in category_dict["datacard_processes"]:
+            mc_samples_load.add(process)
+    mc_samples_load = list(mc_samples_load)
 
-    #for era in ["2016", "2017", "2018"]:
-    for era in ["2018"]:
+    eras = []
+    data_results = glob.glob(cmdline_args.input + "/results/data_*.pkl")
+    for dr in data_results:
+        dr_filename = os.path.basename(dr)
+        dr_filename_noext = dr_filename.split(".")[0]
+        name, era = dr_filename_noext.split("_")
+        eras += [era]
+    print("Will make datacards and control plots for eras {0}".format(eras))
+
+    for era in eras:
         res = {}
         genweights = {}
         weight_xs = {}
         datacard_args = []
+        plot_args = []
         
-        analysis = "baseline"
-        input_folder = "out2"
+        analysis = "results"
+        input_folder = cmdline_args.input
         dd = "{0}/{1}".format(input_folder, analysis) 
-        res["data"] = json.load(open(dd + "/data_{0}.json".format(era)))
+        res["data"] = pickle.load(open(dd + "/data_{0}.pkl".format(era), "rb"))
         for mc_samp in mc_samples_load:
-            res[mc_samp] = json.load(open(dd + "/{0}_{1}.json".format(mc_samp, era)))
+            res_file_name = dd + "/{0}_{1}.pkl".format(mc_samp, era)
+            try:
+                res[mc_samp] = pickle.load(open(res_file_name, "rb"))
+            except Exception as e:
+                print("Could not find results file {0}, skipping process {1}".format(res_file_name, mc_samp))
 
         analyses = [k for k in res["data"].keys() if not k in ["cache_metadata", "num_events"]]
 
@@ -531,20 +590,53 @@ if __name__ == "__main__":
 
             #in inverse picobarns
             int_lumi = res["data"]["baseline"]["int_lumi"]
-            for mc_samp in mc_samples_load:
-                genweights[mc_samp] = res[mc_samp]["genEventSumw"]
-                weight_xs[mc_samp] = cross_sections[mc_samp] * int_lumi / genweights[mc_samp]
+            for mc_samp in res.keys():
+                if mc_samp != "data":
+                    genweights[mc_samp] = res[mc_samp]["genEventSumw"]
+                    weight_xs[mc_samp] = cross_sections[mc_samp] * int_lumi / genweights[mc_samp]
             
-            histnames = [h for h in res["data"]["baseline"].keys() if h.startswith("hist__")]
-            #for var in [k for k in res["vbf"][analysis].keys() if k.startswith("hist_")]:
+            histnames = []
+            if cmdline_args.histnames is None:
+                histnames = [h for h in res["data"]["baseline"].keys() if h.startswith("hist__")]
+                print("Will create datacards and plots for all histograms")
+                print("Use commandline option --histnames hist__dimuon__leading_muon_pt --histnames hist__dimuon__subleading_muon_pt ... to change that")
+            else:
+                histnames = cmdline_args.histnames
+            print("Processing histnames", histnames)
+            
             for var in histnames:
-                if var in ["hist_puweight", "hist__dijet_inv_mass_gen"]:
+                if var in ["hist_puweight", "hist__dijet_inv_mass_gen", "hist__dnn_presel__dnn_pred"]:
+                    print("Skipping {0}".format(var))
                     continue
-                if "110_150" in var:
-                    mc_samples = mc_samples_combine_H
+
+                if ("h_peak" in var):
+                    mc_samples = categories["h_peak"]["datacard_processes"]
+                elif ("h_sideband" in var):
+                    mc_samples = categories["h_sideband"]["datacard_processes"]
+                elif ("z_peak" in var):
+                    mc_samples = categories["z_peak"]["datacard_processes"]
                 else:
-                    mc_samples = mc_samples_combine_Z
-                create_datacard_combine(
+                    mc_samples = categories["dimuon"]["datacard_processes"]
+
+
+                #If we specified to only use certain processes in the datacard, keep only those
+                if cmdline_args.keep_processes is None:
+                    pass
+                else:
+                    mc_samples_new = []
+                    for proc in mc_samples:
+                        print(proc)
+                        if proc in cmdline_args.keep_processes:
+                            mc_samples_new += [proc]
+                    mc_samples = mc_samples_new
+                if len(mc_samples) == 0:
+                    raise Exception(
+                        "Could not match any MC process to histogram {0}, ".format(var) + 
+                        "please check the definition in pars.py -> categories as "
+                        "well as --keep-processes commandline option."
+                        )
+
+                datacard_args += [(
                     res,
                     analysis,
                     ["data"] + mc_samples,
@@ -556,14 +648,23 @@ if __name__ == "__main__":
                     common_scale_uncertainties,
                     scale_uncertainties,
                     outdir_datacards + "/{0}.txt".format(var)
-                )
+                )]
 
                 weight_scenarios = ["nominal"]
                 for weight in weight_scenarios:
                     try:
-                        hdata = load_hist(res["data"][analysis][var]["nominal"])
+                        hdata = res["data"][analysis][var]["nominal"]
                     except KeyError:
                         print("Histogram {0} not found for data, skipping".format(var))
                         continue
-                    datacard_args += [(res, hdata, mc_samples, analysis, var, weight, weight_xs, int_lumi, outdir)]
-        ret = list(map(make_pdf_plot, datacard_args))
+                    plot_args += [(
+                        res, hdata, mc_samples, analysis,
+                        var, weight, weight_xs, int_lumi, outdir, era)]
+        rets = list(pool.map(create_datacard_combine_wrap, datacard_args))
+        rets = list(pool.map(make_pdf_plot, plot_args))
+
+        #for args, retval in zip(datacard_args, rets):
+        #    res, hd, mc_samples, analysis, var, weight, weight_xs, int_lumi, outdir, datataking_year = args
+        #    htot_nominal, hd, htot_variated, hdelta_quadrature = retval
+        #    wd = wasserstein_distance(htot_nominal.contents/np.sum(htot_nominal.contents), hd.contents/np.sum(hd.contents))
+        #    print("DataToMC", analysis, var, wd)

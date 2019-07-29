@@ -11,204 +11,19 @@ import shutil
 
 import hepaccelerate.backend_cpu as backend_cpu
 from hepaccelerate.utils import choose_backend, LumiData, LumiMask
-from hepaccelerate.utils import Dataset
-from cmsutils.decisiontree import DecisionTreeNode, DecisionTreeLeaf
+from hepaccelerate.utils import Dataset, Results
 
 import hmumu_utils
-from hmumu_utils import run_analysis, load_analysis, make_random_tree, load_puhist_target, compute_significances, optimize_categories
+from hmumu_utils import run_analysis, run_cache, create_dataset_jobfiles, load_puhist_target
 from hmumu_lib import LibHMuMu, RochesterCorrections, LeptonEfficiencyCorrections
 
 import os
 from coffea.util import USE_CUPY
 import getpass
 
-def parse_args():
-    parser = argparse.ArgumentParser(description='Caltech HiggsMuMu analysis')
-    parser.add_argument('--async-data', action='store_true', help='Load data on a separate thread, faster but disable for debugging')
-    parser.add_argument('--action', '-a', action='append', help='List of analysis steps to do', choices=['cache', 'analyze'], required=True)
-    parser.add_argument('--nthreads', '-t', action='store', help='Number of CPU threads or workers to use', type=int, default=4, required=False)
-    parser.add_argument('--datapath', '-p', action='store', help='Prefix to load NanoAOD data from, e.g. /mnt/hadoop', required=True)
-    parser.add_argument('--maxfiles', '-m', action='store', help='Maximum number of files to process for each dataset', default=1, type=int)
-    parser.add_argument('--chunksize', '-c', action='store', help='Number of files to process simultaneously (larger is faster)', default=5, type=int)
-    parser.add_argument('--cache-location', action='store', help='Cache location', default='./mycache', type=str)
-    parser.add_argument('--out', action='store', help='Output location', default='out', type=str)
-    parser.add_argument('--era', action='append', help='Dataset eras to process', type=str, required=True)
-    parser.add_argument('--datasets', action='append', help='Dataset names process', type=str, required=False)
-    parser.add_argument('--pinned', action='store_true', help='Use CUDA pinned memory')
-    parser.add_argument('--do-sync', action='store_true', help='run only synchronization datasets')
-    args = parser.parse_args()
-    return args
-
-# dataset nickname, datataking era, filename glob pattern, isMC
-datasets = [
-    ("ggh", "2016", "/store/mc/RunIISummer16NanoAODv5/GluGlu_HToMuMu_M125_13TeV_powheg_pythia8/**/*.root", True),
-    ("ggh", "2017", "/store/mc/RunIIFall17NanoAODv5/GluGluHToMuMu_M125_13TeV_amcatnloFXFX_pythia8/**/*.root", True),
-    ("ggh", "2018", "/store/mc/RunIIAutumn18NanoAODv5/GluGluHToMuMu_M-125_TuneCP5_PSweights_13TeV_powheg_pythia8/**/*.root", True),
-    
-    ("vbf", "2016", "/store/mc/RunIISummer16NanoAODv5/VBFHToMuMu_M125_TuneCP5_PSweights_13TeV_amcatnlo_pythia8/**/*.root", True),
-    ("vbf", "2017", "/store/mc/RunIIFall17NanoAODv5/VBFHToMuMu_M-125_TuneCP5_PSweights_13TeV_powheg_pythia8/**/*.root", True),
-    ("vbf", "2018", "/store/mc/RunIIAutumn18NanoAODv5/VBFHToMuMu_M125_TuneCP5_PSweights_13TeV_amcatnlo_pythia8/**/*.root", True),
-    
-    ("data", "2016", "/store/data/Run2016*/SingleMuon/NANOAOD/Nano1June2019*/**/*.root", False),
-    ("data", "2017", "/store/data/Run2017*/SingleMuon/NANOAOD/Nano1June2019-v1/**/*.root", False),
-    ("data", "2018", "/store/data/Run2018*/SingleMuon/NANOAOD/Nano1June2019-v1/**/*.root", False),
-
-#Skip inclusive
-    # ("dy", "2016", "/store/mc/RunIISummer16NanoAODv5/DYJetsToLL_M-50_TuneCUETP8M1_13TeV-amcatnloFXFX-pythia8/**/*.root", True),
-    # ("dy", "2017", "/store/mc/RunIIFall17NanoAODv5/DYJetsToLL_M-50_TuneCP5_13TeV-amcatnloFXFX-pythia8/**/*.root", True),
-    # ("dy", "2018", "/store/mc/RunIIAutumn18NanoAODv5/DYJetsToLL_M-50_TuneCP5_13TeV-amcatnloFXFX-pythia8/**/*.root", True),
-    
-    ("dy_0j", "2016", "/store/mc/RunIISummer16NanoAODv5/DYToLL_0J_13TeV-amcatnloFXFX-pythia8//**/*.root", True),
-    ("dy_0j", "2017", "/store/mc/RunIIFall17NanoAODv5/DYJetsToLL_0J_TuneCP5_13TeV-amcatnloFXFX-pythia8///**/*.root", True),
-    ("dy_0j", "2018", "/store/mc/RunIIAutumn18NanoAODv5/DYJetsToLL_0J_TuneCP5_13TeV-amcatnloFXFX-pythia8//**/*.root", True),
-    
-    ("dy_1j", "2016", "/store/mc/RunIISummer16NanoAODv5/DYToLL_1J_13TeV-amcatnloFXFX-pythia8//**/*.root", True),
-    ("dy_1j", "2017", "/store/mc/RunIIFall17NanoAODv5/DYJetsToLL_1J_TuneCP5_13TeV-amcatnloFXFX-pythia8///**/*.root", True),
-    ("dy_1j", "2018", "/store/mc/RunIIAutumn18NanoAODv5/DYJetsToLL_1J_TuneCP5_13TeV-amcatnloFXFX-pythia8//**/*.root", True),
-    
-    ("dy_2j", "2016", "/store/mc/RunIISummer16NanoAODv5/DYToLL_2J_13TeV-amcatnloFXFX-pythia8//**/*.root", True),
-    ("dy_2j", "2017", "/store/mc/RunIIFall17NanoAODv5/DYJetsToLL_2J_TuneCP5_13TeV-amcatnloFXFX-pythia8///**/*.root", True),
-    ("dy_2j", "2018", "/store/mc/RunIIAutumn18NanoAODv5/DYJetsToLL_2J_TuneCP5_13TeV-amcatnloFXFX-pythia8//**/*.root", True),
-
-    ("dy_m105_160_amc", "2016", "/store/mc/RunIISummer16NanoAODv5/DYJetsToLL_M-105To160_TuneCP5_PSweights_13TeV-amcatnloFXFX-pythia8/**/*.root", True),
-    ("dy_m105_160_amc", "2017", "/store/mc/RunIIFall17NanoAODv5/DYJetsToLL_M-105To160_TuneCP5_PSweights_13TeV-amcatnloFXFX-pythia8/**/*.root", True),
-    ("dy_m105_160_amc", "2018", "/store/mc/RunIIAutumn18NanoAODv5/DYJetsToLL_M-105To160_TuneCP5_PSweights_13TeV-amcatnloFXFX-pythia8/**/*.root", True),
-
-#wrong tune?
-    ("dy_m105_160_vbf_amc", "2016", "/store/mc/RunIISummer16NanoAODv5/DYJetsToLL_M-105To160_VBFFilter_TuneCUETP8M1_13TeV-amcatnloFXFX-pythia8/**/*.root", True),
-    ("dy_m105_160_vbf_amc", "2017", "/store/mc/RunIIFall17NanoAODv5/DYJetsToLL_M-105To160_VBFFilter_TuneCP5_PSweights_13TeV-amcatnloFXFX-pythia8/**/*.root", True),
-    ("dy_m105_160_vbf_amc", "2018", "/store/mc/RunIIAutumn18NanoAODv5/DYJetsToLL_M-105To160_VBFFilter_TuneCP5_PSweights_13TeV-amcatnloFXFX-pythia8/**/*.root", True),
-    
-    ("dy_m105_160_mg", "2016", "/store/mc/RunIISummer16NanoAODv5/DYJetsToLL_M-105To160_TuneCP5_PSweights_13TeV-madgraphMLM-pythia8/**/*.root", True),
-    ("dy_m105_160_mg", "2017", "/store/mc/RunIIFall17NanoAODv5/DYJetsToLL_M-105To160_TuneCP5_PSweights_13TeV-madgraphMLM-pythia8/**/*.root", True),
-    ("dy_m105_160_mg", "2018", "/store/mc/RunIIAutumn18NanoAODv5/DYJetsToLL_M-105To160_VBFFilter_TuneCP5_PSweights_13TeV-madgraphMLM-pythia8//**/*.root", True),
-    
-    ("dy_m105_160_vbf_mg", "2016", "/store/mc/RunIISummer16NanoAODv5/DYJetsToLL_M-105To160_VBFFilter_TuneCUETP8M1_13TeV-madgraphMLM-pythia8/**/*.root", True),
-    ("dy_m105_160_vbf_mg", "2017", "/store/mc/RunIIFall17NanoAODv5/DYJetsToLL_M-105To160_TuneCP5_PSweights_13TeV-madgraphMLM-pythia8/**/*.root", True),
-    ("dy_m105_160_vbf_mg", "2018", "/store/mc/RunIIAutumn18NanoAODv5/DYJetsToLL_M-105To160_VBFFilter_TuneCP5_PSweights_13TeV-madgraphMLM-pythia8//**/*.root", True),
-    
-    ("ttjets_dl", "2016", "/store/mc/RunIISummer16NanoAODv5/TTTo2L2Nu_TuneCP5_PSweights_13TeV-powheg-pythia8/**/*.root", True),
-    ("ttjets_dl", "2017", "/store/mc/RunIIFall17NanoAODv5/TTTo2L2Nu_TuneCP5_PSweights_13TeV-powheg-pythia8/**/*.root", True),
-    ("ttjets_dl", "2018", "/store/mc/RunIIAutumn18NanoAODv5/TTTo2L2Nu_TuneCP5_13TeV-powheg-pythia8/**/*.root", True),
-
-    ("ttjets_sl", "2016", "/store/mc/RunIISummer16NanoAODv5/TTToSemiLeptonic_TuneCP5_PSweights_13TeV-powheg-pythia8/**/*.root", True),
-    ("ttjets_sl", "2017", "/store/mc/RunIIFall17NanoAODv5/TTToSemiLeptonic_TuneCP5_PSweights_13TeV-powheg-pythia8/**/*.root", True),
-    ("ttjets_sl", "2018", "/store/mc/RunIIAutumn18NanoAODv5/TTToSemiLeptonic_TuneCP5_13TeV-powheg-pythia8/**/*.root", True),
-
-    ("ttw", "2016", "/store/mc/RunIISummer16NanoAODv5/TTWJetsToLNu_TuneCUETP8M1_13TeV-amcatnloFXFX-madspin-pythia8/**/*.root", True),
-    ("ttw", "2017", "/store/mc/RunIIFall17NanoAODv5/TTWJetsToLNu_TuneCP5_PSweights_13TeV-amcatnloFXFX-madspin-pythia8/**/*.root", True),
-    ("ttw", "2018", "/store/mc/RunIIAutumn18NanoAODv5/TTWJetsToLNu_TuneCP5_13TeV-amcatnloFXFX-madspin-pythia8/**/*.root", True),
-
-    ("ttz", "2016", "/store/mc/RunIISummer16NanoAODv5/TTZToLLNuNu_M-10_TuneCUETP8M1_13TeV-amcatnlo-pythia8/**/*.root", True),
-    ("ttz", "2017", "/store/mc/RunIIFall17NanoAODv5/TTZToLLNuNu_M-10_TuneCP5_PSweights_13TeV-amcatnlo-pythia8/**/*.root", True),
-    ("ttz", "2018", "/store/mc/RunIIAutumn18NanoAODv5/TTZToLLNuNu_M-10_TuneCP5_13TeV-amcatnlo-pythia8/**/*.root", True),
-
-    ("ewk_lljj_mll50_mjj120", "2016", "/store/mc/RunIISummer16NanoAODv5/EWK_LLJJ_MLL-50_MJJ-120_13TeV-madgraph-pythia8/**/*.root", True),
-    ("ewk_lljj_mll50_mjj120", "2017", "/store/mc/RunIIFall17NanoAODv5/EWK_LLJJ_MLL-50_MJJ-120_TuneCP5_*_13TeV-madgraph-pythia8/**/*.root", True),
-    ("ewk_lljj_mll50_mjj120", "2018", "/store/mc/RunIIAutumn18NanoAODv5/EWK_LLJJ_MLL-50_MJJ-120_TuneCP5_13TeV-madgraph-pythia8//**/*.root", True),
-
-    ("ewk_lljj_mll105_160", "2016", "/store/mc/RunIISummer16NanoAODv5/EWK_LLJJ_MLL_105-160_SM_5f_LO_TuneEEC5_13TeV-madgraph-herwigpp/**/*.root", True),
-    ("ewk_lljj_mll105_160", "2017", "/store/mc/RunIIFall17NanoAODv5/EWK_LLJJ_MLL_105-160_SM_5f_LO_TuneCH3_13TeV-madgraph-herwig7/**/*.root", True),
-    ("ewk_lljj_mll105_160", "2018", "/store/mc/RunIIAutumn18NanoAODv5/EWK_LLJJ_MLL_105-160_SM_5f_LO_TuneCH3_13TeV-madgraph-herwig7/**/*.root", True),
-
-    ("ww_2l2nu", "2016", "/store/mc/RunIISummer16NanoAODv5/WWTo2L2Nu_13TeV-powheg/**/*.root", True),
-    ("ww_2l2nu", "2017", "/store/mc/RunIIFall17NanoAODv5/WWTo2L2Nu_NNPDF31_TuneCP5_13TeV-powheg-pythia8/**/*.root", True),
-    ("ww_2l2nu", "2018", "/store/mc/RunIIAutumn18NanoAODv5/WWTo2L2Nu_NNPDF31_TuneCP5_13TeV-powheg-pythia8/**/*.root", True),
-
-    ("wz_3lnu", "2016", "/store/mc/RunIISummer16NanoAODv5/WZTo3LNu_TuneCUETP8M1_13TeV-powheg-pythia8/**/*.root", True),
-    ("wz_3lnu", "2017", "/store/mc/RunIIFall17NanoAODv5/WZTo3LNu_13TeV-powheg-pythia8/**/*.root", True),
-    ("wz_3lnu", "2018", "/store/mc/RunIIAutumn18NanoAODv5/WZTo3LNu_TuneCP5_13TeV-powheg-pythia8/**/*.root", True),
-    
-    ("wz_2l2q", "2016", "/store/mc/RunIISummer16NanoAODv5/WZTo2L2Q_13TeV_amcatnloFXFX_madspin_pythia8/**/*.root", True),
-    ("wz_2l2q", "2017", "/store/mc/RunIIFall17NanoAODv5/WZTo2L2Q_13TeV_amcatnloFXFX_madspin_pythia8/**/*.root", True),
-    ("wz_2l2q", "2018", "/store/mc/RunIIAutumn18NanoAODv5/WZTo2L2Q_13TeV_amcatnloFXFX_madspin_pythia8/**/*.root", True),
-
-#2016 ST_t-channel not available yet
-#https://cmsweb.cern.ch/das/request?view=list&limit=50&instance=prod%2Fglobal&input=%2FST_t-channel_top_5f_TuneCP5_13TeV-powheg-pythia8*%2F*NanoAODv5*%2FNANOAODSIM
-#   # ("st_top", "2016", "/store/mc/RunIISummer16NanoAODv5//**/*.root", True),
-    ("st_t_top", "2017", "/store/mc/RunIIFall17NanoAODv5/ST_t-channel_top_5f_TuneCP5_13TeV-powheg-pythia8/**/*.root", True),
-    ("st_t_top", "2018", "/store/mc/RunIIAutumn18NanoAODv5/ST_t-channel_top_5f_TuneCP5_13TeV-powheg-pythia8/**/*.root", True),
-
-#2016 ST_t-channel not available yet
-#https://cmsweb.cern.ch/das/request?view=list&limit=50&instance=prod%2Fglobal&input=%2FST_t-channel_top_5f_TuneCP5_13TeV-powheg-pythia8*%2F*NanoAODv5*%2FNANOAODSIM
-#   # ("st_t_antitop", "2016", "/store/mc/RunIISummer16NanoAODv5//**/*.root", True),
-    ("st_t_antitop", "2017", "/store/mc/RunIIFall17NanoAODv5/ST_t-channel_antitop_5f_TuneCP5_PSweights_13TeV-powheg-pythia8/**/*.root", True),
-    ("st_t_antitop", "2018", "/store/mc/RunIIAutumn18NanoAODv5/ST_t-channel_antitop_5f_TuneCP5_13TeV-powheg-pythia8/**/*.root", True),
-
-    ("st_tw_antitop", "2016", "/store/mc/RunIISummer16NanoAODv5/ST_tW_antitop_5f_inclusiveDecays_TuneCP5_PSweights_13TeV-powheg-pythia8/**/*.root", True),
-    ("st_tw_antitop", "2017", "/store/mc/RunIIFall17NanoAODv5/ST_tW_antitop_5f_inclusiveDecays_TuneCP5_13TeV-powheg-pythia8/**/*.root", True),
-    ("st_tw_antitop", "2018", "/store/mc/RunIIAutumn18NanoAODv5/ST_tW_antitop_5f_inclusiveDecays_TuneCP5_13TeV-powheg-pythia8/**/*.root", True),
-
-    ("st_tw_top", "2016", "/store/mc/RunIISummer16NanoAODv5/ST_tW_top_5f_inclusiveDecays_TuneCP5_PSweights_13TeV-powheg-pythia8/**/*.root", True),
-    ("st_tw_top", "2017", "/store/mc/RunIIFall17NanoAODv5/ST_tW_top_5f_inclusiveDecays_TuneCP5_13TeV-powheg-pythia8/**/*.root", True),
-    ("st_tw_top", "2018", "/store/mc/RunIIAutumn18NanoAODv5/ST_tW_top_5f_inclusiveDecays_TuneCP5_13TeV-powheg-pythia8/**/*.root", True),
-
-#2016 WZTo1L1Nu2Q_13TeV not available
-#https://cmsweb.cern.ch/das/request?view=list&limit=50&instance=prod%2Fglobal&input=%2FWZTo1L1Nu2Q_13TeV_amcatnloFXFX*%2F*NanoAODv5*%2FNANOAODSIM
-#   ("wz_1l1nu2q", "2016", "/store/mc/RunIISummer16NanoAODv5//**/*.root", True),
-    ("wz_1l1nu2q", "2017", "/store/mc/RunIIFall17NanoAODv5/WZTo1L1Nu2Q_13TeV_amcatnloFXFX_madspin_pythia8/**/*.root", True),
-#    ("wz_1l1nu2q", "2018", "/store/mc/RunIIAutumn18NanoAODv5//**/*.root", True),
-
-    ("zz", "2016", "/store/mc/RunIISummer16NanoAODv5/ZZ_TuneCUETP8M1_13TeV-pythia8/**/*.root", True),
-    ("zz", "2017", "/store/mc/RunIIFall17NanoAODv5/ZZ_TuneCP5_13TeV-pythia8/**/*.root", True),
-    ("zz", "2018", "/store/mc/RunIIAutumn18NanoAODv5/ZZ_TuneCP5_13TeV-pythia8/**/*.root", True),
-
-    ("wmh", "2016", "/store/mc/RunIISummer16NanoAODv5/WminusH_HToMuMu_WToAll_M125_TuneCP5_PSweights_13TeV_powheg_pythia8/**/*.root", True),
-    ("wmh", "2017", "/store/mc/RunIIFall17NanoAODv5/WminusH_HToMuMu_WToAll_M125_13TeV_powheg_pythia8/**/*.root", True),
-    ("wmh", "2018", "/store/mc/RunIIAutumn18NanoAODv5/WminusH_HToMuMu_WToAll_M125_TuneCP5_PSweights_13TeV_powheg_pythia8/**/*.root", True),
-
-    ("wph", "2016", "/store/mc/RunIISummer16NanoAODv5/WplusH_HToMuMu_WToAll_M125_TuneCP5_PSweights_13TeV_powheg_pythia8/**/*.root", True),
-    ("wph", "2017", "/store/mc/RunIIFall17NanoAODv5/WplusH_HToMuMu_WToAll_M125_13TeV_powheg_pythia8/**/*.root", True),
-    ("wph", "2018", "/store/mc/RunIIAutumn18NanoAODv5/WplusH_HToMuMu_WToAll_M125_TuneCP5_PSweights_13TeV_powheg_pythia8/**/*.root", True),
-
-    ("tth", "2016", "/store/mc/RunIISummer16NanoAODv5/ttHToMuMu_M125_TuneCP5_PSweights_13TeV-powheg-pythia8/**/*.root", True),
-    ("tth", "2017", "/store/mc/RunIIFall17NanoAODv5/ttHToMuMu_M125_TuneCP5_PSweights_13TeV-powheg-pythia8/**/*.root", True),
-    ("tth", "2018", "/store/mc/RunIIAutumn18NanoAODv5/ttHToMuMu_M125_TuneCP5_PSweights_13TeV-powheg-pythia8/**/*.root", True),
-
-    ("zh", "2016", "/store/mc/RunIISummer16NanoAODv5/ZH_HToMuMu_ZToAll_M125_TuneCP5_PSweights_13TeV_powheg_pythia8/**/*.root", True),
-    ("zh", "2017", "/store/mc/RunIIFall17NanoAODv5/ZH_HToMuMu_ZToAll_M125_13TeV_powheg_pythia8/**/*.root", True),
-    ("zh", "2018", "/store/mc/RunIIAutumn18NanoAODv5/ZH_HToMuMu_ZToAll_M125_TuneCP5_PSweights_13TeV_powheg_pythia8/**/*.root", True),
-]
-
-# How many NanoAOD files to load to memory simultaneously.
-# Larger numbers mean faster runtime, but may run out of memory
-chunksizes_mult = {"2016": 1, "2017": 1, "2018": 1}
-maxfiles_mult = {"2016": 1, "2017": 1, "2018": 1}
-
-# Synchronization datasets/
-datasets_sync = [
-    ("ggh", "2016", "data/ggh_nano_2016.root", True)
-]
-
-#dataset cross sections in picobarns
-cross_sections = {
-    "dy": 5765.4,
-    "ggh": 0.009605,
-    "tth": 0.000110,
-    "vbf": 0.000823,
-    
-    "wmh": 0.000116,
-    "wph": 0.000183,
-    "zh": 0.000192,
-    
-    "ttjets_dl": 85.656,
-    "ttjets_sl": 687.0,
-    "ww_2l2nu": 5.595,
-    "wz_3lnu":  4.42965,
-    "wz_2l2q": 5.595,
-    "wz_1l1nu2q": 11.61,
-    "zz": 16.523
-}
-
-sig_samples = [
-    "ggh",
-    "vbf", "tth", "zh", "wmh", "wph"
-]
-bkg_samples = [
-    "dy",
-    "ttjets_sl", "ttjets_dl", "ww_2l2nu", "wz_3lnu", "wz_2l2q", "wz_1l1nu2q", "zz"
-]
-mc_samples = sig_samples + bkg_samples
+import json
+import glob
+import sys
 
 from coffea.lookup_tools import extractor
 from coffea.jetmet_tools import FactorizedJetCorrector
@@ -216,13 +31,46 @@ from coffea.jetmet_tools import JetResolution
 from coffea.jetmet_tools import JetCorrectionUncertainty
 from coffea.jetmet_tools import JetResolutionScaleFactor
 
+from concurrent.futures import ProcessPoolExecutor, wait, ALL_COMPLETED
+
+from pars import datasets, datasets_sync
+
+def parse_args():
+    parser = argparse.ArgumentParser(description='Caltech HiggsMuMu analysis')
+    parser.add_argument('--async-data', action='store_true', help='Load data on a separate thread, faster but disable for debugging')
+    parser.add_argument('--action', '-a', action='append', help='List of analysis steps to do', choices=['cache', 'analyze', 'merge'], required=False, default=None)
+    parser.add_argument('--nthreads', '-t', action='store', help='Number of CPU threads or workers to use', type=int, default=4, required=False)
+    parser.add_argument('--datapath', '-p', action='store', help='Input file path that contains the CMS /store/... folder, e.g. /mnt/hadoop', required=False, default="/storage/user/jpata")
+    parser.add_argument('--maxchunks', '-m', action='store', help='Maximum number of files to process for each dataset', default=1, type=int)
+    parser.add_argument('--chunksize', '-c', action='store', help='Number of files to process simultaneously (larger is faster, but uses more memory)', default=1, type=int)
+    parser.add_argument('--cache-location', action='store', help='Cache location', default='./mycache', type=str)
+    parser.add_argument('--out', action='store', help='Output location', default='out', type=str)
+    parser.add_argument('--datasets', action='append', help='Dataset names process', type=str, required=False)
+    parser.add_argument('--eras', action='append', help='Data eras to process', type=str, required=False)
+    parser.add_argument('--pinned', action='store_true', help='Use CUDA pinned memory')
+    parser.add_argument('--do-sync', action='store_true', help='run only synchronization datasets')
+    parser.add_argument('--do-factorized-jec', action='store_true', help='Enables factorized JEC, disables most validation plots')
+    parser.add_argument('--do-profile', action='store_true', help='Profile the code with yappi')
+    parser.add_argument('--disable-tensorflow', action='store_true', help='Disable loading and evaluating the tensorflow model')
+    parser.add_argument('--jobfiles', action='store', help='Jobfiles to process by the "cache" or "analyze" step', default=None, nargs='+', required=False)
+    parser.add_argument('--jobfiles-load', action='store', help='Load the list of jobfiles to process from this file', default=None, required=False)
+    
+    args = parser.parse_args()
+
+    if args.action is None:
+        args.action = ['analyze', 'merge']
+    
+    if args.eras is None:
+        args.eras = ["2016", "2017", "2018"]
+    return args
+
 class JetMetCorrections:
     def __init__(self,
         jec_tag,
         jec_tag_data,
         jer_tag,
         jmr_vals,
-        do_factorized_jec_unc=False):
+        do_factorized_jec=True):
 
         extract = extractor()
         
@@ -281,7 +129,7 @@ class JetMetCorrections:
 
         junc_names = ['{0}_Uncertainty_AK4PFchs'.format(jec_tag)]
         #levels = []
-        if do_factorized_jec_unc:
+        if do_factorized_jec:
             for name in dir(evaluator):
 
                 #factorized sources
@@ -290,22 +138,217 @@ class JetMetCorrections:
 
         self.jesunc = JetCorrectionUncertainty(**{name: evaluator[name] for name in junc_names})
 
-if __name__ == "__main__":
+class AnalysisCorrections:
+    def __init__(self, args, do_tensorflow=True, gpu_memory_fraction=0.2):
+        self.lumimask = {
+            "2016": LumiMask("data/Cert_271036-284044_13TeV_23Sep2016ReReco_Collisions16_JSON.txt", np, backend_cpu),
+            "2017": LumiMask("data/Cert_294927-306462_13TeV_EOY2017ReReco_Collisions17_JSON_v1.txt", np, backend_cpu),
+            "2018": LumiMask("data/Cert_314472-325175_13TeV_17SeptEarlyReReco2018ABC_PromptEraD_Collisions18_JSON.txt", np, backend_cpu),
+        }
 
-    # Do you want to use yappi to profile the python code
-    do_prof = False
-    do_tensorflow = False
+        self.lumidata = {
+            "2016": LumiData("data/lumi2016.csv"),
+            "2017": LumiData("data/lumi2017.csv"),
+            "2018": LumiData("data/lumi2018.csv")
+        }
 
-    args = parse_args()
+        self.pu_corrections = {
+            "2016": load_puhist_target("data/pileup/RunII_2016_data.root"),
+            "2017": load_puhist_target("data/pileup/RunII_2017_data.root"),
+            "2018": load_puhist_target("data/pileup/RunII_2018_data.root")
+        }
+        
+        #Load the C++ helper library
+        try:
+            self.libhmm = LibHMuMu()
+        except OSError as e:
+            print(e, file=sys.stderr)
+            print("Could not load the C++ helper library, please make sure it's compiled by doing", file=sys.stderr)
+            print("  $ cd tests/hmm && make -j4", file=sys.stderr)
+            print("If there are still issues, please make sure ROOT is installed")
+            print("and the library is compiled against the same version as seen at runtime", file=sys.stderr)
+            sys.exit(1)
+
+        print("Loading Rochester corrections")
+        #https://twiki.cern.ch/twiki/bin/viewauth/CMS/RochcorMuon
+        self.rochester_corrections = {
+            "2016": RochesterCorrections(self.libhmm, "data/RoccoR2016.txt"),
+            "2017": RochesterCorrections(self.libhmm, "data/RoccoR2017.txt"),
+            "2018": RochesterCorrections(self.libhmm, "data/RoccoR2018.txt")
+        }
+
+        #Weight ratios for computing scale factors
+        self.ratios_dataera = {
+            "2016": [0.5548, 1.0 - 0.5548],
+            "2017": 1.0,
+            "2018": 1.0
+        }
+
+        print("Loading lepton SF")
+        self.lepsf_iso = {
+            "2016": LeptonEfficiencyCorrections(self.libhmm,
+                ["data/leptonSF/2016/RunBCDEF_SF_ISO.root", "data/leptonSF/2016/RunGH_SF_ISO.root"],
+                ["NUM_LooseRelIso_DEN_MediumID_eta_pt", "NUM_LooseRelIso_DEN_MediumID_eta_pt"],
+                self.ratios_dataera["2016"]),
+            "2017": LeptonEfficiencyCorrections(self.libhmm,
+                ["data/leptonSF/2017/RunBCDEF_SF_ISO_syst.root"],
+                ["NUM_LooseRelIso_DEN_MediumID_pt_abseta"], [1.0]),
+            "2018": LeptonEfficiencyCorrections(self.libhmm,
+                ["data/leptonSF/2018/RunABCD_SF_ISO.root"],
+                ["NUM_LooseRelIso_DEN_MediumID_pt_abseta"], [1.0]),
+        }
+        self.lepsf_id = {
+            "2016": LeptonEfficiencyCorrections(self.libhmm,
+                ["data/leptonSF/2016/RunBCDEF_SF_ID.root", "data/leptonSF/2016/RunGH_SF_ID.root"],
+                ["NUM_MediumID_DEN_genTracks_eta_pt", "NUM_MediumID_DEN_genTracks_eta_pt"],
+                self.ratios_dataera["2016"]),
+            "2017": LeptonEfficiencyCorrections(self.libhmm,
+                ["data/leptonSF/2017/RunBCDEF_SF_ID_syst.root"],
+                ["NUM_MediumID_DEN_genTracks_pt_abseta"], [1.0]),
+            "2018": LeptonEfficiencyCorrections(self.libhmm,
+                ["data/leptonSF/2018/RunABCD_SF_ID.root"],
+                ["NUM_MediumID_DEN_TrackerMuons_pt_abseta"], [1.0])
+        }
+        self.lepsf_trig = {
+            "2016": LeptonEfficiencyCorrections(self.libhmm,
+                ["data/leptonSF/2016/EfficienciesAndSF_RunBtoF.root", "data/leptonSF/2016/EfficienciesAndSF_RunGtoH.root"],
+                ["IsoMu24_OR_IsoTkMu24_PtEtaBins/abseta_pt_ratio", "IsoMu24_OR_IsoTkMu24_PtEtaBins/abseta_pt_ratio"],
+                self.ratios_dataera["2016"]),
+            "2017": LeptonEfficiencyCorrections(self.libhmm,
+                ["data/leptonSF/2017/EfficienciesAndSF_RunBtoF_Nov17Nov2017.root"],
+                ["IsoMu27_PtEtaBins/pt_abseta_ratio"],
+                [1.0]
+            ),
+            "2018": LeptonEfficiencyCorrections(self.libhmm,
+                ["data/leptonSF/2018/EfficienciesAndSF_2018Data_AfterMuonHLTUpdate.root"],
+                ["IsoMu24_PtEtaBins/pt_abseta_ratio"],
+                [1.0]
+            ),
+        }
+
+        print("Loading JEC...")
+        #JEC files copied from
+        #https://github.com/cms-jet/JECDatabase/tree/master/textFiles
+        #Need to rename JECDatabase files as follows:
+        #  *_UncertaintySources_AK4PFchs.txt -> *_UncertaintySources_AK4PFchs.junc.txt
+        #  *_Uncertainty_AK4PFchs.txt -> *_Uncertainty_AK4PFchs.junc.txt
+        #JER files from
+        #  *_PtResolution_AK4PFchs.txt -> *_PtResolution_AK4PFchs.jr.txt
+        #  *_SF_AK4PFchs.txt -> *_SF_AK4PFchs.jersf.txt
+        self.jetmet_corrections = {
+            "2016": {
+                "Summer16_23Sep2016V4":
+                    JetMetCorrections(
+                    jec_tag="Summer16_23Sep2016V4_MC",
+                    jec_tag_data={
+                        "RunB": "Summer16_23Sep2016BCDV4_DATA",
+                        "RunC": "Summer16_23Sep2016BCDV4_DATA",
+                        "RunD": "Summer16_23Sep2016BCDV4_DATA",
+                        "RunE": "Summer16_23Sep2016EFV4_DATA",
+                        "RunF": "Summer16_23Sep2016EFV4_DATA",
+                        "RunG": "Summer16_23Sep2016GV4_DATA",
+                        "RunH": "Summer16_23Sep2016HV4_DATA",
+                    },
+                    #jer_tag="Summer16_25nsV1_MC",
+                    jer_tag=None,
+                    jmr_vals=[1.0, 1.2, 0.8],
+                    do_factorized_jec=True),
+            },
+            "2017": {
+                "Fall17_17Nov2017_V6":
+                    JetMetCorrections(
+                    jec_tag="Fall17_17Nov2017_V6_MC",
+                    jec_tag_data={
+                        "RunB": "Fall17_17Nov2017B_V6_DATA",
+                        "RunC": "Fall17_17Nov2017C_V6_DATA",
+                        "RunD": "Fall17_17Nov2017D_V6_DATA",
+                        "RunE": "Fall17_17Nov2017E_V6_DATA",
+                        "RunF": "Fall17_17Nov2017F_V6_DATA",
+                    },
+                    #jer_tag="Fall17_V3_MC",
+                    jer_tag=None,
+                    jmr_vals=[1.09, 1.14, 1.04],
+                    do_factorized_jec=True),
+            },
+            "2018": {
+                "Autumn18_V8":
+                    JetMetCorrections(
+                    jec_tag="Autumn18_V8_MC",
+                    jec_tag_data={
+                        "RunA": "Autumn18_RunA_V8_DATA",
+                        "RunB": "Autumn18_RunB_V8_DATA",
+                        "RunC": "Autumn18_RunC_V8_DATA",
+                        "RunD": "Autumn18_RunD_V8_DATA",
+                    },
+                    #jer_tag="Fall17_V3_MC",
+                    jer_tag=None,
+                    jmr_vals=[1.0, 1.2, 0.8],
+                    do_factorized_jec=True),
+                "Autumn18_V16":
+                    JetMetCorrections(
+                    jec_tag="Autumn18_V16_MC",
+                    jec_tag_data={
+                        "RunA": "Autumn18_RunA_V16_DATA",
+                        "RunB": "Autumn18_RunB_V16_DATA",
+                        "RunC": "Autumn18_RunC_V16_DATA",
+                        "RunD": "Autumn18_RunD_V16_DATA",
+                    },
+                    #jer_tag="Fall17_V3_MC",
+                    jer_tag=None,
+                    jmr_vals=[1.0, 1.2, 0.8],
+                    do_factorized_jec=True),
+            }
+        }
+
+        self.dnn_model = None
+        self.dnn_normfactors = None
+        if do_tensorflow:
+            print("Loading tensorflow model")
+            #disable GPU for tensorflow
+            import tensorflow as tf
+            config = tf.ConfigProto()
+            config.intra_op_parallelism_threads=args.nthreads
+            config.inter_op_parallelism_threads=args.nthreads
+
+            if not args.use_cuda: 
+                os.environ["CUDA_VISIBLE_DEVICES"]="-1"
+            else:
+                from keras.backend.tensorflow_backend import set_session
+                import tensorflow as tf
+                config = tf.ConfigProto()
+                config.gpu_options.allow_growth = False
+                config.gpu_options.per_process_gpu_memory_fraction = gpu_memory_fraction
+
+            from keras.backend.tensorflow_backend import set_session
+            set_session(tf.Session(config=config))
+
+            #load DNN model
+            import keras
+            self.dnn_model = keras.models.load_model("data/27vars_trainTest_70_30_vbf_DYjetBin_25July2019.h5")
+            self.dnn_normfactors = np.load("data/27vars_trainTest_70_30_vbf_DYjetBin_25July2019.npy")
+
+            if args.use_cuda:
+                import cupy
+                self.dnn_normfactors = cupy.array(dnn_normfactors[0]), cupy.array(dnn_normfactors[1])
+
+def main(args, datasets):
+
+    do_prof = args.do_profile
+    do_tensorflow = not args.disable_tensorflow
 
     #use the environment variable for cupy/cuda choice
     args.use_cuda = USE_CUPY
 
+    analysis_corrections = None
+    if "analyze" in args.action:
+        analysis_corrections = AnalysisCorrections(args, do_tensorflow)
+
     # Optionally disable pinned memory (will be somewhat slower)
-    if args.use_cuda and not args.pinned:
+    if args.use_cuda:
         import cupy
-        cupy.cuda.set_allocator(None)
-        cupy.cuda.set_pinned_memory_allocator(None)
+        if not args.pinned:
+            cupy.cuda.set_allocator(None)
+            cupy.cuda.set_pinned_memory_allocator(None)
 
     #Use sync-only datasets
     if args.do_sync:
@@ -314,60 +357,17 @@ if __name__ == "__main__":
     #Filter datasets by era
     datasets_to_process = []
     for ds in datasets:
-        if ds[1] in args.era:
-            if args.datasets is None or ds[0] in args.datasets:
+        if args.datasets is None or ds[0] in args.datasets:
+            if args.eras is None or ds[1] in args.eras:
                 datasets_to_process += [ds]
-                print("Will process dataset", ds)
+                print("Will consider dataset", ds)
+    if len(datasets) == 0:
+        raise Exception("No datasets considered, please check the --datasets and --eras options")
     datasets = datasets_to_process
 
     hmumu_utils.NUMPY_LIB, hmumu_utils.ha = choose_backend(args.use_cuda)
     Dataset.numpy_lib = hmumu_utils.NUMPY_LIB
-    DecisionTreeNode.NUMPY_LIB = hmumu_utils.NUMPY_LIB
     
-    #Categorization where we first cut on leptons, then jets
-    dt = DecisionTreeNode("additional_leptons", 0)
-    dt.add_child_left(DecisionTreeNode("num_jets", 0))
-    dt.add_child_right(DecisionTreeLeaf())
-    dt.child_left.add_child_left(DecisionTreeLeaf())
-    dt.child_left.add_child_right(DecisionTreeNode("dijet_inv_mass", 400))
-    dt.child_left.child_right.add_child_left(DecisionTreeLeaf())
-    dt.child_left.child_right.add_child_right(DecisionTreeNode("num_jets_btag", 0))
-    dt.child_left.child_right.child_right.add_child_left(DecisionTreeLeaf())
-    dt.child_left.child_right.child_right.add_child_right(DecisionTreeLeaf())
-    dt.assign_ids()
-    varA = dt
-
-    # not used
-    # dt2 = DecisionTreeNode("num_jets_btag", 0)
-    # dt2.add_child_left(DecisionTreeNode("additional_leptons", 0))
-    # dt2.child_left.add_child_left(DecisionTreeNode("dijet_inv_mass", 400))
-    # dt2.child_left.child_left.add_child_right(DecisionTreeLeaf())
-    # dt2.child_left.child_left.add_child_left(DecisionTreeNode("dijet_inv_mass", 60))
-    # dt2.child_left.child_left.child_left.add_child_left(DecisionTreeLeaf())
-    # dt2.child_left.child_left.child_left.add_child_right(DecisionTreeNode("dijet_inv_mass", 110))
-    # dt2.child_left.child_left.child_left.child_right.add_child_left(DecisionTreeLeaf())
-    # dt2.child_left.child_left.child_left.child_right.add_child_right(DecisionTreeLeaf())
-    # dt2.child_left.add_child_right(DecisionTreeNode("additional_leptons", 1))
-    # dt2.child_left.child_right.add_child_left(DecisionTreeLeaf())
-    # dt2.child_left.child_right.add_child_right(DecisionTreeLeaf())
-    # dt2.add_child_right(DecisionTreeNode("additional_leptons", 0))
-    # dt2.child_right.add_child_right(DecisionTreeLeaf())
-    # dt2.child_right.add_child_left(DecisionTreeNode("num_jets", 4))
-    # dt2.child_right.child_left.add_child_right(DecisionTreeLeaf())
-    # dt2.child_right.child_left.add_child_left(DecisionTreeLeaf())
-    # dt2.assign_ids()
-    # varB = dt2
-
-    # make a hundred random trees as a starting point
-    # varlist = {
-    #     "dijet_inv_mass": [50, 100, 150, 200, 250, 300, 350, 400, 500, 600],
-    #     "num_jets": [0, 1, 2, 3, 4, 5],
-    #     "num_jets_btag": [0, 1, 2],
-    #     "leading_mu_abs_eta": [0.5, 1.0, 1.5, 2.0],
-    #     "additional_leptons": [0,1,3,4]
-    # }
-    # rand_trees = {"rand{0}".format(i): make_random_tree(varlist, 5) for i in range(1)}
-
     # All analysis definitions (cut values etc) should go here
     analysis_parameters = {
         "baseline": {
@@ -384,7 +384,7 @@ if __name__ == "__main__":
                 },
 
             "muon_pt": 20,
-            "muon_pt_leading": {"2016": 26.0, "2017": 30.0, "2018": 26.0},
+            "muon_pt_leading": {"2016": 26.0, "2017": 26.0, "2018": 26.0},
             "muon_eta": 2.4,
             "muon_iso": 0.25,
             "muon_id": {"2016": "medium", "2017": "medium", "2018": "medium"},
@@ -394,26 +394,32 @@ if __name__ == "__main__":
             "do_lepton_sf": True,
             
             "do_jec": True,
-            "jec_tag": {"2016": "Summer16_23Sep2016V4", "2017": "Fall17_17Nov2017_V6", "2018": "Autumn18_V8"}, 
+            "jec_tag": {"2016": "Summer16_23Sep2016V4", "2017": "Fall17_17Nov2017_V6", "2018": "Autumn18_V16"}, 
             "jet_mu_dr": 0.4,
-            "jet_pt_leading": {"2016": 25.0, "2017": 30.0, "2018": 30.0},
-            "jet_pt_subleading": {"2016": 25.0, "2017": 30.0, "2018": 30.0},
+            "jet_pt_leading": {"2016": 35.0, "2017": 35.0, "2018": 35.0},
+            "jet_pt_subleading": {"2016": 25.0, "2017": 25.0, "2018": 25.0},
             "jet_eta": 4.7,
             "jet_id": "tight",
             "jet_puid": "loose",
             "jet_btag": {"2016": 0.6321, "2017": 0.4941, "2018": 0.4184},
+            "do_factorized_jec": args.do_factorized_jec,
 
             "cat5_dijet_inv_mass": 400.0,
+            "cat5_abs_jj_deta_cut": 2.5,
+
+            "masswindow_z_peak": [76, 106],
+            "masswindow_h_region": [110, 150],
+            "masswindow_h_peak": [115, 135],
 
             "inv_mass_bins": 41,
 
             "extra_electrons_pt": 20,
             "extra_electrons_eta": 2.5,
-            "extra_electrons_iso": 0.4,
+            "extra_electrons_iso": 0.4, #Check if we want to apply this
             "extra_electrons_id": "mvaFall17V1Iso_WP90",
 
-            "save_dnn_vars": False,
-            "dnn_vars_path": "{0}/dnn_vars".format(args.cache_location),
+            "save_dnn_vars": True,
+            "dnn_vars_path": "{0}/dnn_vars".format(args.out),
 
             #If true, apply mjj > cut, otherwise inverse
             "vbf_filter_mjj_cut": 350,
@@ -425,7 +431,7 @@ if __name__ == "__main__":
             },
 
             #Irene's DNN input variable order for keras
-            "dnn_varlist_order": ['softJet5', 'dRmm', 'dEtamm', 'dPhimm', 'M_jj', 'pt_jj', 'eta_jj', 'phi_jj', 'M_mmjj', 'eta_mmjj', 'phi_mmjj', 'dEta_jj', 'Zep', 'dRmin_mj', 'dRmax_mj', 'dRmin_mmj', 'dRmax_mmj', 'leadingJet_pt', 'subleadingJet_pt', 'leadingJet_eta', 'subleadingJet_eta', 'leadingJet_qgl', 'subleadingJet_qgl', 'cthetaCS', 'Higgs_pt', 'Higgs_eta'],
+            "dnn_varlist_order": ['softJet5', 'dRmm','dEtamm','M_jj','pt_jj','eta_jj','phi_jj','M_mmjj','eta_mmjj','phi_mmjj','dEta_jj','Zep','dRmin_mj', 'dRmax_mj', 'dRmin_mmj','dRmax_mmj','dPhimm','leadingJet_pt','subleadingJet_pt', 'leadingJet_eta','subleadingJet_eta','leadingJet_qgl','subleadingJet_qgl','cthetaCS','Higgs_pt','Higgs_eta','Higgs_mass'],
             "dnn_input_histogram_bins": {
                 "softJet5": (0,10,10),
                 "dRmm": (0,5,20),
@@ -453,208 +459,162 @@ if __name__ == "__main__":
                 "cthetaCS": (-1, 1, 20),
                 "Higgs_pt": (0, 200, 20),
                 "Higgs_eta": (-3, 3, 20),
+                "Higgs_mass": (110, 150, 20),
+                "dnn_pred": (0, 1, 41),
             },
 
             "categorization_trees": {}
         },
     }
-    analysis_parameters["redo_jec_V16"] = copy.deepcopy(analysis_parameters["baseline"])
-    analysis_parameters["redo_jec_V16"]["jec_tag"]["2018"] = "Autumn18_V16"
+    analysis_parameters["jetpt_l30_sl30"] = copy.deepcopy(analysis_parameters["baseline"])
+    analysis_parameters["jetpt_l30_sl30"]["jet_pt_leading"] = {"2016": 30.0, "2017": 30.0, "2018": 30.0}
+    analysis_parameters["jetpt_l30_sl30"]["jet_pt_subleading"] = {"2016": 20.0, "2017": 20.0, "2018": 30.0}
 
-    lumimask = {
-        "2016": LumiMask("data/Cert_271036-284044_13TeV_23Sep2016ReReco_Collisions16_JSON.txt", np, backend_cpu),
-        "2017": LumiMask("data/Cert_294927-306462_13TeV_EOY2017ReReco_Collisions17_JSON.txt", np, backend_cpu),
-        "2018": LumiMask("data/Cert_314472-325175_13TeV_17SeptEarlyReReco2018ABC_PromptEraD_Collisions18_JSON.txt", np, backend_cpu),
-    }
-
-    lumidata = {
-        "2016": LumiData("data/lumi2016.csv"),
-        "2017": LumiData("data/lumi2017.csv"),
-        "2018": LumiData("data/lumi2018.csv")
-    }
-
-    pu_corrections = {
-        "2016": load_puhist_target("data/pileup/RunII_2016_data.root"),
-        "2017": load_puhist_target("data/pileup/RunII_2017_data.root"),
-        "2018": load_puhist_target("data/pileup/RunII_2018_data.root")
-    }
-    
-    libhmm = LibHMuMu()
-    #https://twiki.cern.ch/twiki/bin/viewauth/CMS/RochcorMuon
-    rochester_corr = {
-        "2016": RochesterCorrections(libhmm, "data/RoccoR2016.txt"),
-        "2017": RochesterCorrections(libhmm, "data/RoccoR2017v1.txt"),
-        "2018": RochesterCorrections(libhmm, "data/RoccoR2018.txt")
-    }
-
-    ratios_dataera = {
-        "2016": [0.5548, 1.0 - 0.5548],
-        "2017": 1.0,
-        "2018": 1.0
-    }
-
-    lepsf_iso = {
-        "2016": LeptonEfficiencyCorrections(libhmm,
-            ["data/leptonSF/2016/RunBCDEF_SF_ISO.root", "data/leptonSF/2016/RunGH_SF_ISO.root"],
-            ["NUM_LooseRelIso_DEN_MediumID_eta_pt", "NUM_LooseRelIso_DEN_MediumID_eta_pt"],
-            ratios_dataera["2016"]),
-        "2017": LeptonEfficiencyCorrections(libhmm,
-            ["data/leptonSF/2017/RunBCDEF_SF_ISO_syst.root"],
-            ["NUM_LooseRelIso_DEN_MediumID_pt_abseta"], [1.0]),
-        "2018": LeptonEfficiencyCorrections(libhmm,
-            ["data/leptonSF/2018/RunABCD_SF_ISO.root"],
-            ["NUM_LooseRelIso_DEN_MediumID_pt_abseta"], [1.0]),
-    }
-    lepsf_id = {
-        "2016": LeptonEfficiencyCorrections(libhmm,
-            ["data/leptonSF/2016/RunBCDEF_SF_ID.root", "data/leptonSF/2016/RunGH_SF_ID.root"],
-            ["NUM_MediumID_DEN_genTracks_eta_pt", "NUM_MediumID_DEN_genTracks_eta_pt"],
-            ratios_dataera["2016"]),
-        "2017": LeptonEfficiencyCorrections(libhmm,
-            ["data/leptonSF/2017/RunBCDEF_SF_ID_syst.root"],
-            ["NUM_MediumID_DEN_genTracks_pt_abseta"], [1.0]),
-        "2018": LeptonEfficiencyCorrections(libhmm,
-            ["data/leptonSF/2018/RunABCD_SF_ID.root"],
-            ["NUM_MediumID_DEN_TrackerMuons_pt_abseta"], [1.0])
-    }
-    lepsf_trig = {
-        "2016": LeptonEfficiencyCorrections(libhmm,
-            ["data/leptonSF/2016/EfficienciesAndSF_RunBtoF.root", "data/leptonSF/2016/EfficienciesAndSF_RunGtoH.root"],
-            ["IsoMu24_OR_IsoTkMu24_PtEtaBins/abseta_pt_ratio", "IsoMu24_OR_IsoTkMu24_PtEtaBins/abseta_pt_ratio"],
-            ratios_dataera["2016"]),
-        "2017": LeptonEfficiencyCorrections(libhmm,
-            ["data/leptonSF/2017/EfficienciesAndSF_RunBtoF_Nov17Nov2017.root"],
-            ["IsoMu27_PtEtaBins/pt_abseta_ratio"],
-            [1.0]
-        ),
-        "2018": LeptonEfficiencyCorrections(libhmm,
-            ["data/leptonSF/2018/EfficienciesAndSF_2018Data_AfterMuonHLTUpdate.root"],
-            ["IsoMu24_PtEtaBins/pt_abseta_ratio"],
-            [1.0]
-        ),
-    }
-
-    #JEC files copied from
-    #https://github.com/cms-jet/JECDatabase/tree/master/textFiles
-    #Need to rename JECDatabase files as follows:
-    #  *_UncertaintySources_AK4PFchs.txt -> *_UncertaintySources_AK4PFchs.junc.txt
-    #  *_Uncertainty_AK4PFchs.txt -> *_Uncertainty_AK4PFchs.junc.txt
-    #JER files from
-    #  *_PtResolution_AK4PFchs.txt -> *_PtResolution_AK4PFchs.jr.txt
-    #  *_SF_AK4PFchs.txt -> *_SF_AK4PFchs.jersf.txt
-    jetmet_corrections = {
-        "2016": {
-            "Summer16_23Sep2016V4":
-                JetMetCorrections(
-                jec_tag="Summer16_23Sep2016V4_MC",
-                jec_tag_data={
-                    "RunB": "Summer16_23Sep2016BCDV4_DATA",
-                    "RunC": "Summer16_23Sep2016BCDV4_DATA",
-                    "RunD": "Summer16_23Sep2016BCDV4_DATA",
-                    "RunE": "Summer16_23Sep2016EFV4_DATA",
-                    "RunF": "Summer16_23Sep2016EFV4_DATA",
-                    "RunG": "Summer16_23Sep2016GV4_DATA",
-                    "RunH": "Summer16_23Sep2016HV4_DATA",
-                },
-                #jer_tag="Summer16_25nsV1_MC",
-                jer_tag=None,
-                jmr_vals=[1.0, 1.2, 0.8]),
-        },
-        "2017": {
-            "Fall17_17Nov2017_V6":
-                JetMetCorrections(
-                jec_tag="Fall17_17Nov2017_V6_MC",
-                jec_tag_data={
-                    "RunB": "Fall17_17Nov2017B_V6_DATA",
-                    "RunC": "Fall17_17Nov2017C_V6_DATA",
-                    "RunD": "Fall17_17Nov2017D_V6_DATA",
-                    "RunE": "Fall17_17Nov2017E_V6_DATA",
-                    "RunF": "Fall17_17Nov2017F_V6_DATA",
-                },
-                #jer_tag="Fall17_V3_MC",
-                jer_tag=None,
-                jmr_vals=[1.09, 1.14, 1.04]),
-        },
-        "2018": {
-            "Autumn18_V8":
-                JetMetCorrections(
-                jec_tag="Autumn18_V8_MC",
-                jec_tag_data={
-                    "RunA": "Autumn18_RunA_V8_DATA",
-                    "RunB": "Autumn18_RunB_V8_DATA",
-                    "RunC": "Autumn18_RunC_V8_DATA",
-                    "RunD": "Autumn18_RunD_V8_DATA",
-                },
-                #jer_tag="Fall17_V3_MC",
-                jer_tag=None,
-                jmr_vals=[1.0, 1.2, 0.8]),
-            "Autumn18_V16":
-                JetMetCorrections(
-                jec_tag="Autumn18_V16_MC",
-                jec_tag_data={
-                    "RunA": "Autumn18_RunA_V16_DATA",
-                    "RunB": "Autumn18_RunB_V16_DATA",
-                    "RunC": "Autumn18_RunC_V16_DATA",
-                    "RunD": "Autumn18_RunD_V16_DATA",
-                },
-                #jer_tag="Fall17_V3_MC",
-                jer_tag=None,
-                jmr_vals=[1.0, 1.2, 0.8]),
-        }
-    }
     #Run baseline analysis
-    outpath = "{0}/baseline".format(args.out)
+    outpath = "{0}/partial_results".format(args.out)
     try:
         os.makedirs(outpath)
     except FileExistsError as e:
             pass
 
-    with open('{0}/parameters.pickle'.format(outpath), 'wb') as handle:
+    with open('{0}/parameters.pkl'.format(outpath), 'wb') as handle:
         pickle.dump(analysis_parameters, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
+    #Recreate dump of all filenames
+    cache_filename = args.cache_location + "/datasets.json"
+    if "cache" in args.action:
+        if not os.path.isdir(args.cache_location):
+            os.makedirs(args.cache_location)
+        filenames_cache = {}
+        for dataset in datasets:
+            dataset_name, dataset_era, dataset_globpattern, is_mc = dataset
+            filenames_all = glob.glob(args.datapath + dataset_globpattern, recursive=True)
+            filenames_all = [fn for fn in filenames_all if not "Friend" in fn]
+            filenames_cache[dataset_name + "_" + dataset_era] = [
+                fn.replace(args.datapath, "") for fn in filenames_all]
+
+            if len(filenames_all) == 0:
+                raise Exception("Dataset {0} matched 0 files from glob pattern {1}, verify that the data files are located in {2}".format(
+                    dataset_name, dataset_globpattern, args.datapath
+                ))
+    
+        #save all dataset filenames to a json file 
+        print("Creating a json dump of all the dataset filenames based on data found in {0}".format(args.datapath))
+        if os.path.isfile(cache_filename):
+            print("Cache file {0} already exists, we will not overwrite it to be safe.".format(cache_filename), file=sys.stderr)
+            print("Delete it or change --cache-location and try again.", file=sys.stderr)
+            sys.exit(1)
+        with open(cache_filename, "w") as fi:
+            fi.write(json.dumps(filenames_cache, indent=2))
+
+    #Create a list of job files for processing
+    jobfile_data = []
+    print("Loading list of filenames from {0}".format(cache_filename))
+    if not os.path.isfile(cache_filename):
+        raise Exception("Cached dataset list of filenames not found in {0}, please run this code with --action cache".format(
+            cache_filename))
+    filenames_cache = json.load(open(cache_filename, "r"))
+
+    for dataset in datasets:
+        dataset_name, dataset_era, dataset_globpattern, is_mc = dataset
+        filenames_all = filenames_cache[dataset_name + "_" + dataset_era]
+        filenames_all_full = [args.datapath + "/" + fn for fn in filenames_all]
+        print("Saving dataset {0}_{1} with {2} files in {3} files per chunk to jobfiles".format(
+            dataset_name, dataset_era, len(filenames_all_full), args.chunksize))
+        jobfile_dataset = create_dataset_jobfiles(dataset_name, dataset_era,
+            filenames_all_full, is_mc, args.chunksize, args.out)
+        jobfile_data += jobfile_dataset
+        print("Dataset {0}_{1} consists of {2} chunks".format(
+            dataset_name, dataset_era, len(jobfile_dataset)))
+
+    assert(len(jobfile_data) > 0)
+    assert(len(jobfile_data[0]["filenames"]) > 0)
+
+    #For each dataset, find out which chunks we want to process
+    if "cache" in args.action or "analyze" in args.action:
+        jobfile_data = []
+        if not (args.jobfiles_load is None):
+            args.jobfiles = [l.strip() for l in open(args.jobfiles_load).readlines()]
+        if args.jobfiles is None:
+            print("You did not specify to process specific dataset chunks, assuming you want to process all chunks")
+            print("If this is not true, please specify e.g. --jobfiles data_2018_0.json data_2018_1.json ...")
+            args.jobfiles = []
+            for dataset in datasets:
+                dataset_name, dataset_era, dataset_globpattern, is_mc = dataset
+                jobfiles_dataset = glob.glob(args.out + "/jobfiles/{0}_{1}_*.json".format(dataset_name, dataset_era))
+                assert(len(jobfiles_dataset) > 0)
+                if args.maxchunks > 0:
+                    jobfiles_dataset = jobfiles_dataset[:args.maxchunks]
+                args.jobfiles += jobfiles_dataset
+       
+        #Now load the jobfiles 
+        assert(len(args.jobfiles) > 0)
+        print("You specified --jobfiles {0}, processing only these dataset chunks".format(" ".join(args.jobfiles))) 
+        jobfile_data = []
+        for f in args.jobfiles:
+            jobfile_data += [json.load(open(f))]
+
+        chunkstr = " ".join(["{0}_{1}_{2}".format(
+            ch["dataset_name"], ch["dataset_era"], ch["dataset_num_chunk"])
+            for ch in jobfile_data])
+        print("Will process {0} dataset chunks: {1}".format(len(jobfile_data), chunkstr))
+        assert(len(jobfile_data) > 0)
+
+    #Start the profiler only in the actual data processing
     if do_prof:
         import yappi
         filename = 'analysis.prof'
         yappi.set_clock_type('cpu')
         yappi.start(builtins=True)
 
-    dnn_model = None
-    if do_tensorflow:
-        #disable GPU for tensorflow
-        if not args.use_cuda: 
-            os.environ["CUDA_VISIBLE_DEVICES"]="-1"
-            import tensorflow as tf
-        else:
-            from keras.backend.tensorflow_backend import set_session
-            import tensorflow as tf
-            config = tf.ConfigProto()
-            config.gpu_options.allow_growth = True
-            config.gpu_options.visible_device_list = "0"
-            set_session(tf.Session(config=config))
-        
-        #load DNN model
-        import keras
-        dnn_model = keras.models.load_model("data/dnn_model.h5")
+    if "cache" in args.action:
+        print("Running the 'cache' step of the analysis, ROOT files will be opened and branches will be uncompressed")
+        print("Will retrieve dataset filenames based on existing ROOT files on filesystem in datapath={0}".format(args.datapath)) 
+       
+        try:
+            os.makedirs(cmdline_args.cache_location)
+        except Exception as e:
+            pass
 
-    run_analysis(args, outpath, datasets, analysis_parameters,
-        {k: args.chunksize*v for k, v in chunksizes_mult.items()},
-        {k: args.maxfiles*v for k, v in maxfiles_mult.items()},
-        lumidata, lumimask, pu_corrections, rochester_corr,
-        lepsf_iso, lepsf_id, lepsf_trig, dnn_model,
-        jetmet_corrections)
+        run_cache(args, outpath, jobfile_data, analysis_parameters)
+    
+    if "analyze" in args.action:
+        run_analysis(args, outpath, jobfile_data, analysis_parameters, analysis_corrections)
 
-    # if "analyze" in args.action: 
-    #     ans = analysis_parameters["baseline"]["categorization_trees"].keys()
-    #     r = load_analysis(mc_samples, outpath, cross_sections, ans)
-    #     Zs = compute_significances(sig_samples, bkg_samples, r, ans)
-    #     print(Zs[:10])
-    #     with open('{0}/sigs.pickle'.format(outpath), 'wb') as handle:
-    #         pickle.dump(Zs, handle, protocol=pickle.HIGHEST_PROTOCOL)
-
-    #     #best_tree = copy.deepcopy(analysis_parameters["baseline"]["categorization_trees"][Zs[0][0]])
-    #     starting_tree = copy.deepcopy(rand_trees["rand0"])
-    #     optimize_categories(sig_samples, bkg_samples, varlist, datasets, lumidata, lumimask, pu_corrections, cross_sections, args, analysis_parameters, starting_tree)
-
+    if "merge" in args.action:
+        with ProcessPoolExecutor(max_workers=args.nthreads) as executor:
+            for dataset in datasets:
+                dataset_name, dataset_era, dataset_globpattern, is_mc = dataset
+                fut = executor.submit(merge_partial_results, dataset_name, dataset_era, outpath)
+        print("done merging")
     if do_prof:
         stats = yappi.get_func_stats()
         stats.save(filename, type='callgrind')
+
+    import resource
+    total_memory = resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss
+    total_memory += resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    print("maxrss={0} MB".format(total_memory/1024))
+
+def merge_partial_results(dataset_name, dataset_era, outpath):
+    results = []
+    partial_results = glob.glob(outpath + "/{0}_{1}_*.pkl".format(dataset_name, dataset_era))
+    print("Merging {0} partial results for dataset {1}_{2}".format(len(partial_results), dataset_name, dataset_era))
+    for res_file in partial_results:
+        res = pickle.load(open(res_file, "rb"))
+        results += [res]
+    results = sum(results, Results({}))
+    try:
+        os.makedirs(args.out + "/results")
+    except FileExistsError as e:
+        pass
+    result_filename = args.out + "/results/{0}_{1}.pkl".format(dataset_name, dataset_era)
+    print("Saving results to {0}".format(result_filename))
+    with open(result_filename, "wb") as fi:
+        pickle.dump(results, fi, protocol=pickle.HIGHEST_PROTOCOL) 
+    return
+
+if __name__ == "__main__":
+
+    args = parse_args()
+    main(args, datasets)

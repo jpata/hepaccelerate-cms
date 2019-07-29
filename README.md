@@ -17,15 +17,6 @@ git submodule update
 cd tests/hmm/
 make
 cd ../..
-
-#Produce ntuple caches (one time only)
-PYTHONPATH=hepaccelerate:coffea:. python3 tests/hmm/analysis_hmumu.pu --datapath /path/to/store/cms/ --cache-location /path/to/fast/ssd --maxfiles 5 --action cache
-
-#Run analysis
-PYTHONPATH=hepaccelerate:coffea:. python3 tests/hmm/analysis_hmumu.pu --datapath /path/to/store/cms/ --cache-location /path/to/fast/ssd --maxfiles 5 --action analyze
-
-#Produce plots from out/baseline/*.json
-PYTHONPATH=hepaccelerate:coffea:. python3 cmsutils/plotting.py
 ~~~
 
 Best results can be had if the CMS data is stored locally on a filesystem (few TB needed) and if you have a cache disk on the analysis machine of a few hundred GB.
@@ -44,10 +35,11 @@ git submodule update
 
 #Compile the C++ helpers
 cd tests/hmm
-singularity exec /bigdata/shared/Software/singularity/gpuservers/singularity/images/cupy.simg make
+singularity exec /storage/user/jpata/cupy2.simg make -j4
 cd ../..
 
-#Run the code (small dataset by default, edit the file to change this)
+#Run the code as a small test (small dataset by default, edit the file to change this)
+#This should take approximately 5 minutes and processes 1 file from each dataset for each year
 ./tests/hmm/run.sh
 ~~~
 
