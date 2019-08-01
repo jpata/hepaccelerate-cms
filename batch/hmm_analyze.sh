@@ -7,25 +7,31 @@ ls /storage
 env
 
 workdir=`pwd`
-tar xf jobfiles.tgz
 
+#Create argument list
+tar xf jobfiles.tgz
 for word in "$@"; do
     echo $workdir/jobfiles/$word.json >> args.txt
 done
 
-export JOBFILE=$1
+#Set some default arguments
 export NTHREADS=4
 export PYTHONPATH=coffea:hepaccelerate:. 
 export HEPACCELERATE_CUDA=0
 export KERAS_BACKEND=tensorflow
-
-export CACHE_PATH=/storage/user/$USER/hmm/cache
 export NUMBA_NUM_THREADS=$NTHREADS
 export OMP_NUM_THREADS=$NTHREADS
+
+#This is where the skim files are loaded form
+export CACHE_PATH=/storage/user/$USER/hmm/cache
+
+#Local output director in worker node tmp
 export OUTDIR=out
 
-cd /data/jpata/hmumu/hepaccelerate-cms/
+#Go to working directory (change to your dir this!)
+cd /data/$USER/hmumu/prod/hepaccelerate-cms/
 
+#Run the code
 python3 tests/hmm/analysis_hmumu.py \
     --action analyze \
     --nthreads $NTHREADS --cache-location $CACHE_PATH \
@@ -37,6 +43,7 @@ python3 tests/hmm/analysis_hmumu.py \
 
 cd $workdir
 
+#copy the output as a tar archive
 tar -cvzf out.tgz $OUTDIR
 cp out.tgz /storage/user/$USER/hmm/out_$CONDORJOBID.tgz
 du /storage/user/$USER/hmm/out_$CONDORJOBID.tgz

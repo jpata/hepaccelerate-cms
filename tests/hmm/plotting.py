@@ -5,7 +5,6 @@ from hepaccelerate.utils import Histogram, Results
 from collections import OrderedDict
 import uproot
 
-import matplotlib
 
 import copy
 import multiprocessing
@@ -16,6 +15,9 @@ from scipy.stats import wasserstein_distance
 import argparse
 import pickle
 import glob
+
+import cloudpickle
+import json
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Caltech HiggsMuMu analysis plotting')
@@ -29,7 +31,6 @@ def assign_plot_title_label(histname):
     spl = histname.split("__")
     varname_nice = "UNKNOWN"
     catname_nice = "UNKNOWN"
-    print(spl)
     if len(spl) == 3:
         catname = spl[1]
         varname = spl[2]
@@ -46,6 +47,10 @@ def plot_hist_ratio(hists_mc, hist_data,
         total_err_stat=None,
         total_err_stat_syst=None,
         figure=None):
+    
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
     if not figure:
         figure = plt.figure(figsize=(5,5), dpi=100)
 
@@ -73,7 +78,6 @@ def plot_hist_ratio(hists_mc, hist_data,
     if not (total_err_stat is None):
         histstep(ax1, hist_data.edges, hmc_tot + total_err_stat, color="gray", linewidth=1, linestyle="--", label="stat")
         histstep(ax1, hist_data.edges, hmc_tot - total_err_stat, color="gray", linewidth=1, linestyle="--")
-
         
     ax1.set_yscale("log")
     ax1.set_ylim(1e-2, 100*np.max(hist_data.contents))
@@ -110,7 +114,43 @@ def plot_hist_ratio(hists_mc, hist_data,
     
     return ax1, ax2
 
+def plot_variations(args):
+    res, hd, mc_samples, analysis, var, weight, weight_xs, int_lumi, outdir, datataking_year = args
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    _outdir = outdir + "/shape_systematics/{0}/".format(var)
+    try:
+        os.makedirs(_outdir)
+    except Exception as e:
+        pass
+    for mc_samp in mc_samples:
+        for unc in shape_systematics:
+            fig = plt.figure(figsize=(5,5), dpi=100)
+            ax = plt.axes()
+            hnom = res[mc_samp]["nominal"]* weight_xs[mc_samp]
+            plot_hist_step(ax, hnom.edges, hnom.contents,
+                np.sqrt(hnom.contents_w2),
+                kwargs_step={"label": "nominal"},
+            )
+            for sdir in ["__up", "__down"]:
+                if (unc + sdir) in res[mc_samp]:
+                    hvar = res[mc_samp][unc + sdir]* weight_xs[mc_samp]
+                    plot_hist_step(ax, hvar.edges, hvar.contents,
+                        np.sqrt(hvar.contents_w2),
+                        kwargs_step={"label": sdir.replace("__", "")},
+                    )
+            handles, labels = ax.get_legend_handles_labels()
+            ax.legend(handles[::-1], labels[::-1], frameon=False, fontsize=4, loc=1, ncol=2)
+            plt.savefig(_outdir + "/{0}_{1}.pdf".format(mc_samp, unc), bbox_inches="tight")
+            plt.close(fig)
+            del fig
+
 def make_pdf_plot(args):
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
     res, hd, mc_samples, analysis, var, weight, weight_xs, int_lumi, outdir, datataking_year = args
 
     hist_template = copy.deepcopy(hd)
@@ -121,7 +161,7 @@ def make_pdf_plot(args):
     hmc = []
     
     for mc_samp in mc_samples:
-        h = res[mc_samp][analysis][var][weight]
+        h = res[mc_samp][weight]
         h = h * weight_xs[mc_samp]
         h.label = "{0} ({1:.1E})".format(mc_samp, np.sum(h.contents))
                 
@@ -133,9 +173,9 @@ def make_pdf_plot(args):
     
     for sdir in ["__up", "__down"]:
         for unc in shape_systematics:
-            if (unc + sdir) in res[mc_samp][analysis][var]:
+            if (unc + sdir) in res[mc_samp]:
                 htot_variated[unc + sdir] = sum([
-                    res[mc_samp][analysis][var][unc + sdir]* weight_xs[mc_samp] for mc_samp in mc_samples
+                    res[mc_samp][unc + sdir]* weight_xs[mc_samp] for mc_samp in mc_samples
                 ], hist_template)
                 hdelta_quadrature += (htot_nominal.contents - htot_variated[unc+sdir].contents)**2
             
@@ -148,9 +188,9 @@ def make_pdf_plot(args):
     #    hd.contents[0] = 0
     #    hd.contents_w2[0] = 0
 
-    plt.figure(figsize=(4,4))
+    figure = plt.figure(figsize=(5,5), dpi=100)
     a1, a2 = plot_hist_ratio(hmc, hd,
-        total_err_stat=hdelta_quadrature_stat, total_err_stat_syst=hdelta_quadrature_stat_syst)
+        total_err_stat=hdelta_quadrature_stat, total_err_stat_syst=hdelta_quadrature_stat_syst, figure=figure)
     a2.grid(which="both", linewidth=0.5)
     # Ratio axis ticks
     ts = a2.set_yticks([0.5, 1.0, 1.5], minor=False)
@@ -179,10 +219,20 @@ def make_pdf_plot(args):
     
     binwidth = np.diff(hd.edges)[0]
     a1.set_ylabel("events / bin [{0:.1f}]".format(binwidth))
-    plt.savefig(outdir + "/{0}_{1}_{2}.pdf".format(analysis, var, weight), bbox_inches="tight")
-    plt.savefig(outdir + "/{0}_{1}_{2}.png".format(analysis, var, weight), bbox_inches="tight", dpi=100)
-    
-    return htot_nominal, hd, htot_variated, hdelta_quadrature
+    try:
+        os.makedirs(outdir + "/png")
+    except Exception as e:
+        pass
+    try:
+        os.makedirs(outdir + "/pdf")
+    except Exception as e:
+        pass
+    plt.savefig(outdir + "/pdf/{0}_{1}_{2}.pdf".format(analysis, var, weight), bbox_inches="tight")
+    plt.savefig(outdir + "/png/{0}_{1}_{2}.png".format(analysis, var, weight), bbox_inches="tight", dpi=100)
+    plt.close(figure)
+    del figure
+ 
+    return
 
 def histstep(ax, edges, contents, **kwargs):
     ymins = []
@@ -230,15 +280,15 @@ def create_variated_histos(
     variations=shape_systematics):
  
     if not baseline in hdict.keys():
-        import pdb;pdb.set_trace()
         raise KeyError("baseline histogram missing")
     
-    hbase = copy.deepcopy(hdict[baseline])
+    #hbase = copy.deepcopy(hdict[baseline])
+    hbase = hdict[baseline]
     ret = Results(OrderedDict())
     ret["nominal"] = hbase
     for variation in variations:
         for vdir in ["up", "down"]:
-            print("create_variated_histos", variation, vdir)
+            #print("create_variated_histos", variation, vdir)
             sname = "{0}__{1}".format(variation, vdir)
             if sname.endswith("__up"):
                 sname2 = sname.replace("__up", "Up")
@@ -246,7 +296,7 @@ def create_variated_histos(
                 sname2 = sname.replace("__down", "Down")
 
             if sname not in hdict:
-                print("systematic", sname, "not found, taking baseline") 
+                #print("systematic", sname, "not found, taking baseline") 
                 hret = hbase
             else:
                 hret = hdict[sname]
@@ -260,10 +310,10 @@ def create_datacard(dict_procs, parameter_name, all_processes, histname, baselin
 
     hists_mc = []
  
-    print("create_datacard processes=", all_processes)
+    #print("create_datacard processes=", all_processes)
     for proc in all_processes:
-        print("create_datacard", proc)
-        rr = dict_procs[proc][parameter_name][histname]
+        #print("create_datacard", proc)
+        rr = dict_procs[proc]
         _variations = variations
 
         #don't produce variated histograms for data
@@ -279,9 +329,7 @@ def create_datacard(dict_procs, parameter_name, all_processes, histname, baselin
             if syst_name == "nominal":
 
                 event_counts[proc] = np.sum(histo.contents)
-                print(proc, syst_name, np.sum(histo.contents))
-                if np.sum(histo.contents) < 0.00000001:
-                    print("ERROR: abnormally small mc", np.sum(histo.contents), np.sum(variated_histos["nominal"].contents))
+                #print(proc, syst_name, np.sum(histo.contents))
                 if proc != "data":
                     hists_mc += [histo]
             #create histogram name for combine datacard
@@ -320,7 +368,7 @@ def create_datacard_combine(
     scale_uncertainties,
     txtfile_name
     ):
-    
+     
     dc, event_counts = create_datacard(
         dict_procs, parameter_name, all_processes,
         histname, baseline, variations, weight_xs)
@@ -531,10 +579,7 @@ if __name__ == "__main__":
 
     cmdline_args = parse_args()
 
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-
-    pool = multiprocessing.Pool(12)
+    pool = multiprocessing.Pool(24)
 
     from pars import cross_sections, categories
     from pars import signal_samples, shape_systematics, common_scale_uncertainties, scale_uncertainties
@@ -556,7 +601,7 @@ if __name__ == "__main__":
     print("Will make datacards and control plots for eras {0}".format(eras))
 
     for era in eras:
-        res = {}
+        rea = {}
         genweights = {}
         weight_xs = {}
         datacard_args = []
@@ -564,7 +609,8 @@ if __name__ == "__main__":
         
         analysis = "results"
         input_folder = cmdline_args.input
-        dd = "{0}/{1}".format(input_folder, analysis) 
+        dd = "{0}/{1}".format(input_folder, analysis)
+        res = {} 
         res["data"] = pickle.load(open(dd + "/data_{0}.pkl".format(era), "rb"))
         for mc_samp in mc_samples_load:
             res_file_name = dd + "/{0}_{1}.pkl".format(mc_samp, era)
@@ -594,7 +640,16 @@ if __name__ == "__main__":
                 if mc_samp != "data":
                     genweights[mc_samp] = res[mc_samp]["genEventSumw"]
                     weight_xs[mc_samp] = cross_sections[mc_samp] * int_lumi / genweights[mc_samp]
-            
+           
+            with open(outdir + "/normalization.json", "w") as fi:
+                fi.write(json.dumps({
+                    "weight_xs": weight_xs,
+                    "genweights": genweights,
+                    "int_lumi": int_lumi,
+                    }, indent=2)
+                )
+
+
             histnames = []
             if cmdline_args.histnames is None:
                 histnames = [h for h in res["data"]["baseline"].keys() if h.startswith("hist__")]
@@ -636,8 +691,11 @@ if __name__ == "__main__":
                         "well as --keep-processes commandline option."
                         )
 
-                datacard_args += [(
-                    res,
+
+                histos = {s: res[s][analysis][var] for s in mc_samples + ["data"]}
+                print(era, analysis, var)
+                datacard_args += [
+                    (histos,
                     analysis,
                     ["data"] + mc_samples,
                     signal_samples,
@@ -650,16 +708,11 @@ if __name__ == "__main__":
                     outdir_datacards + "/{0}.txt".format(var)
                 )]
 
-                weight_scenarios = ["nominal"]
-                for weight in weight_scenarios:
-                    try:
-                        hdata = res["data"][analysis][var]["nominal"]
-                    except KeyError:
-                        print("Histogram {0} not found for data, skipping".format(var))
-                        continue
-                    plot_args += [(
-                        res, hdata, mc_samples, analysis,
-                        var, weight, weight_xs, int_lumi, outdir, era)]
+                hdata = res["data"][analysis][var]["nominal"]
+                plot_args += [(
+                    histos, hdata, mc_samples, analysis,
+                    var, "nominal", weight_xs, int_lumi, outdir, era)]
+        rets = list(pool.map(plot_variations, plot_args))
         rets = list(pool.map(create_datacard_combine_wrap, datacard_args))
         rets = list(pool.map(make_pdf_plot, plot_args))
 

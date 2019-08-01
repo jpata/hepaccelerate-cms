@@ -2,7 +2,7 @@
 #Abort the script if any step fails
 set -e
 
-#Set NTHREADS=24 to run on whole machine, =1 for debugging
+#Use this many threads (max 4 makes sense, does not scale above due to numpy serialness)
 export NTHREADS=4
 
 #Set to -1 to run on all files, 1 for debugging/testing
@@ -15,7 +15,7 @@ export CACHE_PATH=/storage/user/jpata/hmm/cache
 export SINGULARITY_IMAGE=/storage/user/jpata/cupy2.simg
 export PYTHONPATH=coffea:hepaccelerate:.
 export NUMBA_THREADING_LAYER=tbb
-export NUMBA_ENABLE_AVX=0
+export NUMBA_ENABLE_AVX=1
 export NUMBA_NUM_THREADS=$NTHREADS
 export OMP_NUM_THREADS=$NTHREADS
 export HEPACCELERATE_CUDA=0

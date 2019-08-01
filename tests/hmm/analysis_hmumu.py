@@ -329,7 +329,7 @@ class AnalysisCorrections:
 
             if args.use_cuda:
                 import cupy
-                self.dnn_normfactors = cupy.array(dnn_normfactors[0]), cupy.array(dnn_normfactors[1])
+                self.dnn_normfactors = cupy.array(self.dnn_normfactors[0]), cupy.array(self.dnn_normfactors[1])
 
 def main(args, datasets):
 

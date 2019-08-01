@@ -99,8 +99,13 @@ signal_samples = ["ggh", "vbf"]
 jec_unc = ['AbsoluteFlavMap', 'AbsoluteMPFBias', 'AbsoluteSample', 'AbsoluteScale',
     'AbsoluteStat', 'CorrelationGroupFlavor', 'CorrelationGroupIntercalibration',
     'CorrelationGroupMPFInSitu', 'CorrelationGroupUncorrelated', 'CorrelationGroupbJES',
-    'FlavorPhotonJet', 'FlavorPureBottom', 'FlavorPureCharm', 'FlavorPureGluon',
-    'FlavorPureQuark', 'FlavorQCD', 'FlavorZJet', 'Fragmentation', 'PileUpDataMC',
+
+#These are overlapping, the one closest to our region of interest should be chosen
+    #'FlavorPhotonJet', 'FlavorPureBottom', 'FlavorPureCharm', 'FlavorPureGluon',
+    #'FlavorPureQuark', 'FlavorQCD',
+    'FlavorZJet',
+
+    'Fragmentation', 'PileUpDataMC',
     'PileUpEnvelope', 'PileUpMuZero', 'PileUpPtBB', 'PileUpPtEC1', 'PileUpPtEC2',
     'PileUpPtHF', 'PileUpPtRef', 'RelativeBal', 'RelativeFSR', 'RelativeJEREC1',
     'RelativeJEREC2', 'RelativeJERHF', 'RelativePtBB', 'RelativePtEC1', 'RelativePtEC2',
