@@ -26,7 +26,7 @@ run-analyze:
     paths:
       - out
 
-run-analyze:
+run-plots:
   stage: plots
   script:
     - PYTHONPATH=hepaccelerate:coffea:. NUMBA_NUM_THREADS=1 OMP_NUM_THREADS=1 singularity exec --nv -B /storage ${singularity_image} python3 tests/hmm/plotting.py --input out --histname hist__dimuon_invmass_z_peak_cat5__dnn_pred --histname hist__dimuon_invmass_z_peak_cat5__inv_mass
