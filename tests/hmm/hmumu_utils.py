@@ -45,8 +45,6 @@ debug_event_ids = []
 #list to collect performance data in
 global_metrics = []
 
-do_all_histograms = True
-
 def fix_inf_nan(data, default=0):
     data[NUMPY_LIB.isinf(data)] = default
     data[NUMPY_LIB.isnan(data)] = default
@@ -72,6 +70,8 @@ def analyze_data(
     dataset_era = "",
     dataset_name = "",
     dataset_num_chunk = "",
+    bdt_ucsd = None,
+    miscvariables = None
     ):
 
     muons = data["Muon"]
@@ -132,7 +132,7 @@ def analyze_data(
     print("muon selection eff", ret_mu["selected_muons"].sum() / float(muons.numobjects()))
     
     # Create arrays with just the leading and subleading particle contents for easier management
-    mu_attrs = ["pt", "eta", "phi", "mass", "pdgId", "nTrackerLayers"]
+    mu_attrs = ["pt", "eta", "phi", "mass", "pdgId", "nTrackerLayers", "charge"]
     if is_mc:
         mu_attrs += ["genpt"]
     leading_muon = muons.select_nth(0, ret_mu["selected_events"], ret_mu["selected_muons"], attributes=mu_attrs)
@@ -315,11 +315,16 @@ def analyze_data(
             #Compute the DNN inputs, the DNN output, fill the DNN input and output variable histograms
             dnn_prediction = None
             dnn_vars, dnn_prediction = compute_fill_dnn(
-               parameters, use_cuda, dnn_presel, dnn_model, dnn_normfactors,
-               scalars, leading_muon, subleading_muon, leading_jet, subleading_jet
+               miscvariables, parameters, use_cuda, dnn_presel, dnn_model, dnn_normfactors,
+               scalars, leading_muon, subleading_muon, leading_jet, subleading_jet,
+               ret_jet["num_jets"]
             )
             weights_in_dnn_presel = apply_mask(weights_selected, dnn_presel)
            
+            if not ((bdt_ucsd is None)):
+                bdt_pred = evaluate_bdt_ucsd(dnn_vars, bdt_ucsd)
+                dnn_vars["bdt_ucsd"] = bdt_pred
+
             #Assing a numerical category ID 
             category =  assign_category(
                 ret_jet["num_jets"], ret_jet["num_jets_btag"],
@@ -376,38 +381,36 @@ def analyze_data(
 
                     hb = parameters["dnn_input_histogram_bins"]["dnn_pred"]
 
-                    if do_all_histograms:
+                    fill_histograms_several(
+                        hists, jet_syst_name, "hist__dimuon_invmass_{0}_cat{1}__".format(massbin_name, icat),
+                        [
+                            (higgs_inv_mass, "inv_mass", histo_bins["inv_mass_{0}".format(massbin_name)]),
+                            (leading_jet["pt"], "leading_jet_pt", histo_bins["jet_pt"]),
+                            (subleading_jet["pt"], "subleading_jet_pt", histo_bins["jet_pt"]),
+                            (leading_jet["eta"], "leading_jet_eta", histo_bins["jet_eta"]),
+                            (subleading_jet["eta"], "subleading_jet_eta", histo_bins["jet_eta"]),
+                            (ret_jet["dijet_inv_mass"], "dijet_inv_mass", histo_bins["dijet_inv_mass"]),
+                            (scalars["SoftActivityJetNjets5"], "num_soft_jets", histo_bins["numjets"]),
+                            (ret_jet["num_jets"], "num_jets" , histo_bins["numjets"]),
+                            (pt_balance, "pt_balance", histo_bins["pt_balance"]),
+                        ],
+                        (dnn_presel & massbin_msk & msk_cat),
+                        weights_selected,
+                        use_cuda
+                    )
 
-                        fill_histograms_several(
-                            hists, jet_syst_name, "hist__dimuon_invmass_{0}_cat{1}__".format(massbin_name, icat),
-                            [
-                                (higgs_inv_mass, "inv_mass", histo_bins["inv_mass_{0}".format(massbin_name)]),
-                                (leading_jet["pt"], "leading_jet_pt", histo_bins["jet_pt"]),
-                                (subleading_jet["pt"], "subleading_jet_pt", histo_bins["jet_pt"]),
-                                (leading_jet["eta"], "leading_jet_eta", histo_bins["jet_eta"]),
-                                (subleading_jet["eta"], "subleading_jet_eta", histo_bins["jet_eta"]),
-                                (ret_jet["dijet_inv_mass"], "dijet_inv_mass", histo_bins["dijet_inv_mass"]),
-                                (scalars["SoftActivityJetNjets5"], "num_soft_jets", histo_bins["numjets"]),
-                                (ret_jet["num_jets"], "num_jets" , histo_bins["numjets"]),
-                                (pt_balance, "pt_balance", histo_bins["pt_balance"]),
-                            ],
-                            (dnn_presel & massbin_msk & msk_cat),
-                            weights_selected,
-                            use_cuda
-                        )
-
-                        fill_histograms_several(
-                            hists, jet_syst_name, "hist__dimuon_invmass_{0}_cat{1}__".format(massbin_name, icat),
-                            [
-                                (dnn_vars[varname], varname, histo_bins[varname])
-                                for varname in dnn_vars.keys() if varname in histo_bins.keys()
-                            ] + [
-                                (dnn_vars["dnn_pred"], "dnn_pred2", histo_bins["dnn_pred2"])
-                            ],
-                            (dnn_presel & massbin_msk & msk_cat)[dnn_presel],
-                            weights_in_dnn_presel,
-                            use_cuda
-                        )
+                    fill_histograms_several(
+                        hists, jet_syst_name, "hist__dimuon_invmass_{0}_cat{1}__".format(massbin_name, icat),
+                        [
+                            (dnn_vars[varname], varname, histo_bins[varname])
+                            for varname in dnn_vars.keys() if varname in histo_bins.keys()
+                        ] + [
+                            (dnn_vars["dnn_pred"], "dnn_pred2", histo_bins["dnn_pred2"])
+                        ],
+                        (dnn_presel & massbin_msk & msk_cat)[dnn_presel],
+                        weights_in_dnn_presel,
+                        use_cuda
+                    )
         
          #end of isyst loop
     #end of uncertainty_name loop
@@ -582,6 +585,45 @@ def compute_event_weights(weights, scalars, genweight_scalefactor, pu_correction
     for wn in weights.keys():
         print("w", wn, weights[wn].mean())
 
+def evaluate_bdt_ucsd(dnn_vars, gbr_bdt):
+    # BDT var=hmmpt
+    # BDT var=hmmrap
+    # BDT var=hmmthetacs
+    # BDT var=hmmphics
+    # BDT var=j1pt
+    # BDT var=j1eta
+    # BDT var=j2pt
+    # BDT var=detajj
+    # BDT var=dphijj
+    # BDT var=mjj
+    # BDT var=met
+    # BDT var=zepen
+    # BDT var=hmass
+    # BDT var=njets
+    # BDT var=drmj
+    varnames = [
+        "Higgs_pt",
+        "Higgs_eta",
+        "hmmthetacs",
+        "hmmphics",
+        "leadingJet_pt",
+        "leadingJet_eta",
+        "subleadingJet_pt",
+        "dEta_jj",
+        "dPhi_jj",
+        "M_jj",
+        "MET_pt",
+        "Zep",
+        "Higgs_mass",
+        "num_jets",
+        "dRmin_mj",
+    ]
+
+    X = NUMPY_LIB.asnumpy(NUMPY_LIB.stack([dnn_vars[vname] for vname in varnames], axis=1))
+    y = gbr_bdt.compute(X)
+    print("bdt_ucsd eval", y.mean(), y.std())
+    return y
+
 def vbf_genfilter(genjet_inv_mass, num_good_genjets, parameters, dataset_name):
     mask_dijet_genmass = (genjet_inv_mass > parameters["vbf_filter_mjj_cut"])
     mask_2gj = num_good_genjets >= 2
@@ -703,7 +745,9 @@ def run_analysis(
             dnn_model=analysis_corrections.dnn_model,
             dnn_normfactors=analysis_corrections.dnn_normfactors,
             jetmet_corrections=analysis_corrections.jetmet_corrections,
-            do_sync = cmdline_args.do_sync)
+            do_sync = cmdline_args.do_sync,
+            bdt_ucsd  = analysis_corrections.bdt_ucsd,
+            miscvariables = analysis_corrections.miscvariables)
 
         tnext = time.time()
         print("processed {0:.2E} ev/s".format(nev/float(tnext-tprev)))
@@ -1466,6 +1510,7 @@ def dnn_variables(leading_muon, subleading_muon, leading_jet, subleading_jet, ns
     
     #delta eta between jets 
     jj_deta = leading_jet["eta"] - subleading_jet["eta"]
+    jj_dphi = leading_jet["phi"] - subleading_jet["phi"]
 
     #muons in cartesian, create dimuon system 
     m1 = to_cartesian(leading_muon)    
@@ -1513,6 +1558,7 @@ def dnn_variables(leading_muon, subleading_muon, leading_jet, subleading_jet, ns
         "M_jj": jj_sph["mass"], "pt_jj": jj_sph["pt"], "eta_jj": jj_sph["eta"], "phi_jj": jj_sph["phi"],
         "M_mmjj": mmjj_sph["mass"], "eta_mmjj": mmjj_sph["eta"], "phi_mmjj": mmjj_sph["phi"],
         "dEta_jj": jj_deta,
+        "dPhi_jj": jj_dphi,
         "leadingJet_pt": leading_jet["pt"],
         "subleadingJet_pt": subleading_jet["pt"],
         "leadingJet_eta": leading_jet["eta"],
@@ -1556,7 +1602,20 @@ def select_weights(weights, jet_systematic_scenario):
 # 1. Compute the DNN input variables in a given preselection
 # 2. Evaluate the DNN model
 # 3. Fill histograms with DNN inputs and output
-def compute_fill_dnn(parameters, use_cuda, dnn_presel, dnn_model, dnn_normfactors, scalars, leading_muon, subleading_muon, leading_jet, subleading_jet):
+def compute_fill_dnn(
+    miscvariables,
+    parameters,
+    use_cuda,
+    dnn_presel,
+    dnn_model,
+    dnn_normfactors,
+    scalars,
+    leading_muon,
+    subleading_muon,
+    leading_jet,
+    subleading_jet,
+    num_jets):
+
     nev_dnn_presel = NUMPY_LIB.sum(dnn_presel)
 
     #for some reason, on the cuda backend, the sum does not return a simple number
@@ -1570,6 +1629,9 @@ def compute_fill_dnn(parameters, use_cuda, dnn_presel, dnn_model, dnn_normfactor
     nsoft = scalars["SoftActivityJetNjets5"][dnn_presel]
 
     dnn_vars = dnn_variables(leading_muon_s, subleading_muon_s, leading_jet_s, subleading_jet_s, nsoft)
+    dnn_vars["MET_pt"] = scalars["MET_pt"][dnn_presel]
+    dnn_vars["num_jets"] = num_jets[dnn_presel]
+
     if (not (dnn_model is None)) and nev_dnn_presel > 0:
         dnn_vars_arr = NUMPY_LIB.vstack([dnn_vars[k] for k in parameters["dnn_varlist_order"]]).T
         
@@ -1585,6 +1647,20 @@ def compute_fill_dnn(parameters, use_cuda, dnn_presel, dnn_model, dnn_normfactor
         dnn_pred = NUMPY_LIB.array(dnn_pred, dtype=NUMPY_LIB.float32)
     else:
         dnn_pred = NUMPY_LIB.zeros(nev_dnn_presel, dtype=NUMPY_LIB.float32)
+
+    hmmthetacs, hmmphics = miscvariables.csangles(
+        NUMPY_LIB.asnumpy(leading_muon_s["pt"]),
+        NUMPY_LIB.asnumpy(leading_muon_s["eta"]),
+        NUMPY_LIB.asnumpy(leading_muon_s["phi"]),
+        NUMPY_LIB.asnumpy(leading_muon_s["mass"]),
+        NUMPY_LIB.asnumpy(subleading_muon_s["pt"]),
+        NUMPY_LIB.asnumpy(subleading_muon_s["eta"]),
+        NUMPY_LIB.asnumpy(subleading_muon_s["phi"]),
+        NUMPY_LIB.asnumpy(subleading_muon_s["mass"]),
+        NUMPY_LIB.asnumpy(leading_muon_s["charge"]),
+        )
+    dnn_vars["hmmthetacs"] = NUMPY_LIB.array(hmmthetacs)
+    dnn_vars["hmmphics"] = NUMPY_LIB.array(hmmphics)
 
     return dnn_vars, dnn_pred
 
@@ -2086,7 +2162,8 @@ def create_datastructure(is_mc, dataset_era):
             ("luminosityBlock", "uint32"),
             ("event", "uint64"),
             ("SoftActivityJetNjets5", "int32"),
-            ("fixedGridRhoFastjetAll", "float32")
+            ("fixedGridRhoFastjetAll", "float32"),
+            ("MET_pt", "float32"),
         ],
     }
 

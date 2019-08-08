@@ -15,7 +15,7 @@ from hepaccelerate.utils import Dataset, Results
 
 import hmumu_utils
 from hmumu_utils import run_analysis, run_cache, create_dataset_jobfiles, load_puhist_target
-from hmumu_lib import LibHMuMu, RochesterCorrections, LeptonEfficiencyCorrections
+from hmumu_lib import LibHMuMu, RochesterCorrections, LeptonEfficiencyCorrections, GBREvaluator, MiscVariables
 
 import os
 from coffea.util import USE_CUPY
@@ -333,6 +333,12 @@ class AnalysisCorrections:
                 import cupy
                 self.dnn_normfactors = cupy.array(self.dnn_normfactors[0]), cupy.array(self.dnn_normfactors[1])
 
+
+        print("Loading UCSD BDT model")
+        self.bdt_ucsd = GBREvaluator(self.libhmm, "data/TMVAClassification_BDTG.weights.2jet_bveto_withmass.xml")
+
+        self.miscvariables = MiscVariables(self.libhmm)
+
 def main(args, datasets):
 
     do_prof = args.do_profile
@@ -469,6 +475,7 @@ def main(args, datasets):
                 "Higgs_mass": (110, 150, 20),
                 "dnn_pred": (0, 1, 1001),
                 "dnn_pred2": (0, 1, 11),
+                "bdt_ucsd": (-1, 1, 41),
             },
 
             "categorization_trees": {}
