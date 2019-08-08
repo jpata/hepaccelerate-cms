@@ -9,7 +9,7 @@ import uproot
 import copy
 import multiprocessing
 
-from pars import catnames, varnames, analysis_names, shape_systematics, controlplots_shape
+from pars import catnames, varnames, analysis_names, shape_systematics, controlplots_shape, datasets
 from scipy.stats import wasserstein_distance
 
 import argparse
@@ -583,11 +583,7 @@ if __name__ == "__main__":
     from pars import signal_samples, shape_systematics, common_scale_uncertainties, scale_uncertainties
 
     #create a list of all the processes that need to be loaded from the result files
-    mc_samples_load = set()
-    for catname, category_dict in categories.items():
-        for process in category_dict["datacard_processes"]:
-            mc_samples_load.add(process)
-    mc_samples_load = list(mc_samples_load)
+    mc_samples_load = set([d[0] for d in datasets])
 
     eras = []
     data_results_glob = cmdline_args.input + "/results/data_*.pkl"

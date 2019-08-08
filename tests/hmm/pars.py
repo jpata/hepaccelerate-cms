@@ -109,6 +109,11 @@ cross_sections = {
     "st_tw_antitop": 35.85,
     "ewk_lljj_mll105_160": 0.0508896, 
     "ewk_lljj_mll50_mjj120": 0.128,
+    "ttw": 0.2001,
+    "ttz": 0.2529,
+    "st_t_top": 3.36,
+    "vbf_powheg1": 0.000823,
+    "vbf_powheg2": 0.000823,
 }
 
 signal_samples = ["ggh", "vbf"]
