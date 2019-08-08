@@ -9,7 +9,7 @@ import uproot
 import copy
 import multiprocessing
 
-from pars import catnames, varnames, analysis_names, shape_systematics
+from pars import catnames, varnames, analysis_names, shape_systematics, controlplots_shape
 from scipy.stats import wasserstein_distance
 
 import argparse
@@ -115,7 +115,7 @@ def plot_hist_ratio(hists_mc, hist_data,
     return ax1, ax2
 
 def plot_variations(args):
-    res, hd, mc_samples, analysis, var, weight, weight_xs, int_lumi, outdir, datataking_year = args
+    res, hd, mc_samp, analysis, var, weight, weight_xs, int_lumi, outdir, datataking_year, unc = args
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -124,27 +124,25 @@ def plot_variations(args):
         os.makedirs(_outdir)
     except Exception as e:
         pass
-    for mc_samp in mc_samples:
-        for unc in shape_systematics:
-            fig = plt.figure(figsize=(5,5), dpi=100)
-            ax = plt.axes()
-            hnom = res[mc_samp]["nominal"]* weight_xs[mc_samp]
-            plot_hist_step(ax, hnom.edges, hnom.contents,
-                np.sqrt(hnom.contents_w2),
-                kwargs_step={"label": "nominal"},
+    fig = plt.figure(figsize=(5,5), dpi=100)
+    ax = plt.axes()
+    hnom = res[mc_samp]["nominal"]* weight_xs[mc_samp]
+    plot_hist_step(ax, hnom.edges, hnom.contents,
+        np.sqrt(hnom.contents_w2),
+        kwargs_step={"label": "nominal"},
+    )
+    for sdir in ["__up", "__down"]:
+        if (unc + sdir) in res[mc_samp]:
+            hvar = res[mc_samp][unc + sdir]* weight_xs[mc_samp]
+            plot_hist_step(ax, hvar.edges, hvar.contents,
+                np.sqrt(hvar.contents_w2),
+                kwargs_step={"label": sdir.replace("__", "")},
             )
-            for sdir in ["__up", "__down"]:
-                if (unc + sdir) in res[mc_samp]:
-                    hvar = res[mc_samp][unc + sdir]* weight_xs[mc_samp]
-                    plot_hist_step(ax, hvar.edges, hvar.contents,
-                        np.sqrt(hvar.contents_w2),
-                        kwargs_step={"label": sdir.replace("__", "")},
-                    )
-            handles, labels = ax.get_legend_handles_labels()
-            ax.legend(handles[::-1], labels[::-1], frameon=False, fontsize=4, loc=1, ncol=2)
-            plt.savefig(_outdir + "/{0}_{1}.pdf".format(mc_samp, unc), bbox_inches="tight")
-            plt.close(fig)
-            del fig
+    handles, labels = ax.get_legend_handles_labels()
+    ax.legend(handles[::-1], labels[::-1], frameon=False, fontsize=4, loc=1, ncol=2)
+    plt.savefig(_outdir + "/{0}_{1}.pdf".format(mc_samp, unc), bbox_inches="tight")
+    plt.close(fig)
+    del fig
 
 def make_pdf_plot(args):
     import matplotlib
@@ -592,7 +590,12 @@ if __name__ == "__main__":
     mc_samples_load = list(mc_samples_load)
 
     eras = []
-    data_results = glob.glob(cmdline_args.input + "/results/data_*.pkl")
+    data_results_glob = cmdline_args.input + "/results/data_*.pkl"
+    print("looking for {0}".format(data_results_glob))
+    data_results = glob.glob(data_results_glob)
+    if len(data_results) == 0:
+        raise Exception("Did not find any data_*.pkl files in {0}, please check that this is a valid results directory and that the merge step has been completed".format(data_results_glob))
+
     for dr in data_results:
         dr_filename = os.path.basename(dr)
         dr_filename_noext = dr_filename.split(".")[0]
@@ -606,7 +609,8 @@ if __name__ == "__main__":
         weight_xs = {}
         datacard_args = []
         plot_args = []
-        
+        plot_args_shape_syst = []
+
         analysis = "results"
         input_folder = cmdline_args.input
         dd = "{0}/{1}".format(input_folder, analysis)
@@ -712,7 +716,14 @@ if __name__ == "__main__":
                 plot_args += [(
                     histos, hdata, mc_samples, analysis,
                     var, "nominal", weight_xs, int_lumi, outdir, era)]
-        rets = list(pool.map(plot_variations, plot_args))
+                for var_shape in controlplots_shape:
+                    if var_shape in var: 
+                        for mc_samp in mc_samples:
+                            for unc in shape_systematics:
+                                plot_args_shape_syst += [(
+                                    histos, hdata, mc_samp, analysis,
+                                    var, "nominal", weight_xs, int_lumi, outdir, era, unc)]
+        rets = list(pool.map(plot_variations, plot_args_shape_syst))
         rets = list(pool.map(create_datacard_combine_wrap, datacard_args))
         rets = list(pool.map(make_pdf_plot, plot_args))
 

@@ -8,23 +8,30 @@ env
 
 workdir=`pwd`
 
-export NTHREADS=8
+#Set some default arguments
+export NTHREADS=24
 export PYTHONPATH=coffea:hepaccelerate:. 
 export HEPACCELERATE_CUDA=0
 export KERAS_BACKEND=tensorflow
-
-export CACHE_PATH=/storage/user/$USER/hmm/cache2
 export NUMBA_NUM_THREADS=$NTHREADS
 export OMP_NUM_THREADS=$NTHREADS
-export MAXFILES=-1
 
-cd /data/jpata/hmumu/hepaccelerate-cms/
+#This is where the skim files are loaded form
+export CACHE_PATH=/storage/user/$USER/hmm/cache
 
+#Local output director in worker node tmp
+export OUTDIR=out
+
+#Go to code directory
+cd $SUBMIT_DIR
+
+#Run the code
 python3 tests/hmm/analysis_hmumu.py \
-    --action cache --maxfiles $MAXFILES --chunksize 1 \
-    --nthreads $NTHREADS --cache-location $CACHE_PATH \
-    --datapath /storage/user/jpata/ --era 2016 --era 2017 --era 2018 \
+    --action cache \
+    --nthreads $NTHREADS \
+    --cache-location $CACHE_PATH \
+    --datapath /storage/user/jpata/ \
+    --maxchunks -1 --chunksize 1 \
     --out $workdir/out
 
-ls $CACHE_PATH
 echo "job done"

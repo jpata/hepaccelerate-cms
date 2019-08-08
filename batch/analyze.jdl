@@ -14,9 +14,9 @@ Requirements=(TARGET.OpSysAndVer=="CentOS7" && regexp("blade.*", TARGET.Machine)
 run_as_owner = True
 x509userproxy = $ENV(X509_USER_PROXY)
 RequestDisk = 4
-RequestMemory = 4000
+RequestMemory = 6000
 RequestCpus = 4
 
 transfer_input_files = jobfiles.tgz
 
-Environment = USER=$ENV(USER);CONDORJOBID=$(Process)
+Environment = USER=$ENV(USER);CONDORJOBID=$(Process);SUBMIT_DIR=$ENV(SUBMIT_DIR)

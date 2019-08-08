@@ -15,7 +15,7 @@ categories = {
             "wz_3lnu", 
             "ww_2l2nu", "wz_2l2q", "zz",
             "ewk_lljj_mll50_mjj120",
-            "ewk_lljj_mll105_160",
+            #"ewk_lljj_mll105_160",
             #"st_top",
             #"st_t_antitop",
             "st_tw_top",
@@ -31,10 +31,14 @@ categories = {
         "datacard_processes" : [
             "ggh",
             "vbf",
+            "wmh",
+            "wph",
+            "zh",
+            "tth",
             #"wz_1l1nu2q",
             "wz_3lnu", 
             "ww_2l2nu", "wz_2l2q", "zz",
-            "ewk_lljj_mll50_mjj120",
+            #"ewk_lljj_mll50_mjj120",
             "ewk_lljj_mll105_160",
             #"st_top",
             #"st_t_antitop",
@@ -51,10 +55,14 @@ categories = {
         "datacard_processes" : [
             "ggh",
             "vbf",
+            "wmh",
+            "wph",
+            "zh",
+            "tth",
             #"wz_1l1nu2q",
             "wz_3lnu", 
             "ww_2l2nu", "wz_2l2q", "zz",
-            "ewk_lljj_mll50_mjj120",
+            #"ewk_lljj_mll50_mjj120",
             "ewk_lljj_mll105_160",
             #"st_top",
             #"st_t_antitop",
@@ -69,6 +77,10 @@ categories = {
     }
 }
 
+controlplots_shape = [
+    "inv_mass", "dnn_pred", "pt_balance"
+]
+
 cross_sections = {
     "dy": 2075.14*3, # https://twiki.cern.ch/twiki/bin/viewauth/CMS/SummaryTable1G25ns; Pg 10: https://indico.cern.ch/event/746829/contributions/3138541/attachments/1717905/2772129/Drell-Yan_jets_crosssection.pdf
     "dy_0j": 4620.52, #https://indico.cern.ch/event/673253/contributions/2756806/attachments/1541203/2416962/20171016_VJetsXsecsUpdate_PH-GEN.pdf
@@ -80,6 +92,10 @@ cross_sections = {
     "dy_m105_160_vbf_amc": 46.9479*0.0425242, #https://docs.google.com/document/d/1bViX80nXQ_p-W4gI6Fqt9PNQ49B6cP1_FhcKwTZVujo/edit?usp=sharing
     "ggh": 0.010571, #48.61 * 0.0002176; https://twiki.cern.ch/twiki/bin/view/LHCPhysics/CERNHLHE2019
     "vbf": 0.000823,
+    "wmh": 0.000116,
+    "wph": 0.000183,
+    "zh": 0.000192,
+    "tth": 0.000110,
     "ttjets_dl": 85.656,
     "ttjets_sl": 687.0,
     "ww_2l2nu": 5.595,
@@ -96,9 +112,12 @@ cross_sections = {
 }
 
 signal_samples = ["ggh", "vbf"]
-jec_unc = ['AbsoluteFlavMap', 'AbsoluteMPFBias', 'AbsoluteSample', 'AbsoluteScale',
-    'AbsoluteStat', 'CorrelationGroupFlavor', 'CorrelationGroupIntercalibration',
-    'CorrelationGroupMPFInSitu', 'CorrelationGroupUncorrelated', 'CorrelationGroupbJES',
+jec_unc = [
+    'AbsoluteFlavMap', 'AbsoluteMPFBias', 'AbsoluteSample', 'AbsoluteScale',
+    'AbsoluteStat',
+#These can be used as a proxy for all the groups
+    #'CorrelationGroupFlavor', 'CorrelationGroupIntercalibration',
+    #'CorrelationGroupMPFInSitu', 'CorrelationGroupUncorrelated', 'CorrelationGroupbJES',
 
 #These are overlapping, the one closest to our region of interest should be chosen
     #'FlavorPhotonJet', 'FlavorPureBottom', 'FlavorPureCharm', 'FlavorPureGluon',
@@ -116,9 +135,9 @@ jec_unc = ['AbsoluteFlavMap', 'AbsoluteMPFBias', 'AbsoluteSample', 'AbsoluteScal
 #, 'SubTotalAbsolute', 'SubTotalMC', 'SubTotalPileUp',
 #    'SubTotalPt', 'SubTotalRelative', 'SubTotalScale', 'TimePtEta', 'Total', 'TotalNoFlavor',
 #    'TotalNoFlavorNoTime', 'TotalNoTime']
- 
-uncertainties = jec_unc + ["puWeight"]
-shape_systematics = jec_unc + ["jer", "puWeight"]
+
+uncertainties = jec_unc + ["puWeight", "L1PreFiringWeight"]
+shape_systematics = jec_unc + ["jer", "puWeight", "L1PreFiringWeight"]
 common_scale_uncertainties = {
     "lumi": 1.025,
 }
@@ -218,6 +237,8 @@ datasets = [
     ("ggh", "2018", "/store/mc/RunIIAutumn18NanoAODv5/GluGluHToMuMu_M-125_TuneCP5_PSweights_13TeV_powheg_pythia8/**/*.root", True),
     
     ("vbf", "2016", "/store/mc/RunIISummer16NanoAODv5/VBFHToMuMu_M125_TuneCP5_PSweights_13TeV_amcatnlo_pythia8/**/*.root", True),
+    ("vbf_powheg1", "2016", "/store/mc/RunIISummer16NanoAODv5/VBFHToMuMu_M-125_TuneCP5_PSweights_13TeV_powheg_pythia8/**/*.root", True),
+    ("vbf_powheg2", "2016", "/store/mc/RunIISummer16NanoAODv5/VBF_HToMuMu_M125_13TeV_powheg_pythia8/**/*.root", True),    
     ("vbf", "2017", "/store/mc/RunIIFall17NanoAODv5/VBFHToMuMu_M-125_TuneCP5_PSweights_13TeV_powheg_pythia8/**/*.root", True),
     ("vbf", "2018", "/store/mc/RunIIAutumn18NanoAODv5/VBFHToMuMu_M125_TuneCP5_PSweights_13TeV_amcatnlo_pythia8/**/*.root", True),
     

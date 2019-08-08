@@ -28,8 +28,8 @@ export CACHE_PATH=/storage/user/$USER/hmm/cache
 #Local output director in worker node tmp
 export OUTDIR=out
 
-#Go to working directory (change to your dir this!)
-cd /data/$USER/hmumu/prod/hepaccelerate-cms/
+#Go to code directory
+cd $SUBMIT_DIR
 
 #Run the code
 python3 tests/hmm/analysis_hmumu.py \

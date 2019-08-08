@@ -35,6 +35,8 @@ from concurrent.futures import ProcessPoolExecutor, wait, ALL_COMPLETED
 
 from pars import datasets, datasets_sync
 
+chunksize_multiplier = {}
+
 def parse_args():
     parser = argparse.ArgumentParser(description='Caltech HiggsMuMu analysis')
     parser.add_argument('--async-data', action='store_true', help='Load data on a separate thread, faster but disable for debugging')
@@ -367,7 +369,8 @@ def main(args, datasets):
 
     hmumu_utils.NUMPY_LIB, hmumu_utils.ha = choose_backend(args.use_cuda)
     Dataset.numpy_lib = hmumu_utils.NUMPY_LIB
-    
+    NUMPY_LIB = hmumu_utils.NUMPY_LIB 
+
     # All analysis definitions (cut values etc) should go here
     analysis_parameters = {
         "baseline": {
@@ -384,12 +387,14 @@ def main(args, datasets):
                 },
 
             "muon_pt": 20,
-            "muon_pt_leading": {"2016": 26.0, "2017": 26.0, "2018": 26.0},
+            "muon_pt_leading": {"2016": 26.0, "2017": 29.0, "2018": 26.0},
             "muon_eta": 2.4,
             "muon_iso": 0.25,
             "muon_id": {"2016": "medium", "2017": "medium", "2018": "medium"},
             "muon_trigger_match_dr": 0.1,
-            
+            "muon_iso_trigger_matched": 0.15,
+            "muon_id_trigger_matched": {"2016": "tight", "2017": "tight", "2018": "tight"},
+ 
             "do_rochester_corrections": True, 
             "do_lepton_sf": True,
             
@@ -401,6 +406,8 @@ def main(args, datasets):
             "jet_eta": 4.7,
             "jet_id": "tight",
             "jet_puid": "loose",
+            "jet_veto_eta": [2.65, 3.139],
+            "jet_veto_raw_pt": 50.0,  
             "jet_btag": {"2016": 0.6321, "2017": 0.4941, "2018": 0.4184},
             "do_factorized_jec": args.do_factorized_jec,
 
@@ -408,7 +415,7 @@ def main(args, datasets):
             "cat5_abs_jj_deta_cut": 2.5,
 
             "masswindow_z_peak": [76, 106],
-            "masswindow_h_region": [110, 150],
+            "masswindow_h_sideband": [110, 150],
             "masswindow_h_peak": [115, 135],
 
             "inv_mass_bins": 41,
@@ -460,15 +467,36 @@ def main(args, datasets):
                 "Higgs_pt": (0, 200, 20),
                 "Higgs_eta": (-3, 3, 20),
                 "Higgs_mass": (110, 150, 20),
-                "dnn_pred": (0, 1, 41),
+                "dnn_pred": (0, 1, 1001),
+                "dnn_pred2": (0, 1, 11),
             },
 
             "categorization_trees": {}
         },
     }
-    analysis_parameters["jetpt_l30_sl30"] = copy.deepcopy(analysis_parameters["baseline"])
-    analysis_parameters["jetpt_l30_sl30"]["jet_pt_leading"] = {"2016": 30.0, "2017": 30.0, "2018": 30.0}
-    analysis_parameters["jetpt_l30_sl30"]["jet_pt_subleading"] = {"2016": 20.0, "2017": 20.0, "2018": 30.0}
+    histo_bins = {
+        "muon_pt": np.linspace(0, 200, 101, dtype=np.float32),
+        "npvs": np.linspace(0,100,101, dtype=np.float32),
+        "dijet_inv_mass": np.linspace(0, 1000, 41, dtype=np.float32),
+        "inv_mass": np.linspace(70, 150, 41, dtype=np.float32),
+        "numjet": np.linspace(0, 10, 11, dtype=np.float32),
+        "jet_pt": np.linspace(0, 300, 101, dtype=np.float32),
+        "jet_eta": np.linspace(-4.7, 4.7, 41, dtype=np.float32),
+        "pt_balance": np.linspace(0, 5, 41, dtype=np.float32),
+        "numjets": np.linspace(0, 10, 11, dtype=np.float32)
+    }
+    for hname, bins in analysis_parameters["baseline"]["dnn_input_histogram_bins"].items():
+        histo_bins[hname] = np.linspace(bins[0], bins[1], bins[2], dtype=np.float32)
+
+    for masswindow in ["z_peak", "h_peak", "h_sideband"]:
+        mw = analysis_parameters["baseline"]["masswindow_" + masswindow]
+        histo_bins["inv_mass_{0}".format(masswindow)] = np.linspace(mw[0], mw[1], 41, dtype=np.float32)
+
+    analysis_parameters["baseline"]["histo_bins"] = histo_bins
+
+    # analysis_parameters["jetpt_l30_sl30"] = copy.deepcopy(analysis_parameters["baseline"])
+    # analysis_parameters["jetpt_l30_sl30"]["jet_pt_leading"] = {"2016": 30.0, "2017": 30.0, "2018": 30.0}
+    # analysis_parameters["jetpt_l30_sl30"]["jet_pt_subleading"] = {"2016": 20.0, "2017": 20.0, "2018": 30.0}
 
     #Run baseline analysis
     outpath = "{0}/partial_results".format(args.out)
@@ -519,10 +547,11 @@ def main(args, datasets):
         dataset_name, dataset_era, dataset_globpattern, is_mc = dataset
         filenames_all = filenames_cache[dataset_name + "_" + dataset_era]
         filenames_all_full = [args.datapath + "/" + fn for fn in filenames_all]
+        chunksize = args.chunksize * chunksize_multiplier.get(dataset_name, 1)
         print("Saving dataset {0}_{1} with {2} files in {3} files per chunk to jobfiles".format(
-            dataset_name, dataset_era, len(filenames_all_full), args.chunksize))
+            dataset_name, dataset_era, len(filenames_all_full), chunksize))
         jobfile_dataset = create_dataset_jobfiles(dataset_name, dataset_era,
-            filenames_all_full, is_mc, args.chunksize, args.out)
+            filenames_all_full, is_mc, chunksize, args.out)
         jobfile_data += jobfile_dataset
         print("Dataset {0}_{1} consists of {2} chunks".format(
             dataset_name, dataset_era, len(jobfile_dataset)))

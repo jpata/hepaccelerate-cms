@@ -18,11 +18,14 @@ def setup():
 def test_rochester():
     pt, eta, phi, pdgids, charges, libhmm = setup()
 
-    roc = RochesterCorrections(libhmm, "data/RoccoR2017v1.txt")
-
+    roc = RochesterCorrections(libhmm, "data/RoccoR2017.txt")
+    
     t0 = time.time()
-    print(roc.compute_kScaleDT(pt, eta, phi, charges))
+    for i in range(1000):
+        ret = roc.compute_kScaleDT(pt, eta, phi, charges)
     t1 = time.time()
+    #for ret in rets:
+    #    assert(numpy_lib.all(ret == rets[0]))
     print(t1 - t0)
 
 def test_lepsf(): 
@@ -50,6 +53,6 @@ def test_gbr():
     print(out)
 
 if __name__ == "__main__":
-    #test_rochester()
+    test_rochester()
     #test_lepsf()
-    test_gbr()
+    #test_gbr()

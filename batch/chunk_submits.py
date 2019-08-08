@@ -1,4 +1,4 @@
-import numpy, sys
+import random, sys
 
 def chunks(l, n):
     """Yield successive n-sized chunks from l."""
@@ -13,7 +13,8 @@ if __name__ == "__main__":
     lines = [l.strip() for l in infile.readlines()]
 
     #shuffle the files across jobs so they all have about the same runtime
-    idx_rand = numpy.random.permutation(len(lines))
+    idx_rand = list(range(len(lines)))
+    random.shuffle(idx_rand)
     lines = [lines[idx] for idx in idx_rand]
    
     #put PERJOB on each line

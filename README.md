@@ -1,5 +1,5 @@
 [![Build Status](https://travis-ci.com/jpata/hepaccelerate.svg?branch=master)](https://travis-ci.com/jpata/hepaccelerate-cms)
-[![pipeline status](https://gitlab.cern.ch/jpata/hepaccelerate/badges/libhmm/pipeline.svg)](https://gitlab.cern.ch/jpata/hepaccelerate-cms/commits/master)
+[![pipeline status](https://gitlab.cern.ch/jpata/hepaccelerate-cms/badges/master/pipeline.svg)](https://gitlab.cern.ch/jpata/hepaccelerate-cms/commits/master)
 
 # hepaccelerate-cms
 
@@ -30,6 +30,7 @@ On Caltech, an existing singularity image can be used to get the required python
 ~~~
 git clone https://github.com/jpata/hepaccelerate-cms.git
 cd hepaccelerate-cms
+git checkout dev-aug-w1
 git submodule init
 git submodule update
 
@@ -43,6 +44,27 @@ cd ../..
 ./tests/hmm/run.sh
 ~~~
 
+## Running on full dataset using batch queue
+We use the condor batch queue on Caltech T2 to run the analysis. It takes about 2-3h for all 3 years using factorized JEC. Without factorized JEC (using total JEC), the runtime is about 10 minutes.
+
+~~~
+#Submit batch jobs after this step is successful
+mkdir /storage/user/$USER/hmm
+export SUBMIT_DIR=`pwd`
+cd batch
+./make_submit_jdl.sh
+condor_submit submit.jdl
+... (wait for completion)
+./post.sh
+cd ..
+
+#when successful, delete partial results
+rm -Rf /storage/user/$USER/hmm/out/partial_results
+du -csh /storage/user/$USER/hmm/out
+
+#make datacards and PDF plots
+./tests/hmm/plots /storage/user/$USER/hmm/out 
+~~~
 
 # Misc notes
 Luminosity, details on how to set up on this [link](https://cms-service-lumi.web.cern.ch/cms-service-lumi/brilwsdoc.html).

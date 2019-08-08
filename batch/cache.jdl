@@ -1,20 +1,22 @@
 Universe = vanilla
 Executable = hmm_cache.sh
-Arguments = 
 Log = logs/example_job.$(Cluster).log
 Output = logs/example_job.out.$(Cluster).$(Process)
 Error = logs/example_job.err.$(Cluster).$(Process)
-Requirements=(TARGET.OpSysAndVer=="CentOS7" && TARGET.Machine == "blade-2.tier2")
+Requirements=(TARGET.OpSysAndVer=="CentOS7" && regexp("blade.*", TARGET.Machine))
 #Requirements=(TARGET.OpSysAndVer=="CentOS7")
 +RunAsOwner = True
 +InteractiveUser = true
 +SingularityImage = "/storage/user/jpata/cupy2.simg"
 +SingularityBindCVMFS = True
++RequestWalltime = 6*3600
+
 run_as_owner = True
 x509userproxy = $ENV(X509_USER_PROXY)
-Environment = USER=$ENV(USER)
-
 RequestDisk = 4
-RequestMemory = 8*2000
-RequestCpus = 8
+RequestMemory = 24*1000
+RequestCpus = 24
+
+Environment = USER=$ENV(USER);CONDORJOBID=$(Process);SUBMIT_DIR=$ENV(SUBMIT_DIR)
+
 Queue 1

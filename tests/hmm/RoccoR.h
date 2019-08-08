@@ -181,7 +181,7 @@ extern "C" {
     }
     
     void roccor_kScaleDT(RoccoR* rc, float* out, int n_elem, int* charge, float* pt, float* eta, float* phi, int s, int m) {
-        #pragma omp parallel for
+        #pragma omp parallel for default(none) shared(out, rc, charge, pt, eta, phi, s, m, n_elem) schedule(dynamic, 50000)
         for (int i=0; i<n_elem; i++) {
             out[i] = rc->kScaleDT(charge[i], pt[i], eta[i], phi[i], s, m);
         }
@@ -189,7 +189,7 @@ extern "C" {
 
     void roccor_kSpreadMC_or_kSmearMC(RoccoR* rc, float* out, int n_elem,
         int* charge, float* pt, float* eta, float* phi, float* genpt, int* tracklayers, float* rand, int s, int m) {
-        #pragma omp parallel for
+        #pragma omp parallel for default(none) shared(out, rc, charge, pt, eta, phi, genpt, tracklayers, rand, s, m, n_elem) schedule(dynamic, 50000)
         for (int i=0; i<n_elem; i++) {
             if (genpt[i] > 0) {
                 out[i] = rc->kSpreadMC(charge[i], pt[i], eta[i], phi[i], genpt[i], s, m);
