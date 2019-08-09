@@ -11,6 +11,10 @@ categories = {
         "datacard_processes" : [
             "ggh",
             "vbf",
+            "wmh",
+            "wph",
+            "zh",
+            "tth",
             #"wz_1l1nu2q",
             "wz_3lnu", 
             "ww_2l2nu", "wz_2l2q", "zz",
@@ -22,6 +26,7 @@ categories = {
             "st_tw_antitop",
             "ttjets_sl", "ttjets_dl",
             "dy_0j", "dy_1j", "dy_2j",
+            "www","wwz","wzz","zzz",
         ],
         "plot_processes": {
             "dy": ["dy_0j", "dy_1j", "dy_2j"],
@@ -46,6 +51,7 @@ categories = {
             "st_tw_antitop",
             "ttjets_sl", "ttjets_dl",
             "dy_m105_160_amc", "dy_m105_160_vbf_amc",
+            "www","wwz","wzz","zzz",
         ],
         "plot_processes": {
             "dy": ["dy_m105_160_amc", "dy_m105_160_vbf_amc"],
@@ -70,6 +76,7 @@ categories = {
             "st_tw_antitop",
             "ttjets_sl", "ttjets_dl",
             "dy_m105_160_amc", "dy_m105_160_vbf_amc",
+            "www","wwz","wzz","zzz",
         ],
         "plot_processes": {
             "dy": ["dy_m105_160_amc", "dy_m105_160_vbf_amc"],
@@ -114,9 +121,13 @@ cross_sections = {
     "st_t_top": 3.36,
     "vbf_powheg1": 0.000823,
     "vbf_powheg2": 0.000823,
+    "www": 0.2086,
+    "wwz": 0.1651,
+    "wzz": 0.05565,
+    "zzz": 0.01398
 }
 
-signal_samples = ["ggh", "vbf"]
+signal_samples = ["ggh", "vbf", "wmh", "wph", "zh", "tth"]
 jec_unc = [
     'AbsoluteFlavMap', 'AbsoluteMPFBias', 'AbsoluteSample', 'AbsoluteScale',
     'AbsoluteStat',
@@ -365,6 +376,22 @@ datasets = [
     ("zh", "2016", "/store/mc/RunIISummer16NanoAODv5/ZH_HToMuMu_ZToAll_M125_TuneCP5_PSweights_13TeV_powheg_pythia8/**/*.root", True),
     ("zh", "2017", "/store/mc/RunIIFall17NanoAODv5/ZH_HToMuMu_ZToAll_M125_13TeV_powheg_pythia8/**/*.root", True),
     ("zh", "2018", "/store/mc/RunIIAutumn18NanoAODv5/ZH_HToMuMu_ZToAll_M125_TuneCP5_PSweights_13TeV_powheg_pythia8/**/*.root", True),
+    
+    ("www", "2016", "/store/mc/RunIISummer16NanoAODv5/WWW_4F_TuneCUETP8M1_13TeV-amcatnlo-pythia8/**/*.root", True),
+    ("www", "2017", "/store/mc/RunIIFall17NanoAODv5/WWW_4F_TuneCP5_13TeV-amcatnlo-pythia8/**/*.root", True),
+    ("www", "2018", "/store/mc/RunIIAutumn18NanoAODv5/WWW_4F_TuneCP5_13TeV-amcatnlo-pythia8/**/*.root", True),
+    
+    ("wwz", "2016", "/store/mc/RunIISummer16NanoAODv5/WWZ_TuneCUETP8M1_13TeV-amcatnlo-pythia8/**/*.root", True),
+    ("wwz", "2017", "/store/mc/RunIIFall17NanoAODv5/WWZ_4F_TuneCP5_13TeV-amcatnlo-pythia8/**/*.root", True),
+    ("wwz", "2018", "/store/mc/RunIIAutumn18NanoAODv5/WWZ_TuneCP5_13TeV-amcatnlo-pythia8/**/*.root", True),
+    
+    ("wzz", "2016", "/store/mc/RunIISummer16NanoAODv5/WZZ_TuneCUETP8M1_13TeV-amcatnlo-pythia8/**/*.root", True),
+    ("wzz", "2017", "/store/mc/RunIIFall17NanoAODv5/WZZ_TuneCP5_13TeV-amcatnlo-pythia8/**/*.root", True),
+    ("wzz", "2018", "/store/mc/RunIIAutumn18NanoAODv5/WZZ_TuneCP5_13TeV-amcatnlo-pythia8/**/*.root", True),
+    
+    ("zzz", "2016", "/store/mc/RunIISummer16NanoAODv5/ZZZ_TuneCUETP8M1_13TeV-amcatnlo-pythia8/**/*.root", True),
+    ("zzz", "2017", "/store/mc/RunIIFall17NanoAODv5/ZZZ_TuneCP5_13TeV-amcatnlo-pythia8/**/*.root", True),
+    ("zzz", "2018", "/store/mc/RunIIAutumn18NanoAODv5/ZZZ_TuneCP5_13TeV-amcatnlo-pythia88/**/*.root", True)
 ]
 
 # Synchronization datasets/
