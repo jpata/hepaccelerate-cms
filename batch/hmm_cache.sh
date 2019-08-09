@@ -11,7 +11,7 @@ env
 workdir=`pwd`
 
 #Set some default arguments
-export NTHREADS=48
+export NTHREADS=24
 export PYTHONPATH=coffea:hepaccelerate:. 
 export HEPACCELERATE_CUDA=0
 export KERAS_BACKEND=tensorflow

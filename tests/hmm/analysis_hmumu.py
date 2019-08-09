@@ -326,8 +326,8 @@ class AnalysisCorrections:
 
             #load DNN model
             import keras
-            self.dnn_model = keras.models.load_model("data/27vars_trainTest_70_30_vbf_DYjetBin_25July2019.h5")
-            self.dnn_normfactors = np.load("data/27vars_trainTest_70_30_vbf_DYjetBin_25July2019.npy")
+            self.dnn_model = keras.models.load_model("data/DNN27vars_sig_vbf_bkg_dyvbf_dy105To160_ewk105To160_split_60_40_190808.h5")
+            self.dnn_normfactors = np.load("data/DNN27vars_sig_vbf_bkg_dyvbf_dy105To160_ewk105To160_split_60_40_190808.npy")
 
             if args.use_cuda:
                 import cupy
@@ -543,6 +543,7 @@ def main(args, datasets):
         with open(cache_filename, "w") as fi:
             fi.write(json.dumps(filenames_cache, indent=2))
 
+    if ("cache" in args.action or "analyze" in args.action) and (args.jobfiles is None):
         #Create a list of job files for processing
         jobfile_data = []
         print("Loading list of filenames from {0}".format(cache_filename))
