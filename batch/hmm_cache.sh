@@ -1,5 +1,7 @@
 #!/bin/bash
 
+hostname
+
 set -e
 
 ls /storage
@@ -9,7 +11,7 @@ env
 workdir=`pwd`
 
 #Set some default arguments
-export NTHREADS=24
+export NTHREADS=48
 export PYTHONPATH=coffea:hepaccelerate:. 
 export HEPACCELERATE_CUDA=0
 export KERAS_BACKEND=tensorflow
@@ -26,6 +28,7 @@ export OUTDIR=out
 cd $SUBMIT_DIR
 
 #Run the code
+rm $CACHE_PATH/datasets.json
 python3 tests/hmm/analysis_hmumu.py \
     --action cache \
     --nthreads $NTHREADS \

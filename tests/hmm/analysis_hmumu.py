@@ -517,7 +517,8 @@ def main(args, datasets):
 
     #Recreate dump of all filenames
     cache_filename = args.cache_location + "/datasets.json"
-    if "cache" in args.action:
+    if ("cache" in args.action) and (args.jobfiles is None):
+        print("--action cache and no jobfiles specified, creating datasets.json dump of all filenames")
         if not os.path.isdir(args.cache_location):
             os.makedirs(args.cache_location)
         filenames_cache = {}
@@ -542,29 +543,29 @@ def main(args, datasets):
         with open(cache_filename, "w") as fi:
             fi.write(json.dumps(filenames_cache, indent=2))
 
-    #Create a list of job files for processing
-    jobfile_data = []
-    print("Loading list of filenames from {0}".format(cache_filename))
-    if not os.path.isfile(cache_filename):
-        raise Exception("Cached dataset list of filenames not found in {0}, please run this code with --action cache".format(
-            cache_filename))
-    filenames_cache = json.load(open(cache_filename, "r"))
+        #Create a list of job files for processing
+        jobfile_data = []
+        print("Loading list of filenames from {0}".format(cache_filename))
+        if not os.path.isfile(cache_filename):
+            raise Exception("Cached dataset list of filenames not found in {0}, please run this code with --action cache".format(
+                cache_filename))
+        filenames_cache = json.load(open(cache_filename, "r"))
 
-    for dataset in datasets:
-        dataset_name, dataset_era, dataset_globpattern, is_mc = dataset
-        filenames_all = filenames_cache[dataset_name + "_" + dataset_era]
-        filenames_all_full = [args.datapath + "/" + fn for fn in filenames_all]
-        chunksize = args.chunksize * chunksize_multiplier.get(dataset_name, 1)
-        print("Saving dataset {0}_{1} with {2} files in {3} files per chunk to jobfiles".format(
-            dataset_name, dataset_era, len(filenames_all_full), chunksize))
-        jobfile_dataset = create_dataset_jobfiles(dataset_name, dataset_era,
-            filenames_all_full, is_mc, chunksize, args.out)
-        jobfile_data += jobfile_dataset
-        print("Dataset {0}_{1} consists of {2} chunks".format(
-            dataset_name, dataset_era, len(jobfile_dataset)))
+        for dataset in datasets:
+            dataset_name, dataset_era, dataset_globpattern, is_mc = dataset
+            filenames_all = filenames_cache[dataset_name + "_" + dataset_era]
+            filenames_all_full = [args.datapath + "/" + fn for fn in filenames_all]
+            chunksize = args.chunksize * chunksize_multiplier.get(dataset_name, 1)
+            print("Saving dataset {0}_{1} with {2} files in {3} files per chunk to jobfiles".format(
+                dataset_name, dataset_era, len(filenames_all_full), chunksize))
+            jobfile_dataset = create_dataset_jobfiles(dataset_name, dataset_era,
+                filenames_all_full, is_mc, chunksize, args.out)
+            jobfile_data += jobfile_dataset
+            print("Dataset {0}_{1} consists of {2} chunks".format(
+                dataset_name, dataset_era, len(jobfile_dataset)))
 
-    assert(len(jobfile_data) > 0)
-    assert(len(jobfile_data[0]["filenames"]) > 0)
+        assert(len(jobfile_data) > 0)
+        assert(len(jobfile_data[0]["filenames"]) > 0)
 
     #For each dataset, find out which chunks we want to process
     if "cache" in args.action or "analyze" in args.action:

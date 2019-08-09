@@ -9,7 +9,7 @@ import uproot
 import copy
 import multiprocessing
 
-from pars import catnames, varnames, analysis_names, shape_systematics, controlplots_shape, datasets
+from pars import catnames, varnames, analysis_names, shape_systematics, controlplots_shape, datasets, genweight_scalefactor
 from scipy.stats import wasserstein_distance
 
 import argparse
@@ -643,8 +643,8 @@ if __name__ == "__main__":
            
             with open(outdir + "/normalization.json", "w") as fi:
                 fi.write(json.dumps({
-                    "weight_xs": weight_xs,
-                    "genweights": genweights,
+                    "weight_xs": {k: v*genweight_scalefactor for k, v in weight_xs.items()},
+                    "genweights": {k: v/genweight_scalefactor for k, v in genweights.items()},
                     "int_lumi": int_lumi,
                     }, indent=2)
                 )
@@ -719,9 +719,9 @@ if __name__ == "__main__":
                                 plot_args_shape_syst += [(
                                     histos, hdata, mc_samp, analysis,
                                     var, "nominal", weight_xs, int_lumi, outdir, era, unc)]
-        rets = list(pool.map(plot_variations, plot_args_shape_syst))
-        rets = list(pool.map(create_datacard_combine_wrap, datacard_args))
-        rets = list(pool.map(make_pdf_plot, plot_args))
+        #rets = list(pool.map(plot_variations, plot_args_shape_syst))
+        #rets = list(pool.map(create_datacard_combine_wrap, datacard_args))
+        #rets = list(pool.map(make_pdf_plot, plot_args))
 
         #for args, retval in zip(datacard_args, rets):
         #    res, hd, mc_samples, analysis, var, weight, weight_xs, int_lumi, outdir, datataking_year = args

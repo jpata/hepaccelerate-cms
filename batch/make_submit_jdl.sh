@@ -5,12 +5,15 @@ echo "Will create submit files based on directory SUBMIT_DIR="$SUBMIT_DIR
 
 #Clean old job files, copy from output directory
 rm -Rf jobfiles jobfiles.txt jobfiles.tgz
+echo "Copying jobfiles"
 cp -R ../out/jobfiles ./
 
 #Create archive of job arguments
+echo "Creating archive"
 tar -cvzf jobfiles.tgz jobfiles
 \ls -1 jobfiles/*.json | sed "s/jobfiles\///" | sed "s/\.json$//" > jobfiles.txt
 
+echo "Preparing job chunks"
 #Run 50 different random chunks per job
 python chunk_submits.py 20 > jobfiles_merged.txt
 
@@ -24,4 +27,5 @@ for f in `cat jobfiles_merged.txt`; do
     echo "Queue" >> submit.jdl
     echo >> submit.jdl
 done
+echo "Please run 'export SUBMIT_DIR=`pwd`/..'"
 
