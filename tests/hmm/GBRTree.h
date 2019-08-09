@@ -45,8 +45,8 @@ public:
   std::vector<float> &Responses() { return fResponses; }
   const std::vector<float> &Responses() const { return fResponses; }
 
-  std::vector<unsigned char> &CutIndices() { return fCutIndices; }
-  const std::vector<unsigned char> &CutIndices() const { return fCutIndices; }
+  std::vector<int> &CutIndices() { return fCutIndices; }
+  const std::vector<int> &CutIndices() const { return fCutIndices; }
 
   std::vector<float> &CutVals() { return fCutVals; }
   const std::vector<float> &CutVals() const { return fCutVals; }
@@ -66,7 +66,7 @@ public:
       <<"fResponses="<< fResponses.size() << ")" << std::endl;
   }
 protected:
-  std::vector<unsigned char> fCutIndices;
+  std::vector<int> fCutIndices;
   std::vector<float> fCutVals;
   std::vector<int> fLeftIndices;
   std::vector<int> fRightIndices;

@@ -52,7 +52,7 @@ def test_gbr():
     nev = 100
     X = numpy_lib.zeros((nev, nfeat), dtype=numpy_lib.float32)
     for i in range(nev):
-        X[i, :] = i
+        X[i, :] = 100*i + numpy_lib.arange(nfeat)[:]
     out = gbr.compute(X)
     print(out)
 
@@ -64,7 +64,7 @@ def test_miscvariables():
     print("phi", out_phi)
 
 if __name__ == "__main__":
-    test_rochester()
-    test_lepsf()
+    #test_rochester()
+    #test_lepsf()
     test_gbr()
-    test_miscvariables()
+    #test_miscvariables()

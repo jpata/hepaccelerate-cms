@@ -100,8 +100,7 @@ std::unique_ptr<T> make_unique(Args&&... args) {
       node->QueryIntAttribute("IVar", &selector);
       node->QueryFloatAttribute("Cut", &cutval);
       node->QueryBoolAttribute("cType", &ctype);
-
-      tree.CutIndices().push_back(static_cast<unsigned char>(selector));
+      tree.CutIndices().push_back(static_cast<int>(selector));
 
       //newer tmva versions use >= instead of > in decision tree splits, so adjust cut value
       //to reproduce the correct behaviour
@@ -176,6 +175,35 @@ std::unique_ptr<T> make_unique(Args&&... args) {
       e->QueryStringAttribute("name", &name);
       options[name] = e->GetText();
     }
+    
+    std::vector<std::vector<std::pair<double, double>>> classes;
+    tinyxml2::XMLElement* transformationElem = xmlDoc.FirstChildElement("MethodSetup")->FirstChildElement("Transformations");
+    for (tinyxml2::XMLElement* e = transformationElem->FirstChildElement("Transform"); e != nullptr;
+         e = e->NextSiblingElement("Transform")) {
+      const char* name;
+      e->QueryStringAttribute("Name", &name);
+      if (std::string(name).compare("Normalize") == 0) {
+        for (tinyxml2::XMLElement* e2 = e->FirstChildElement("Class"); e2 != nullptr;
+           e2 = e2->NextSiblingElement("Class")) {
+           const char* idx;
+           e2->QueryStringAttribute("ClassIndex", &idx);
+           tinyxml2::XMLElement* rangeElem = e2->FirstChildElement("Ranges");
+           std::vector<std::pair<double, double>> ranges;
+           for (tinyxml2::XMLElement* e3 = rangeElem->FirstChildElement("Range"); e3 != nullptr;
+                e3 = e3->NextSiblingElement("Range")) {
+                int idx2;
+                double fmin;
+                double fmax;
+                e3->QueryIntAttribute("Index", &idx2);
+                e3->QueryDoubleAttribute("Min", &fmin);
+                e3->QueryDoubleAttribute("Max", &fmax);
+                ranges.push_back(std::make_pair(fmin, fmax));
+           }
+           classes.push_back(ranges);
+        }
+      } 
+    }
+    bool doNormalize = classes.size() != 0;
 
     // Get root version number if available
     int rootTrainingVersion(0);
@@ -218,6 +246,10 @@ std::unique_ptr<T> make_unique(Args&&... args) {
         rootTrainingVersion >= ROOT_VERSION(6, 2, 0);
 
     auto* forest = new GBRForest(varNames.size(), isRegression ? boostWeights[0] : 0.);
+    if (doNormalize) {
+      forest->doNormalize = doNormalize;
+      forest->minmax = classes.back(); 
+    }
 
     double norm = 0;
     if (isAdaClassifier) {

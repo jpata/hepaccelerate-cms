@@ -603,14 +603,14 @@ def evaluate_bdt_ucsd(dnn_vars, gbr_bdt):
     # BDT var=drmj
     varnames = [
         "Higgs_pt",
-        "Higgs_eta",
+        "Higgs_rapidity",
         "hmmthetacs",
         "hmmphics",
         "leadingJet_pt",
         "leadingJet_eta",
         "subleadingJet_pt",
-        "dEta_jj",
-        "dPhi_jj",
+        "dEta_jj_abs",
+        "dPhi_jj_mod",
         "M_jj",
         "MET_pt",
         "Zep",
@@ -620,8 +620,14 @@ def evaluate_bdt_ucsd(dnn_vars, gbr_bdt):
     ]
 
     X = NUMPY_LIB.asnumpy(NUMPY_LIB.stack([dnn_vars[vname] for vname in varnames], axis=1))
+    #print("bdt_ucsd inputs")
+    #print(X.mean(axis=0), X.min(axis=0), X.max(axis=0), sep="\n")
     y = gbr_bdt.compute(X)
-    print("bdt_ucsd eval", y.mean(), y.std())
+    for ivar in range(len(varnames)):
+        print(varnames[ivar], X[:, ivar].min(), X[:, ivar].max())
+    if len(y) > 0:
+        print("bdt_ucsd eval", y.mean(), y.std(), y.min(), y.max())
+    #import pdb;pdb.set_trace()
     return y
 
 def vbf_genfilter(genjet_inv_mass, num_good_genjets, parameters, dataset_name):
@@ -1511,11 +1517,13 @@ def dnn_variables(leading_muon, subleading_muon, leading_jet, subleading_jet, ns
     #delta eta between jets 
     jj_deta = leading_jet["eta"] - subleading_jet["eta"]
     jj_dphi = leading_jet["phi"] - subleading_jet["phi"]
-
+    jj_dphi_mod = NUMPY_LIB.mod(jj_dphi + math.pi, math.pi)
+    
     #muons in cartesian, create dimuon system 
     m1 = to_cartesian(leading_muon)    
     m2 = to_cartesian(subleading_muon)    
     mm = {k: m1[k] + m2[k] for k in ["px", "py", "pz", "e"]}
+    Higgs_rapidity = 0.5*NUMPY_LIB.log((mm["e"] + mm["pz"]) / (mm["e"] - mm["pz"]))
     mm_sph = to_spherical(mm)
 
     #jets in cartesian, create dimuon system 
@@ -1558,7 +1566,9 @@ def dnn_variables(leading_muon, subleading_muon, leading_jet, subleading_jet, ns
         "M_jj": jj_sph["mass"], "pt_jj": jj_sph["pt"], "eta_jj": jj_sph["eta"], "phi_jj": jj_sph["phi"],
         "M_mmjj": mmjj_sph["mass"], "eta_mmjj": mmjj_sph["eta"], "phi_mmjj": mmjj_sph["phi"],
         "dEta_jj": jj_deta,
+        "dEta_jj_abs": NUMPY_LIB.abs(jj_deta),
         "dPhi_jj": jj_dphi,
+        "dPhi_jj_mod": jj_dphi_mod,
         "leadingJet_pt": leading_jet["pt"],
         "subleadingJet_pt": subleading_jet["pt"],
         "leadingJet_eta": leading_jet["eta"],
@@ -1574,6 +1584,7 @@ def dnn_variables(leading_muon, subleading_muon, leading_jet, subleading_jet, ns
         "softJet5": nsoft,
         "Higgs_pt": mm_sph["pt"],
         "Higgs_eta": mm_sph["eta"],
+        "Higgs_rapidity": Higgs_rapidity,
         "Higgs_mass": mm_sph["mass"],
     }
 
@@ -1644,6 +1655,8 @@ def compute_fill_dnn(
             NUMPY_LIB.asnumpy(dnn_vars_arr),
             batch_size=dnn_vars_arr.shape[0])[:, 0]
         )
+        if len(dnn_pred) > 0:
+            print("dnn_pred", dnn_pred.min(), dnn_pred.max(), dnn_pred.mean(), dnn_pred.std())
         dnn_pred = NUMPY_LIB.array(dnn_pred, dtype=NUMPY_LIB.float32)
     else:
         dnn_pred = NUMPY_LIB.zeros(nev_dnn_presel, dtype=NUMPY_LIB.float32)

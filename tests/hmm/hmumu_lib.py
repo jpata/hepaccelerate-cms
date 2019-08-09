@@ -116,7 +116,7 @@ class GBREvaluator:
             self.c_class,
             self.libhmm.cast_as("float *", out),
             nev, nfeat,
-            self.libhmm.cast_as("float *", features.ravel())
+            self.libhmm.cast_as("float *", features.ravel(order='C'))
         )
         return out
 

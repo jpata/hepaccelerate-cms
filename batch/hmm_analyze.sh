@@ -37,7 +37,6 @@ python3 tests/hmm/analysis_hmumu.py \
     --nthreads $NTHREADS --cache-location $CACHE_PATH \
     --datapath /storage/user/jpata/ \
     --out $workdir/$OUTDIR \
-    --do-factorized-jec \
     --jobfiles-load $workdir/args.txt
 
 
