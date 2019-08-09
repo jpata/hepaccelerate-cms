@@ -30,7 +30,7 @@ On Caltech, an existing singularity image can be used to get the required python
 ~~~
 git clone https://github.com/jpata/hepaccelerate-cms.git
 cd hepaccelerate-cms
-git checkout dev-aug-w1
+git checkout dev-aug-w2
 git submodule init
 git submodule update
 
@@ -63,7 +63,7 @@ rm -Rf /storage/user/$USER/hmm/out/partial_results
 du -csh /storage/user/$USER/hmm/out
 
 #make datacards and PDF plots
-./tests/hmm/plots /storage/user/$USER/hmm/out 
+./tests/hmm/plots.sh /storage/user/$USER/hmm/out 
 ~~~
 
 # Misc notes
