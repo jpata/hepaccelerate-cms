@@ -16,9 +16,6 @@ OBJECTS = $(SOURCES:.cc=.o)
 libhmm.so: $(OBJECTS)
 	$(CXX) $(LIBS) -shared -o $@ $^
 
-tmva: GBRForestTools.o tmva.o tinyxml2.o
-	$(CXX) $(LIBS) -lTMVA GBRForestTools.o tmva.o tinyxml2.o -o tmva
-
 # Specifying the object files as intermediates deletes them automatically after the build process.
 .INTERMEDIATE:  $(OBJECTS) tmva
 

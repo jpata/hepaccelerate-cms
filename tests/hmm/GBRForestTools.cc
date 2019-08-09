@@ -142,7 +142,7 @@ std::unique_ptr<T> make_unique(Args&&... args) {
     tinyxml2::XMLElement* root = xmlDoc.FirstChildElement("MethodSetup");
     readVariables(root->FirstChildElement("Variables"), "Variable", varNames);
 
-    std::cout << "BDT from file " << weightsFileFullPath << " inititalized with " << varNames.size() << " variables" << std::endl;
+    std::cout << "BDT from file " << weightsFileFullPath << " initalized with " << varNames.size() << " variables" << std::endl;
     for (auto v : varNames) {
       std::cout << "BDT var=" << v << std::endl;
     }
@@ -250,6 +250,7 @@ std::unique_ptr<T> make_unique(Args&&... args) {
       forest->doNormalize = doNormalize;
       forest->minmax = classes.back(); 
     }
+    std::cout << "GBRForest doNormalize=" << doNormalize << std::endl;
 
     double norm = 0;
     if (isAdaClassifier) {

@@ -623,9 +623,9 @@ def evaluate_bdt_ucsd(dnn_vars, gbr_bdt):
     #print("bdt_ucsd inputs")
     #print(X.mean(axis=0), X.min(axis=0), X.max(axis=0), sep="\n")
     y = gbr_bdt.compute(X)
-    for ivar in range(len(varnames)):
-        print(varnames[ivar], X[:, ivar].min(), X[:, ivar].max())
-    if len(y) > 0:
+    if X.shape[0] > 0:
+        for ivar in range(len(varnames)):
+            print(varnames[ivar], X[:, ivar].min(), X[:, ivar].max())
         print("bdt_ucsd eval", y.mean(), y.std(), y.min(), y.max())
     #import pdb;pdb.set_trace()
     return y
