@@ -557,7 +557,13 @@ def main(args, datasets):
 
         for dataset in datasets:
             dataset_name, dataset_era, dataset_globpattern, is_mc = dataset
-            filenames_all = filenames_cache[dataset_name + "_" + dataset_era]
+            try:
+                filenames_all = filenames_cache[dataset_name + "_" + dataset_era]
+            except KeyError as e:
+                print("Could not load {0} from {1}, please make sure this dataset has been added to cache".format(
+                    dataset_name + "_" + dataset_era, cache_filename), file=sys.stderr)
+                raise e
+
             filenames_all_full = [args.datapath + "/" + fn for fn in filenames_all]
             chunksize = args.chunksize * chunksize_multiplier.get(dataset_name, 1)
             print("Saving dataset {0}_{1} with {2} files in {3} files per chunk to jobfiles".format(

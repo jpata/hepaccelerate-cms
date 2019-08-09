@@ -28,7 +28,7 @@ export OUTDIR=out
 cd $SUBMIT_DIR
 
 #Run the code
-rm $CACHE_PATH/datasets.json
+rm -f $CACHE_PATH/datasets.json
 python3 tests/hmm/analysis_hmumu.py \
     --action cache \
     --nthreads $NTHREADS \

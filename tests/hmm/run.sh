@@ -6,7 +6,7 @@ set -e
 export NTHREADS=4
 
 #Set to -1 to run on all files, 1 for debugging/testing
-export MAXCHUNKS=10
+export MAXCHUNKS=1
 
 #This is where the intermediate analysis files will be saved and loaded from
 #As long as one person produces it, other people can run the analysis on this
@@ -38,5 +38,4 @@ singularity exec --nv -B /storage $SINGULARITY_IMAGE python3 tests/hmm/analysis_
     --action analyze --action merge --maxchunks $MAXCHUNKS \
     --nthreads $NTHREADS --cache-location $CACHE_PATH \
     --out ./out \
-    --datapath $INPUTDATAPATH --era 2016 \
-    --dataset vbf --dataset dy_m105_160_amc
+    --datapath $INPUTDATAPATH --era 2016 --era 2017 --era 2018

@@ -391,7 +391,7 @@ datasets = [
     
     ("zzz", "2016", "/store/mc/RunIISummer16NanoAODv5/ZZZ_TuneCUETP8M1_13TeV-amcatnlo-pythia8/**/*.root", True),
     ("zzz", "2017", "/store/mc/RunIIFall17NanoAODv5/ZZZ_TuneCP5_13TeV-amcatnlo-pythia8/**/*.root", True),
-    ("zzz", "2018", "/store/mc/RunIIAutumn18NanoAODv5/ZZZ_TuneCP5_13TeV-amcatnlo-pythia88/**/*.root", True)
+    ("zzz", "2018", "/store/mc/RunIIAutumn18NanoAODv5/ZZZ_TuneCP5_13TeV-amcatnlo-pythia8/**/*.root", True)
 ]
 
 # Synchronization datasets/
