@@ -54,16 +54,15 @@ export SUBMIT_DIR=`pwd`
 cd batch
 ./make_submit_jdl.sh
 condor_submit submit.jdl
+
 ... (wait for completion)
-./post.sh
+condor_submit merge.jdl
+
 cd ..
 
-#when successful, delete partial results
+#when all was successful, delete partial results
 rm -Rf /storage/user/$USER/hmm/out/partial_results
 du -csh /storage/user/$USER/hmm/out
-
-#make datacards and PDF plots
-./tests/hmm/plots.sh /storage/user/$USER/hmm/out 
 ~~~
 
 # Misc notes

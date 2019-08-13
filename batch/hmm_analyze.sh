@@ -15,7 +15,7 @@ for word in "$@"; do
 done
 
 #Set some default arguments
-export NTHREADS=4
+export NTHREADS=2
 export PYTHONPATH=coffea:hepaccelerate:. 
 export HEPACCELERATE_CUDA=0
 export KERAS_BACKEND=tensorflow
@@ -36,6 +36,7 @@ python3 tests/hmm/analysis_hmumu.py \
     --action analyze \
     --nthreads $NTHREADS --cache-location $CACHE_PATH \
     --datapath /storage/user/jpata/ \
+    --do-factorized-jec \
     --out $workdir/$OUTDIR \
     --jobfiles-load $workdir/args.txt
 

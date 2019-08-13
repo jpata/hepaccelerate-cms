@@ -241,8 +241,8 @@ varnames = {
 }
 
 analysis_names = {
-    "baseline": "baseline",
-    "redo_jec_V16": "JEC V16",
+    "baseline": "JEC V16",
+    "oldjec": "JEC V8",
     "jetpt_l30_sl30": "jet pT 30,30",
 }
 

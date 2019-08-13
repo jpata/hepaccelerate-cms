@@ -405,7 +405,7 @@ def analyze_data(
                             (dnn_vars[varname], varname, histo_bins[varname])
                             for varname in dnn_vars.keys() if varname in histo_bins.keys()
                         ] + [
-                            (dnn_vars["dnn_pred"], "dnn_pred2", histo_bins["dnn_pred2"])
+                            (dnn_vars["dnn_pred"], "dnn_pred2", histo_bins["dnn_pred2"][massbin_name])
                         ],
                         (dnn_presel & massbin_msk & msk_cat)[dnn_presel],
                         weights_in_dnn_presel,
