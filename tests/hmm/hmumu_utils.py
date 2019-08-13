@@ -107,8 +107,6 @@ def analyze_data(
     weights = {}
     weights["nominal"] = NUMPY_LIB.ones(muons.numevents(), dtype=NUMPY_LIB.float32)
 
-    compute_event_weights(weights, scalars, genweight_scalefactor, pu_corrections, is_mc, dataset_era)
-
     #Apply Rochester corrections to leading and subleading muon momenta
     if parameters["do_rochester_corrections"]:
         if debug:
@@ -148,6 +146,9 @@ def analyze_data(
             use_cuda, dataset_era, NUMPY_LIB, debug)
         weights["leptonsf_off"] = weights["nominal"]
         weights["nominal"] = weights["nominal"] * sf_tot
+  
+    #compute variated weights here to ensure the nominal weight contains all possible other weights  
+    compute_event_weights(weights, scalars, genweight_scalefactor, pu_corrections, is_mc, dataset_era)
    
     fill_histograms_several(
         hists, "nominal", "hist__dimuon__",
@@ -627,7 +628,6 @@ def evaluate_bdt_ucsd(dnn_vars, gbr_bdt):
         for ivar in range(len(varnames)):
             print(varnames[ivar], X[:, ivar].min(), X[:, ivar].max())
         print("bdt_ucsd eval", y.mean(), y.std(), y.min(), y.max())
-    #import pdb;pdb.set_trace()
     return y
 
 def vbf_genfilter(genjet_inv_mass, num_good_genjets, parameters, dataset_name):
@@ -1456,7 +1456,7 @@ def to_spherical(arrs):
     e = arrs["e"]
     pt = NUMPY_LIB.sqrt(px**2 + py**2)
     eta = NUMPY_LIB.arcsinh(pz / pt)
-    phi = NUMPY_LIB.arccos(px / pt)
+    phi = NUMPY_LIB.arccos(NUMPY_LIB.clip(px / pt, -1.0, 1.0))
     mass = NUMPY_LIB.sqrt(e**2 - (px**2 + py**2 + pz**2))
     return {"pt": pt, "eta": eta, "phi": phi, "mass": mass}
 
