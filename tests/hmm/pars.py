@@ -165,8 +165,7 @@ extra_plot_kwargs = {
 
     "hist__dimuon_invmass_z_peak_cat5__dnn_pred2": {
         "xbins": "uniform",
-        "xlim": (1, 9),
-        "ylim": (0, 1000)
+        "do_log": True
     },
     "hist__dimuon_invmass_h_peak_cat5__dnn_pred2": {
         "xbins": "uniform",
@@ -176,8 +175,7 @@ extra_plot_kwargs = {
     },
     "hist__dimuon_invmass_h_sideband_cat5__dnn_pred2": {
         "xbins": "uniform",
-        "xlim": (1, 9),
-        "ylim": (0, 1000),
+        "do_log": True,
     },
 
     "hist__dimuon_invmass_z_peak_cat5__bdt_ucsd": {
