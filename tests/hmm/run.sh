@@ -38,4 +38,4 @@ singularity exec --nv -B /storage $SINGULARITY_IMAGE python3 tests/hmm/analysis_
     --action analyze --action merge --maxchunks $MAXCHUNKS \
     --nthreads $NTHREADS --cache-location $CACHE_PATH \
     --out ./out \
-    --datapath $INPUTDATAPATH --era 2018
+    --datapath $INPUTDATAPATH --era 2016 --era 2017 --era 2018
