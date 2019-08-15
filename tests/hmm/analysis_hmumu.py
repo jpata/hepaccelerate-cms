@@ -487,13 +487,14 @@ def main(args, datasets):
     histo_bins = {
         "muon_pt": np.linspace(0, 200, 101, dtype=np.float32),
         "npvs": np.linspace(0,100,101, dtype=np.float32),
-        "dijet_inv_mass": np.linspace(0, 1000, 41, dtype=np.float32),
+        "dijet_inv_mass": np.linspace(0, 2000, 41, dtype=np.float32),
         "inv_mass": np.linspace(70, 150, 41, dtype=np.float32),
         "numjet": np.linspace(0, 10, 11, dtype=np.float32),
         "jet_pt": np.linspace(0, 300, 101, dtype=np.float32),
         "jet_eta": np.linspace(-4.7, 4.7, 41, dtype=np.float32),
         "pt_balance": np.linspace(0, 5, 41, dtype=np.float32),
-        "numjets": np.linspace(0, 10, 11, dtype=np.float32)
+        "numjets": np.linspace(0, 10, 11, dtype=np.float32),
+        "jet_qgl": np.linspace(0, 1, 41, dtype=np.float32)
     }
     for hname, bins in analysis_parameters["baseline"]["dnn_input_histogram_bins"].items():
         histo_bins[hname] = np.linspace(bins[0], bins[1], bins[2], dtype=np.float32)
@@ -509,6 +510,9 @@ def main(args, datasets):
     }
 
     analysis_parameters["baseline"]["histo_bins"] = histo_bins
+
+    #analysis_parameters["oldjec"] = copy.deepcopy(analysis_parameters["baseline"])
+    #analysis_parameters["oldjec"]["jec_tag"]["2018"] = "Autumn18_V8"
 
     #Run baseline analysis
     outpath = "{0}/partial_results".format(args.out)

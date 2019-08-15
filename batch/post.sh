@@ -18,7 +18,7 @@ export PYTHONPATH=coffea:hepaccelerate:.
 #Run merge
 python3 tests/hmm/analysis_hmumu.py \
     --action merge \
-    --nthreads 16 \
+    --nthreads 8 \
     --out /storage/user/$USER/hmm/out
 
 #Run plots
