@@ -34,7 +34,7 @@ extern "C" {
     void gbr_eval(const void* gbr, float* out, int nev, int nfeatures, float* inputs_matrix) {
       const GBRForest* _gbr = (const GBRForest*)gbr;
 
-      #pragma omp parallel for default(none) shared(_gbr, out, nev, nfeatures, inputs_matrix) schedule(static, 10000)
+      #pragma omp parallel for default(none) shared(_gbr, out, nev, nfeatures, inputs_matrix) schedule(dynamic, 1000)
       for (int iev=0; iev<nev; iev++) {
           float feats[nfeatures];
           for (int ivar = 0; ivar < nfeatures; ivar++) {
