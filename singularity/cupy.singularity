@@ -16,7 +16,7 @@ From: nvidia/cuda:10.1-cudnn7-devel-centos7
     curl -k https://repo.anaconda.com/archive/Anaconda3-2019.03-Linux-x86_64.sh -o Anaconda3-2019.03-Linux-x86_64.sh
     bash Anaconda3-2019.03-Linux-x86_64.sh -b -u -p /usr/local/anaconda3
     PATH=/usr/local/anaconda3/bin:$PATH
-    conda install -y tbb numba cudatoolkit jupyter
+    conda install -y tbb cudatoolkit numba
     pip install -U cupy-cuda101
     pip install -U uproot awkward
 
@@ -28,7 +28,7 @@ From: nvidia/cuda:10.1-cudnn7-devel-centos7
 
     pip install -U yappi
 
-    conda install -y tensorflow-gpu keras
+    conda install -y tensorflow-gpu keras 
     conda install -y scipy
 
     yum -y install cuda-nsight-10-1
@@ -39,4 +39,4 @@ From: nvidia/cuda:10.1-cudnn7-devel-centos7
     LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 
 %runscript
-    /bin/bash
+    /bin/bash 

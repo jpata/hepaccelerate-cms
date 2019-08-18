@@ -9,7 +9,7 @@ extern "C" {
         float* pt1, float* eta1, float* phi1, float* mass1,
         float* pt2, float* eta2, float* phi2, float* mass2,
         int* charges) {
-            #pragma omp parallel for
+            #pragma omp parallel for default(none) shared(out_theta, out_phi, nev, pt1, eta1, phi1, mass1, pt2, eta2, phi2, mass2, charges) schedule(dynamic, 1000)
             for (int iev=0; iev<nev; iev++) {
                 TLorentzVector v1, v2;
                 v1.SetPtEtaPhiM(pt1[iev], eta1[iev], phi1[iev], mass1[iev]);

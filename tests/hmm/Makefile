@@ -17,9 +17,10 @@ libhmm.so: $(OBJECTS)
 	$(CXX) $(LIBS) -shared -o $@ $^
 
 # Specifying the object files as intermediates deletes them automatically after the build process.
-.INTERMEDIATE:  $(OBJECTS)
+.INTERMEDIATE:  $(OBJECTS) tmva
 
 .PHONY : clean
 clean:
 	rm -f libhmm.so
+	rm -f tmva
 	rm -f $(OBJECTS)

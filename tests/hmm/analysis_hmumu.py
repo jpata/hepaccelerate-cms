@@ -447,35 +447,38 @@ def main(args, datasets):
             "dnn_varlist_order": ['softJet5', 'dRmm','dEtamm','M_jj','pt_jj','eta_jj','phi_jj','M_mmjj','eta_mmjj','phi_mmjj','dEta_jj','Zep','dRmin_mj', 'dRmax_mj', 'dRmin_mmj','dRmax_mmj','dPhimm','leadingJet_pt','subleadingJet_pt', 'leadingJet_eta','subleadingJet_eta','leadingJet_qgl','subleadingJet_qgl','cthetaCS','Higgs_pt','Higgs_eta','Higgs_mass'],
             "dnn_input_histogram_bins": {
                 "softJet5": (0,10,10),
-                "dRmm": (0,5,20),
-                "dEtamm": (-2,2,20),
-                "dPhimm": (-2,2,20),
-                "M_jj": (0,400,20),
-                "pt_jj": (0,400,20),
-                "eta_jj": (-5,5,20),
-                "phi_jj": (-5,5,20),
-                "M_mmjj": (0,400,20),
-                "eta_mmjj": (-3,3,20),
-                "phi_mmjj": (-3,3,20),
-                "dEta_jj": (-3,3,20),
-                "Zep": (-2,2,20),
-                "dRmin_mj": (0,5,20),
-                "dRmax_mj": (0,5,20),
-                "dRmin_mmj": (0,5,20),
-                "dRmax_mmj": (0,5,20),
-                "leadingJet_pt": (0, 200, 20),
-                "subleadingJet_pt": (0, 200, 20),
-                "leadingJet_eta": (-5, 5, 20),
-                "subleadingJet_eta": (-5, 5, 20),
-                "leadingJet_qgl": (-1, 1, 20),
-                "subleadingJet_qgl": (-1, 1, 20),
-                "cthetaCS": (-1, 1, 20),
-                "Higgs_pt": (0, 200, 20),
-                "Higgs_eta": (-3, 3, 20),
-                "Higgs_mass": (110, 150, 20),
+                "dRmm": (0,5,41),
+                "dEtamm": (-2,2,41),
+                "dPhimm": (-2,2,41),
+                "M_jj": (0,2000,41),
+                "pt_jj": (0,400,41),
+                "eta_jj": (-5,5,41),
+                "phi_jj": (-5,5,41),
+                "M_mmjj": (0,2000,41),
+                "eta_mmjj": (-3,3,41),
+                "phi_mmjj": (-3,3,41),
+                "dEta_jj": (-3,3,41),
+                "Zep": (-2,2,41),
+                "dRmin_mj": (0,5,41),
+                "dRmax_mj": (0,5,41),
+                "dRmin_mmj": (0,5,41),
+                "dRmax_mmj": (0,5,41),
+                "leadingJet_pt": (0, 200, 41),
+                "subleadingJet_pt": (0, 200, 41),
+                "leadingJet_eta": (-5, 5, 41),
+                "subleadingJet_eta": (-5, 5, 41),
+                "leadingJet_qgl": (0, 1, 41),
+                "subleadingJet_qgl": (0, 1, 41),
+                "cthetaCS": (-1, 1, 41),
+                "Higgs_pt": (0, 200, 41),
+                "Higgs_eta": (-3, 3, 41),
+                "Higgs_mass": (110, 150, 41),
                 "dnn_pred": (0, 1, 1001),
                 "dnn_pred2": (0, 1, 11),
                 "bdt_ucsd": (-1, 1, 41),
+                "MET_pt": (0, 200, 41),
+                "hmmthetacs": (-1, 1, 41),
+                "hmmphics": (-4, 4, 41),
             },
 
             "categorization_trees": {}
@@ -484,13 +487,14 @@ def main(args, datasets):
     histo_bins = {
         "muon_pt": np.linspace(0, 200, 101, dtype=np.float32),
         "npvs": np.linspace(0,100,101, dtype=np.float32),
-        "dijet_inv_mass": np.linspace(0, 1000, 41, dtype=np.float32),
+        "dijet_inv_mass": np.linspace(0, 2000, 41, dtype=np.float32),
         "inv_mass": np.linspace(70, 150, 41, dtype=np.float32),
         "numjet": np.linspace(0, 10, 11, dtype=np.float32),
         "jet_pt": np.linspace(0, 300, 101, dtype=np.float32),
         "jet_eta": np.linspace(-4.7, 4.7, 41, dtype=np.float32),
         "pt_balance": np.linspace(0, 5, 41, dtype=np.float32),
-        "numjets": np.linspace(0, 10, 11, dtype=np.float32)
+        "numjets": np.linspace(0, 10, 11, dtype=np.float32),
+        "jet_qgl": np.linspace(0, 1, 41, dtype=np.float32)
     }
     for hname, bins in analysis_parameters["baseline"]["dnn_input_histogram_bins"].items():
         histo_bins[hname] = np.linspace(bins[0], bins[1], bins[2], dtype=np.float32)
@@ -499,11 +503,16 @@ def main(args, datasets):
         mw = analysis_parameters["baseline"]["masswindow_" + masswindow]
         histo_bins["inv_mass_{0}".format(masswindow)] = np.linspace(mw[0], mw[1], 41, dtype=np.float32)
 
+    histo_bins["dnn_pred2"] = {
+        "h_peak": np.array([0., 0.9, 0.91, 0.92, 0.93, 0.94, 0.95, 0.96, 0.97, 0.98, 1.0]),
+        "z_peak": np.array([0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 1.0]),
+        "h_sideband": np.array([0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 1.0]),
+    }
+
     analysis_parameters["baseline"]["histo_bins"] = histo_bins
 
-    # analysis_parameters["jetpt_l30_sl30"] = copy.deepcopy(analysis_parameters["baseline"])
-    # analysis_parameters["jetpt_l30_sl30"]["jet_pt_leading"] = {"2016": 30.0, "2017": 30.0, "2018": 30.0}
-    # analysis_parameters["jetpt_l30_sl30"]["jet_pt_subleading"] = {"2016": 20.0, "2017": 20.0, "2018": 30.0}
+    #analysis_parameters["oldjec"] = copy.deepcopy(analysis_parameters["baseline"])
+    #analysis_parameters["oldjec"]["jec_tag"]["2018"] = "Autumn18_V8"
 
     #Run baseline analysis
     outpath = "{0}/partial_results".format(args.out)
@@ -554,7 +563,13 @@ def main(args, datasets):
 
         for dataset in datasets:
             dataset_name, dataset_era, dataset_globpattern, is_mc = dataset
-            filenames_all = filenames_cache[dataset_name + "_" + dataset_era]
+            try:
+                filenames_all = filenames_cache[dataset_name + "_" + dataset_era]
+            except KeyError as e:
+                print("Could not load {0} from {1}, please make sure this dataset has been added to cache".format(
+                    dataset_name + "_" + dataset_era, cache_filename), file=sys.stderr)
+                raise e
+
             filenames_all_full = [args.datapath + "/" + fn for fn in filenames_all]
             chunksize = args.chunksize * chunksize_multiplier.get(dataset_name, 1)
             print("Saving dataset {0}_{1} with {2} files in {3} files per chunk to jobfiles".format(

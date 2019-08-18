@@ -107,8 +107,6 @@ def analyze_data(
     weights = {}
     weights["nominal"] = NUMPY_LIB.ones(muons.numevents(), dtype=NUMPY_LIB.float32)
 
-    compute_event_weights(weights, scalars, genweight_scalefactor, pu_corrections, is_mc, dataset_era)
-
     #Apply Rochester corrections to leading and subleading muon momenta
     if parameters["do_rochester_corrections"]:
         if debug:
@@ -148,6 +146,9 @@ def analyze_data(
             use_cuda, dataset_era, NUMPY_LIB, debug)
         weights["leptonsf_off"] = weights["nominal"]
         weights["nominal"] = weights["nominal"] * sf_tot
+  
+    #compute variated weights here to ensure the nominal weight contains all possible other weights  
+    compute_event_weights(weights, scalars, genweight_scalefactor, pu_corrections, is_mc, dataset_era)
    
     fill_histograms_several(
         hists, "nominal", "hist__dimuon__",
@@ -303,7 +304,7 @@ def analyze_data(
                     leading_muon, subleading_muon, higgs_inv_mass,
                     n_additional_muons, n_additional_electrons,
                     ret_jet, leading_jet, subleading_jet)
-
+           
             #compute DNN input variables in 2 muon, >=2jet region
             dnn_presel = (
                 (ret_mu["selected_events"]) & (ret_jet["num_jets"] >= 2) &
@@ -311,6 +312,26 @@ def analyze_data(
             )
             if not mask_vbf_filter is None:
                 dnn_presel = dnn_presel & mask_vbf_filter
+
+            #Histograms after dnn preselection
+            fill_histograms_several(
+                hists, jet_syst_name, "hist__dimuon__",
+                [
+                    (leading_jet["pt"], "leading_jet_pt", histo_bins["jet_pt"]),
+                    (subleading_jet["pt"], "subleading_jet_pt", histo_bins["jet_pt"]),
+                    (leading_jet["eta"], "leading_jet_eta", histo_bins["jet_eta"]),
+                    (subleading_jet["eta"], "subleading_jet_eta", histo_bins["jet_eta"]),
+                    (leading_jet["qgl"], "leading_jet_qgl", histo_bins["jet_qgl"]),
+                    (subleading_jet["qgl"], "subleading_jet_qgl", histo_bins["jet_qgl"]),
+                    (ret_jet["dijet_inv_mass"], "dijet_inv_mass", histo_bins["dijet_inv_mass"]),
+                    (scalars["SoftActivityJetNjets5"], "num_soft_jets", histo_bins["numjets"]),
+                    (ret_jet["num_jets"], "num_jets" , histo_bins["numjets"]),
+                    (pt_balance, "pt_balance", histo_bins["pt_balance"]),
+                ],
+                dnn_presel, 
+                weights_selected,
+                use_cuda
+            )
 
             #Compute the DNN inputs, the DNN output, fill the DNN input and output variable histograms
             dnn_prediction = None
@@ -405,7 +426,7 @@ def analyze_data(
                             (dnn_vars[varname], varname, histo_bins[varname])
                             for varname in dnn_vars.keys() if varname in histo_bins.keys()
                         ] + [
-                            (dnn_vars["dnn_pred"], "dnn_pred2", histo_bins["dnn_pred2"])
+                            (dnn_vars["dnn_pred"], "dnn_pred2", histo_bins["dnn_pred2"][massbin_name])
                         ],
                         (dnn_presel & massbin_msk & msk_cat)[dnn_presel],
                         weights_in_dnn_presel,
@@ -603,25 +624,30 @@ def evaluate_bdt_ucsd(dnn_vars, gbr_bdt):
     # BDT var=drmj
     varnames = [
         "Higgs_pt",
-        "Higgs_eta",
+        "Higgs_rapidity",
         "hmmthetacs",
         "hmmphics",
         "leadingJet_pt",
         "leadingJet_eta",
         "subleadingJet_pt",
-        "dEta_jj",
-        "dPhi_jj",
+        "dEta_jj_abs",
+        "dPhi_jj_mod",
         "M_jj",
         "MET_pt",
-        "Zep",
+        "Zep_rapidity",
         "Higgs_mass",
         "num_jets",
         "dRmin_mj",
     ]
 
     X = NUMPY_LIB.asnumpy(NUMPY_LIB.stack([dnn_vars[vname] for vname in varnames], axis=1))
+    #print("bdt_ucsd inputs")
+    #print(X.mean(axis=0), X.min(axis=0), X.max(axis=0), sep="\n")
     y = gbr_bdt.compute(X)
-    print("bdt_ucsd eval", y.mean(), y.std())
+    if X.shape[0] > 0:
+        for ivar in range(len(varnames)):
+            print(varnames[ivar], X[:, ivar].min(), X[:, ivar].max())
+        print("bdt_ucsd eval", y.mean(), y.std(), y.min(), y.max())
     return y
 
 def vbf_genfilter(genjet_inv_mass, num_good_genjets, parameters, dataset_name):
@@ -1436,6 +1462,9 @@ def to_cartesian(arrs):
     e = NUMPY_LIB.sqrt(px**2 + py**2 + pz**2 + mass**2)
     return {"px": px, "py": py, "pz": pz, "e": e}
 
+def rapidity(e, pz):
+    return 0.5*NUMPY_LIB.log((e + pz) / (e - pz))
+
 """
 Given a a dictionary of arrays of cartesian coordinates (px, py, pz, e),
 computes the array of spherical coordinates (pt, eta, phi, m)
@@ -1450,9 +1479,10 @@ def to_spherical(arrs):
     e = arrs["e"]
     pt = NUMPY_LIB.sqrt(px**2 + py**2)
     eta = NUMPY_LIB.arcsinh(pz / pt)
-    phi = NUMPY_LIB.arccos(px / pt)
+    phi = NUMPY_LIB.arccos(NUMPY_LIB.clip(px / pt, -1.0, 1.0))
     mass = NUMPY_LIB.sqrt(e**2 - (px**2 + py**2 + pz**2))
-    return {"pt": pt, "eta": eta, "phi": phi, "mass": mass}
+    rap = rapidity(e, pz)
+    return {"pt": pt, "eta": eta, "phi": phi, "mass": mass, "rapidity": rap}
 
 """
 Given two objects, computes the dr = sqrt(deta^2+dphi^2) between them.
@@ -1489,7 +1519,7 @@ Fills the DNN input variables based on two muons and two jets.
     'eta_mmjj' - eta of dimuon + dijet system
     'phi_mmjj' - phi of dimuon + dijet system
     'dEta_jj' - delta eta between two jets
-    'Zep' - zeppenfeld variable
+    'Zep' - zeppenfeld variable with pseudorapidity
     'dRmin_mj' - Min delta R between a muon and jet
     'dRmax_mj' - Max delta R between a muon and jet
     'dRmin_mmj' - Min delta R between dimuon and jet
@@ -1511,7 +1541,8 @@ def dnn_variables(leading_muon, subleading_muon, leading_jet, subleading_jet, ns
     #delta eta between jets 
     jj_deta = leading_jet["eta"] - subleading_jet["eta"]
     jj_dphi = leading_jet["phi"] - subleading_jet["phi"]
-
+    jj_dphi_mod = NUMPY_LIB.mod(jj_dphi + math.pi, math.pi)
+    
     #muons in cartesian, create dimuon system 
     m1 = to_cartesian(leading_muon)    
     m2 = to_cartesian(subleading_muon)    
@@ -1521,6 +1552,8 @@ def dnn_variables(leading_muon, subleading_muon, leading_jet, subleading_jet, ns
     #jets in cartesian, create dimuon system 
     j1 = to_cartesian(leading_jet)
     j2 = to_cartesian(subleading_jet)
+    leading_jet["rapidity"] = rapidity(j1["e"], j1["pz"]) 
+    subleading_jet["rapidity"] = rapidity(j2["e"], j2["pz"]) 
     jj = {k: j1[k] + j2[k] for k in ["px", "py", "pz", "e"]}
     jj_sph = to_spherical(jj)
   
@@ -1549,6 +1582,7 @@ def dnn_variables(leading_muon, subleading_muon, leading_jet, subleading_jet, ns
 
     #Zeppenfeld variable
     Zep = (mm_sph["eta"] - 0.5*(leading_jet["eta"] + subleading_jet["eta"]))
+    Zep_rapidity = (mm_sph["rapidity"] - 0.5*(leading_jet["rapidity"] + subleading_jet["rapidity"]))
 
     #Collin-Soper frame variable
     cthetaCS = 2*(m1["pz"] * m2["e"] - m1["e"]*m2["pz"]) / (mm_sph["mass"] * NUMPY_LIB.sqrt(NUMPY_LIB.power(mm_sph["mass"], 2) + NUMPY_LIB.power(mm_sph["pt"], 2)))
@@ -1558,7 +1592,9 @@ def dnn_variables(leading_muon, subleading_muon, leading_jet, subleading_jet, ns
         "M_jj": jj_sph["mass"], "pt_jj": jj_sph["pt"], "eta_jj": jj_sph["eta"], "phi_jj": jj_sph["phi"],
         "M_mmjj": mmjj_sph["mass"], "eta_mmjj": mmjj_sph["eta"], "phi_mmjj": mmjj_sph["phi"],
         "dEta_jj": jj_deta,
+        "dEta_jj_abs": NUMPY_LIB.abs(jj_deta),
         "dPhi_jj": jj_dphi,
+        "dPhi_jj_mod": jj_dphi_mod,
         "leadingJet_pt": leading_jet["pt"],
         "subleadingJet_pt": subleading_jet["pt"],
         "leadingJet_eta": leading_jet["eta"],
@@ -1568,12 +1604,14 @@ def dnn_variables(leading_muon, subleading_muon, leading_jet, subleading_jet, ns
         "dRmin_mmj": dRmin_mmj,
         "dRmax_mmj": dRmax_mmj,
         "Zep": Zep,
+        "Zep_rapidity": Zep_rapidity,
         "leadingJet_qgl": leading_jet["qgl"],
         "subleadingJet_qgl": subleading_jet["qgl"], 
         "cthetaCS": cthetaCS,
         "softJet5": nsoft,
         "Higgs_pt": mm_sph["pt"],
         "Higgs_eta": mm_sph["eta"],
+        "Higgs_rapidity": mm_sph["rapidity"],
         "Higgs_mass": mm_sph["mass"],
     }
 
@@ -1644,6 +1682,8 @@ def compute_fill_dnn(
             NUMPY_LIB.asnumpy(dnn_vars_arr),
             batch_size=dnn_vars_arr.shape[0])[:, 0]
         )
+        if len(dnn_pred) > 0:
+            print("dnn_pred", dnn_pred.min(), dnn_pred.max(), dnn_pred.mean(), dnn_pred.std())
         dnn_pred = NUMPY_LIB.array(dnn_pred, dtype=NUMPY_LIB.float32)
     else:
         dnn_pred = NUMPY_LIB.zeros(nev_dnn_presel, dtype=NUMPY_LIB.float32)

@@ -19,7 +19,7 @@ export NUMBA_NUM_THREADS=$NTHREADS
 export OMP_NUM_THREADS=$NTHREADS
 
 #This is where the skim files are loaded form
-export CACHE_PATH=/storage/user/$USER/hmm/cache
+export CACHE_PATH=/storage/user/$USER/hmm/cache2
 
 #Local output director in worker node tmp
 export OUTDIR=out
@@ -28,7 +28,7 @@ export OUTDIR=out
 cd $SUBMIT_DIR
 
 #Run the code
-rm $CACHE_PATH/datasets.json
+rm -f $CACHE_PATH/datasets.json
 python3 tests/hmm/analysis_hmumu.py \
     --action cache \
     --nthreads $NTHREADS \
