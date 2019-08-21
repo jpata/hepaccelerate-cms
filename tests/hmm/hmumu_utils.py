@@ -347,12 +347,12 @@ def analyze_data(
             if not ((bdt_ucsd is None)):
                 bdt_pred = evaluate_bdt_ucsd(dnn_vars, bdt_ucsd)
                 dnn_vars["bdt_ucsd"] = bdt_pred
-            if not ((bdt2j_ucsd is None)):
-                bdt2j_pred = evaluate_bdt2j_ucsd(dnn_vars, bdt2j_ucsd[dataset_era])
-                dnn_vars["bdt2j_ucsd"] = bdt2j_pred
-            if not ((bdt01j_ucsd is None)):
-                bdt01j_pred = evaluate_bdt01j_ucsd(dnn_vars, bdt01j_ucsd[dataset_era])
-                dnn_vars["bdt01j_ucsd"] = bdt01j_pred
+            #if not ((bdt2j_ucsd is None)):
+            #    bdt2j_pred = evaluate_bdt2j_ucsd(dnn_vars, bdt2j_ucsd[dataset_era])
+            #    dnn_vars["bdt2j_ucsd"] = bdt2j_pred
+            #if not ((bdt01j_ucsd is None)):
+            #    bdt01j_pred = evaluate_bdt01j_ucsd(dnn_vars, bdt01j_ucsd[dataset_era])
+            #    dnn_vars["bdt01j_ucsd"] = bdt01j_pred
 
             #Assing a numerical category ID 
             category =  assign_category(
@@ -1460,6 +1460,19 @@ def rochester_correction_muon_qterm(
 
     return NUMPY_LIB.array(qterm)
 
+@numba.njit(parallel=True, fastmath=True)
+def deltaphi_cpu(obj1, obj2, out_dphi):
+    for iev in numba.prange(len(obj1)):
+        dphi = obj1[iev] - obj2[iev] 
+        if dphi > math.pi:
+            dphi = dphi - 2*math.pi
+            out_dphi[iev] = dphi
+        elif (dphi + math.pi) < 0:
+            dphi = dphi + 2*math.pi
+            out_dphi[iev] = dphi
+        else:
+            out_dphi[iev] = dphi
+
 # Custom kernels to get the pt of the muon based on the matched genPartIdx of the reco muon
 # Implement them here as they are too specific to NanoAOD for the hepaccelerate library
 @numba.njit(parallel=True, fastmath=True)
@@ -1550,7 +1563,7 @@ def to_spherical(arrs):
     pt = NUMPY_LIB.sqrt(px**2 + py**2)
     eta = NUMPY_LIB.arcsinh(pz / pt)
     phi = NUMPY_LIB.arccos(NUMPY_LIB.clip(px / pt, -1.0, 1.0))
-    mass = NUMPY_LIB.sqrt(e**2 - (px**2 + py**2 + pz**2))
+    mass = NUMPY_LIB.sqrt(NUMPY_LIB.abs(e**2 - (px**2 + py**2 + pz**2)))
     rap = rapidity(e, pz)
     return {"pt": pt, "eta": eta, "phi": phi, "mass": mass, "rapidity": rap}
 
@@ -1561,21 +1574,11 @@ Given two objects, computes the dr = sqrt(deta^2+dphi^2) between them.
 
     returns: arrays of deta, dphi, dr
 """
-def deltaphi(obj1, obj2):
-    dphi = obj1["phi"] - obj2["phi"]
-    for iev in range(len(dphi)):
-        if dphi[iev] > math.pi:
-            dphi[iev] = dphi[iev] - 2*math.pi
-        elif (dphi[iev] + math.pi) < 0:
-            dphi[iev] = dphi[iev] + 2*math.pi
-    return dphi
-
 def deltar(obj1, obj2):
-    deta = obj1["eta"] - obj2["eta"] 
-    dphi = deltaphi(obj1,obj2) #obj1["phi"] - obj2["phi"]
-
+    deta = obj1["eta"] - obj2["eta"]
+    dphi = NUMPY_LIB.zeros(len(deta), dtype=NUMPY_LIB.float32)
+    deltaphi_cpu(obj1["phi"],obj2["phi"],dphi)
     dr = NUMPY_LIB.sqrt(deta**2 + dphi**2)
-    
     return deta, dphi, dr 
 
 """
@@ -1620,7 +1623,8 @@ def dnn_variables(leading_muon, subleading_muon, leading_jet, subleading_jet, ns
     #delta eta between jets 
     jj_deta = leading_jet["eta"] - subleading_jet["eta"]
     jj_dphi = leading_jet["phi"] - subleading_jet["phi"]
-    jj_dphi_mod = deltaphi(leading_jet,subleading_jet)
+    jj_dphi_mod = NUMPY_LIB.zeros(len(jj_dphi), dtype=NUMPY_LIB.float32)
+    deltaphi_cpu(leading_jet["phi"],subleading_jet["phi"], jj_dphi_mod)
     #jj_dphi_mod = NUMPY_LIB.mod(jj_dphi + math.pi, math.pi)
     
     #muons in cartesian, create dimuon system 
