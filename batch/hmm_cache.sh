@@ -19,7 +19,7 @@ export NUMBA_NUM_THREADS=$NTHREADS
 export OMP_NUM_THREADS=$NTHREADS
 
 #This is where the skim files are loaded form
-export CACHE_PATH=/storage/user/$USER/hmm/cache2
+export CACHE_PATH=/storage/user/$USER/hmm/cache
 
 #Local output director in worker node tmp
 export OUTDIR=out
