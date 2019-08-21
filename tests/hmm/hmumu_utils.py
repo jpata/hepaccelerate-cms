@@ -344,7 +344,7 @@ def analyze_data(
            
             if not ((bdt_ucsd is None)):
                 bdt_pred = evaluate_bdt_ucsd(dnn_vars, bdt_ucsd)
-                dnn_vars["bdt_ucsd"] = bdt_pred
+                dnn_vars["bdt_ucsd"] = NUMPY_LIB.array(bdt_pred, dtype=NUMPY_LIB.float32)
 
             #Assing a numerical category ID 
             category =  assign_category(
@@ -507,13 +507,6 @@ def fill_histograms_several(hists, systematic_name, histname_prefix, variables, 
             target_histogram = Histogram(out_w_separated[ihist], out_w2_separated[ihist], bins)
             target = {weight_name: target_histogram}
             update_histograms_systematic(hists, hist_name, systematic_name, target)
-
-        ihist = 0
-        for array, varname, bins in variables:
-            out_w, out_w2, bins = ha.histogram_from_vector(array, weight_array, bins, mask)
-            K = np.abs(out_w_separated[ihist] - out_w) / out_w
-            K[np.isnan(K)] = 0
-            ihist += 1
     
 def compute_integrated_luminosity(scalars, lumimask, lumidata, dataset_era, mask_events, is_mc):
     int_lumi = 0
@@ -1588,6 +1581,14 @@ def dnn_variables(leading_muon, subleading_muon, leading_jet, subleading_jet, ns
     cthetaCS = 2*(m1["pz"] * m2["e"] - m1["e"]*m2["pz"]) / (mm_sph["mass"] * NUMPY_LIB.sqrt(NUMPY_LIB.power(mm_sph["mass"], 2) + NUMPY_LIB.power(mm_sph["pt"], 2)))
 
     ret = {
+        #"leading_muon_pt": leading_muon["pt"],
+        #"leading_muon_eta": leading_muon["eta"],
+        #"leading_muon_phi": leading_muon["phi"],
+        #"leading_muon_mass": leading_muon["mass"],
+        #"subleading_muon_pt": subleading_muon["pt"],
+        #"subleading_muon_eta": subleading_muon["eta"],
+        #"subleading_muon_phi": subleading_muon["phi"],
+        #"subleading_muon_mass": subleading_muon["mass"],
         "dEtamm": mm_deta, "dPhimm": mm_dphi, "dRmm": mm_dr,
         "M_jj": jj_sph["mass"], "pt_jj": jj_sph["pt"], "eta_jj": jj_sph["eta"], "phi_jj": jj_sph["phi"],
         "M_mmjj": mmjj_sph["mass"], "eta_mmjj": mmjj_sph["eta"], "phi_mmjj": mmjj_sph["phi"],

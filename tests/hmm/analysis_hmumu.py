@@ -504,9 +504,9 @@ def main(args, datasets):
         histo_bins["inv_mass_{0}".format(masswindow)] = np.linspace(mw[0], mw[1], 41, dtype=np.float32)
 
     histo_bins["dnn_pred2"] = {
-        "h_peak": np.array([0., 0.9, 0.91, 0.92, 0.93, 0.94, 0.95, 0.96, 0.97, 0.98, 1.0]),
-        "z_peak": np.array([0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 1.0]),
-        "h_sideband": np.array([0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 1.0]),
+        "h_peak": np.array([0., 0.9, 0.91, 0.92, 0.93, 0.94, 0.95, 0.96, 0.97, 0.98, 1.0], dtype=np.float32),
+        "z_peak": np.array([0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 1.0], dtype=np.float32),
+        "h_sideband": np.array([0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 1.0], dtype=np.float32),
     }
 
     analysis_parameters["baseline"]["histo_bins"] = histo_bins
