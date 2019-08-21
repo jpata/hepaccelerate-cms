@@ -71,6 +71,8 @@ def analyze_data(
     dataset_name = "",
     dataset_num_chunk = "",
     bdt_ucsd = None,
+    bdt2j_ucsd = None,
+    bdt01j_ucsd = None,
     miscvariables = None
     ):
 
@@ -338,13 +340,19 @@ def analyze_data(
             dnn_vars, dnn_prediction = compute_fill_dnn(
                miscvariables, parameters, use_cuda, dnn_presel, dnn_model, dnn_normfactors,
                scalars, leading_muon, subleading_muon, leading_jet, subleading_jet,
-               ret_jet["num_jets"]
+               ret_jet["num_jets"],ret_jet["num_jets_btag"],dataset_era
             )
             weights_in_dnn_presel = apply_mask(weights_selected, dnn_presel)
            
             if not ((bdt_ucsd is None)):
                 bdt_pred = evaluate_bdt_ucsd(dnn_vars, bdt_ucsd)
                 dnn_vars["bdt_ucsd"] = bdt_pred
+            #if not ((bdt2j_ucsd is None)):
+            #    bdt2j_pred = evaluate_bdt2j_ucsd(dnn_vars, bdt2j_ucsd[dataset_era])
+            #    dnn_vars["bdt2j_ucsd"] = bdt2j_pred
+            #if not ((bdt01j_ucsd is None)):
+            #    bdt01j_pred = evaluate_bdt01j_ucsd(dnn_vars, bdt01j_ucsd[dataset_era])
+            #    dnn_vars["bdt01j_ucsd"] = bdt01j_pred
 
             #Assing a numerical category ID 
             category =  assign_category(
@@ -631,7 +639,7 @@ def evaluate_bdt_ucsd(dnn_vars, gbr_bdt):
         "leadingJet_eta",
         "subleadingJet_pt",
         "dEta_jj_abs",
-        "dPhi_jj_mod",
+        "dPhi_jj_mod_abs",
         "M_jj",
         "MET_pt",
         "Zep_rapidity",
@@ -648,6 +656,66 @@ def evaluate_bdt_ucsd(dnn_vars, gbr_bdt):
         for ivar in range(len(varnames)):
             print(varnames[ivar], X[:, ivar].min(), X[:, ivar].max())
         print("bdt_ucsd eval", y.mean(), y.std(), y.min(), y.max())
+    return y
+
+def evaluate_bdt2j_ucsd(dnn_vars, gbr_bdt):
+    varnames = [
+        "Higgs_pt",
+        "Higgs_rapidity",
+        "hmmthetacs",
+        "hmmphics",
+        "leadingJet_pt",
+        "leadingJet_eta",
+        "subleadingJet_pt",
+        "dEta_jj_abs",
+        "dPhi_jj_mod_abs",
+        "M_jj",
+        "MET_pt",
+        "Zep_rapidity",
+        "num_jets",
+        "dRmin_mj",
+        "m1ptOverMass",
+        "m2ptOverMass",
+        "m1eta",
+        "m2eta",
+    ]
+
+    X = NUMPY_LIB.asnumpy(NUMPY_LIB.stack([dnn_vars[vname] for vname in varnames], axis=1))
+    #print("bdt_ucsd inputs")
+    #print(X.mean(axis=0), X.min(axis=0), X.max(axis=0), sep="\n")
+    y = gbr_bdt.compute(X)
+    if X.shape[0] > 0:
+        for ivar in range(len(varnames)):
+            print(varnames[ivar], X[:, ivar].min(), X[:, ivar].max())
+        print("bdt_ucsd2j eval", y.mean(), y.std(), y.min(), y.max())
+    return y
+
+def evaluate_bdt01j_ucsd(dnn_vars, gbr_bdt):
+    varnames = [
+        "Higgs_pt",
+        "Higgs_rapidity",
+        "hmmthetacs",
+        "hmmphics",
+        "leadingJet_pt",
+        "leadingJet_eta",
+        "MET_pt",
+        "num_jets_btag",
+        "dRmin_mj",
+        "num_jets",
+        "m1ptOverMass",
+        "m2ptOverMass",
+        "m1eta",
+        "m2eta",
+    ]
+
+    X = NUMPY_LIB.asnumpy(NUMPY_LIB.stack([dnn_vars[vname] for vname in varnames], axis=1))
+    #print("bdt_ucsd inputs")
+    #print(X.mean(axis=0), X.min(axis=0), X.max(axis=0), sep="\n")
+    y = gbr_bdt.compute(X)
+    if X.shape[0] > 0:
+        for ivar in range(len(varnames)):
+            print(varnames[ivar], X[:, ivar].min(), X[:, ivar].max())
+        print("bdt_ucsd01j eval", y.mean(), y.std(), y.min(), y.max())
     return y
 
 def vbf_genfilter(genjet_inv_mass, num_good_genjets, parameters, dataset_name):
@@ -773,6 +841,8 @@ def run_analysis(
             jetmet_corrections=analysis_corrections.jetmet_corrections,
             do_sync = cmdline_args.do_sync,
             bdt_ucsd  = analysis_corrections.bdt_ucsd,
+            bdt2j_ucsd  = analysis_corrections.bdt2j_ucsd,
+            bdt01j_ucsd  = analysis_corrections.bdt01j_ucsd,
             miscvariables = analysis_corrections.miscvariables)
 
         tnext = time.time()
@@ -1390,6 +1460,19 @@ def rochester_correction_muon_qterm(
 
     return NUMPY_LIB.array(qterm)
 
+@numba.njit(parallel=True, fastmath=True)
+def deltaphi_cpu(obj1, obj2, out_dphi):
+    for iev in numba.prange(len(obj1)):
+        dphi = obj1[iev] - obj2[iev] 
+        if dphi > math.pi:
+            dphi = dphi - 2*math.pi
+            out_dphi[iev] = dphi
+        elif (dphi + math.pi) < 0:
+            dphi = dphi + 2*math.pi
+            out_dphi[iev] = dphi
+        else:
+            out_dphi[iev] = dphi
+
 # Custom kernels to get the pt of the muon based on the matched genPartIdx of the reco muon
 # Implement them here as they are too specific to NanoAOD for the hepaccelerate library
 @numba.njit(parallel=True, fastmath=True)
@@ -1480,7 +1563,7 @@ def to_spherical(arrs):
     pt = NUMPY_LIB.sqrt(px**2 + py**2)
     eta = NUMPY_LIB.arcsinh(pz / pt)
     phi = NUMPY_LIB.arccos(NUMPY_LIB.clip(px / pt, -1.0, 1.0))
-    mass = NUMPY_LIB.sqrt(e**2 - (px**2 + py**2 + pz**2))
+    mass = NUMPY_LIB.sqrt(NUMPY_LIB.abs(e**2 - (px**2 + py**2 + pz**2)))
     rap = rapidity(e, pz)
     return {"pt": pt, "eta": eta, "phi": phi, "mass": mass, "rapidity": rap}
 
@@ -1492,11 +1575,10 @@ Given two objects, computes the dr = sqrt(deta^2+dphi^2) between them.
     returns: arrays of deta, dphi, dr
 """
 def deltar(obj1, obj2):
-    deta = obj1["eta"] - obj2["eta"] 
-    dphi = obj1["phi"] - obj2["phi"]
-
+    deta = obj1["eta"] - obj2["eta"]
+    dphi = NUMPY_LIB.zeros(len(deta), dtype=NUMPY_LIB.float32)
+    deltaphi_cpu(obj1["phi"],obj2["phi"],dphi)
     dr = NUMPY_LIB.sqrt(deta**2 + dphi**2)
-    
     return deta, dphi, dr 
 
 """
@@ -1541,7 +1623,9 @@ def dnn_variables(leading_muon, subleading_muon, leading_jet, subleading_jet, ns
     #delta eta between jets 
     jj_deta = leading_jet["eta"] - subleading_jet["eta"]
     jj_dphi = leading_jet["phi"] - subleading_jet["phi"]
-    jj_dphi_mod = NUMPY_LIB.mod(jj_dphi + math.pi, math.pi)
+    jj_dphi_mod = NUMPY_LIB.zeros(len(jj_dphi), dtype=NUMPY_LIB.float32)
+    deltaphi_cpu(leading_jet["phi"],subleading_jet["phi"], jj_dphi_mod)
+    #jj_dphi_mod = NUMPY_LIB.mod(jj_dphi + math.pi, math.pi)
     
     #muons in cartesian, create dimuon system 
     m1 = to_cartesian(leading_muon)    
@@ -1570,7 +1654,6 @@ def dnn_variables(leading_muon, subleading_muon, leading_jet, subleading_jet, ns
     dr_mj = NUMPY_LIB.vstack(dr_mjs)
     dRmin_mj = NUMPY_LIB.min(dr_mj, axis=0) 
     dRmax_mj = NUMPY_LIB.max(dr_mj, axis=0) 
-    
     #compute deltaR between dimuon system and both jets 
     dr_mmjs = []
     for jet in [leading_jet, subleading_jet]:
@@ -1582,7 +1665,7 @@ def dnn_variables(leading_muon, subleading_muon, leading_jet, subleading_jet, ns
 
     #Zeppenfeld variable
     Zep = (mm_sph["eta"] - 0.5*(leading_jet["eta"] + subleading_jet["eta"]))
-    Zep_rapidity = (mm_sph["rapidity"] - 0.5*(leading_jet["rapidity"] + subleading_jet["rapidity"]))
+    Zep_rapidity = (mm_sph["rapidity"] - 0.5*(leading_jet["rapidity"] + subleading_jet["rapidity"]))/(leading_jet["rapidity"]-subleading_jet["rapidity"])
 
     #Collin-Soper frame variable
     cthetaCS = 2*(m1["pz"] * m2["e"] - m1["e"]*m2["pz"]) / (mm_sph["mass"] * NUMPY_LIB.sqrt(NUMPY_LIB.power(mm_sph["mass"], 2) + NUMPY_LIB.power(mm_sph["pt"], 2)))
@@ -1595,6 +1678,7 @@ def dnn_variables(leading_muon, subleading_muon, leading_jet, subleading_jet, ns
         "dEta_jj_abs": NUMPY_LIB.abs(jj_deta),
         "dPhi_jj": jj_dphi,
         "dPhi_jj_mod": jj_dphi_mod,
+        "dPhi_jj_mod_abs": NUMPY_LIB.abs(jj_dphi_mod),
         "leadingJet_pt": leading_jet["pt"],
         "subleadingJet_pt": subleading_jet["pt"],
         "leadingJet_eta": leading_jet["eta"],
@@ -1652,7 +1736,9 @@ def compute_fill_dnn(
     subleading_muon,
     leading_jet,
     subleading_jet,
-    num_jets):
+    num_jets,
+    num_jets_btag,
+    dataset_era):
 
     nev_dnn_presel = NUMPY_LIB.sum(dnn_presel)
 
@@ -1667,9 +1753,12 @@ def compute_fill_dnn(
     nsoft = scalars["SoftActivityJetNjets5"][dnn_presel]
 
     dnn_vars = dnn_variables(leading_muon_s, subleading_muon_s, leading_jet_s, subleading_jet_s, nsoft)
-    dnn_vars["MET_pt"] = scalars["MET_pt"][dnn_presel]
+    if dataset_era == "2017":
+    	dnn_vars["MET_pt"] = scalars["METFixEE2017_pt"][dnn_presel]
+    else:
+    	dnn_vars["MET_pt"] = scalars["MET_pt"][dnn_presel]
     dnn_vars["num_jets"] = num_jets[dnn_presel]
-
+    dnn_vars["num_jets_btag"] = num_jets_btag[dnn_presel]
     if (not (dnn_model is None)) and nev_dnn_presel > 0:
         dnn_vars_arr = NUMPY_LIB.vstack([dnn_vars[k] for k in parameters["dnn_varlist_order"]]).T
         
@@ -1701,7 +1790,10 @@ def compute_fill_dnn(
         )
     dnn_vars["hmmthetacs"] = NUMPY_LIB.array(hmmthetacs)
     dnn_vars["hmmphics"] = NUMPY_LIB.array(hmmphics)
-
+    dnn_vars["m1eta"] = NUMPY_LIB.array(leading_muon_s["eta"])
+    dnn_vars["m2eta"] = NUMPY_LIB.array(subleading_muon_s["eta"])
+    dnn_vars["m1ptOverMass"] = NUMPY_LIB.divide(leading_muon_s["pt"],dnn_vars["Higgs_mass"])
+    dnn_vars["m2ptOverMass"] = NUMPY_LIB.divide(subleading_muon_s["pt"],dnn_vars["Higgs_mass"])
     return dnn_vars, dnn_pred
 
 def get_jer_smearfactors(pt_or_m, ratio_jet_genjet, msk_no_genjet, msk_poor_reso, resos, resosfs):
@@ -2203,7 +2295,6 @@ def create_datastructure(is_mc, dataset_era):
             ("event", "uint64"),
             ("SoftActivityJetNjets5", "int32"),
             ("fixedGridRhoFastjetAll", "float32"),
-            ("MET_pt", "float32"),
         ],
     }
 
@@ -2242,14 +2333,17 @@ def create_datastructure(is_mc, dataset_era):
         datastructures["EventVariables"] += [
             ("HLT_IsoMu24", "bool"),
             ("HLT_IsoTkMu24", "bool"),
+            ("MET_pt", "float32"),
         ]
     elif dataset_era == "2017":
         datastructures["EventVariables"] += [
             ("HLT_IsoMu27", "bool"),
+            ("METFixEE2017_pt", "float32"),
         ]
     elif dataset_era == "2018":
         datastructures["EventVariables"] += [
             ("HLT_IsoMu24", "bool"),
+            ("MET_pt", "float32"),
         ]
 
     return datastructures
