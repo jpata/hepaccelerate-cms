@@ -239,17 +239,17 @@ class AnalysisCorrections:
         #  *_SF_AK4PFchs.txt -> *_SF_AK4PFchs.jersf.txt
         self.jetmet_corrections = {
             "2016": {
-                "Summer16_23Sep2016V4":
+                "Summer16_07Aug2017_V11":
                     JetMetCorrections(
-                    jec_tag="Summer16_23Sep2016V4_MC",
+                    jec_tag="Summer16_07Aug2017_V11_MC",
                     jec_tag_data={
-                        "RunB": "Summer16_23Sep2016BCDV4_DATA",
-                        "RunC": "Summer16_23Sep2016BCDV4_DATA",
-                        "RunD": "Summer16_23Sep2016BCDV4_DATA",
-                        "RunE": "Summer16_23Sep2016EFV4_DATA",
-                        "RunF": "Summer16_23Sep2016EFV4_DATA",
-                        "RunG": "Summer16_23Sep2016GV4_DATA",
-                        "RunH": "Summer16_23Sep2016HV4_DATA",
+                        "RunB": "Summer16_07Aug2017BCD_V11_DATA",
+                        "RunC": "Summer16_07Aug2017BCD_V11_DATA",
+                        "RunD": "Summer16_07Aug2017BCD_V11_DATA",
+                        "RunE": "Summer16_07Aug2017EF_V11_DATA",
+                        "RunF": "Summer16_07Aug2017EF_V11_DATA",
+                        "RunG": "Summer16_07Aug2017GH_V11_DATA",
+                        "RunH": "Summer16_07Aug2017GH_V11_DATA",
                     },
                     #jer_tag="Summer16_25nsV1_MC",
                     jer_tag=None,
@@ -257,15 +257,15 @@ class AnalysisCorrections:
                     do_factorized_jec=True),
             },
             "2017": {
-                "Fall17_17Nov2017_V6":
+                "Fall17_17Nov2017_V32":
                     JetMetCorrections(
-                    jec_tag="Fall17_17Nov2017_V6_MC",
+                    jec_tag="Fall17_17Nov2017_V32_MC",
                     jec_tag_data={
-                        "RunB": "Fall17_17Nov2017B_V6_DATA",
-                        "RunC": "Fall17_17Nov2017C_V6_DATA",
-                        "RunD": "Fall17_17Nov2017D_V6_DATA",
-                        "RunE": "Fall17_17Nov2017E_V6_DATA",
-                        "RunF": "Fall17_17Nov2017F_V6_DATA",
+                        "RunB": "Fall17_17Nov2017B_V32_DATA",
+                        "RunC": "Fall17_17Nov2017C_V32_DATA",
+                        "RunD": "Fall17_17Nov2017DE_V32_DATA",
+                        "RunE": "Fall17_17Nov2017DE_V32_DATA",
+                        "RunF": "Fall17_17Nov2017F_V32_DATA",
                     },
                     #jer_tag="Fall17_V3_MC",
                     jer_tag=None,
@@ -335,8 +335,17 @@ class AnalysisCorrections:
 
 
         print("Loading UCSD BDT model")
-        self.bdt_ucsd = GBREvaluator(self.libhmm, "data/TMVAClassification_BDTG.weights.2jet_bveto_withmass.xml")
-
+        self.bdt_ucsd = GBREvaluator(self.libhmm, "data/Hmm_BDT_xml/2016/TMVAClassification_BDTG.weights.2jet_bveto_withmass.xml")
+        self.bdt2j_ucsd = {
+            "2016": GBREvaluator(self.libhmm, "data/Hmm_BDT_xml/2016/TMVAClassification_BDTG.weights.2jet_bveto.xml"),
+            "2017": GBREvaluator(self.libhmm, "data/Hmm_BDT_xml/2017/TMVAClassification_BDTG.weights.2jet_bveto.xml"),
+            "2018": GBREvaluator(self.libhmm, "data/Hmm_BDT_xml/2018/TMVAClassification_BDTG.weights.2jet_bveto.xml")
+        }
+        self.bdt01j_ucsd = {
+            "2016": GBREvaluator(self.libhmm, "data/Hmm_BDT_xml/2016/TMVAClassification_BDTG.weights.01jet.xml"),
+            "2017": GBREvaluator(self.libhmm, "data/Hmm_BDT_xml/2017/TMVAClassification_BDTG.weights.01jet.xml"),
+            "2018": GBREvaluator(self.libhmm, "data/Hmm_BDT_xml/2018/TMVAClassification_BDTG.weights.01jet.xml")
+        }
         self.miscvariables = MiscVariables(self.libhmm)
 
 def main(args, datasets):
@@ -405,7 +414,7 @@ def main(args, datasets):
             "do_lepton_sf": True,
             
             "do_jec": True,
-            "jec_tag": {"2016": "Summer16_23Sep2016V4", "2017": "Fall17_17Nov2017_V6", "2018": "Autumn18_V16"}, 
+            "jec_tag": {"2016": "Summer16_07Aug2017_V11", "2017": "Fall17_17Nov2017_V32", "2018": "Autumn18_V16"}, 
             "jet_mu_dr": 0.4,
             "jet_pt_leading": {"2016": 35.0, "2017": 35.0, "2018": 35.0},
             "jet_pt_subleading": {"2016": 25.0, "2017": 25.0, "2018": 25.0},
@@ -476,6 +485,8 @@ def main(args, datasets):
                 "dnn_pred": (0, 1, 1001),
                 "dnn_pred2": (0, 1, 11),
                 "bdt_ucsd": (-1, 1, 41),
+                "bdt2j_ucsd": (-1, 1, 41),
+                "bdt01j_ucsd": (-1, 1, 41),
                 "MET_pt": (0, 200, 41),
                 "hmmthetacs": (-1, 1, 41),
                 "hmmphics": (-4, 4, 41),
