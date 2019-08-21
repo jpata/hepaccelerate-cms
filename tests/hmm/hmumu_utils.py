@@ -288,7 +288,6 @@ def analyze_data(
 
             #print("jet selection eff based on ID & pt", ret_jet["selected_jets"].sum() / float(len(ret_jet["selected_jets"])))
 
-
             pt_balance = ret_jet["dijet_pt"] / higgs_pt
 
             # Set this default value as in Nan and Irene's code

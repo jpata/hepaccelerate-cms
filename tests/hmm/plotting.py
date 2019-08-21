@@ -93,7 +93,7 @@ def plot_hist_ratio(hists_mc, hist_data,
         hmc_tot2 += h.contents_w2
 
 #    plot_hist_step(h["edges"], hmc_tot, np.sqrt(hmc_tot2), kwargs_step={"color": "gray", "label": None})
-    mask_data_from = kwargs.get("mask_data_from_bin", -1)
+    mask_data_from = kwargs.get("mask_data_from_bin", len(hist_data.contents))
     ax1.errorbar(
         midpoints(edges)[:mask_data_from], hist_data.contents[:mask_data_from],
         np.sqrt(hist_data.contents_w2)[:mask_data_from], marker="o", lw=0,
@@ -669,7 +669,6 @@ if __name__ == "__main__":
         dr_filename_noext = dr_filename.split(".")[0]
         name, era = dr_filename_noext.split("_")
         eras += [era]
-    eras = ["2018"]
     print("Will make datacards and control plots for eras {0}".format(eras))
 
     for era in eras:
