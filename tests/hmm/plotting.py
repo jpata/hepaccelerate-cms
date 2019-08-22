@@ -271,7 +271,7 @@ def make_pdf_plot(args):
     
     varname, catname = assign_plot_title_label(var)
     
-    a1.set_title(catname + " ({0})".format(analysis_names[analysis]))
+    a1.set_title(catname + " ({0})".format(analysis_names[analysis][datataking_year]))
     a2.set_xlabel(varname)
     
     binwidth = np.diff(hd.edges)[0]

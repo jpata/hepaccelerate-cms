@@ -22,4 +22,4 @@ python3 tests/hmm/analysis_hmumu.py \
     --out /storage/user/$USER/hmm/out
 
 #Run plots
-python3 tests/hmm/plotting.py --input /storage/user/$USER/hmm/out
+python3 tests/hmm/plotting.py --input /storage/user/$USER/hmm/out --nthreads 8

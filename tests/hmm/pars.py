@@ -349,9 +349,8 @@ varnames = {
 }
 
 analysis_names = {
-    "baseline": "JEC V16",
-    "oldjec": "JEC V8",
-    "jetpt_l30_sl30": "jet pT 30,30",
+    "baseline": {"2018": "Autumn18_V16", "2017": "Fall17_17Nov2017_V32", "2016": "Summer16_07Aug2017_V11"},
+    "oldjec": {"2018": "Autumn18_V8", "2017": "", "2016": ""},
 }
 
 # dataset nickname, datataking era, filename glob pattern, isMC
