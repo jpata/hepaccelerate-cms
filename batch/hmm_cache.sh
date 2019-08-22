@@ -1,5 +1,7 @@
 #!/bin/bash
 
+hostname
+
 set -e
 
 ls /storage
@@ -26,6 +28,7 @@ export OUTDIR=out
 cd $SUBMIT_DIR
 
 #Run the code
+rm -f $CACHE_PATH/datasets.json
 python3 tests/hmm/analysis_hmumu.py \
     --action cache \
     --nthreads $NTHREADS \

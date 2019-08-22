@@ -5,7 +5,7 @@ CXX      = g++ -fPIC -fopenmp -O3
 CXXFLAGS= $(shell root-config --cflags)
 LIBS    = $(shell root-config --libs)
 
-SOURCES = GBRForestTools.cc LeptonEfficiencyCorrector.cc RoccoR.cc tinyxml2.cc WeightCalculatorFromHistogram.cc
+SOURCES = GBRForestTools.cc LeptonEfficiencyCorrector.cc RoccoR.cc tinyxml2.cc WeightCalculatorFromHistogram.cc MiscVariables.cc
 HEADERS = *.h
 
 OBJECTS = $(SOURCES:.cc=.o)
@@ -17,9 +17,10 @@ libhmm.so: $(OBJECTS)
 	$(CXX) $(LIBS) -shared -o $@ $^
 
 # Specifying the object files as intermediates deletes them automatically after the build process.
-.INTERMEDIATE:  $(OBJECTS)
+.INTERMEDIATE:  $(OBJECTS) tmva
 
 .PHONY : clean
 clean:
 	rm -f libhmm.so
+	rm -f tmva
 	rm -f $(OBJECTS)

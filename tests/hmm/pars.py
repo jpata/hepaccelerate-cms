@@ -1,16 +1,34 @@
 categories = {
     "dimuon": {
         "datacard_processes" : [
-            "ggh", "dy",
+            "ggh",
+            "vbf",
+            "wmh",
+            "wph",
+            "zh",
+            "tth",
+            #"wz_1l1nu2q",
+            "wz_3lnu", 
+            "ww_2l2nu", "wz_2l2q", "zz",
+            "ewk_lljj_mll50_mjj120",
+            #"ewk_lljj_mll105_160",
+            #"st_top",
+            #"st_t_antitop",
+            "st_tw_top",
+            "st_tw_antitop",
+            "ttjets_sl", "ttjets_dl",
+            "dy",
+            "www","wwz","wzz","zzz",
         ],
-        "plot_processes": {
-            "dy": ["dy_0j", "dy_1j", "dy_2j"],
-        }
     },
     "z_peak": {
         "datacard_processes" : [
             "ggh",
             "vbf",
+            "wmh",
+            "wph",
+            "zh",
+            "tth",
             #"wz_1l1nu2q",
             "wz_3lnu", 
             "ww_2l2nu", "wz_2l2q", "zz",
@@ -22,10 +40,8 @@ categories = {
             "st_tw_antitop",
             "ttjets_sl", "ttjets_dl",
             "dy_0j", "dy_1j", "dy_2j",
+            "www","wwz","wzz","zzz",
         ],
-        "plot_processes": {
-            "dy": ["dy_0j", "dy_1j", "dy_2j"],
-        }
     },
     "h_sideband": {
         "datacard_processes" : [
@@ -46,10 +62,8 @@ categories = {
             "st_tw_antitop",
             "ttjets_sl", "ttjets_dl",
             "dy_m105_160_amc", "dy_m105_160_vbf_amc",
+            "www","wwz","wzz","zzz",
         ],
-        "plot_processes": {
-            "dy": ["dy_m105_160_amc", "dy_m105_160_vbf_amc"],
-        }
     },
     "h_peak": {
         "datacard_processes" : [
@@ -70,11 +84,110 @@ categories = {
             "st_tw_antitop",
             "ttjets_sl", "ttjets_dl",
             "dy_m105_160_amc", "dy_m105_160_vbf_amc",
+            "www","wwz","wzz","zzz",
         ],
-        "plot_processes": {
-            "dy": ["dy_m105_160_amc", "dy_m105_160_vbf_amc"],
-        }
     }
+}
+
+colors = {
+    "dy": (254, 254, 83),
+    "ewk": (109, 253, 245),
+    "stop": (236, 76, 105),
+    "tt": (67, 150, 42),
+    "vvv": (247, 206, 205),
+    "vv": (100, 105, 98),
+    "higgs": (0, 0, 0),
+}
+
+process_groups = [
+    ("higgs", ["ggh", "vbf", "wmh", "wph", "zh", "tth"]),
+    ("vv", ["wz_3lnu", "ww_2l2nu", "wz_2l2q", "zz"]),
+    ("vvv", ["www","wwz","wzz","zzz"]),
+    ("ewk", ["ewk_lljj_mll50_mjj120", "ewk_lljj_mll105_160"]),
+    ("stop", ["st_tw_top", "st_tw_antitop"]),
+    ("tt", ["ttjets_sl", "ttjets_dl",]),
+    ("dy", ["dy_0j", "dy_1j", "dy_2j", "dy_m105_160_amc", "dy_m105_160_vbf_amc", "dy"]),
+]
+
+extra_plot_kwargs = {
+    "hist__dimuon_invmass_z_peak_cat5__subleading_jet_pt": {
+        "do_log": True,
+        "xlim": (25, 300)
+    },
+    "hist__dimuon_invmass_h_peak_cat5__subleading_jet_pt": {
+        "do_log": True,
+        "xlim": (25, 300)
+    },
+    "hist__dimuon_invmass_h_sideband_cat5__subleading_jet_pt": {
+        "do_log": True,
+        "xlim": (25, 300)
+    },
+
+    "hist__dimuon_invmass_z_peak_cat5__leading_jet_pt": {
+        "do_log": True,
+        "xlim": (35, 300)
+    },
+    "hist__dimuon_invmass_h_peak_cat5__leading_jet_pt": {
+        "do_log": True,
+        "xlim": (35, 300)
+    },
+    "hist__dimuon_invmass_h_sideband_cat5__leading_jet_pt": {
+        "do_log": True,
+        "xlim": (35, 300)
+    },
+
+    "hist__dimuon_invmass_z_peak_cat5__num_jets": {
+        "do_log": True,
+        "xlim": (2, 8)
+    },
+    "hist__dimuon_invmass_h_peak_cat5__num_jets": {
+        "do_log": True,
+        "xlim": (2, 8)
+    },
+    "hist__dimuon_invmass_h_sideband_cat5__num_jets": {
+        "do_log": True,
+        "xlim": (2, 8)
+    },
+
+    "hist__dimuon_invmass_z_peak_cat5__num_soft_jets": {
+        "do_log": True,
+        "xlim": (0, 8)
+    },
+    "hist__dimuon_invmass_h_peak_cat5__num_soft_jets": {
+        "do_log": True,
+        "xlim": (0, 8)
+    },
+    "hist__dimuon_invmass_h_sideband_cat5__num_soft_jets": {
+        "do_log": True,
+        "xlim": (0, 8)
+    },
+
+
+    "hist__dimuon_invmass_z_peak_cat5__dnn_pred2": {
+        "xbins": "uniform",
+        "do_log": True
+    },
+    "hist__dimuon_invmass_h_peak_cat5__dnn_pred2": {
+        "xbins": "uniform",
+        "xlim": (1, 9),
+        "ylim": (0, 50),
+        "mask_data_from_bin": 2,
+    },
+    "hist__dimuon_invmass_h_sideband_cat5__dnn_pred2": {
+        "xbins": "uniform",
+        "do_log": True,
+    },
+
+    "hist__dimuon_invmass_z_peak_cat5__bdt_ucsd": {
+        "do_log": True,
+    },
+    "hist__dimuon_invmass_h_peak_cat5__bdt_ucsd": {
+        "do_log": False,
+        "mask_data_from_bin": 5,
+    },
+    "hist__dimuon_invmass_h_sideband_cat5__bdt_ucsd": {
+        "do_log": True,
+    },
 }
 
 controlplots_shape = [
@@ -109,9 +222,18 @@ cross_sections = {
     "st_tw_antitop": 35.85,
     "ewk_lljj_mll105_160": 0.0508896, 
     "ewk_lljj_mll50_mjj120": 0.128,
+    "ttw": 0.2001,
+    "ttz": 0.2529,
+    "st_t_top": 3.36,
+    "vbf_powheg1": 0.000823,
+    "vbf_powheg2": 0.000823,
+    "www": 0.2086,
+    "wwz": 0.1651,
+    "wzz": 0.05565,
+    "zzz": 0.01398
 }
 
-signal_samples = ["ggh", "vbf"]
+signal_samples = ["ggh", "vbf", "wmh", "wph", "zh", "tth"]
 jec_unc = [
     'AbsoluteFlavMap', 'AbsoluteMPFBias', 'AbsoluteSample', 'AbsoluteScale',
     'AbsoluteStat',
@@ -136,6 +258,7 @@ jec_unc = [
 #    'SubTotalPt', 'SubTotalRelative', 'SubTotalScale', 'TimePtEta', 'Total', 'TotalNoFlavor',
 #    'TotalNoFlavorNoTime', 'TotalNoTime']
 
+jec_unc = ["Total"]
 uncertainties = jec_unc + ["puWeight", "L1PreFiringWeight"]
 shape_systematics = jec_unc + ["jer", "puWeight", "L1PreFiringWeight"]
 common_scale_uncertainties = {
@@ -217,6 +340,7 @@ catnames = {
     "dnn_presel": r"dimuons, $\geq 2$ jets",
     "dimuon": "dimuons",
 }
+
 varnames = {
     "subleadingJet_pt": "subleading jet $p_T$ [GeV]",
     "subleadingJet_eta": "subleading jet $\eta$",
@@ -225,9 +349,8 @@ varnames = {
 }
 
 analysis_names = {
-    "baseline": "baseline",
-    "redo_jec_V16": "JEC V16",
-    "jetpt_l30_sl30": "jet pT 30,30",
+    "baseline": {"2018": "Autumn18_V16", "2017": "Fall17_17Nov2017_V32", "2016": "Summer16_07Aug2017_V11"},
+    "oldjec": {"2018": "Autumn18_V8", "2017": "", "2016": ""},
 }
 
 # dataset nickname, datataking era, filename glob pattern, isMC
@@ -360,6 +483,22 @@ datasets = [
     ("zh", "2016", "/store/mc/RunIISummer16NanoAODv5/ZH_HToMuMu_ZToAll_M125_TuneCP5_PSweights_13TeV_powheg_pythia8/**/*.root", True),
     ("zh", "2017", "/store/mc/RunIIFall17NanoAODv5/ZH_HToMuMu_ZToAll_M125_13TeV_powheg_pythia8/**/*.root", True),
     ("zh", "2018", "/store/mc/RunIIAutumn18NanoAODv5/ZH_HToMuMu_ZToAll_M125_TuneCP5_PSweights_13TeV_powheg_pythia8/**/*.root", True),
+    
+    ("www", "2016", "/store/mc/RunIISummer16NanoAODv5/WWW_4F_TuneCUETP8M1_13TeV-amcatnlo-pythia8/**/*.root", True),
+    ("www", "2017", "/store/mc/RunIIFall17NanoAODv5/WWW_4F_TuneCP5_13TeV-amcatnlo-pythia8/**/*.root", True),
+    ("www", "2018", "/store/mc/RunIIAutumn18NanoAODv5/WWW_4F_TuneCP5_13TeV-amcatnlo-pythia8/**/*.root", True),
+    
+    ("wwz", "2016", "/store/mc/RunIISummer16NanoAODv5/WWZ_TuneCUETP8M1_13TeV-amcatnlo-pythia8/**/*.root", True),
+    ("wwz", "2017", "/store/mc/RunIIFall17NanoAODv5/WWZ_4F_TuneCP5_13TeV-amcatnlo-pythia8/**/*.root", True),
+    ("wwz", "2018", "/store/mc/RunIIAutumn18NanoAODv5/WWZ_TuneCP5_13TeV-amcatnlo-pythia8/**/*.root", True),
+    
+    ("wzz", "2016", "/store/mc/RunIISummer16NanoAODv5/WZZ_TuneCUETP8M1_13TeV-amcatnlo-pythia8/**/*.root", True),
+    ("wzz", "2017", "/store/mc/RunIIFall17NanoAODv5/WZZ_TuneCP5_13TeV-amcatnlo-pythia8/**/*.root", True),
+    ("wzz", "2018", "/store/mc/RunIIAutumn18NanoAODv5/WZZ_TuneCP5_13TeV-amcatnlo-pythia8/**/*.root", True),
+    
+    ("zzz", "2016", "/store/mc/RunIISummer16NanoAODv5/ZZZ_TuneCUETP8M1_13TeV-amcatnlo-pythia8/**/*.root", True),
+    ("zzz", "2017", "/store/mc/RunIIFall17NanoAODv5/ZZZ_TuneCP5_13TeV-amcatnlo-pythia8/**/*.root", True),
+    ("zzz", "2018", "/store/mc/RunIIAutumn18NanoAODv5/ZZZ_TuneCP5_13TeV-amcatnlo-pythia8/**/*.root", True)
 ]
 
 # Synchronization datasets/

@@ -20,6 +20,9 @@ class LibHMuMu:
             int gbr_get_nvariables(const void* gbr);
             void gbr_eval(const void* gbr, float* out, int nev, int nfeatures, float* inputs_matrix);
 
+
+            void csangles_eval(float* out_theta, float* out_phi, int nev, float* pt1, float* eta1, float* phi1, float* mass1, float* pt2, float* eta2, float* phi2, float* mass2, int* charges);
+
         """)
         self.libhmm = self.ffi.dlopen(libpath)
 
@@ -33,6 +36,8 @@ class LibHMuMu:
         self.new_gbr = self.libhmm.new_gbr
         self.gbr_get_nvariables = self.libhmm.gbr_get_nvariables
         self.gbr_eval = self.libhmm.gbr_eval
+
+        self.csangles_eval = self.libhmm.csangles_eval
 
     def cast_as(self, dtype_string, arr):
         return self.ffi.cast(dtype_string, arr.ctypes.data)
@@ -111,9 +116,34 @@ class GBREvaluator:
             self.c_class,
             self.libhmm.cast_as("float *", out),
             nev, nfeat,
-            self.libhmm.cast_as("float *", features.ravel())
+            self.libhmm.cast_as("float *", features.ravel(order='C'))
         )
         return out
 
     def get_bdt_nfeatures(self):
         return self.libhmm.gbr_get_nvariables(self.c_class)
+
+class MiscVariables:
+    def __init__(self, libhmm):
+        self.libhmm = libhmm
+
+    def csangles(self, pt1, eta1, phi1, mass1, pt2, eta2, phi2, mass2, charges):
+        nev = len(pt1)
+        out_theta = numpy_lib.zeros(nev, dtype=numpy_lib.float32)
+        out_phi = numpy_lib.zeros(nev, dtype=numpy_lib.float32)
+
+        self.libhmm.csangles_eval(
+            self.libhmm.cast_as("float *", out_theta),
+            self.libhmm.cast_as("float *", out_phi),
+            nev,
+            self.libhmm.cast_as("float *", pt1),
+            self.libhmm.cast_as("float *", eta1),
+            self.libhmm.cast_as("float *", phi1),
+            self.libhmm.cast_as("float *", mass1),
+            self.libhmm.cast_as("float *", pt2),
+            self.libhmm.cast_as("float *", eta2),
+            self.libhmm.cast_as("float *", phi2),
+            self.libhmm.cast_as("float *", mass2),
+            self.libhmm.cast_as("int *", charges),
+        )
+        return out_theta, out_phi
