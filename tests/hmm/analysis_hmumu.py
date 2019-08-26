@@ -326,8 +326,8 @@ class AnalysisCorrections:
 
             #load DNN model
             import keras
-            self.dnn_model = keras.models.load_model("data/DNN27vars_sig_vbf_bkg_dyvbf_dy105To160_ewk105To160_split_60_40_190808.h5")
-            self.dnn_normfactors = np.load("data/DNN27vars_sig_vbf_bkg_dyvbf_dy105To160_ewk105To160_split_60_40_190808.npy")
+            self.dnn_model = keras.models.load_model("data/DNN27vars_sig_vbf_ggh_bkg_dyvbf_dy105To160_ewk105To160_split_60_40_mod10_190821.h5")
+            self.dnn_normfactors = np.load("data/DNN27vars_sig_vbf_ggh_bkg_dyvbf_dy105To160_ewk105To160_split_60_40_mod10_190821.npy")
 
             if args.use_cuda:
                 import cupy
@@ -456,40 +456,40 @@ def main(args, datasets):
             "dnn_varlist_order": ['softJet5', 'dRmm','dEtamm','M_jj','pt_jj','eta_jj','phi_jj','M_mmjj','eta_mmjj','phi_mmjj','dEta_jj','Zep','dRmin_mj', 'dRmax_mj', 'dRmin_mmj','dRmax_mmj','dPhimm','leadingJet_pt','subleadingJet_pt', 'leadingJet_eta','subleadingJet_eta','leadingJet_qgl','subleadingJet_qgl','cthetaCS','Higgs_pt','Higgs_eta','Higgs_mass'],
             "dnn_input_histogram_bins": {
                 "softJet5": (0,10,10),
-                "dRmm": (0,5,41),
-                "dEtamm": (-2,2,41),
-                "dPhimm": (-2,2,41),
-                "M_jj": (0,2000,41),
-                "pt_jj": (0,400,41),
-                "eta_jj": (-5,5,41),
-                "phi_jj": (-5,5,41),
-                "M_mmjj": (0,2000,41),
-                "eta_mmjj": (-3,3,41),
-                "phi_mmjj": (-3,3,41),
-                "dEta_jj": (-3,3,41),
-                "Zep": (-2,2,41),
-                "dRmin_mj": (0,5,41),
-                "dRmax_mj": (0,5,41),
-                "dRmin_mmj": (0,5,41),
-                "dRmax_mmj": (0,5,41),
-                "leadingJet_pt": (0, 200, 41),
-                "subleadingJet_pt": (0, 200, 41),
-                "leadingJet_eta": (-5, 5, 41),
-                "subleadingJet_eta": (-5, 5, 41),
-                "leadingJet_qgl": (0, 1, 41),
-                "subleadingJet_qgl": (0, 1, 41),
-                "cthetaCS": (-1, 1, 41),
-                "Higgs_pt": (0, 200, 41),
-                "Higgs_eta": (-3, 3, 41),
-                "Higgs_mass": (110, 150, 41),
+                "dRmm": (0,5,11),
+                "dEtamm": (-2,2,11),
+                "dPhimm": (-2,2,11),
+                "M_jj": (0,2000,11),
+                "pt_jj": (0,400,11),
+                "eta_jj": (-5,5,11),
+                "phi_jj": (-5,5,11),
+                "M_mmjj": (0,2000,11),
+                "eta_mmjj": (-3,3,11),
+                "phi_mmjj": (-3,3,11),
+                "dEta_jj": (-3,3,11),
+                "Zep": (-2,2,11),
+                "dRmin_mj": (0,5,11),
+                "dRmax_mj": (0,5,11),
+                "dRmin_mmj": (0,5,11),
+                "dRmax_mmj": (0,5,11),
+                "leadingJet_pt": (0, 200, 11),
+                "subleadingJet_pt": (0, 200, 11),
+                "leadingJet_eta": (-5, 5, 11),
+                "subleadingJet_eta": (-5, 5, 11),
+                "leadingJet_qgl": (0, 1, 11),
+                "subleadingJet_qgl": (0, 1, 11),
+                "cthetaCS": (-1, 1, 11),
+                "Higgs_pt": (0, 200, 11),
+                "Higgs_eta": (-3, 3, 11),
+                "Higgs_mass": (110, 150, 11),
                 "dnn_pred": (0, 1, 1001),
                 "dnn_pred2": (0, 1, 11),
-                "bdt_ucsd": (-1, 1, 41),
-                "bdt2j_ucsd": (-1, 1, 41),
-                "bdt01j_ucsd": (-1, 1, 41),
-                "MET_pt": (0, 200, 41),
-                "hmmthetacs": (-1, 1, 41),
-                "hmmphics": (-4, 4, 41),
+                "bdt_ucsd": (-1, 1, 11),
+                "bdt2j_ucsd": (-1, 1, 11),
+                "bdt01j_ucsd": (-1, 1, 11),
+                "MET_pt": (0, 200, 11),
+                "hmmthetacs": (-1, 1, 11),
+                "hmmphics": (-4, 4, 11),
             },
 
             "categorization_trees": {}
@@ -498,14 +498,14 @@ def main(args, datasets):
     histo_bins = {
         "muon_pt": np.linspace(0, 200, 101, dtype=np.float32),
         "npvs": np.linspace(0,100,101, dtype=np.float32),
-        "dijet_inv_mass": np.linspace(0, 2000, 41, dtype=np.float32),
-        "inv_mass": np.linspace(70, 150, 41, dtype=np.float32),
+        "dijet_inv_mass": np.linspace(0, 2000, 11, dtype=np.float32),
+        "inv_mass": np.linspace(70, 150, 11, dtype=np.float32),
         "numjet": np.linspace(0, 10, 11, dtype=np.float32),
         "jet_pt": np.linspace(0, 300, 101, dtype=np.float32),
-        "jet_eta": np.linspace(-4.7, 4.7, 41, dtype=np.float32),
-        "pt_balance": np.linspace(0, 5, 41, dtype=np.float32),
+        "jet_eta": np.linspace(-4.7, 4.7, 11, dtype=np.float32),
+        "pt_balance": np.linspace(0, 5, 11, dtype=np.float32),
         "numjets": np.linspace(0, 10, 11, dtype=np.float32),
-        "jet_qgl": np.linspace(0, 1, 41, dtype=np.float32)
+        "jet_qgl": np.linspace(0, 1, 11, dtype=np.float32)
     }
     for hname, bins in analysis_parameters["baseline"]["dnn_input_histogram_bins"].items():
         histo_bins[hname] = np.linspace(bins[0], bins[1], bins[2], dtype=np.float32)
@@ -515,7 +515,7 @@ def main(args, datasets):
         histo_bins["inv_mass_{0}".format(masswindow)] = np.linspace(mw[0], mw[1], 41, dtype=np.float32)
 
     histo_bins["dnn_pred2"] = {
-        "h_peak": np.array([0., 0.9, 0.91, 0.92, 0.93, 0.94, 0.95, 0.96, 0.97, 0.98, 1.0], dtype=np.float32),
+        "h_peak": np.array([0., 0.905, 0.915, 0.925, 0.935, 0.94, 0.945, 0.95, 0.955, 0.96, 0.965,0.97, 0.975,0.98, 0.985,1.0], dtype=np.float32),
         "z_peak": np.array([0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 1.0], dtype=np.float32),
         "h_sideband": np.array([0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 1.0], dtype=np.float32),
     }
