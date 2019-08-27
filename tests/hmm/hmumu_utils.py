@@ -606,9 +606,12 @@ def finalize_weights(weights, all_weight_names=None):
     for this_syst in all_weight_names:
         if this_syst == "nominal":
             continue
-        for sdir in ["up", "down"]:
+        for sdir in ["up", "down", "off"]:
             #for the particular weight or scenario we are considering, get the variated value
-            wval_this_systematic = weights[this_syst][sdir]
+            if sdir == "off":
+                wval_this_systematic = NUMPY_LIB.ones_like(ret["nominal"])
+            else:
+                wval_this_systematic = weights[this_syst][sdir]
 
             #for other weights, get the nominal
             wtot = NUMPY_LIB.copy(weights["nominal"]["nominal"])
@@ -622,7 +625,7 @@ def finalize_weights(weights, all_weight_names=None):
             ret["{0}__{1}".format(this_syst, sdir)] = wtot
     
     for k in ret.keys():
-        print("weight", k, ret[k].mean())
+        print("finalized weight", k, ret[k].mean())
     return ret
 
 def compute_event_weights(weights, scalars, genweight_scalefactor, pu_corrections, is_mc, dataset_era):
@@ -645,9 +648,9 @@ def compute_event_weights(weights, scalars, genweight_scalefactor, pu_correction
         weights["puWeight"] = {"nominal": pu_weights, "up": pu_weights_up, "down": pu_weights_down}
         
         weights["L1PreFiringWeight"] = {
-            "nominal": weights["nominal"]["nominal"],
-            "up": weights["nominal"]["nominal"],
-            "down": weights["nominal"]["nominal"]
+            "nominal": NUMPY_LIB.ones_like(weights["nominal"]["nominal"]),
+            "up": NUMPY_LIB.ones_like(weights["nominal"]["nominal"]),
+            "down": NUMPY_LIB.ones_like(weights["nominal"]["nominal"]), 
         }
         if dataset_era == "2016" or dataset_era == "2017":
             if debug:
