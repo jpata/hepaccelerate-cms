@@ -352,8 +352,8 @@ varnames = {
     "MET_pt": "MET [GeV]",
     "M_jj": "dijet invariant mass [GeV]",
     "M_mmjj": "$M_{\mu\mu j_1 j_2}$",
-    "cthetaCS": "$\cos \theta_{CS}$"
-    "dEta_jj": "$\Delta \eta(j_1 j_2)$"
+    "cthetaCS": "$\cos \theta_{CS}$",
+    "dEta_jj": "$\Delta \eta(j_1 j_2)$",
     "dEtamm": "$\Delta \eta (\mu \mu)$",
     "dPhimm": "$\Delta \phi(j_1 j_2)",
     "dRmin_mj": "min $\Delta R (\mu j)$",

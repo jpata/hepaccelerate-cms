@@ -139,7 +139,7 @@ def analyze_data(
     leading_muon = muons.select_nth(0, ret_mu["selected_events"], ret_mu["selected_muons"], attributes=mu_attrs)
     subleading_muon = muons.select_nth(1, ret_mu["selected_events"], ret_mu["selected_muons"], attributes=mu_attrs)
     if doverify:
-        assert(NUMPY_LIB.all(leading_muon["pt"][leading_muon["pt"]>0] > parameters["muon_pt_leading"]))
+        assert(NUMPY_LIB.all(leading_muon["pt"][leading_muon["pt"]>0] > parameters["muon_pt_leading"][dataset_era]))
         assert(NUMPY_LIB.all(subleading_muon["pt"][subleading_muon["pt"]>0] > parameters["muon_pt"]))
 
     #Compute lepton scale factors
@@ -148,10 +148,26 @@ def analyze_data(
             lepsf_iso[dataset_era], lepsf_id[dataset_era], lepsf_trig[dataset_era],
             use_cuda, dataset_era, NUMPY_LIB, debug)
         weights_individual["trigger"] = {
-            "nominal": lepton_sf_values["total"],
+            "nominal": lepton_sf_values["trigger"],
             "up": lepton_sf_values["trigger__up"], 
             "down": lepton_sf_values["trigger__down"]
         }
+        weights_individual["id"] = {
+            "nominal": lepton_sf_values["id"],
+            "up": lepton_sf_values["id__up"], 
+            "down": lepton_sf_values["id__down"]
+        }
+        weights_individual["iso"] = {
+            "nominal": lepton_sf_values["iso"],
+            "up": lepton_sf_values["iso__up"], 
+            "down": lepton_sf_values["iso__down"]
+        }
+        if doverify:
+            for w in ["trigger", "id", "iso"]:
+                m1 = weights_individual[w]["nominal"].mean()
+                m2 = weights_individual[w]["up"].mean()
+                m3 = weights_individual[w]["down"].mean()
+                assert(m1 > m3 and m1 < m2) 
  
     #compute variated weights here to ensure the nominal weight contains all possible other weights  
     compute_event_weights(weights_individual, scalars, genweight_scalefactor, pu_corrections, is_mc, dataset_era)
@@ -2035,12 +2051,24 @@ class JetTransformer:
         else:
             raise KeyError("Variation name {0} was not defined in JetMetCorrections corrections".format(variation_name))
 
-def compute_lepton_sf(leading_muon, subleading_muon, lepsf_iso, lepsf_id, lepsf_trig, use_cuda, dataset_era, NUMPY_LIB, debug):
-    sfs = []
+def multiply_all(weight_list):
+    ret = NUMPY_LIB.copy(weight_list[0])
+    for w in weight_list[1:]:
+        ret *= w
+    return ret
 
+def compute_lepton_sf(leading_muon, subleading_muon, lepsf_iso, lepsf_id, lepsf_trig, use_cuda, dataset_era, NUMPY_LIB, debug):
+    sfs_id = []
+    sfs_iso = []
+    sfs_trig = []
+    sfs_id_up = []
+    sfs_id_down = []
+    sfs_iso_up = []
+    sfs_iso_down = []
     sfs_trig_up = []
     sfs_trig_down = []
 
+    #compute weight for both leading and subleading muon
     for mu in [leading_muon, subleading_muon]:
         #lepton SF computed on CPU 
         if use_cuda:
@@ -2052,43 +2080,73 @@ def compute_lepton_sf(leading_muon, subleading_muon, lepsf_iso, lepsf_id, lepsf_
             pdgid[:] = 11
 
         sf_iso = lepsf_iso.compute(pdgid, mu["pt"], mu["eta"])
+        sf_iso_err = lepsf_iso.compute_error(pdgid, mu["pt"], mu["eta"])
+
         sf_id = lepsf_id.compute(pdgid, mu["pt"], mu["eta"])
+        sf_id_err = lepsf_id.compute_error(pdgid, mu["pt"], mu["eta"])
+
         if dataset_era == "2016":
             sf_trig = lepsf_trig.compute(pdgid, mu["pt"], NUMPY_LIB.abs(mu["eta"]))
             sf_trig_err = lepsf_trig.compute_error(pdgid, mu["pt"], NUMPY_LIB.abs(mu["eta"]))
         else:
             sf_trig = lepsf_trig.compute(pdgid, mu["pt"], mu["eta"])
             sf_trig_err = lepsf_trig.compute_error(pdgid, mu["pt"], mu["eta"])
-        sf_trig_up = (1.0 + sf_trig_err)
-        sf_trig_down = (1.0 - sf_trig_err)
+
+        sf_id_up = (sf_id + sf_id_err)
+        sf_id_down = (sf_id - sf_id_err)
+        sf_iso_up = (sf_iso + sf_iso_err)
+        sf_iso_down = (sf_iso - sf_iso_err)
+        sf_trig_up = (sf_trig + sf_trig_err)
+        sf_trig_down = (sf_trig - sf_trig_err)
+
         if debug:
             print("sf_iso: ", sf_iso.mean(), "+-", sf_iso.std())
             print("sf_id: ", sf_id.mean(), "+-", sf_id.std())
             print("sf_trig: ", sf_trig.mean(), "+-", sf_trig.std())
-            print("sf_trig_err: ", sf_trig_err.mean(), "+-", sf_trig_err.std())
-        sfs += [sf_iso, sf_id, sf_trig]
+            print("sf_id_up: ", sf_id_up.mean(), "+-", sf_id_up.std())
+            print("sf_id_down: ", sf_id_down.mean(), "+-", sf_id_down.std())
+            print("sf_iso_up: ", sf_iso_up.mean(), "+-", sf_iso_up.std())
+            print("sf_iso_down: ", sf_iso_down.mean(), "+-", sf_iso_down.std())
+            print("sf_trig_up: ", sf_trig_up.mean(), "+-", sf_trig_up.std())
+            print("sf_trig_down: ", sf_trig_down.mean(), "+-", sf_trig_down.std())
+
+        sfs_id += [sf_id]
+        sfs_iso += [sf_iso]
+        sfs_trig += [sf_trig]
+
+        sfs_id_up += [sf_id_up]
+        sfs_id_down += [sf_id_down]
+        sfs_iso_up += [sf_iso_up]
+        sfs_iso_down += [sf_iso_down]
         sfs_trig_up += [sf_trig_up]
         sfs_trig_down += [sf_trig_down]
 
-    #multiply all weights
-    sf_tot = sfs[0]
-    for sf in sfs[1:]:
-        sf_tot *= sf
-    sf_trig_up = sfs_trig_up[0]
-    for sf in sfs_trig_up[1:]:
-        sf_trig_up *= sf
-    sf_trig_down = sfs_trig_down[0]
-    for sf in sfs_trig_down[1:]:
-        sf_trig_down *= sf
-     
-    if debug:
-        print("sf_tot: ", sf_tot.mean(), "+-", sf_tot.std())
+    #multiply all ID, iso, trigger weights for leading and subleading muons
+    sf_id = multiply_all(sfs_id)
+    sf_iso = multiply_all(sfs_iso)
+    sf_trig = multiply_all(sfs_trig)
+    sf_id_up = multiply_all(sfs_id_up)
+    sf_id_down = multiply_all(sfs_id_down)
+    sf_iso_up = multiply_all(sfs_iso_up)
+    sf_iso_down = multiply_all(sfs_iso_down)
+    sf_trig_up = multiply_all(sfs_trig_up)
+    sf_trig_down = multiply_all(sfs_trig_down)
 
     #move to GPU
     if use_cuda:
         sf_tot = NUMPY_LIB.array(sf_tot)
 
-    return {"total": sf_tot, "trigger__up": sf_trig_up, "trigger__down": sf_trig_down}
+    return {
+        "id": sf_id,
+        "iso": sf_iso,
+        "trigger": sf_trig,
+        "id__up": sf_id_up,
+        "id__down": sf_id_down,
+        "iso__up": sf_iso_up,
+        "iso__down": sf_iso_down,
+        "trigger__up": sf_trig_up,
+        "trigger__down": sf_trig_down
+    }
 
 def jaggedstruct_print(struct, idx, attrs):
     of1 = struct.offsets[idx]
