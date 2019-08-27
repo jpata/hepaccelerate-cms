@@ -15,7 +15,7 @@ tar -cvzf jobfiles.tgz jobfiles
 
 echo "Preparing job chunks"
 #Run 50 different random chunks per job
-python chunk_submits.py 20 > jobfiles_merged.txt
+python chunk_submits.py 5 > jobfiles_merged.txt
 
 #Prepare submit script
 cat analyze.jdl > submit.jdl
@@ -26,6 +26,7 @@ for f in `cat jobfiles_merged.txt`; do
     echo "Arguments = "$f >> submit.jdl
     echo "Queue" >> submit.jdl
     echo >> submit.jdl
+    echo "sbatch slurm_hmm_analyze.sh "$f >> slurm_submit.sh 
 done
 echo "Please run 'export SUBMIT_DIR=`pwd`/..'"
 
