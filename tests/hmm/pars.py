@@ -263,8 +263,7 @@ jec_unc = [
 #    'TotalNoFlavorNoTime', 'TotalNoTime']
 
 jec_unc = ["Total"]
-uncertainties = jec_unc + ["puWeight", "L1PreFiringWeight"]
-shape_systematics = jec_unc + ["jer", "puWeight", "L1PreFiringWeight"]
+shape_systematics = jec_unc + ["jer", "trigger", "id", "iso", "puWeight", "L1PreFiringWeight"]
 common_scale_uncertainties = {
     "lumi": 1.025,
 }

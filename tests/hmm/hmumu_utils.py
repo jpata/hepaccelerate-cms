@@ -85,6 +85,33 @@ def analyze_data(
     histo_bins = parameters["histo_bins"]
     mask_events = NUMPY_LIB.ones(muons.numevents(), dtype=NUMPY_LIB.bool)
 
+    #Find the first two genjets in the event that are not matched to gen-leptons
+    mask_vbf_filter = None
+    if is_mc and (dataset_name in parameters["vbf_filter"]):
+        #find genleptons
+        genpart_pdgid = NUMPY_LIB.abs(genpart.pdgId)
+        genpart_mask = (genpart_pdgid == 11)
+        genpart_mask = NUMPY_LIB.logical_or(genpart_mask, (genpart_pdgid == 13))
+        genpart_mask = NUMPY_LIB.logical_or(genpart_mask, (genpart_pdgid == 15))
+
+        genjets_not_matched_genlepton = ha.mask_deltar_first(
+            genJet, genJet.masks["all"], genpart, genpart_mask, 0.3
+        )
+        out_genjet_mask = NUMPY_LIB.zeros(genJet.numobjects(), dtype=NUMPY_LIB.bool)
+        inds = NUMPY_LIB.zeros_like(mask_events)
+        targets = NUMPY_LIB.ones_like(mask_events)
+        inds[:] = 0
+        ha.set_in_offsets(out_genjet_mask, genJet.offsets, inds, targets, mask_events, genjets_not_matched_genlepton)
+        inds[:] = 1
+        ha.set_in_offsets(out_genjet_mask, genJet.offsets, inds, targets, mask_events, genjets_not_matched_genlepton)
+
+        num_good_genjets = ha.sum_in_offsets(genJet, out_genjet_mask, mask_events, genJet.masks["all"], NUMPY_LIB.int8)
+
+        genjet_inv_mass, _ = compute_inv_mass(genJet, mask_events, out_genjet_mask, use_cuda)
+        genjet_inv_mass[num_good_genjets<2] = 0
+        
+        mask_vbf_filter = vbf_genfilter(genjet_inv_mass, num_good_genjets, parameters, dataset_name)
+
     #Compute integrated luminosity on data sample and apply golden JSON
     int_lumi = compute_integrated_luminosity(scalars, lumimask, lumidata, dataset_era, mask_events, is_mc)
     check_and_fix_qgl(jets)
@@ -104,6 +131,8 @@ def analyze_data(
 
     #Get the mask of events that pass trigger selection
     mask_events = select_events_trigger(scalars, parameters, mask_events, parameters["hlt_bits"][dataset_era])
+    if not mask_vbf_filter is None:
+        mask_events = mask_events & mask_vbf_filter
 
     #Event weight dictionary, 2 levels.
     #systematic name -> syst_dir -> individual weight value (not multiplied up) 
@@ -175,17 +204,6 @@ def analyze_data(
     #actually multiply all the weights together with the appropriate up/down variations.
     #creates a 1-level dictionary with weights "nominal", "puweight__up", "puweight__down", ..." 
     weights_final = finalize_weights(weights_individual)
-    fill_histograms_several(
-        hists, "nominal", "hist__dimuon__",
-        [
-            (leading_muon["pt"], "leading_muon_pt", histo_bins["muon_pt"]),
-            (subleading_muon["pt"], "subleading_muon_pt", histo_bins["muon_pt"]),
-            (scalars["PV_npvsGood"], "npvs", histo_bins["npvs"]),
-        ],
-        ret_mu["selected_events"],
-        weights_final,
-        use_cuda
-    )
 
     #Just a check to verify that there are exactly 2 muons per event
     if doverify:
@@ -208,6 +226,21 @@ def analyze_data(
     higgs_pt[NUMPY_LIB.isnan(higgs_pt)] = -1
     higgs_pt[NUMPY_LIB.isinf(higgs_pt)] = -1
     higgs_pt[higgs_pt==0] = -1
+    
+    fill_histograms_several(
+        hists, "nominal", "hist__dimuon__",
+        [
+            (leading_muon["pt"], "leading_muon_pt", histo_bins["muon_pt"]),
+            (subleading_muon["pt"], "subleading_muon_pt", histo_bins["muon_pt"]),
+            (leading_muon["pt"], "leading_muon_eta", histo_bins["muon_eta"]),
+            (subleading_muon["pt"], "subleading_muon_eta", histo_bins["muon_eta"]),
+            (higgs_inv_mass, "inv_mass", histo_bins["inv_mass"]),
+            (scalars["PV_npvsGood"], "npvs", histo_bins["npvs"]),
+        ],
+        ret_mu["selected_events"],
+        weights_final,
+        use_cuda
+    )
 
     masswindow_z_peak = ((higgs_inv_mass >= parameters["masswindow_z_peak"][0]) & (higgs_inv_mass < parameters["masswindow_z_peak"][1]))
     masswindow_h_region = ((higgs_inv_mass >= parameters["masswindow_h_sideband"][0]) & (higgs_inv_mass < parameters["masswindow_h_sideband"][1]))
@@ -255,33 +288,6 @@ def analyze_data(
     print("entering jec loop with {0}".format(syst_to_consider))
     ret_jet_nominal = None
     
-    #Find the first two genjets in the event that are not matched to gen-leptons
-    mask_vbf_filter = None
-    if is_mc and (dataset_name in parameters["vbf_filter"]):
-        #find genleptons
-        genpart_pdgid = NUMPY_LIB.abs(genpart.pdgId)
-        genpart_mask = (genpart_pdgid == 11)
-        genpart_mask = NUMPY_LIB.logical_or(genpart_mask, (genpart_pdgid == 13))
-        genpart_mask = NUMPY_LIB.logical_or(genpart_mask, (genpart_pdgid == 15))
-
-        genjets_not_matched_genlepton = ha.mask_deltar_first(
-            genJet, genJet.masks["all"], genpart, genpart_mask, 0.3
-        )
-        out_genjet_mask = NUMPY_LIB.zeros(genJet.numobjects(), dtype=NUMPY_LIB.bool)
-        inds = NUMPY_LIB.zeros_like(mask_events)
-        targets = NUMPY_LIB.ones_like(mask_events)
-        inds[:] = 0
-        ha.set_in_offsets(out_genjet_mask, genJet.offsets, inds, targets, mask_events, genjets_not_matched_genlepton)
-        inds[:] = 1
-        ha.set_in_offsets(out_genjet_mask, genJet.offsets, inds, targets, mask_events, genjets_not_matched_genlepton)
-
-        num_good_genjets = ha.sum_in_offsets(genJet, out_genjet_mask, mask_events, genJet.masks["all"], NUMPY_LIB.int8)
-
-        genjet_inv_mass, _ = compute_inv_mass(genJet, mask_events, out_genjet_mask, use_cuda)
-        genjet_inv_mass[num_good_genjets<2] = 0
-        
-        mask_vbf_filter = vbf_genfilter(genjet_inv_mass, num_good_genjets, parameters, dataset_name)
-
     #Now actually call the JEC computation for each scenario
     for uncertainty_name in syst_to_consider:
         #This will be the variated pt vector
@@ -307,6 +313,15 @@ def analyze_data(
             )
             print("jet analysis syst={0} sdir={1} mean_pt_change={2:.4f} num_passing_jets={3} ".format(
                 jet_syst_name[0], jet_syst_name[1], float(jet_pt_change), int(ret_jet["selected_jets"].sum()))
+            )
+            fill_histograms_several(
+                hists, "nominal", "hist__dimuon__",
+                [
+                    (ret_jet["num_jets"], "num_jets" , histo_bins["numjets"]),
+                ],
+                ret_mu["selected_events"],
+                weights_final,
+                use_cuda
             )
 
             #print("jet selection eff based on ID & pt", ret_jet["selected_jets"].sum() / float(len(ret_jet["selected_jets"])))
@@ -334,12 +349,10 @@ def analyze_data(
                 (ret_mu["selected_events"]) & (ret_jet["num_jets"] >= 2) &
                 (leading_jet["pt"] > parameters["jet_pt_leading"][dataset_era])
             )
-            if not mask_vbf_filter is None:
-                dnn_presel = dnn_presel & mask_vbf_filter
 
             #Histograms after dnn preselection
             fill_histograms_several(
-                hists, jet_syst_name, "hist__dimuon__",
+                hists, jet_syst_name, "hist__dnn_presel__",
                 [
                     (leading_jet["pt"], "leading_jet_pt", histo_bins["jet_pt"]),
                     (subleading_jet["pt"], "subleading_jet_pt", histo_bins["jet_pt"]),
@@ -348,6 +361,7 @@ def analyze_data(
                     (leading_jet["qgl"], "leading_jet_qgl", histo_bins["jet_qgl"]),
                     (subleading_jet["qgl"], "subleading_jet_qgl", histo_bins["jet_qgl"]),
                     (ret_jet["dijet_inv_mass"], "dijet_inv_mass", histo_bins["dijet_inv_mass"]),
+                    (higgs_inv_mass, "inv_mass", histo_bins["inv_mass"]),
                     (scalars["SoftActivityJetNjets5"], "num_soft_jets", histo_bins["numjets"]),
                     (ret_jet["num_jets"], "num_jets" , histo_bins["numjets"]),
                     (pt_balance, "pt_balance", histo_bins["pt_balance"]),
