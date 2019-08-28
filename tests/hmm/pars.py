@@ -110,6 +110,14 @@ process_groups = [
 ]
 
 extra_plot_kwargs = {
+    "hist__dimuon__num_jets": {
+        "do_log": True,
+        "ylim": (10, 1e10),
+    },
+    "hist__dnn_presel__num_jets": {
+        "do_log": True,
+        "ylim": (10, 1e9),
+    },
     "hist__dimuon_invmass_z_peak_cat5__subleading_jet_pt": {
         "do_log": True,
         "xlim": (25, 300)
@@ -191,7 +199,7 @@ extra_plot_kwargs = {
 }
 
 controlplots_shape = [
-    "inv_mass", "dnn_pred", "pt_balance"
+    "inv_mass"
 ]
 
 cross_sections = {
@@ -205,6 +213,12 @@ cross_sections = {
     "dy_m105_160_vbf_amc": 46.9479*0.0425242, #https://docs.google.com/document/d/1bViX80nXQ_p-W4gI6Fqt9PNQ49B6cP1_FhcKwTZVujo/edit?usp=sharing
     "ggh": 0.010571, #48.61 * 0.0002176; https://twiki.cern.ch/twiki/bin/view/LHCPhysics/CERNHLHE2019
     "vbf": 0.000823,
+    "vbf_powheg_herwig": 0.000823,
+    "vbf_powheg1": 0.000823,
+    "vbf_powheg2": 0.000823,
+    "vbf_amc_herwig": 0.000823,
+    "vbf_amc1": 0.000823,
+    "vbf_amc2": 0.000823,
     "wmh": 0.000116,
     "wph": 0.000183,
     "zh": 0.000192,
@@ -225,8 +239,6 @@ cross_sections = {
     "ttw": 0.2001,
     "ttz": 0.2529,
     "st_t_top": 3.36,
-    "vbf_powheg1": 0.000823,
-    "vbf_powheg2": 0.000823,
     "www": 0.2086,
     "wwz": 0.1651,
     "wzz": 0.05565,
@@ -259,8 +271,7 @@ jec_unc = [
 #    'TotalNoFlavorNoTime', 'TotalNoTime']
 
 jec_unc = ["Total"]
-uncertainties = jec_unc + ["puWeight", "L1PreFiringWeight"]
-shape_systematics = jec_unc + ["jer", "puWeight", "L1PreFiringWeight"]
+shape_systematics = jec_unc + ["jer", "trigger", "id", "iso", "puWeight", "L1PreFiringWeight"]
 common_scale_uncertainties = {
     "lumi": 1.025,
 }
@@ -341,11 +352,37 @@ catnames = {
     "dimuon": "dimuons",
 }
 
+
 varnames = {
-    "subleadingJet_pt": "subleading jet $p_T$ [GeV]",
-    "subleadingJet_eta": "subleading jet $\eta$",
-    "leadingJet_pt": "leading jet $p_T$ [GeV]",
+    "Higgs_eta": "$\eta_{\mu\mu}$",
+    "Higgs_mass": "$M_{\mu\mu}$",
+    "MET_pt": "MET [GeV]",
+    "M_jj": "dijet invariant mass [GeV]",
+    "M_mmjj": "$M_{\mu\mu j_1 j_2}$",
+    "cthetaCS": "$\cos \theta_{CS}$",
+    "dEta_jj": "$\Delta \eta(j_1 j_2)$",
+    "dEtamm": "$\Delta \eta (\mu \mu)$",
+    "dPhimm": "$\Delta \phi(j_1 j_2)",
+    "dRmin_mj": "min $\Delta R (\mu j)$",
+    "dijet_inv_mass": "dijet invariant mass $M_{jj} [GeV]",
+    "dnn_pred2": "signal DNN", 
+    "eta_mmjj": "$\eta_{\mu\mu j_1 j_2}$",
+    "hmmthetacs": "$\theta_{CS}$",
+    "inv_mass": "$M_{\mu\mu}$",
     "leadingJet_eta": "leading jet $\eta$",
+    "leadingJet_pt": "leading jet $p_T$ [GeV]",
+    "leading_jet_eta": "leading jet $\eta$",
+    "leading_jet_pt": "leading jet $p_T$ [GeV]",
+    "leading_jet_pt": "leading jet $p_T$",
+    "num_jets": "number of jets",
+    "phi_mmjj": "$\phi(\mu\mu,j_1 j_2)$", 
+    "pt_balance": "$p_{T,\mu\mu} / p_{T,jj}$",
+    "pt_jj": "dijet $p_T$ [GeV]",
+    "softJet5": "number of soft EWK jets",
+    "subleadingJet_eta": "subleading jet $\eta$",
+    "subleadingJet_pt": "subleading jet $p_T$ [GeV]",
+    "subleadingJet_qgl": "subleading jet QGL",
+    "subleading_jet_pt": "subleading jet $p_T$ [GeV]",
 }
 
 analysis_names = {
@@ -366,7 +403,8 @@ datasets = [
     ("vbf_powheg_herwig", "2016","/store/mc/RunIISummer16NanoAODv5/VBFHToMuMu_M-125_TuneEEC5_13TeV-powheg-herwigpp/**/*.root",True),
     ("vbf", "2017", "/store/mc/RunIIFall17NanoAODv5/VBFHToMuMu_M-125_TuneCP5_PSweights_13TeV_powheg_pythia8/**/*.root", True),
     ("vbf_amc1", "2017", "/store/mc/RunIIFall17NanoAODv5/VBFHToMuMu_M125_TuneCP5_PSweights_13TeV_amcatnlo_pythia8/**/*.root", True),
-    ("vbf_amc2", "2017", "/store/mc/RunIIFall17NanoAODv5/VBFHToMuMu_M125_amcatnlo_pythia8/**/*.root", True),
+    ("vbf_amc2", "2017", "/store/mc/RunIIFall17NanoAODv5/VBFHToMuMu_M125_13TeV_amcatnlo_pythia8/**/*.root", True),
+
     ("vbf_amc_herwig", "2017","/store/mc/RunIIFall17NanoAODv5/VBFHToMuMu_M-125_TuneEEC5_13TeV-amcatnlo-herwigpp/**/*.root", True),
     ("vbf_powheg_herwig", "2017","/store/mc/RunIIFall17NanoAODv5/VBFHToMuMu_M-125_TuneEEC5_13TeV-powheg-herwigpp/**/*.root", True),
     ("vbf", "2018", "/store/mc/RunIIAutumn18NanoAODv5/VBFHToMuMu_M125_TuneCP5_PSweights_13TeV_amcatnlo_pythia8/**/*.root", True),
@@ -406,7 +444,7 @@ datasets = [
     ("dy_m105_160_mg", "2018", "/store/mc/RunIIAutumn18NanoAODv5/DYJetsToLL_M-105To160_VBFFilter_TuneCP5_PSweights_13TeV-madgraphMLM-pythia8//**/*.root", True),
     
     ("dy_m105_160_vbf_mg", "2016", "/store/mc/RunIISummer16NanoAODv5/DYJetsToLL_M-105To160_VBFFilter_TuneCUETP8M1_13TeV-madgraphMLM-pythia8/**/*.root", True),
-    ("dy_m105_160_vbf_mg", "2017", "/store/mc/RunIIFall17NanoAODv5/DYJetsToLL_M-105To160_TuneCP5_PSweights_13TeV-madgraphMLM-pythia8/**/*.root", True),
+    ("dy_m105_160_vbf_mg", "2017", "/store/mc/RunIIFall17NanoAODv5/DYJetsToLL_M-105To160_VBFFilter_TuneCP5_13TeV-madgraphMLM-pythia8/**/*.root", True),
     ("dy_m105_160_vbf_mg", "2018", "/store/mc/RunIIAutumn18NanoAODv5/DYJetsToLL_M-105To160_VBFFilter_TuneCP5_PSweights_13TeV-madgraphMLM-pythia8//**/*.root", True),
     
     ("ttjets_dl", "2016", "/store/mc/RunIISummer16NanoAODv5/TTTo2L2Nu_TuneCP5_PSweights_13TeV-powheg-pythia8/**/*.root", True),

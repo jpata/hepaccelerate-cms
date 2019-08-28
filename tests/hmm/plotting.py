@@ -190,7 +190,7 @@ def plot_variations(args):
     del fig
 
 def make_pdf_plot(args):
-    res, hd, mc_samples, analysis, var, weight, weight_xs, int_lumi, outdir, datataking_year, groups, extra_kwargs = args
+    res, hd, mc_samples, analysis, var, baseline_weight, weight_xs, int_lumi, outdir, datataking_year, groups, extra_kwargs = args
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -206,7 +206,7 @@ def make_pdf_plot(args):
     hmc = {}
 
     for mc_samp in mc_samples:
-        h = res[mc_samp][weight]
+        h = res[mc_samp][baseline_weight]
         h = h * weight_xs[mc_samp]
         h.label = "{0} ({1:.1E})".format(mc_samp, np.sum(h.contents))
         hmc[mc_samp] = h
@@ -285,8 +285,8 @@ def make_pdf_plot(args):
     except Exception as e:
         pass
 
-    plt.savefig(outdir + "/pdf/{0}_{1}_{2}.pdf".format(analysis, var, weight), bbox_inches="tight")
-    plt.savefig(outdir + "/png/{0}_{1}_{2}.png".format(analysis, var, weight), bbox_inches="tight", dpi=100)
+    plt.savefig(outdir + "/pdf/{0}_{1}_{2}.pdf".format(analysis, var, baseline_weight), bbox_inches="tight")
+    plt.savefig(outdir + "/png/{0}_{1}_{2}.png".format(analysis, var, baseline_weight), bbox_inches="tight", dpi=100)
     plt.close(figure)
     del figure
  
@@ -678,6 +678,7 @@ if __name__ == "__main__":
         datacard_args = []
         plot_args = []
         plot_args_shape_syst = []
+        plot_args_weights_off = []
 
         analysis = "results"
         input_folder = cmdline_args.input
@@ -784,6 +785,10 @@ if __name__ == "__main__":
                 plot_args += [(
                     histos, hdata, mc_samples, analysis,
                     var, "nominal", weight_xs, int_lumi, outdir, era, process_groups, extra_plot_kwargs.get(var, {}))]
+                for weight in ["trigger", "id", "iso", "puWeight", "L1PreFiringWeight"]:
+                    plot_args_weights_off += [(
+                        histos, hdata, mc_samples, analysis,
+                        var, "{0}__off".format(weight), weight_xs, int_lumi, outdir, era, process_groups, extra_plot_kwargs.get(var, {}))]
 
                 for var_shape in controlplots_shape:
                     if var_shape in var: 
@@ -793,8 +798,9 @@ if __name__ == "__main__":
                                     histos, hdata, mc_samp, analysis,
                                     var, "nominal", weight_xs, int_lumi, outdir, era, unc)]
         rets = list(pool.map(make_pdf_plot, plot_args))
-        #rets = list(pool.map(create_datacard_combine_wrap, datacard_args))
-        #rets = list(pool.map(plot_variations, plot_args_shape_syst))
+        rets = list(pool.map(make_pdf_plot, plot_args_weights_off))
+        rets = list(pool.map(create_datacard_combine_wrap, datacard_args))
+        rets = list(pool.map(plot_variations, plot_args_shape_syst))
 
         #for args, retval in zip(datacard_args, rets):
         #    res, hd, mc_samples, analysis, var, weight, weight_xs, int_lumi, outdir, datataking_year = args

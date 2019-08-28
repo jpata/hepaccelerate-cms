@@ -492,12 +492,14 @@ def main(args, datasets):
                 "hmmphics": (-4, 4, 11),
             },
 
-            "categorization_trees": {}
+            "categorization_trees": {},
+            "do_bdt_ucsd": True,
         },
     }
     histo_bins = {
         "muon_pt": np.linspace(0, 200, 101, dtype=np.float32),
-        "npvs": np.linspace(0,100,101, dtype=np.float32),
+        "muon_eta": np.linspace(-2.5, 2.5, 21, dtype=np.float32),
+        "npvs": np.linspace(0, 100, 101, dtype=np.float32),
         "dijet_inv_mass": np.linspace(0, 2000, 11, dtype=np.float32),
         "inv_mass": np.linspace(70, 150, 11, dtype=np.float32),
         "numjet": np.linspace(0, 10, 11, dtype=np.float32),
