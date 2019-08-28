@@ -403,9 +403,7 @@ datasets = [
     ("vbf_powheg_herwig", "2016","/store/mc/RunIISummer16NanoAODv5/VBFHToMuMu_M-125_TuneEEC5_13TeV-powheg-herwigpp/**/*.root",True),
     ("vbf", "2017", "/store/mc/RunIIFall17NanoAODv5/VBFHToMuMu_M-125_TuneCP5_PSweights_13TeV_powheg_pythia8/**/*.root", True),
     ("vbf_amc1", "2017", "/store/mc/RunIIFall17NanoAODv5/VBFHToMuMu_M125_TuneCP5_PSweights_13TeV_amcatnlo_pythia8/**/*.root", True),
-#does not exist?
-#https://cmsweb.cern.ch/das/request?view=list&limit=50&instance=prod%2Fglobal&input=dataset+dataset%3D%2FVBFHToMuMu_M125_amcatnlo_pythia8*%2F*RunIIFall17NanoAODv5*%2FNANOAODSIM
-#    ("vbf_amc2", "2017", "/store/mc/RunIIFall17NanoAODv5/VBFHToMuMu_M125_amcatnlo_pythia8/**/*.root", True),
+    ("vbf_amc2", "2017", "/store/mc/RunIIFall17NanoAODv5/VBFHToMuMu_M125_13TeV_amcatnlo_pythia8/**/*.root", True),
 
     ("vbf_amc_herwig", "2017","/store/mc/RunIIFall17NanoAODv5/VBFHToMuMu_M-125_TuneEEC5_13TeV-amcatnlo-herwigpp/**/*.root", True),
     ("vbf_powheg_herwig", "2017","/store/mc/RunIIFall17NanoAODv5/VBFHToMuMu_M-125_TuneEEC5_13TeV-powheg-herwigpp/**/*.root", True),
