@@ -110,6 +110,14 @@ process_groups = [
 ]
 
 extra_plot_kwargs = {
+    "hist__dimuon__num_jets": {
+        "do_log": True,
+        "ylim": (10, 1e10),
+    },
+    "hist__dnn_presel__num_jets": {
+        "do_log": True,
+        "ylim": (10, 1e9),
+    },
     "hist__dimuon_invmass_z_peak_cat5__subleading_jet_pt": {
         "do_log": True,
         "xlim": (25, 300)

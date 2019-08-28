@@ -37,6 +37,6 @@ PYTHONPATH=hepaccelerate:coffea:. singularity exec -B /central $SINGULARITY_IMAG
     --async-data \
     --jobfiles-load $JOB_TMPDIR/args.txt --out $JOB_TMPDIR/out
 
-cp -R $JOB_TMPDIR/out/partial_results /central/groups/smaria/$USER/hmm/out
+cp -R $JOB_TMPDIR/out /central/groups/smaria/$USER/hmm/
 
 rm -Rf $JOB_TMPDIR

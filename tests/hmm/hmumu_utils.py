@@ -85,6 +85,20 @@ def analyze_data(
     histo_bins = parameters["histo_bins"]
     mask_events = NUMPY_LIB.ones(muons.numevents(), dtype=NUMPY_LIB.bool)
 
+    #Compute integrated luminosity on data sample and apply golden JSON
+    int_lumi = compute_integrated_luminosity(scalars, lumimask, lumidata, dataset_era, mask_events, is_mc)
+    check_and_fix_qgl(jets)
+
+    #output histograms 
+    hists = {}
+
+    #temporary hack for JaggedStruct.select_objects (relies on backend)
+    muons.hepaccelerate_backend = ha
+    jets.hepaccelerate_backend = ha
+
+    #associate the muon genpt to reco muons based on the NanoAOD index
+    genJet, genpart = get_genparticles(data, muons, jets, is_mc, use_cuda)
+    
     #Find the first two genjets in the event that are not matched to gen-leptons
     mask_vbf_filter = None
     if is_mc and (dataset_name in parameters["vbf_filter"]):
@@ -111,20 +125,6 @@ def analyze_data(
         genjet_inv_mass[num_good_genjets<2] = 0
         
         mask_vbf_filter = vbf_genfilter(genjet_inv_mass, num_good_genjets, parameters, dataset_name)
-
-    #Compute integrated luminosity on data sample and apply golden JSON
-    int_lumi = compute_integrated_luminosity(scalars, lumimask, lumidata, dataset_era, mask_events, is_mc)
-    check_and_fix_qgl(jets)
-
-    #output histograms 
-    hists = {}
-
-    #temporary hack for JaggedStruct.select_objects (relies on backend)
-    muons.hepaccelerate_backend = ha
-    jets.hepaccelerate_backend = ha
-
-    #associate the muon genpt to reco muons based on the NanoAOD index
-    genJet, genpart = get_genparticles(data, muons, jets, is_mc, use_cuda)
 
     #assign a numerical flag to each data event that corresponds to the data era
     assign_data_run_id(scalars, data_runs, dataset_era, is_mc, runmap_numerical)
