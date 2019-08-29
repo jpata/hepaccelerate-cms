@@ -2460,7 +2460,7 @@ def create_datastructure(is_mc, dataset_era):
             ("Generator_weight", "float32"),
             ("genWeight", "float32")
         ]
-        if NUMPY_LIB.logical_or(dataset_era == "2016",dataset_era == "2017"):
+        if dataset_era == "2016" or dataset_era == "2017":
             datastructures["EventVariables"] += [
                 ("L1PreFiringWeight_Nom", "float32"),
                 ("L1PreFiringWeight_Dn", "float32"),
