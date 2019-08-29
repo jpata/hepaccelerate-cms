@@ -82,6 +82,7 @@ def analyze_data(
     electrons = data["Electron"]
     trigobj = data["TrigObj"]
     scalars = data["eventvars"]
+    LHEScalew = data["LHEScaleWeight"]
     histo_bins = parameters["histo_bins"]
     mask_events = NUMPY_LIB.ones(muons.numevents(), dtype=NUMPY_LIB.bool)
 
@@ -2370,7 +2371,7 @@ def cache_data_multiproc_worker(args):
     dataset_era = job_desc["dataset_era"]
     is_mc = job_desc["is_mc"]
 
-    datastructure = create_datastructure(is_mc, dataset_era)
+    datastructure = create_datastructure(dataset_name, is_mc, dataset_era)
 
     #Used for preselection in the cache
     hlt_bits = parameters["baseline"]["hlt_bits"][dataset_era]
@@ -2398,7 +2399,7 @@ def cache_data_multiproc_worker(args):
     return len(ds), processed_size_mb
 
 #Branches to load from the ROOT files
-def create_datastructure(is_mc, dataset_era):
+def create_datastructure(dataset_name, is_mc, dataset_era):
     datastructures = {
         "Muon": [
             ("Muon_pt", "float32"), ("Muon_eta", "float32"),
@@ -2474,7 +2475,19 @@ def create_datastructure(is_mc, dataset_era):
             ("GenPart_eta", "float32"),
             ("GenPart_phi", "float32"),
             ("GenPart_pdgId", "int32"),
+            ("GenPart_status", "int32"),
         ]
+        if "psweight" in dataset_name:
+            datastructures["psweight"] = [
+                ("PSWeight", "float32"),
+            ]
+        if "dy" in dataset_name or "ewk" in dataset_name:
+            datastructures["LHEPdfWeight"] = [
+                ("LHEPdfWeight", "float32"),
+            ]
+            datastructures["LHEScaleWeight"] = [
+                ("LHEScaleWeight", "float32"),
+            ]
         datastructures["Jet"] += [
             ("Jet_genJetIdx", "int32")
         ]
@@ -2559,7 +2572,7 @@ class InputGen:
         print("Loading dataset {0} job desc {1}/{2}, {3}".format(
             job_desc["dataset_name"], self.num_chunk, len(self.job_descriptions), job_desc["filenames"]))
 
-        datastructures = create_datastructure(job_desc["is_mc"], job_desc["dataset_era"])
+        datastructures = create_datastructure(job_desc["dataset_name"], job_desc["is_mc"], job_desc["dataset_era"])
 
         ds = create_dataset(
             job_desc["dataset_name"],
