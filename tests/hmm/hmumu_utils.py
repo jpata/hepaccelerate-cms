@@ -1188,10 +1188,7 @@ def get_selected_jets_id(
         else:
             pass_jetid = jets.jetId >= 3
     elif jet_id == "loose": 
-        if dataset_era == "2017" or dataset_era == "2018":
-            pass_jetid = jets.jetId >= 1
-        else:
-            pass_jetid = jets.jetId >= 1
+        pass_jetid = jets.jetId >= 1
 
     #The value is a bit representation of the fulfilled working points: tight (1), medium (2), and loose (4).
     #As tight is also medium and medium is also loose, there are only 4 different settings: 0 (no WP, 0b000), 4 (loose, 0b100), 6 (medium, 0b110), and 7 (tight, 0b111).
