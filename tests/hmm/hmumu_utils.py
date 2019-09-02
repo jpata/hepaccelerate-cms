@@ -82,7 +82,9 @@ def analyze_data(
     electrons = data["Electron"]
     trigobj = data["TrigObj"]
     scalars = data["eventvars"]
-    LHEScalew = data["LHEScaleWeight"]
+    LHEScalew = {}
+    if "dy" in dataset_name or "ewk" in dataset_name:
+        LHEScalew = data["LHEScaleWeight"]
     histo_bins = parameters["histo_bins"]
     mask_events = NUMPY_LIB.ones(muons.numevents(), dtype=NUMPY_LIB.bool)
 
@@ -200,7 +202,7 @@ def analyze_data(
                 assert(m1 > m3 and m1 < m2) 
  
     #compute variated weights here to ensure the nominal weight contains all possible other weights  
-    compute_event_weights(weights_individual, scalars, genweight_scalefactor, pu_corrections, is_mc, dataset_era)
+    compute_event_weights(weights_individual, scalars, genweight_scalefactor, LHEScalew, pu_corrections, is_mc, dataset_era, dataset_name)
  
     #actually multiply all the weights together with the appropriate up/down variations.
     #creates a 1-level dictionary with weights "nominal", "puweight__up", "puweight__down", ..." 
@@ -423,7 +425,11 @@ def analyze_data(
                 if parameters["save_dnn_vars"] and jet_syst_name[0] == "nominal" and parameter_set_name == "baseline":
                     dnn_vars_np = {k: NUMPY_LIB.asnumpy(v) for k, v in dnn_vars.items()}
                     if is_mc:
+                        dnn_vars_np["nomweight"] = NUMPY_LIB.asnumpy(weights_in_dnn_presel["nominal"])
                         dnn_vars_np["genweight"] = NUMPY_LIB.asnumpy(scalars["genWeight"][dnn_presel])
+                        if "dy" in dataset_name or "ewk" in dataset_name:
+                            for iScale in range(9):
+                                dnn_vars_np["LHEScaleWeight__"+str(iScale)] = NUMPY_LIB.asnumpy(weights_in_dnn_presel["LHEScaleWeight__"+str(iScale)])
                     arrs = []
                     names = []
                     for k, v in dnn_vars_np.items():
@@ -613,7 +619,7 @@ def finalize_weights(weights, all_weight_names=None):
 
     #multitply up all the nominal weights
     for this_syst in all_weight_names:
-        if this_syst == "nominal":
+        if this_syst == "nominal" or this_syst == "LHEScaleWeight":
             continue
         ret["nominal"] *= weights[this_syst]["nominal"]
 
@@ -621,29 +627,36 @@ def finalize_weights(weights, all_weight_names=None):
     for this_syst in all_weight_names:
         if this_syst == "nominal":
             continue
-        for sdir in ["up", "down", "off"]:
-            #for the particular weight or scenario we are considering, get the variated value
-            if sdir == "off":
-                wval_this_systematic = NUMPY_LIB.ones_like(ret["nominal"])
-            else:
+        elif this_syst == "LHEScaleWeight":
+            for sdir in ["0", "1", "2", "3", "4", "5", "6", "7", "8"]:
                 wval_this_systematic = weights[this_syst][sdir]
+                wtot = NUMPY_LIB.copy(ret["nominal"])
+                wtot *= wval_this_systematic
+                ret["{0}__{1}".format(this_syst, sdir)] = wtot
+        else:
+            for sdir in ["up", "down", "off"]:
+                #for the particular weight or scenario we are considering, get the variated value
+                if sdir == "off":
+                    wval_this_systematic = NUMPY_LIB.ones_like(ret["nominal"])
+                else:
+                    wval_this_systematic = weights[this_syst][sdir]
 
-            #for other weights, get the nominal
-            wtot = NUMPY_LIB.copy(weights["nominal"]["nominal"])
+                #for other weights, get the nominal
+                wtot = NUMPY_LIB.copy(weights["nominal"]["nominal"])
 
-            wtot *= wval_this_systematic
+                wtot *= wval_this_systematic
 
-            for other_syst in all_weight_names:
-                if other_syst == this_syst or other_syst == "nominal":
-                    continue
-                wtot *= weights[other_syst]["nominal"] 
-            ret["{0}__{1}".format(this_syst, sdir)] = wtot
+                for other_syst in all_weight_names:
+                    if (other_syst == this_syst or other_syst == "nominal") or other_syst == "LHEScaleWeight":
+                        continue
+                    wtot *= weights[other_syst]["nominal"] 
+                ret["{0}__{1}".format(this_syst, sdir)] = wtot
     
     for k in ret.keys():
         print("finalized weight", k, ret[k].mean())
     return ret
 
-def compute_event_weights(weights, scalars, genweight_scalefactor, pu_corrections, is_mc, dataset_era):
+def compute_event_weights(weights, scalars, genweight_scalefactor, LHEScalew, pu_corrections, is_mc, dataset_era, dataset_name):
     if is_mc:
         weights["nominal"]["nominal"] = scalars["genWeight"] * genweight_scalefactor
         if debug:
@@ -676,6 +689,24 @@ def compute_event_weights(weights, scalars, genweight_scalefactor, pu_correction
                 "nominal": scalars["L1PreFiringWeight_Nom"],
                 "up": scalars["L1PreFiringWeight_Up"],
                 "down": scalars["L1PreFiringWeight_Dn"]}
+
+        weights["LHEScaleWeight"] = {
+            "0": NUMPY_LIB.ones_like(weights["nominal"]["nominal"]),
+            "1": NUMPY_LIB.ones_like(weights["nominal"]["nominal"]),
+            "2": NUMPY_LIB.ones_like(weights["nominal"]["nominal"]),
+            "3": NUMPY_LIB.ones_like(weights["nominal"]["nominal"]),
+            "4": NUMPY_LIB.ones_like(weights["nominal"]["nominal"]),
+            "5": NUMPY_LIB.ones_like(weights["nominal"]["nominal"]),
+            "6": NUMPY_LIB.ones_like(weights["nominal"]["nominal"]),
+            "7": NUMPY_LIB.ones_like(weights["nominal"]["nominal"]),
+            "8": NUMPY_LIB.ones_like(weights["nominal"]["nominal"]),
+        }
+        if NUMPY_LIB.logical_or("dy" in dataset_name, "ewk" in dataset_name):
+            nevt = len(weights["nominal"]["nominal"])
+            for iScale in range(9):
+                LHEScalew_all = NUMPY_LIB.zeros(nevt, dtype=NUMPY_LIB.float32);
+                get_theoryweights_cpu(LHEScalew.offsets, LHEScalew.LHEScaleWeight, iScale, LHEScalew_all)
+                weights["LHEScaleWeight"][str(iScale)] = LHEScalew_all
 
 def evaluate_bdt_ucsd(dnn_vars, gbr_bdt):
     # BDT var=hmmpt
@@ -1148,11 +1179,19 @@ def get_selected_jets_id(
     jet_veto_raw_pt,
     dataset_era):
 
+    #2017 and 2018: jetId = Var("userInt('tightId')*2+4*userInt('tightIdLepVeto'))
     #Jet ID flags bit0 is loose (always false in 2017 since it does not exist), bit1 is tight, bit2 is tightLepVeto
+    #run2_nanoAOD_94X2016: jetId = Var("userInt('tightIdLepVeto')*4+userInt('tightId')*2+userInt('looseId')",int,doc="Jet ID flags bit1 is loose, bit2 is tight, bit3 is tightLepVeto"
     if jet_id == "tight":
-        pass_jetid = jets.jetId >= 2
-    elif jet_id == "loose":
-        pass_jetid = jets.jetId >= 1
+        if dataset_era == "2017" or dataset_era == "2018":
+            pass_jetid = jets.jetId >= 2
+        else:
+            pass_jetid = jets.jetId >= 3
+    elif jet_id == "loose": 
+        if dataset_era == "2017" or dataset_era == "2018":
+            pass_jetid = jets.jetId >= 1
+        else:
+            pass_jetid = jets.jetId >= 1
 
     #The value is a bit representation of the fulfilled working points: tight (1), medium (2), and loose (4).
     #As tight is also medium and medium is also loose, there are only 4 different settings: 0 (no WP, 0b000), 4 (loose, 0b100), 6 (medium, 0b110), and 7 (tight, 0b111).
@@ -1551,6 +1590,12 @@ def deltaphi_cudakernel(phi1, phi2, out_dphi):
             out_dphi[iev] = dphi
         else:
             out_dphi[iev] = dphi
+
+@numba.njit(parallel=True, fastmath=True)
+def get_theoryweights_cpu(offsets, variations, index, out_var):
+    #loop over events
+    for iev in numba.prange(len(offsets) - 1):
+        out_var[iev] = variations[offsets[iev]+index]
 
 # Custom kernels to get the pt of the muon based on the matched genPartIdx of the reco muon
 # Implement them here as they are too specific to NanoAOD for the hepaccelerate library
