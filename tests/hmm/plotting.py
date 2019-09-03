@@ -23,6 +23,12 @@ import glob
 import cloudpickle
 import json
 
+def get_cross_section(cross_sections, mc_samp, dataset_era):
+    d = cross_sections[mc_samp]
+    if isinstance(d, dict):
+        return d[dataset_era]
+    return d
+
 def parse_args():
     parser = argparse.ArgumentParser(description='Caltech HiggsMuMu analysis plotting')
     parser.add_argument('--input', action='store', type=str, help='Input directory from the previous step')
@@ -712,7 +718,7 @@ if __name__ == "__main__":
             for mc_samp in res.keys():
                 if mc_samp != "data":
                     genweights[mc_samp] = res[mc_samp]["genEventSumw"]
-                    weight_xs[mc_samp] = cross_sections[mc_samp] * int_lumi / genweights[mc_samp]
+                    weight_xs[mc_samp] = get_cross_section(cross_sections, mc_samp, era) * int_lumi / genweights[mc_samp]
            
             with open(outdir + "/normalization.json", "w") as fi:
                 fi.write(json.dumps({

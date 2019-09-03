@@ -690,20 +690,16 @@ def compute_event_weights(weights, scalars, genweight_scalefactor, LHEScalew, pu
                 "up": scalars["L1PreFiringWeight_Up"],
                 "down": scalars["L1PreFiringWeight_Dn"]}
 
+        #hardcode the number of LHE weights
+        n_max_lheweights = 9
         weights["LHEScaleWeight"] = {
-            "0": NUMPY_LIB.ones_like(weights["nominal"]["nominal"]),
-            "1": NUMPY_LIB.ones_like(weights["nominal"]["nominal"]),
-            "2": NUMPY_LIB.ones_like(weights["nominal"]["nominal"]),
-            "3": NUMPY_LIB.ones_like(weights["nominal"]["nominal"]),
-            "4": NUMPY_LIB.ones_like(weights["nominal"]["nominal"]),
-            "5": NUMPY_LIB.ones_like(weights["nominal"]["nominal"]),
-            "6": NUMPY_LIB.ones_like(weights["nominal"]["nominal"]),
-            "7": NUMPY_LIB.ones_like(weights["nominal"]["nominal"]),
-            "8": NUMPY_LIB.ones_like(weights["nominal"]["nominal"]),
-        }
-        if NUMPY_LIB.logical_or("dy" in dataset_name, "ewk" in dataset_name):
+            str(n): NUMPY_LIB.ones_like(weights["nominal"]["nominal"])
+            for n in range(n_max_lheweights)}
+
+        #only defined for dy and ewk samples
+        if ("dy" in dataset_name) or ("ewk" in dataset_name):
             nevt = len(weights["nominal"]["nominal"])
-            for iScale in range(9):
+            for iScale in range(n_max_lheweights):
                 LHEScalew_all = NUMPY_LIB.zeros(nevt, dtype=NUMPY_LIB.float32);
                 get_theoryweights_cpu(LHEScalew.offsets, LHEScalew.LHEScaleWeight, iScale, LHEScalew_all)
                 weights["LHEScaleWeight"][str(iScale)] = LHEScalew_all
