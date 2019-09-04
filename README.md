@@ -64,6 +64,12 @@ cd ..
 rm -Rf /storage/user/$USER/hmm/out/partial_results
 du -csh /storage/user/$USER/hmm/out
 ~~~
+## Making plots, datacards and histograms
+From the output results, one can make datacards and plots by executing this command :
+~~~
+./tests/hmm/plots.sh out
+~~~
+This creates a directory called `baseline` which has the datacards and plots
 
 # Misc notes
 Luminosity, details on how to set up on this [link](https://cms-service-lumi.web.cern.ch/cms-service-lumi/brilwsdoc.html).
