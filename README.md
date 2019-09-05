@@ -5,6 +5,15 @@
 
 CMS-specific accelerated analysis code based on the [hepaccelerate](https://github.com/jpata/hepaccelerate) library.
 
+Currently implemented analyses:
+- `tests/hmm/analysis_hmumu.py`: CMS-HIG-19-006, [internal](http://cms.cern.ch/iCMS/analysisadmin/cadilines?line=HIG-19-006&tp=an&id=2254&ancode=HIG-19-006)
+
+Variations of this code have been tested at:
+- T2_US_Caltech (jpata, nlu)
+- Caltech HPC (jpata)
+- T2 Purdue
+- T3 PSI
+
 ~~~
 #Installation
 pip3 install --user awkward uproot numba
@@ -19,10 +28,7 @@ make
 cd ../..
 ~~~
 
-Best results can be had if the CMS data is stored locally on a filesystem (few TB needed) and if you have a cache disk on the analysis machine of a few hundred GB.
-
-A prebuilt singularity image with the GPU libraries is also provided: [link](http://login-1.hep.caltech.edu/~jpata/cupy.simg)
-
+Best results can be achieved if the CMS data is stored locally on a filesystem (few TB needed) and if you have a cache disk on the analysis machine of a few hundred GB.
 
 ## Installation on Caltech T2 or GPU machine
 
@@ -44,6 +50,7 @@ cd ../..
 ./tests/hmm/run.sh
 ~~~
 
+
 ## Running on full dataset using batch queue
 We use the condor batch queue on Caltech T2 to run the analysis. It takes about 2-3h for all 3 years using factorized JEC. Without factorized JEC (using total JEC), the runtime is about 10 minutes.
 
@@ -55,6 +62,7 @@ cd batch
 ./make_submit_jdl.sh
 condor_submit submit.jdl
 
+#submit merging and plotting
 ... (wait for completion)
 condor_submit merge.jdl
 
@@ -64,12 +72,15 @@ cd ..
 rm -Rf /storage/user/$USER/hmm/out/partial_results
 du -csh /storage/user/$USER/hmm/out
 ~~~
+
+
 ## Making plots, datacards and histograms
-From the output results, one can make datacards and plots by executing this command :
+From the output results, one can make datacards and plots by executing this command:
 ~~~
 ./tests/hmm/plots.sh out
 ~~~
-This creates a directory called `baseline` which has the datacards and plots
+This creates a directory called `baseline` which has the datacards and plots. This can also be run on the batch using `merge.jdl`.
+
 
 # Misc notes
 Luminosity, details on how to set up on this [link](https://cms-service-lumi.web.cern.ch/cms-service-lumi/brilwsdoc.html).
@@ -86,6 +97,4 @@ brilcalc lumi -c /cvmfs/cms.cern.ch/SITECONF/local/JobConfig/site-local-config.x
 brilcalc lumi -c /cvmfs/cms.cern.ch/SITECONF/local/JobConfig/site-local-config.xml \
     -b "STABLE BEAMS" --normtag=/cvmfs/cms-bril.cern.ch/cms-lumi-pog/Normtags/normtag_PHYSICS.json \
     -u /pb --byls --output-style csv -i /afs/cern.ch/cms/CAF/CMSCOMM/COMM_DQM/certification/Collisions18/13TeV/ReReco/Cert_314472-325175_13TeV_17SeptEarlyReReco2018ABC_PromptEraD_Collisions18_JSON.txt > lumi2018.csv
-
-
 ~~~
