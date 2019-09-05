@@ -60,5 +60,12 @@ extern "C" {
             out[i] = c->getSF(pdgid[i], pt[i], eta[i]);
         }
     }
+    
+    void LeptonEfficiencyCorrector_getSFErr(LeptonEfficiencyCorrector* c, float* out, int n, int* pdgid, float* pt, float* eta) {
+        #pragma omp parallel for default(none) shared(c, out, n, pdgid, pt, eta) schedule(static, 1000)
+        for (int i=0; i<n; i++) {
+            out[i] = c->getSFErr(pdgid[i], pt[i], eta[i]);
+        }
+    }
 }
 #endif

@@ -15,6 +15,7 @@ class LibHMuMu:
 
             void* new_LeptonEfficiencyCorrector(int n, const char** file, const char** histo, float* weights);
             void LeptonEfficiencyCorrector_getSF(void* c, float* out, int n, int* pdgid, float* pt, float* eta);
+            void LeptonEfficiencyCorrector_getSFErr(void* c, float* out, int n, int* pdgid, float* pt, float* eta);
 
             const void* new_gbr(const char* weightfile);
             int gbr_get_nvariables(const void* gbr);
@@ -32,6 +33,7 @@ class LibHMuMu:
 
         self.new_LeptonEfficiencyCorrector = self.libhmm.new_LeptonEfficiencyCorrector
         self.LeptonEfficiencyCorrector_getSF = self.libhmm.LeptonEfficiencyCorrector_getSF
+        self.LeptonEfficiencyCorrector_getSFErr = self.libhmm.LeptonEfficiencyCorrector_getSFErr
 
         self.new_gbr = self.libhmm.new_gbr
         self.gbr_get_nvariables = self.libhmm.gbr_get_nvariables
@@ -95,6 +97,16 @@ class LeptonEfficiencyCorrections:
     def compute(self, pdgids, pts, etas):
         out = numpy_lib.zeros_like(pts)
         self.libhmm.LeptonEfficiencyCorrector_getSF(
+            self.c_class,
+            self.libhmm.cast_as("float *", out), len(out), #output
+            self.libhmm.cast_as("int *", pdgids),
+            self.libhmm.cast_as("float *", pts),
+            self.libhmm.cast_as("float *", etas))
+        return out
+    
+    def compute_error(self, pdgids, pts, etas):
+        out = numpy_lib.zeros_like(pts)
+        self.libhmm.LeptonEfficiencyCorrector_getSFErr(
             self.c_class,
             self.libhmm.cast_as("float *", out), len(out), #output
             self.libhmm.cast_as("int *", pdgids),
