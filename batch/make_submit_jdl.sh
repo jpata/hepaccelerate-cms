@@ -2,8 +2,8 @@
 set -e
 
 #number of files to process per job
-#For factorized JEC, 5 is a good starting point
-export NCHUNK=5
+#For factorized JEC, 5-50 is a good starting point
+export NCHUNK=20
 export SUBMIT_DIR=`pwd`/..
 
 echo "Will create submit files based on directory SUBMIT_DIR="$SUBMIT_DIR
@@ -27,15 +27,18 @@ cat analyze.jdl > submit.jdl
 
 #Split on line, not on space
 IFS=$'\n'
+NJOB=0
 for f in `cat jobfiles_merged.txt`; do
 
     #create condor submit files
+    echo "#NJOB="$NJOB >> submit.jdl
     echo "Arguments = "$f >> submit.jdl
     echo "Queue" >> submit.jdl
     echo >> submit.jdl
 
     #create SLURM submit file
-    echo "sbatch slurm_hmm_analyze.sh "$f >> slurm_submit.sh 
+    echo "sbatch slurm_hmm_analyze.sh "$f >> slurm_submit.sh
+    NJOB=$((NJOB + 1))
 done
 echo "Please run 'export SUBMIT_DIR=`pwd`/..'"
 
