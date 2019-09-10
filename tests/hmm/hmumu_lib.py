@@ -23,6 +23,7 @@ class LibHMuMu:
 
 
             void csangles_eval(float* out_theta, float* out_phi, int nev, float* pt1, float* eta1, float* phi1, float* mass1, float* pt2, float* eta2, float* phi2, float* mass2, int* charges);
+            void mllErr_eval(float* out_err, int nev, float* pt1, float* eta1, float* phi1, float* mass1, float* pt2, float* eta2, float* phi2, float* mass2, float* Err1, float* Err2);
 
         """)
         self.libhmm = self.ffi.dlopen(libpath)
@@ -40,6 +41,7 @@ class LibHMuMu:
         self.gbr_eval = self.libhmm.gbr_eval
 
         self.csangles_eval = self.libhmm.csangles_eval
+        self.mllErr_eval   = self.libhmm.mllErr_eval
 
     def cast_as(self, dtype_string, arr):
         return self.ffi.cast(dtype_string, arr.ctypes.data)
@@ -159,3 +161,23 @@ class MiscVariables:
             self.libhmm.cast_as("int *", charges),
         )
         return out_theta, out_phi
+
+    def mllErr(self, pt1, eta1, phi1, mass1, pt2, eta2, phi2, mass2, Err1, Err2):
+        nev = len(pt1)
+        out_mllErr = numpy_lib.zeros(nev, dtype=numpy_lib.float32)
+
+        self.libhmm.mllErr_eval(
+            self.libhmm.cast_as("float *", out_mllErr),
+            nev,
+            self.libhmm.cast_as("float *", pt1),
+            self.libhmm.cast_as("float *", eta1),
+            self.libhmm.cast_as("float *", phi1),
+            self.libhmm.cast_as("float *", mass1),
+            self.libhmm.cast_as("float *", pt2),
+            self.libhmm.cast_as("float *", eta2),
+            self.libhmm.cast_as("float *", phi2),
+            self.libhmm.cast_as("float *", mass2),
+            self.libhmm.cast_as("float *", Err1),
+            self.libhmm.cast_as("float *", Err2),
+        )
+        return out_mllErr
