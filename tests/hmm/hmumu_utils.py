@@ -245,12 +245,6 @@ def analyze_data(
         use_cuda
     )
 
-    # event-by-event mass resolution
-    dpt1 = (leading_muon["ptErr"]*higgs_inv_mass) / (2*leading_muon["pt"])
-    dpt2 = (subleading_muon["ptErr"]*higgs_inv_mass) / (2*subleading_muon["pt"])
-    higgs_inv_mass_uncertainty = NUMPY_LIB.sqrt(dpt1*dpt1 + dpt2*dpt2)
-    higgs_rel_inv_mass_uncertainty = higgs_inv_mass_uncertainty / higgs_inv_mass
-
     masswindow_z_peak = ((higgs_inv_mass >= parameters["masswindow_z_peak"][0]) & (higgs_inv_mass < parameters["masswindow_z_peak"][1]))
     masswindow_h_region = ((higgs_inv_mass >= parameters["masswindow_h_sideband"][0]) & (higgs_inv_mass < parameters["masswindow_h_sideband"][1]))
     masswindow_h_peak = ((higgs_inv_mass >= parameters["masswindow_h_peak"][0]) & (higgs_inv_mass < parameters["masswindow_h_peak"][1]))
@@ -349,7 +343,7 @@ def analyze_data(
 
             if do_sync and jet_syst_name[0] == "nominal":
                 sync_printout(ret_mu, muons, scalars,
-                    leading_muon, subleading_muon, higgs_inv_mass, higgs_inv_mass_uncertainty, higgs_rel_inv_mass_uncertainty,
+                    leading_muon, subleading_muon, higgs_inv_mass,
                     n_additional_muons, n_additional_electrons,
                     ret_jet, leading_jet, subleading_jet)
            
@@ -472,8 +466,8 @@ def analyze_data(
                             (scalars["SoftActivityJetNjets5"], "num_soft_jets", histo_bins["numjets"]),
                             (ret_jet["num_jets"], "num_jets" , histo_bins["numjets"]),
                             (pt_balance, "pt_balance", histo_bins["pt_balance"]),
-                            (higgs_inv_mass_uncertainty, "higgs_inv_mass_uncertainty", histo_bins["higgs_inv_mass_uncertainty"]),
-                            (higgs_rel_inv_mass_uncertainty, "higgs_rel_inv_mass_uncertainty", histo_bins["higgs_rel_inv_mass_uncertainty"]),
+                            (dnn_vars["massErr"], "higgs_inv_mass_uncertainty", histo_bins["higgs_inv_mass_uncertainty"]),
+                            (dnn_vars["massErr_rel"], "higgs_rel_inv_mass_uncertainty", histo_bins["higgs_rel_inv_mass_uncertainty"]),
                         ],
                         (dnn_presel & massbin_msk & msk_cat),
                         weights_selected,
@@ -1939,6 +1933,7 @@ def compute_fill_dnn(
     dpt1 = (leading_muon_s["ptErr"]*dnn_vars["Higgs_mass"]) / (2*leading_muon_s["pt"])
     dpt2 = (subleading_muon_s["ptErr"]*dnn_vars["Higgs_mass"]) / (2*subleading_muon_s["pt"])
     mm_massErr = NUMPY_LIB.sqrt(dpt1*dpt1 +dpt2*dpt2)
+    dnn_vars["massErr"] = mm_massErr
     dnn_vars["massErr_rel"] = mm_massErr / dnn_vars["Higgs_mass"]
 
     dnn_vars["m1eta"] = NUMPY_LIB.array(leading_muon_s["eta"])
