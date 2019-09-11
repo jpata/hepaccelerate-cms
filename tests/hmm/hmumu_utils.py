@@ -165,7 +165,7 @@ def analyze_data(
     print("muon selection eff", ret_mu["selected_muons"].sum() / float(muons.numobjects()))
     
     # Create arrays with just the leading and subleading particle contents for easier management
-    mu_attrs = ["pt", "eta", "phi", "mass", "pdgId", "nTrackerLayers", "charge"]
+    mu_attrs = ["pt", "eta", "phi", "mass", "pdgId", "nTrackerLayers", "charge", "ptErr"]
     if is_mc:
         mu_attrs += ["genpt"]
     leading_muon = muons.select_nth(0, ret_mu["selected_events"], ret_mu["selected_muons"], attributes=mu_attrs)
@@ -466,6 +466,8 @@ def analyze_data(
                             (scalars["SoftActivityJetNjets5"], "num_soft_jets", histo_bins["numjets"]),
                             (ret_jet["num_jets"], "num_jets" , histo_bins["numjets"]),
                             (pt_balance, "pt_balance", histo_bins["pt_balance"]),
+                            (dnn_vars["massErr"], "higgs_inv_mass_uncertainty", histo_bins["higgs_inv_mass_uncertainty"]),
+                            (dnn_vars["massErr_rel"], "higgs_rel_inv_mass_uncertainty", histo_bins["higgs_rel_inv_mass_uncertainty"]),
                         ],
                         (dnn_presel & massbin_msk & msk_cat),
                         weights_selected,
@@ -1926,6 +1928,14 @@ def compute_fill_dnn(
             )
         dnn_vars["hmmthetacs"] = NUMPY_LIB.array(hmmthetacs)
         dnn_vars["hmmphics"] = NUMPY_LIB.array(hmmphics)
+
+    # event-by-event mass resolution
+    dpt1 = (leading_muon_s["ptErr"]*dnn_vars["Higgs_mass"]) / (2*leading_muon_s["pt"])
+    dpt2 = (subleading_muon_s["ptErr"]*dnn_vars["Higgs_mass"]) / (2*subleading_muon_s["pt"])
+    mm_massErr = NUMPY_LIB.sqrt(dpt1*dpt1 +dpt2*dpt2)
+    dnn_vars["massErr"] = mm_massErr
+    dnn_vars["massErr_rel"] = mm_massErr / dnn_vars["Higgs_mass"]
+
     dnn_vars["m1eta"] = NUMPY_LIB.array(leading_muon_s["eta"])
     dnn_vars["m2eta"] = NUMPY_LIB.array(subleading_muon_s["eta"])
     dnn_vars["m1ptOverMass"] = NUMPY_LIB.divide(leading_muon_s["pt"],dnn_vars["Higgs_mass"])
@@ -2446,7 +2456,7 @@ def create_datastructure(dataset_name, is_mc, dataset_era):
             ("Muon_pfRelIso04_all", "float32"), ("Muon_mediumId", "bool"),
             ("Muon_tightId", "bool"), ("Muon_charge", "int32"),
             ("Muon_isGlobal", "bool"), ("Muon_isTracker", "bool"),
-            ("Muon_nTrackerLayers", "int32"),
+            ("Muon_nTrackerLayers", "int32"), ("Muon_ptErr", "float32"),
         ],
         "Electron": [
             ("Electron_pt", "float32"), ("Electron_eta", "float32"),
