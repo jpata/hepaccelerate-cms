@@ -245,20 +245,10 @@ def analyze_data(
         use_cuda
     )
 
-    # Get the event-by-event uncertainty on the invariant mass of the dimuon system
-    higgs_inv_mass_uncertainty = miscvariables.mllErr(
-        NUMPY_LIB.asnumpy(leading_muon["pt"]),
-        NUMPY_LIB.asnumpy(leading_muon["eta"]),
-        NUMPY_LIB.asnumpy(leading_muon["phi"]),
-        NUMPY_LIB.asnumpy(leading_muon["mass"]),
-        NUMPY_LIB.asnumpy(subleading_muon["pt"]),
-        NUMPY_LIB.asnumpy(subleading_muon["eta"]),
-        NUMPY_LIB.asnumpy(subleading_muon["phi"]),
-        NUMPY_LIB.asnumpy(subleading_muon["mass"]),
-        NUMPY_LIB.asnumpy(leading_muon["ptErr"]),
-        NUMPY_LIB.asnumpy(subleading_muon["ptErr"]),
-        )
-
+    # event-by-event mass resolution
+    dpt1 = (leading_muon_s["ptErr"]*higgs_inv_mass) / (2*leading_muon_s["pt"])
+    dpt2 = (subleading_muon_s["ptErr"]*higgs_inv_mass) / (2*subleading_muon_s["pt"])
+    higgs_inv_mass_uncertainty = NUMPY_LIB.sqrt(dpt1*dpt1 + dpt2*dpt2)
     higgs_rel_inv_mass_uncertainty = higgs_inv_mass_uncertainty / higgs_inv_mass
 
     masswindow_z_peak = ((higgs_inv_mass >= parameters["masswindow_z_peak"][0]) & (higgs_inv_mass < parameters["masswindow_z_peak"][1]))
@@ -1946,11 +1936,11 @@ def compute_fill_dnn(
         dnn_vars["hmmthetacs"] = NUMPY_LIB.array(hmmthetacs)
         dnn_vars["hmmphics"] = NUMPY_LIB.array(hmmphics)
 
-    # e-b-e mass resolution
-    dpt1 = NUMPY_LIB.divide((leading_muon_s["ptErr"]*dnn_vars["Higgs_mass"]),(2*leading_muon_s["pt"]))
-    dpt2 = NUMPY_LIB.divide((subleading_muon_s["ptErr"]*dnn_vars["Higgs_mass"]),(2*subleading_muon_s["pt"]))
+    # event-by-event mass resolution
+    dpt1 = (leading_muon_s["ptErr"]*dnn_vars["Higgs_mass"]) / (2*leading_muon_s["pt"])
+    dpt2 = (subleading_muon_s["ptErr"]*dnn_vars["Higgs_mass"]) / (2*subleading_muon_s["pt"])
     mm_massErr = NUMPY_LIB.sqrt(dpt1*dpt1 +dpt2*dpt2)
-    dnn_vars["massErr_rel"] = NUMPY_LIB.divide(mm_massErr,dnn_vars["Higgs_mass"])
+    dnn_vars["massErr_rel"] = mm_massErr / dnn_vars["Higgs_mass"]
 
     dnn_vars["m1eta"] = NUMPY_LIB.array(leading_muon_s["eta"])
     dnn_vars["m2eta"] = NUMPY_LIB.array(subleading_muon_s["eta"])
