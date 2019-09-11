@@ -246,8 +246,8 @@ def analyze_data(
     )
 
     # event-by-event mass resolution
-    dpt1 = (leading_muon_s["ptErr"]*higgs_inv_mass) / (2*leading_muon_s["pt"])
-    dpt2 = (subleading_muon_s["ptErr"]*higgs_inv_mass) / (2*subleading_muon_s["pt"])
+    dpt1 = (leading_muon["ptErr"]*higgs_inv_mass) / (2*leading_muon["pt"])
+    dpt2 = (subleading_muon["ptErr"]*higgs_inv_mass) / (2*subleading_muon["pt"])
     higgs_inv_mass_uncertainty = NUMPY_LIB.sqrt(dpt1*dpt1 + dpt2*dpt2)
     higgs_rel_inv_mass_uncertainty = higgs_inv_mass_uncertainty / higgs_inv_mass
 
@@ -374,7 +374,6 @@ def analyze_data(
                     (scalars["SoftActivityJetNjets5"], "num_soft_jets", histo_bins["numjets"]),
                     (ret_jet["num_jets"], "num_jets" , histo_bins["numjets"]),
                     (pt_balance, "pt_balance", histo_bins["pt_balance"]),
-                    ###(higgs_inv_mass_uncertainty, "higgs_inv_mass_uncertainty", histo_bins["higgs_inv_mass_uncertainty"]),
                 ],
                 dnn_presel, 
                 weights_selected,
