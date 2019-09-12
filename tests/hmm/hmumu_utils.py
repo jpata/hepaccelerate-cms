@@ -465,9 +465,7 @@ def analyze_data(
                             (ret_jet["dijet_inv_mass"], "dijet_inv_mass", histo_bins["dijet_inv_mass"]),
                             (scalars["SoftActivityJetNjets5"], "num_soft_jets", histo_bins["numjets"]),
                             (ret_jet["num_jets"], "num_jets" , histo_bins["numjets"]),
-                            (pt_balance, "pt_balance", histo_bins["pt_balance"]),
-                            (dnn_vars["massErr"], "higgs_inv_mass_uncertainty", histo_bins["higgs_inv_mass_uncertainty"]),
-                            (dnn_vars["massErr_rel"], "higgs_rel_inv_mass_uncertainty", histo_bins["higgs_rel_inv_mass_uncertainty"]),
+                            (pt_balance, "pt_balance", histo_bins["pt_balance"])
                         ],
                         (dnn_presel & massbin_msk & msk_cat),
                         weights_selected,
