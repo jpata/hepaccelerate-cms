@@ -489,7 +489,7 @@ datasets = [
     ("ttz", "2017", "/store/mc/RunIIFall17NanoAODv5/TTZToLLNuNu_M-10_TuneCP5_PSweights_13TeV-amcatnlo-pythia8/**/*.root", True),
     ("ttz", "2018", "/store/mc/RunIIAutumn18NanoAODv5/TTZToLLNuNu_M-10_TuneCP5_13TeV-amcatnlo-pythia8/**/*.root", True),
 
-    ("ewk_lljj_mll50_mjj120", "2016", "/store/mc/RunIISummer16NanoAODv5/EWK_LLJJ_MLL-50_MJJ-120_13TeV-madgraph-pythia8/**/*.root", True),
+    ("ewk_lljj_mll50_mjj120", "2016", "/store/mc/RunIISummer16NanoAODv5/EWK_LLJJ_MLL-50_MJJ-120_13TeV-madgraph-herwigpp/**/*.root", True),
     ("ewk_lljj_mll50_mjj120", "2017", "/store/mc/RunIIFall17NanoAODv5/EWK_LLJJ_MLL-50_MJJ-120_TuneCP5_*_13TeV-madgraph-pythia8/**/*.root", True),
     ("ewk_lljj_mll50_mjj120", "2018", "/store/mc/RunIIAutumn18NanoAODv5/EWK_LLJJ_MLL-50_MJJ-120_TuneCP5_13TeV-madgraph-pythia8//**/*.root", True),
 
