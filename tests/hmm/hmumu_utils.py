@@ -2620,7 +2620,7 @@ def create_datastructure(dataset_name, is_mc, dataset_era):
             ("run", "uint32"),
             ("luminosityBlock", "uint32"),
             ("event", "uint64"),
-            #("SoftActivityJetNjets5", "int32"),
+            ("SoftActivityJetNjets5", "int32"),
             ("fixedGridRhoFastjetAll", "float32"),
         ],
     }
