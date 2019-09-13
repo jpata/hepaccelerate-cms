@@ -114,7 +114,8 @@ def analyze_data(
         #find genHiggs
         genHiggs_mask = NUMPY_LIB.logical_and((genpart.pdgId == 25), (genpart.status == 62))
         genHiggs_pt = genhpt(muons.numevents(),genpart, genHiggs_mask)
-        genNjets = gennjets(muons.numevents(),genJet, 30.0)
+        selected_genJet_mask = genJet.pt>30
+        genNjets = ha.sum_in_offsets(genJet, selected_genJet_mask, mask_events,genJet.masks["all"], NUMPY_LIB.int8)
         gghnnlopsw = nnlopsreweighting.compute(genNjets,genHiggs_pt, parameters["ggh_nnlops_reweight"][dataset_name])
 
     #Find the first two genjets in the event that are not matched to gen-leptons
@@ -1638,21 +1639,6 @@ def genhpt_cpu(nevt, genparts_offsets, pdgid, status, pt, mask, out_genhpt):
                 break 
         #print("final gen_Higgs_pt: ",gen_Higgs_pt)
         out_genhpt[iev] = gen_Higgs_pt
-
-# Custom kernels to get the number of genJets with pT>30 GEV
-def gennjets(nevt,genjets, ptcut):
-    njet_out = NUMPY_LIB.zeros(nevt, dtype=NUMPY_LIB.int32)
-    gennjets_cpu(nevt, genjets.offsets,genjets.pt, ptcut, njet_out)
-    return njet_out   
-
-@numba.njit(parallel=True, fastmath=True)
-def gennjets_cpu(nevt, genjets_offsets,pt, ptcut, njet_out):
-    for iev in numba.prange(nevt):
-        njet = 0
-        for igenjets in range(genjets_offsets[iev], genjets_offsets[iev + 1]):
-            if pt[igenjets] > ptcut:
-                njet += 1
-        njet_out[iev] = njet
 
 # Custom kernels to get the pt of the muon based on the matched genPartIdx of the reco muon
 # Implement them here as they are too specific to NanoAOD for the hepaccelerate library
