@@ -32,9 +32,9 @@ Best results can be achieved if the CMS data is stored locally on a filesystem (
 
 # Contributing
 If you use this code, we are happy to consider issues and merge improvements.
-Please make an issue on the Issues page for any bugs you find.
-To contribute changes, please use the 'Fork and Pull' model: https://reflectoring.io/github-fork-and-pull
-To get your PR merged, if there are non-trivial changes, please ask at least one other person with push access to review the changes.
+- Please make an issue on the Issues page for any bugs you find.
+- To contribute changes, please use the 'Fork and Pull' model: https://reflectoring.io/github-fork-and-pull.
+- For non-trivial pull requests, please ask at least one other person with push access to review the changes.
 
 ## Installation on Caltech T2 or GPU machine
 
