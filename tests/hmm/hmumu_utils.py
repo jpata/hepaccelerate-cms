@@ -189,6 +189,7 @@ def analyze_data(
         assert(NUMPY_LIB.all(leading_muon["pt"][leading_muon["pt"]>0] > parameters["muon_pt_leading"][dataset_era]))
         assert(NUMPY_LIB.all(subleading_muon["pt"][subleading_muon["pt"]>0] > parameters["muon_pt"]))
 
+    #Compute lepton scale factors
     if parameters["do_lepton_sf"] and is_mc:
         lepton_sf_values = compute_lepton_sf(leading_muon, subleading_muon,
             lepsf_iso[dataset_era], lepsf_id[dataset_era], lepsf_trig[dataset_era],
