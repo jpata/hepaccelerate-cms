@@ -31,7 +31,7 @@ export INPUTDATAPATH=/storage/user/jpata/
 singularity exec --nv -B /storage -B /mnt/hadoop $SINGULARITY_IMAGE python3 tests/hmm/analysis_hmumu.py \
    --action cache --maxchunks $MAXCHUNKS --chunksize 1 \
    --nthreads 1 --cache-location $CACHE_PATH \
-   --datapath $INPUTDATAPATH --era 2016 --dataset ggh
+   --datapath $INPUTDATAPATH --era 2016 --dataset ggh_amcPS
 
 
 ## Step 2: Run the physics analysis
@@ -39,4 +39,4 @@ singularity exec --nv -B /storage $SINGULARITY_IMAGE python3 tests/hmm/analysis_
     --action analyze --action merge --maxchunks $MAXCHUNKS \
     --nthreads $NTHREADS --cache-location $CACHE_PATH \
     --out ./out \
-    --datapath $INPUTDATAPATH --era 2016 --dataset ggh 
+    --datapath $INPUTDATAPATH --era 2016 --dataset ggh_amcPS 

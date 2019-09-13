@@ -470,7 +470,10 @@ def main(args, datasets):
             "ggh_nnlops_reweight": {
                 "ggh_amc": 1,
                 "ggh_amcPS": 1,
+                "ggh_amcPS_TuneCP5down": 1,
+                "ggh_amcPS_TuneCP5up": 1,
                 "ggh_powheg": 2,
+                "ggh_powhegPS": 2,
             },
             #Pisa Group's DNN input variable order for keras
             "dnnPisa_varlist1_order": ['Mqq_log','Rpt','qqDeltaEta','ll_zstar','NSoft5','minEtaHQ','Higgs_pt','log(Higgs_pt)','Higgs_eta','Mqq','QJet0_pt_touse','QJet1_pt_touse','QJet0_eta','QJet1_eta','QJet0_phi','QJet1_phi','QJet0_qgl','QJet1_qgl'],

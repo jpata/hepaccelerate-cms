@@ -1,7 +1,7 @@
 categories = {
     "dimuon": {
         "datacard_processes" : [
-            "ggh",
+            "ggh_amcPS",
             "vbf",
             "wmh",
             "wph",
@@ -23,7 +23,7 @@ categories = {
     },
     "z_peak": {
         "datacard_processes" : [
-            "ggh",
+            "ggh_amcPS",
             "vbf",
             "wmh",
             "wph",
@@ -45,7 +45,7 @@ categories = {
     },
     "h_sideband": {
         "datacard_processes" : [
-            "ggh",
+            "ggh_amcPS",
             "vbf",
             "wmh",
             "wph",
@@ -67,7 +67,7 @@ categories = {
     },
     "h_peak": {
         "datacard_processes" : [
-            "ggh",
+            "ggh_amcPS",
             "vbf",
             "wmh",
             "wph",
@@ -100,7 +100,7 @@ colors = {
 }
 
 process_groups = [
-    ("higgs", ["ggh", "vbf", "wmh", "wph", "zh", "tth"]),
+    ("higgs", ["ggh_amcPS", "vbf", "wmh", "wph", "zh", "tth"]),
     ("vv", ["wz_3lnu", "ww_2l2nu", "wz_2l2q", "zz"]),
     ("vvv", ["www","wwz","wzz","zzz"]),
     ("ewk", ["ewk_lljj_mll50_mjj120", "ewk_lljj_mll105_160"]),
@@ -211,9 +211,11 @@ cross_sections = {
     "dy_m105_160_vbf_mg": 2.02,
     "dy_m105_160_amc": 46.9479, # https://docs.google.com/document/d/1bViX80nXQ_p-W4gI6Fqt9PNQ49B6cP1_FhcKwTZVujo/edit?usp=sharing
     "dy_m105_160_vbf_amc": 46.9479*0.0425242, #https://docs.google.com/document/d/1bViX80nXQ_p-W4gI6Fqt9PNQ49B6cP1_FhcKwTZVujo/edit?usp=sharing
-    "ggh": 0.010571, #48.61 * 0.0002176; https://twiki.cern.ch/twiki/bin/view/LHCPhysics/CERNHLHE2019
-    "ggh_powheg": 0.010571,
+    "ggh_powheg": 0.010571, #48.61 * 0.0002176; https://twiki.cern.ch/twiki/bin/view/LHCPhysics/CERNHLHE2019
+    "ggh_powhegPS": 0.010571,
     "ggh_amcPS": 0.010571,
+    "ggh_amcPS_TuneCP5down": 0.010571,
+    "ggh_amcPS_TuneCP5up": 0.010571,
     "ggh_amc": 0.010571,
     "vbf": 0.000823,
     "vbf_powheg_herwig": 0.000823,
@@ -253,7 +255,7 @@ cross_sections = {
     "zzz": 0.01398
 }
 
-signal_samples = ["ggh", "vbf", "wmh", "wph", "zh", "tth"]
+signal_samples = ["ggh_amcPS", "vbf", "wmh", "wph", "zh", "tth"]
 jec_unc = [
     'AbsoluteFlavMap', 'AbsoluteMPFBias', 'AbsoluteSample', 'AbsoluteScale',
     'AbsoluteStat',
@@ -292,6 +294,8 @@ scale_uncertainties = {
     "wjets": {"WJetsxsec": 1.10},
     "dy_m105_160_amc": {"DYxsec": 1.10},
     "dy_m105_160__vbf_amc": {"DYxsec": 1.10},
+    "ewk_lljj_mll105_160": {"EWZxsec": 1.20},
+    "ewk_lljj_mll50_mjj120": {"EWZxsec": 1.20},
     "ttjets_sl": {"TTxsec": 1.05},
     "ttjets_dl": {"TTxsec": 1.05},
     "st_t_top": {"STxsec": 1.05},
@@ -400,13 +404,24 @@ analysis_names = {
 
 # dataset nickname, datataking era, filename glob pattern, isMC
 datasets = [
-    ("ggh", "2016", "/store/mc/RunIISummer16NanoAODv5/GluGlu_HToMuMu_M125_13TeV_powheg_pythia8/**/*.root", True),
-    ("ggh", "2017", "/store/mc/RunIIFall17NanoAODv5/GluGluHToMuMu_M125_13TeV_amcatnloFXFX_pythia8/**/*.root", True),
-    ("ggh", "2018", "/store/mc/RunIIAutumn18NanoAODv5/GluGluHToMuMu_M-125_TuneCP5_PSweights_13TeV_powheg_pythia8/**/*.root", True),
     ("ggh_amcPS", "2016", "/store/mc/RunIISummer16NanoAODv5/GluGluHToMuMu_M125_TuneCP5_PSweights_13TeV_amcatnloFXFX_pythia8/**/*.root", True),
+    ("ggh_amcPS_TuneCP5down", "2016", "/store/mc/RunIISummer16NanoAODv5/GluGluHToMuMu_M125_TuneCP5down_PSweights_13TeV_amcatnloFXFX_pythia8/**/*.root", True),
+    ("ggh_amcPS_TuneCP5up", "2016", "/store/mc/RunIISummer16NanoAODv5/GluGluHToMuMu_M125_TuneCP5up_PSweights_13TeV_amcatnloFXFX_pythia8/**/*.root", True),
+    ("ggh_powheg", "2016", "/store/mc/RunIISummer16NanoAODv5/GluGlu_HToMuMu_M125_13TeV_powheg_pythia8/**/*.root", True),
+    ("ggh_powhegPS", "2016", "/store/mc/RunIISummer16NanoAODv5/GluGluHToMuMu_M-125_TuneCP5_PSweights_13TeV_powheg_pythia8/**/*.root", True),
+
     ("ggh_amc", "2017", "/store/mc/RunIIFall17NanoAODv5/GluGluHToMuMu_M125_13TeV_amcatnloFXFX_pythia8/**/*.root", True),
     ("ggh_amcPS", "2017", "/store/mc/RunIIFall17NanoAODv5/GluGluHToMuMu_M125_TuneCP5_PSweights_13TeV_amcatnloFXFX_pythia8/**/*.root", True),
-    ("ggh_amcPS", "2018", "/store/mc/RunIIAutumn18NanoAODv5/GluGluHToMuMu_M125_TuneCP5_PSweights_13TeV_amcatnloFXFX_pythia8/**/*.root", True),    
+    ("ggh_amcPS_TuneCP5down", "2017", "/store/mc/RunIIFall17NanoAODv5/GluGluHToMuMu_M125_TuneCP5down_PSweights_13TeV_amcatnloFXFX_pythia8/**/*.root", True),
+    ("ggh_amcPS_TuneCP5up", "2017", "/store/mc/RunIIFall17NanoAODv5/GluGluHToMuMu_M125_TuneCP5up_PSweights_13TeV_amcatnloFXFX_pythia8/**/*.root", True),
+    ("ggh_powheg", "2017", "/store/mc/RunIIFall17NanoAODv5/GluGluHToMuMu_M-125_13TeV_powheg_pythia8/**/*.root", True),
+    ("ggh_powhegPS", "2017", "/store/mc/RunIIFall17NanoAODv5/GluGluHToMuMu_M-125_TuneCP5_PSweights_13TeV_powheg_pythia8/**/*.root", True),
+
+    ("ggh_amcPS", "2018", "/store/mc/RunIIAutumn18NanoAODv5/GluGluHToMuMu_M125_TuneCP5_PSweights_13TeV_amcatnloFXFX_pythia8/**/*.root", True),
+    ("ggh_amcPS_TuneCP5down", "2018", "/store/mc/RunIIAutumn18NanoAODv5/GluGluHToMuMu_M125_TuneCP5down_PSweights_13TeV_amcatnloFXFX_pythia8/**/*.root", True),
+    ("ggh_amcPS_TuneCP5up", "2018", "/store/mc/RunIIAutumn18NanoAODv5/GluGluHToMuMu_M125_TuneCP5up_PSweights_13TeV_amcatnloFXFX_pythia8/**/*.root", True),
+    ("ggh_powhegPS", "2018", "/store/mc/RunIIAutumn18NanoAODv5/GluGluHToMuMu_M-125_TuneCP5_PSweights_13TeV_powheg_pythia8/**/*.root", True),
+
     ("vbf", "2016", "/store/mc/RunIISummer16NanoAODv5/VBFHToMuMu_M125_TuneCP5_PSweights_13TeV_amcatnlo_pythia8/**/*.root", True),
     ("vbf_powheg1", "2016", "/store/mc/RunIISummer16NanoAODv5/VBFHToMuMu_M-125_TuneCP5_PSweights_13TeV_powheg_pythia8/**/*.root", True),
     ("vbf_powheg2", "2016", "/store/mc/RunIISummer16NanoAODv5/VBF_HToMuMu_M125_13TeV_powheg_pythia8/**/*.root", True),    

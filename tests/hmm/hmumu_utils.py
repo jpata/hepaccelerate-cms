@@ -1628,7 +1628,6 @@ def genhpt(nevt,genpart, mask):
 def genhpt_cpu(nevt, genparts_offsets, pdgid, status, pt, mask, out_genhpt):
     #loop over events
     for iev in numba.prange(nevt):
-        #print("ievt: ",iev)
         gen_Higgs_pt = -1;
         #loop over genpart
         for igenpart in range(genparts_offsets[iev], genparts_offsets[iev + 1]):
