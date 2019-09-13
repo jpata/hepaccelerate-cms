@@ -11,7 +11,8 @@ export MAXCHUNKS=1
 #This is where the intermediate analysis files will be saved and loaded from
 #As long as one person produces it, other people can run the analysis on this
 #Currently, use the cache provided by Joosep
-export CACHE_PATH=/storage/user/jpata/hmm/cache
+#export CACHE_PATH=/storage/user/jpata/hmm/cache
+export CACHE_PATH=mycache
 
 export SINGULARITY_IMAGE=/storage/user/jpata/cupy2.simg
 export PYTHONPATH=coffea:hepaccelerate:.
@@ -27,10 +28,10 @@ export INPUTDATAPATH=/storage/user/jpata/
 
 ## Step 1: cache ROOT data (need to repeat only when list of files or branches changes)
 ## This can take a few hours currently for the whole run (using maxchunks -1 and --nthreads 24)
-#singularity exec --nv -B /storage -B /mnt/hadoop $SINGULARITY_IMAGE python3 tests/hmm/analysis_hmumu.py \
-#   --action cache --maxchunks -1 --chunksize 1 \
-#   --nthreads 8 --cache-location $CACHE_PATH \
-#   --datapath $INPUTDATAPATH --era 2016 --era 2017 --era 2018
+singularity exec --nv -B /storage -B /mnt/hadoop $SINGULARITY_IMAGE python3 tests/hmm/analysis_hmumu.py \
+   --action cache --maxchunks $MAXCHUNKS --chunksize 1 \
+   --nthreads 1 --cache-location $CACHE_PATH \
+   --datapath $INPUTDATAPATH --era 2016 --dataset ggh
 
 
 ## Step 2: Run the physics analysis
@@ -38,4 +39,4 @@ singularity exec --nv -B /storage $SINGULARITY_IMAGE python3 tests/hmm/analysis_
     --action analyze --action merge --maxchunks $MAXCHUNKS \
     --nthreads $NTHREADS --cache-location $CACHE_PATH \
     --out ./out \
-    --datapath $INPUTDATAPATH --era 2016 --era 2017 --era 2018
+    --datapath $INPUTDATAPATH --era 2016 --dataset ggh 

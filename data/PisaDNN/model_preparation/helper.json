@@ -1,0 +1,128 @@
+{
+  "input_sequences": [], 
+  "inputs": [
+    {
+      "name": "node_0", 
+      "variables": [
+        {
+          "name": "variable_0", 
+          "offset": -6.46826466, 
+          "scale": 2.54705991
+        }, 
+        {
+          "name": "variable_1", 
+          "offset": -0.240058764, 
+          "scale": 5.38504349
+        }, 
+        {
+          "name": "variable_2", 
+          "offset": -4.20773621,
+          "scale": 0.92010586
+        }, 
+        {
+          "name": "variable_3", 
+          "offset": -0.326817719,  
+          "scale": 4.49400547
+        }, 
+        {
+          "name": "variable_4", 
+          "offset": -1.21209315, 
+          "scale": 0.986311786
+        }, 
+        {
+          "name": "variable_5", 
+          "offset": -0.973464224, 
+          "scale": 1.41867195
+        }, 
+        {
+          "name": "variable_6", 
+          "offset": -91.1046493,
+          "scale": 0.0134407474
+        }, 
+        {
+          "name": "variable_7", 
+          "offset":  -4.1885265,
+          "scale": 1.12603815
+        }, 
+        {
+          "name": "variable_8", 
+          "offset": -0.00570859121,  
+          "scale": 0.521149035
+        }, 
+        {
+          "name": "variable_9", 
+          "offset": -705.03273, 
+          "scale": 0.00272870275
+        }, 
+        {
+          "name": "variable_10", 
+          "offset": -125.071541,
+          "scale": 0.0121837313
+        }, 
+        {
+          "name": "variable_11", 
+          "offset": -67.2206299,
+          "scale": 0.02214501
+        }, 
+        {
+          "name": "variable_12", 
+          "offset": -0.00140127896,
+          "scale": 0.458569132
+        }, 
+        {
+          "name": "variable_13", 
+          "offset": 0.0271162604,    
+          "scale": 0.38459914
+        }, 
+        {
+          "name": "variable_14", 
+          "offset": 0.0417539245,
+          "scale": 0.548923832
+        }, 
+        {
+          "name": "variable_15", 
+          "offset": 0.062591636,
+          "scale": 0.550840251
+        }, 
+        {
+          "name": "variable_16", 
+          "offset": -0.63801864,
+          "scale": 2.83684438
+        }, 
+        {
+          "name": "variable_17", 
+          "offset": -0.547326718,   
+          "scale": 2.73230499
+        }
+      ]
+    }, 
+    {
+      "name": "node_1", 
+      "variables": [
+        {
+          "name": "variable_0", 
+          "offset": -123.643629, 
+          "scale": 0.178106
+        }, 
+        {
+          "name": "variable_1", 
+          "offset": -0.0211363744, 
+          "scale": 88.98549289
+        }, 
+        {
+          "name": "variable_2", 
+          "offset": -2.61475852, 
+          "scale": 0.71363935
+        }
+      ]
+    }
+  ], 
+  "outputs": [
+    {
+      "labels": [
+        "out_0"
+      ], 
+      "name": "dense_5_0"
+    }
+  ]
+}

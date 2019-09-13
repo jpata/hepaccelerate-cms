@@ -15,7 +15,7 @@ from hepaccelerate.utils import Dataset, Results
 
 import hmumu_utils
 from hmumu_utils import run_analysis, run_cache, create_dataset_jobfiles, load_puhist_target
-from hmumu_lib import LibHMuMu, RochesterCorrections, LeptonEfficiencyCorrections, GBREvaluator, MiscVariables
+from hmumu_lib import LibHMuMu, RochesterCorrections, LeptonEfficiencyCorrections, GBREvaluator, MiscVariables, NNLOPSReweighting, hRelResolution
 
 import os
 from coffea.util import USE_CUPY
@@ -304,6 +304,9 @@ class AnalysisCorrections:
 
         self.dnn_model = None
         self.dnn_normfactors = None
+        self.dnnPisa_model = None
+        self.dnnPisa_normfactors1 = None
+        self.dnnPisa_normfactors2 = None
         if do_tensorflow:
             print("Loading tensorflow model")
             #disable GPU for tensorflow
@@ -333,7 +336,16 @@ class AnalysisCorrections:
                 import cupy
                 self.dnn_normfactors = cupy.array(self.dnn_normfactors[0]), cupy.array(self.dnn_normfactors[1])
 
-
+            json_path = "data/PisaDNN/model_preparation/model_toexport_evt0.json"
+            with open(json_path, 'r') as file_handle:
+                self.dnnPisa_model = keras.models.model_from_json(file_handle.read())
+            self.dnnPisa_model.load_weights("data/PisaDNN/model_preparation/model_toexport_evt0.h5")
+            self.dnnPisa_normfactors1 = np.load("data/PisaDNN/model_preparation/helphelp_node1.npy")
+            self.dnnPisa_normfactors2 = np.load("data/PisaDNN/model_preparation/helphelp_node2.npy")
+            if args.use_cuda:
+                import cupy
+                self.dnnPisa_normfactors1 = cupy.array(self.dnnPisa_normfactors1[0]), cupy.array(self.dnnPisa_normfactors1[1])
+                self.dnnPisa_normfactors2 = cupy.array(self.dnnPisa_normfactors2[0]), cupy.array(self.dnnPisa_normfactors2[1])
         print("Loading UCSD BDT model")
         self.bdt_ucsd = GBREvaluator(self.libhmm, "data/Hmm_BDT_xml/2016/TMVAClassification_BDTG.weights.2jet_bveto_withmass.xml")
         self.bdt2j_ucsd = {
@@ -347,6 +359,10 @@ class AnalysisCorrections:
             "2018": GBREvaluator(self.libhmm, "data/Hmm_BDT_xml/2018/TMVAClassification_BDTG.weights.01jet.xml")
         }
         self.miscvariables = MiscVariables(self.libhmm)
+        print("Loading NNLOPSReweighting...")
+        self.nnlopsreweighting = NNLOPSReweighting(self.libhmm, "data/nnlops/NNLOPS_reweight.root")
+        print("Loading hRelResolution...")
+        self.hrelresolution = hRelResolution(self.libhmm, "data/PisaDNN/muonresolution.root")
 
 def main(args, datasets):
 
@@ -451,7 +467,14 @@ def main(args, datasets):
                 "dy_m105_160_vbf_mg": False,
                 "dy_m105_160_vbf_amc": False, 
             },
-
+            "ggh_nnlops_reweight": {
+                "ggh_amc": 1,
+                "ggh_amcPS": 1,
+                "ggh_powheg": 2,
+            },
+            #Pisa Group's DNN input variable order for keras
+            "dnnPisa_varlist1_order": ['Mqq_log','Rpt','qqDeltaEta','ll_zstar','NSoft5','minEtaHQ','Higgs_pt','log(Higgs_pt)','Higgs_eta','Mqq','QJet0_pt_touse','QJet1_pt_touse','QJet0_eta','QJet1_eta','QJet0_phi','QJet1_phi','QJet0_qgl','QJet1_qgl'],
+            "dnnPisa_varlist2_order": ['Higgs_m','Higgs_mRelReso','Higgs_mReso'],
             #Irene's DNN input variable order for keras
             "dnn_varlist_order": ['softJet5', 'dRmm','dEtamm','M_jj','pt_jj','eta_jj','phi_jj','M_mmjj','eta_mmjj','phi_mmjj','dEta_jj','Zep','dRmin_mj', 'dRmax_mj', 'dRmin_mmj','dRmax_mmj','dPhimm','leadingJet_pt','subleadingJet_pt', 'leadingJet_eta','subleadingJet_eta','leadingJet_qgl','subleadingJet_qgl','cthetaCS','Higgs_pt','Higgs_eta','Higgs_mass'],
             "dnn_input_histogram_bins": {
@@ -494,6 +517,7 @@ def main(args, datasets):
 
             "categorization_trees": {},
             "do_bdt_ucsd": True,
+            "do_dnn_pisa": True,
         },
     }
     histo_bins = {

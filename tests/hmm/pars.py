@@ -212,6 +212,9 @@ cross_sections = {
     "dy_m105_160_amc": 46.9479, # https://docs.google.com/document/d/1bViX80nXQ_p-W4gI6Fqt9PNQ49B6cP1_FhcKwTZVujo/edit?usp=sharing
     "dy_m105_160_vbf_amc": 46.9479*0.0425242, #https://docs.google.com/document/d/1bViX80nXQ_p-W4gI6Fqt9PNQ49B6cP1_FhcKwTZVujo/edit?usp=sharing
     "ggh": 0.010571, #48.61 * 0.0002176; https://twiki.cern.ch/twiki/bin/view/LHCPhysics/CERNHLHE2019
+    "ggh_powheg": 0.010571,
+    "ggh_amcPS": 0.010571,
+    "ggh_amc": 0.010571,
     "vbf": 0.000823,
     "vbf_powheg_herwig": 0.000823,
     "vbf_powheg1": 0.000823,
@@ -400,7 +403,10 @@ datasets = [
     ("ggh", "2016", "/store/mc/RunIISummer16NanoAODv5/GluGlu_HToMuMu_M125_13TeV_powheg_pythia8/**/*.root", True),
     ("ggh", "2017", "/store/mc/RunIIFall17NanoAODv5/GluGluHToMuMu_M125_13TeV_amcatnloFXFX_pythia8/**/*.root", True),
     ("ggh", "2018", "/store/mc/RunIIAutumn18NanoAODv5/GluGluHToMuMu_M-125_TuneCP5_PSweights_13TeV_powheg_pythia8/**/*.root", True),
-    
+    ("ggh_amcPS", "2016", "/store/mc/RunIISummer16NanoAODv5/GluGluHToMuMu_M125_TuneCP5_PSweights_13TeV_amcatnloFXFX_pythia8/**/*.root", True),
+    ("ggh_amc", "2017", "/store/mc/RunIIFall17NanoAODv5/GluGluHToMuMu_M125_13TeV_amcatnloFXFX_pythia8/**/*.root", True),
+    ("ggh_amcPS", "2017", "/store/mc/RunIIFall17NanoAODv5/GluGluHToMuMu_M125_TuneCP5_PSweights_13TeV_amcatnloFXFX_pythia8/**/*.root", True),
+    ("ggh_amcPS", "2018", "/store/mc/RunIIAutumn18NanoAODv5/GluGluHToMuMu_M125_TuneCP5_PSweights_13TeV_amcatnloFXFX_pythia8/**/*.root", True),    
     ("vbf", "2016", "/store/mc/RunIISummer16NanoAODv5/VBFHToMuMu_M125_TuneCP5_PSweights_13TeV_amcatnlo_pythia8/**/*.root", True),
     ("vbf_powheg1", "2016", "/store/mc/RunIISummer16NanoAODv5/VBFHToMuMu_M-125_TuneCP5_PSweights_13TeV_powheg_pythia8/**/*.root", True),
     ("vbf_powheg2", "2016", "/store/mc/RunIISummer16NanoAODv5/VBF_HToMuMu_M125_13TeV_powheg_pythia8/**/*.root", True),    

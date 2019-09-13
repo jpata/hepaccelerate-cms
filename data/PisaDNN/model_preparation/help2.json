@@ -1,0 +1,128 @@
+{
+  "input_sequences": [], 
+  "inputs": [
+    {
+      "name": "node_0", 
+      "variables": [
+        {
+          "name": "variable_0", 
+          "offset": 0, 
+          "scale": 1
+        }, 
+        {
+          "name": "variable_1", 
+          "offset": 0, 
+          "scale": 1
+        }, 
+        {
+          "name": "variable_2", 
+          "offset": 0, 
+          "scale": 1
+        }, 
+        {
+          "name": "variable_3", 
+          "offset": 0, 
+          "scale": 1
+        }, 
+        {
+          "name": "variable_4", 
+          "offset": 0, 
+          "scale": 1
+        }, 
+        {
+          "name": "variable_5", 
+          "offset": 0, 
+          "scale": 1
+        }, 
+        {
+          "name": "variable_6", 
+          "offset": 0, 
+          "scale": 1
+        }, 
+        {
+          "name": "variable_7", 
+          "offset": 0, 
+          "scale": 1
+        }, 
+        {
+          "name": "variable_8", 
+          "offset": 0, 
+          "scale": 1
+        }, 
+        {
+          "name": "variable_9", 
+          "offset": 0, 
+          "scale": 1
+        }, 
+        {
+          "name": "variable_10", 
+          "offset": 0, 
+          "scale": 1
+        }, 
+        {
+          "name": "variable_11", 
+          "offset": 0, 
+          "scale": 1
+        }, 
+        {
+          "name": "variable_12", 
+          "offset": 0, 
+          "scale": 1
+        }, 
+        {
+          "name": "variable_13", 
+          "offset": 0, 
+          "scale": 1
+        }, 
+        {
+          "name": "variable_14", 
+          "offset": 0, 
+          "scale": 1
+        }, 
+        {
+          "name": "variable_15", 
+          "offset": 0, 
+          "scale": 1
+        }, 
+        {
+          "name": "variable_16", 
+          "offset": 0, 
+          "scale": 1
+        }, 
+        {
+          "name": "variable_17", 
+          "offset": 0, 
+          "scale": 1
+        }
+      ]
+    }, 
+    {
+      "name": "node_1", 
+      "variables": [
+        {
+          "name": "variable_0", 
+          "offset": 0, 
+          "scale": 1
+        }, 
+        {
+          "name": "variable_1", 
+          "offset": 0, 
+          "scale": 1
+        }, 
+        {
+          "name": "variable_2", 
+          "offset": 0, 
+          "scale": 1
+        }
+      ]
+    }
+  ], 
+  "outputs": [
+    {
+      "labels": [
+        "out_0"
+      ], 
+      "name": "dense_5_0"
+    }
+  ]
+}

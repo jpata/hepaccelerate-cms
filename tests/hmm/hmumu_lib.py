@@ -24,6 +24,11 @@ class LibHMuMu:
 
             void csangles_eval(float* out_theta, float* out_phi, int nev, float* pt1, float* eta1, float* phi1, float* mass1, float* pt2, float* eta2, float* phi2, float* mass2, int* charges);
 
+            void* new_NNLOPSReweighting(const char* path);
+            void NNLOPSReweighting_eval(void* c, int igen, float* out_nnlow, int nev, int* genNjets, float* genHiggs_pt);
+
+            void* new_hRelResolution(const char* path);
+            void hRelResolution_eval(void* c, float* out_hres, int nev, float* mu1_pt, float* mu1_eta, float* mu2_pt, float* mu2_eta);
         """)
         self.libhmm = self.ffi.dlopen(libpath)
 
@@ -40,6 +45,12 @@ class LibHMuMu:
         self.gbr_eval = self.libhmm.gbr_eval
 
         self.csangles_eval = self.libhmm.csangles_eval
+
+        self.new_NNLOPSReweighting = self.libhmm.new_NNLOPSReweighting
+        self.NNLOPSReweighting_eval = self.libhmm.NNLOPSReweighting_eval
+
+        self.new_hRelResolution = self.libhmm.new_hRelResolution
+        self.hRelResolution_eval = self.libhmm.hRelResolution_eval
 
     def cast_as(self, dtype_string, arr):
         return self.ffi.cast(dtype_string, arr.ctypes.data)
@@ -134,6 +145,55 @@ class GBREvaluator:
 
     def get_bdt_nfeatures(self):
         return self.libhmm.gbr_get_nvariables(self.c_class)
+
+class NNLOPSReweighting:
+    def __init__(self, libhmm, path):
+        self.libhmm = libhmm
+        if not os.path.isfile(path):
+            raise FileNotFoundError("File {0} does not exist".format(path))
+        fi = uproot.open(path)
+      
+        file_C = libhmm.ffi.new("char[]", path.encode("ascii")) 
+        self.c_class = self.libhmm.new_NNLOPSReweighting(
+            file_C
+        )
+
+    def compute(self, genNjets, genHiggs_pt, igen):
+        out_nnlow = numpy_lib.ones_like(genNjets, dtype=numpy_lib.float32)
+        self.libhmm.NNLOPSReweighting_eval(
+            self.c_class,
+            igen,
+            self.libhmm.cast_as("float *", out_nnlow), 
+            len(out_nnlow),
+            self.libhmm.cast_as("int *", genNjets), 
+            self.libhmm.cast_as("float *", genHiggs_pt),  
+        )
+        return out_nnlow
+
+class hRelResolution:
+    def __init__(self, libhmm, path):
+        self.libhmm = libhmm
+        if not os.path.isfile(path):
+            raise FileNotFoundError("File {0} does not exist".format(path))
+        fi = uproot.open(path)
+        print(path)
+        file_C = libhmm.ffi.new("char[]", path.encode("ascii"))
+        self.c_class = self.libhmm.new_hRelResolution(
+            file_C
+        )
+
+    def compute(self, mu1_pt, mu1_eta, mu2_pt, mu2_eta):
+        out_hres = numpy_lib.ones_like(mu1_pt, dtype=numpy_lib.float32)
+        self.libhmm.hRelResolution_eval(
+            self.c_class,
+            self.libhmm.cast_as("float *", out_hres),
+            len(out_hres),
+            self.libhmm.cast_as("float *", mu1_pt),
+            self.libhmm.cast_as("float *", mu1_eta),
+            self.libhmm.cast_as("float *", mu2_pt),
+            self.libhmm.cast_as("float *", mu2_eta),
+        )
+        return out_hres
 
 class MiscVariables:
     def __init__(self, libhmm):
