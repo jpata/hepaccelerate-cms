@@ -1,9 +1,9 @@
-[![Build Status](https://travis-ci.com/jpata/hepaccelerate.svg?branch=master)](https://travis-ci.com/jpata/hepaccelerate-cms)
-[![pipeline status](https://gitlab.cern.ch/jpata/hepaccelerate-cms/badges/master/pipeline.svg)](https://gitlab.cern.ch/jpata/hepaccelerate-cms/commits/master)
+[![Build Status](https://travis-ci.com/hepaccelerate/hepaccelerate.svg?branch=master)](https://travis-ci.com/hepaccelerate/hepaccelerate-cms)
+[![pipeline status](https://gitlab.cern.ch/hepaccelerate/hepaccelerate-cms/badges/master/pipeline.svg)](https://gitlab.cern.ch/hepaccelerate/hepaccelerate-cms/commits/master)
 
 # hepaccelerate-cms
 
-CMS-specific accelerated analysis code based on the [hepaccelerate](https://github.com/jpata/hepaccelerate) library.
+CMS-specific accelerated analysis code based on the [hepaccelerate](https://github.com/hepaccelerate/hepaccelerate) library.
 
 Currently implemented analyses:
 - `tests/hmm/analysis_hmumu.py`: CMS-HIG-19-006, [internal](http://cms.cern.ch/iCMS/analysisadmin/cadilines?line=HIG-19-006&tp=an&id=2254&ancode=HIG-19-006)
