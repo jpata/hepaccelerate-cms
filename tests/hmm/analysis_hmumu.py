@@ -15,7 +15,7 @@ from hepaccelerate.utils import Dataset, Results
 
 import hmumu_utils
 from hmumu_utils import run_analysis, run_cache, create_dataset_jobfiles, load_puhist_target
-from hmumu_lib import LibHMuMu, RochesterCorrections, LeptonEfficiencyCorrections, GBREvaluator, MiscVariables, NNLOPSReweighting, hRelResolution
+from hmumu_lib import LibHMuMu, RochesterCorrections, LeptonEfficiencyCorrections, GBREvaluator, MiscVariables, NNLOPSReweighting, hRelResolution, ZpTReweighting
 
 import os
 from coffea.util import USE_CUPY
@@ -363,6 +363,8 @@ class AnalysisCorrections:
         self.nnlopsreweighting = NNLOPSReweighting(self.libhmm, "data/nnlops/NNLOPS_reweight.root")
         print("Loading hRelResolution...")
         self.hrelresolution = hRelResolution(self.libhmm, "data/PisaDNN/muonresolution.root")
+        print("Loading ZpTReweighting...")
+        self.zptreweighting = ZpTReweighting(self.libhmm)
 
 def main(args, datasets):
 
@@ -475,6 +477,30 @@ def main(args, datasets):
                 "ggh_powheg": 2,
                 "ggh_powhegPS": 2,
             },
+            "ZpT_reweight": {
+                "2016": {
+                    "dy_0j": 2, 
+                    "dy_1j": 2, 
+                    "dy_2j": 2, 
+                    "dy_m105_160_amc": 2, 
+                    "dy_m105_160_vbf_amc": 2,
+                },
+                "2017": {
+                    "dy_0j": 1,
+                    "dy_1j": 1,
+                    "dy_2j": 1,
+                    "dy_m105_160_amc": 1,
+                    "dy_m105_160_vbf_amc": 1,
+                },
+                "2018": {
+                    "dy_0j": 1,
+                    "dy_1j": 1,
+                    "dy_2j": 1,
+                    "dy_m105_160_amc": 1,
+                    "dy_m105_160_vbf_amc": 1,
+                },
+            },
+           
             #Pisa Group's DNN input variable order for keras
             "dnnPisa_varlist1_order": ['Mqq_log','Rpt','qqDeltaEta','ll_zstar','NSoft5','minEtaHQ','Higgs_pt','log(Higgs_pt)','Higgs_eta','Mqq','QJet0_pt_touse','QJet1_pt_touse','QJet0_eta','QJet1_eta','QJet0_phi','QJet1_phi','QJet0_qgl','QJet1_qgl'],
             "dnnPisa_varlist2_order": ['Higgs_m','Higgs_mRelReso','Higgs_mReso'],

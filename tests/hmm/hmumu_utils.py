@@ -79,7 +79,8 @@ def analyze_data(
     bdt01j_ucsd = None,
     miscvariables = None,
     nnlopsreweighting = None,
-    hrelresolution = None 
+    hrelresolution = None,
+    zptreweighting = None 
     ):
 
     muons = data["Muon"]
@@ -179,7 +180,17 @@ def analyze_data(
         parameters["muon_iso_trigger_matched"], parameters["muon_id_trigger_matched"][dataset_era]
     )
     print("muon selection eff", ret_mu["selected_muons"].sum() / float(muons.numobjects()))
-    
+   
+    #Just a check to verify that there are exactly 2 muons per event
+    if doverify:
+        z = ha.sum_in_offsets(
+            muons,
+            ret_mu["selected_muons"],
+            ret_mu["selected_events"],
+            ret_mu["selected_muons"],
+            dtype=NUMPY_LIB.int8)
+        assert(NUMPY_LIB.all(z[z!=0] == 2))
+ 
     # Create arrays with just the leading and subleading particle contents for easier management
     mu_attrs = ["pt", "eta", "phi", "mass", "pdgId", "nTrackerLayers", "charge", "ptErr"]
     if is_mc:
@@ -217,23 +228,6 @@ def analyze_data(
                 m3 = weights_individual[w]["down"].mean()
                 assert(m1 > m3 and m1 < m2) 
  
-    #compute variated weights here to ensure the nominal weight contains all possible other weights  
-    compute_event_weights(weights_individual, scalars, genweight_scalefactor, gghnnlopsw, LHEScalew, pu_corrections, is_mc, dataset_era, dataset_name)
- 
-    #actually multiply all the weights together with the appropriate up/down variations.
-    #creates a 1-level dictionary with weights "nominal", "puweight__up", "puweight__down", ..." 
-    weights_final = finalize_weights(weights_individual)
-
-    #Just a check to verify that there are exactly 2 muons per event
-    if doverify:
-        z = ha.sum_in_offsets(
-            muons,
-            ret_mu["selected_muons"],
-            ret_mu["selected_events"],
-            ret_mu["selected_muons"],
-            dtype=NUMPY_LIB.int8)
-        assert(NUMPY_LIB.all(z[z!=0] == 2))
-
     # Get the selected electrons
     ret_el = get_selected_electrons(electrons, parameters["extra_electrons_pt"], parameters["extra_electrons_eta"], parameters["extra_electrons_id"])
     
@@ -245,7 +239,19 @@ def analyze_data(
     higgs_pt[NUMPY_LIB.isnan(higgs_pt)] = -1
     higgs_pt[NUMPY_LIB.isinf(higgs_pt)] = -1
     higgs_pt[higgs_pt==0] = -1
-    
+   
+    #Z pT reweighting for DY bkg
+    ZpTw = NUMPY_LIB.ones(muons.numevents(), dtype=NUMPY_LIB.float32)
+    if is_mc and (dataset_name in parameters["ZpT_reweight"][dataset_era]):
+       ZpTw = zptreweighting.compute(higgs_pt, parameters["ZpT_reweight"][dataset_era][dataset_name])
+
+    #compute variated weights here to ensure the nominal weight contains all possible other weights  
+    compute_event_weights(parameters, weights_individual, scalars, genweight_scalefactor, gghnnlopsw, ZpTw, LHEScalew, pu_corrections, is_mc, dataset_era, dataset_name)
+
+    #actually multiply all the weights together with the appropriate up/down variations.
+    #creates a 1-level dictionary with weights "nominal", "puweight__up", "puweight__down", ..." 
+    weights_final = finalize_weights(weights_individual)
+ 
     fill_histograms_several(
         hists, "nominal", "hist__dimuon__",
         [
@@ -672,10 +678,12 @@ def finalize_weights(weights, all_weight_names=None):
         print("finalized weight", k, ret[k].mean())
     return ret
 
-def compute_event_weights(weights, scalars, genweight_scalefactor, gghw, LHEScalew, pu_corrections, is_mc, dataset_era, dataset_name):
+def compute_event_weights(parameters, weights, scalars, genweight_scalefactor, gghw, zptw, LHEScalew, pu_corrections, is_mc, dataset_era, dataset_name):
     if is_mc:
-        if "ggh" in dataset_name:
+        if dataset_name in parameters["ggh_nnlops_reweight"]:
             weights["nominal"]["nominal"] = scalars["genWeight"] * genweight_scalefactor * gghw
+        elif dataset_name in parameters["ZpT_reweight"][dataset_era]:
+            weights["nominal"]["nominal"] = scalars["genWeight"] * genweight_scalefactor * zptw
         else:
             weights["nominal"]["nominal"] = scalars["genWeight"] * genweight_scalefactor
  
@@ -958,7 +966,8 @@ def run_analysis(
             bdt01j_ucsd  = analysis_corrections.bdt01j_ucsd,
             miscvariables = analysis_corrections.miscvariables,
             nnlopsreweighting = analysis_corrections.nnlopsreweighting,
-            hrelresolution = analysis_corrections.hrelresolution)
+            hrelresolution = analysis_corrections.hrelresolution,
+            zptreweighting = analysis_corrections.zptreweighting)
 
         tnext = time.time()
         print("processed {0:.2E} ev/s".format(nev/float(tnext-tprev)))

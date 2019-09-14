@@ -18,7 +18,7 @@ double NNLOPSReweighting::nnlopsw(int gen_njets, double gen_Higgs_pT, int igen)c
 
     double NNLOPS_weight = 1.0;
     if(igen==1){
-    if (gen_njets==0) NNLOPS_weight = gr_NNLOPSratio_pt_mcatnlo_0jet->Eval(std::min(gen_Higgs_pT,125.0));
+        if (gen_njets==0) NNLOPS_weight = gr_NNLOPSratio_pt_mcatnlo_0jet->Eval(std::min(gen_Higgs_pT,125.0));
         else if (gen_njets==1) NNLOPS_weight = gr_NNLOPSratio_pt_mcatnlo_1jet->Eval(std::min(gen_Higgs_pT,625.0));
         else if (gen_njets==2) NNLOPS_weight = gr_NNLOPSratio_pt_mcatnlo_2jet->Eval(std::min(gen_Higgs_pT,800.0));
         else if (gen_njets>=3) NNLOPS_weight = gr_NNLOPSratio_pt_mcatnlo_3jet->Eval(std::min(gen_Higgs_pT,925.0));
