@@ -444,6 +444,9 @@ def main(args, datasets):
             "jet_btag": {"2016": 0.6321, "2017": 0.4941, "2018": 0.4184},
             "do_factorized_jec": args.do_factorized_jec,
 
+            "softjet_pt": 5.0,
+            "softjet_evt_dr2": 0.04, 
+
             "cat5_dijet_inv_mass": 400.0,
             "cat5_abs_jj_deta_cut": 2.5,
 
