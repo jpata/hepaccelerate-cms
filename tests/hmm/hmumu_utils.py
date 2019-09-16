@@ -63,7 +63,7 @@ def analyze_data(
     lepsf_trig=None,
     dnn_model=None,
     dnn_normfactors=None,
-    dnnPisa_model=None,
+    dnnPisa_models=[],
     dnnPisa_normfactors1=None,
     dnnPisa_normfactors2=None,
     jetmet_corrections=None,
@@ -403,8 +403,8 @@ def analyze_data(
 
             #Compute the DNN inputs, the DNN output, fill the DNN input and output variable histograms
             dnn_prediction = None
-            dnn_vars, dnn_prediction, dnnPisa_prediction = compute_fill_dnn(hrelresolution,
-               miscvariables, parameters, use_cuda, dnn_presel, dnn_model, dnn_normfactors, dnnPisa_model, dnnPisa_normfactors1, dnnPisa_normfactors2,
+            dnn_vars, dnn_prediction, dnnPisa_predictions = compute_fill_dnn(hrelresolution,
+               miscvariables, parameters, use_cuda, dnn_presel, dnn_model, dnn_normfactors, dnnPisa_models, dnnPisa_normfactors1, dnnPisa_normfactors2,
                scalars, leading_muon, subleading_muon, leading_jet, subleading_jet,
                ret_jet["num_jets"],ret_jet["num_jets_btag"], n_sel_softjet, dataset_era
             )
@@ -447,12 +447,13 @@ def analyze_data(
                 dnn_vars["lumi"] = scalars["luminosityBlock"][dnn_presel]
                 dnn_vars["event"] = scalars["event"][dnn_presel]
                 dnn_vars["dnn_pred"] = dnn_prediction
-                dnn_vars["dnnPisa_pred"] = dnnPisa_prediction
+                for imodel in range(4):
+                    dnn_vars["dnnPisa_pred"+str(imodel)] = dnnPisa_predictions[imodel]
                 #Save the DNN training ntuples as npy files
                 if parameters["save_dnn_vars"] and jet_syst_name[0] == "nominal" and parameter_set_name == "baseline":
                     dnn_vars_np = {k: NUMPY_LIB.asnumpy(v) for k, v in dnn_vars.items()}
                     if is_mc:
-                        dnn_vars_np["nomweight"] = NUMPY_LIB.asnumpy(weights_in_dnn_presel["nominal"]*genweight_scalefactor)
+                        dnn_vars_np["nomweight"] = NUMPY_LIB.asnumpy(weights_in_dnn_presel["nominal"]/genweight_scalefactor)
                         dnn_vars_np["genweight"] = NUMPY_LIB.asnumpy(scalars["genWeight"][dnn_presel])
                         if "dy" in dataset_name or "ewk" in dataset_name:
                             for iScale in range(9):
@@ -961,7 +962,7 @@ def run_analysis(
             parameters=parameters,
             dnn_model=analysis_corrections.dnn_model,
             dnn_normfactors=analysis_corrections.dnn_normfactors,
-            dnnPisa_model=analysis_corrections.dnnPisa_model,
+            dnnPisa_models=analysis_corrections.dnnPisa_models,
             dnnPisa_normfactors1=analysis_corrections.dnnPisa_normfactors1,
             dnnPisa_normfactors2=analysis_corrections.dnnPisa_normfactors2,
             jetmet_corrections=analysis_corrections.jetmet_corrections,
@@ -1991,7 +1992,7 @@ def compute_fill_dnn(
     dnn_presel,
     dnn_model,
     dnn_normfactors,
-    dnnPisa_model,
+    dnnPisa_models,
     dnnPisa_normfactors1,
     dnnPisa_normfactors2,
     scalars,
@@ -2046,24 +2047,26 @@ def compute_fill_dnn(
         dnn_pred = NUMPY_LIB.zeros(nev_dnn_presel, dtype=NUMPY_LIB.float32)
 
     #Pisa DNN
+    dnnPisa_preds = []
     if parameters["do_dnn_pisa"]:
-        if (not (dnnPisa_model is None)) and nev_dnn_presel > 0:    
-            dnnPisa_vars1_arr = NUMPY_LIB.vstack([dnn_vars[k] for k in parameters["dnnPisa_varlist1_order"]]).T
-            dnnPisa_vars2_arr = NUMPY_LIB.vstack([dnn_vars[k] for k in parameters["dnnPisa_varlist2_order"]]).T
-            dnnPisa_vars1_arr += dnnPisa_normfactors1[0]
-            dnnPisa_vars1_arr *= dnnPisa_normfactors1[1]
-            dnnPisa_vars2_arr += dnnPisa_normfactors2[0] 
-            dnnPisa_vars2_arr *= dnnPisa_normfactors2[1]
-            dnnPisa_pred = NUMPY_LIB.array(dnnPisa_model.predict(
-                [NUMPY_LIB.asnumpy(dnnPisa_vars1_arr),NUMPY_LIB.asnumpy(dnnPisa_vars2_arr)],
-                batch_size=dnnPisa_vars1_arr.shape[0])[:, 0]
-            )
-            if len(dnnPisa_pred) > 0:
-                print("dnnPisa_pred", dnnPisa_pred.min(), dnnPisa_pred.max(), dnnPisa_pred.mean(), dnnPisa_pred.std())
-            dnnPisa_pred = NUMPY_LIB.array(dnnPisa_pred, dtype=NUMPY_LIB.float32)
-        else:
-            dnnPisa_pred = NUMPY_LIB.zeros(nev_dnn_presel, dtype=NUMPY_LIB.float32)
- 
+        for dnnPisa_model in dnnPisa_models:
+            if (not (dnnPisa_model is None)) and nev_dnn_presel > 0:    
+                dnnPisa_vars1_arr = NUMPY_LIB.vstack([dnn_vars[k] for k in parameters["dnnPisa_varlist1_order"]]).T
+                dnnPisa_vars2_arr = NUMPY_LIB.vstack([dnn_vars[k] for k in parameters["dnnPisa_varlist2_order"]]).T
+                dnnPisa_vars1_arr += dnnPisa_normfactors1[0]
+                dnnPisa_vars1_arr *= dnnPisa_normfactors1[1]
+                dnnPisa_vars2_arr += dnnPisa_normfactors2[0] 
+                dnnPisa_vars2_arr *= dnnPisa_normfactors2[1]
+                dnnPisa_pred = NUMPY_LIB.array(dnnPisa_model.predict(
+                    [NUMPY_LIB.asnumpy(dnnPisa_vars1_arr),NUMPY_LIB.asnumpy(dnnPisa_vars2_arr)],
+                    batch_size=dnnPisa_vars1_arr.shape[0])[:, 0]
+                )
+                if len(dnnPisa_pred) > 0:
+                    print("dnnPisa_pred", dnnPisa_pred.min(), dnnPisa_pred.max(), dnnPisa_pred.mean(), dnnPisa_pred.std())
+                dnnPisa_pred = NUMPY_LIB.array(dnnPisa_pred, dtype=NUMPY_LIB.float32)
+            else:
+                dnnPisa_pred = NUMPY_LIB.zeros(nev_dnn_presel, dtype=NUMPY_LIB.float32)
+            dnnPisa_preds += [dnnPisa_pred]
     if parameters["do_bdt_ucsd"]:
         hmmthetacs, hmmphics = miscvariables.csangles(
             NUMPY_LIB.asnumpy(leading_muon_s["pt"]),
@@ -2090,7 +2093,7 @@ def compute_fill_dnn(
     dnn_vars["m2eta"] = NUMPY_LIB.array(subleading_muon_s["eta"])
     dnn_vars["m1ptOverMass"] = NUMPY_LIB.divide(leading_muon_s["pt"],dnn_vars["Higgs_mass"])
     dnn_vars["m2ptOverMass"] = NUMPY_LIB.divide(subleading_muon_s["pt"],dnn_vars["Higgs_mass"])
-    return dnn_vars, dnn_pred, dnnPisa_pred
+    return dnn_vars, dnn_pred, dnnPisa_preds
 
 def get_jer_smearfactors(pt_or_m, ratio_jet_genjet, msk_no_genjet, msk_poor_reso, resos, resosfs):
     

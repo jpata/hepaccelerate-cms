@@ -304,7 +304,7 @@ class AnalysisCorrections:
 
         self.dnn_model = None
         self.dnn_normfactors = None
-        self.dnnPisa_model = None
+        self.dnnPisa_models = []
         self.dnnPisa_normfactors1 = None
         self.dnnPisa_normfactors2 = None
         if do_tensorflow:
@@ -335,17 +335,19 @@ class AnalysisCorrections:
             if args.use_cuda:
                 import cupy
                 self.dnn_normfactors = cupy.array(self.dnn_normfactors[0]), cupy.array(self.dnn_normfactors[1])
-
-            json_path = "data/PisaDNN/model_preparation/model_toexport_evt0.json"
-            with open(json_path, 'r') as file_handle:
-                self.dnnPisa_model = keras.models.model_from_json(file_handle.read())
-            self.dnnPisa_model.load_weights("data/PisaDNN/model_preparation/model_toexport_evt0.h5")
-            self.dnnPisa_normfactors1 = np.load("data/PisaDNN/model_preparation/helphelp_node1.npy")
-            self.dnnPisa_normfactors2 = np.load("data/PisaDNN/model_preparation/helphelp_node2.npy")
-            if args.use_cuda:
-                import cupy
-                self.dnnPisa_normfactors1 = cupy.array(self.dnnPisa_normfactors1[0]), cupy.array(self.dnnPisa_normfactors1[1])
-                self.dnnPisa_normfactors2 = cupy.array(self.dnnPisa_normfactors2[0]), cupy.array(self.dnnPisa_normfactors2[1])
+            
+            for imodel in range(4):
+                json_path = "data/PisaDNN/model_preparation/model_toexport_evt"+str(imodel)+".json"
+                with open(json_path, 'r') as file_handle:
+                    dnnPisa_model = keras.models.model_from_json(file_handle.read())
+                dnnPisa_model.load_weights("data/PisaDNN/model_preparation/model_toexport_evt"+str(imodel)+".h5")
+                self.dnnPisa_models += [dnnPisa_model]
+                self.dnnPisa_normfactors1 = np.load("data/PisaDNN/model_preparation/helphelp_node1.npy")
+                self.dnnPisa_normfactors2 = np.load("data/PisaDNN/model_preparation/helphelp_node2.npy")
+                if args.use_cuda:
+                    import cupy
+                    self.dnnPisa_normfactors1 = cupy.array(self.dnnPisa_normfactors1[0]), cupy.array(self.dnnPisa_normfactors1[1])
+                    self.dnnPisa_normfactors2 = cupy.array(self.dnnPisa_normfactors2[0]), cupy.array(self.dnnPisa_normfactors2[1])
         print("Loading UCSD BDT model")
         self.bdt_ucsd = GBREvaluator(self.libhmm, "data/Hmm_BDT_xml/2016/TMVAClassification_BDTG.weights.2jet_bveto_withmass.xml")
         self.bdt2j_ucsd = {
