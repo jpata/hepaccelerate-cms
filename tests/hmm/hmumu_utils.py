@@ -447,8 +447,9 @@ def analyze_data(
                 dnn_vars["lumi"] = scalars["luminosityBlock"][dnn_presel]
                 dnn_vars["event"] = scalars["event"][dnn_presel]
                 dnn_vars["dnn_pred"] = dnn_prediction
-                for imodel in range(4):
-                    dnn_vars["dnnPisa_pred"+str(imodel)] = dnnPisa_predictions[imodel]
+                if not (len(dnnPisa_predictions)==0):
+                    for imodel in range(4):
+                        dnn_vars["dnnPisa_pred"+str(imodel)] = dnnPisa_predictions[imodel]
                 #Save the DNN training ntuples as npy files
                 if parameters["save_dnn_vars"] and jet_syst_name[0] == "nominal" and parameter_set_name == "baseline":
                     dnn_vars_np = {k: NUMPY_LIB.asnumpy(v) for k, v in dnn_vars.items()}
