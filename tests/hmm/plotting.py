@@ -10,7 +10,7 @@ import copy
 import multiprocessing
 
 from pars import catnames, varnames, analysis_names, shape_systematics, controlplots_shape, datasets, genweight_scalefactor
-from pars import process_groups, colors, extra_plot_kwargs
+from pars import process_groups, colors, extra_plot_kwargs,proc_grps,combined_signal_samples
 
 from scipy.stats import wasserstein_distance
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
@@ -366,15 +366,13 @@ def create_variated_histos(
                 hret = hdict[sname]
             ret[sname2] = hret
     return ret
-
 def create_datacard(dict_procs, parameter_name, all_processes, histname, baseline, variations, weight_xs):
     
     ret = Results(OrderedDict())
     event_counts = {}
-
     hists_mc = []
- 
-    #print("create_datacard processes=", all_processes)
+    for pid,pid_procs in proc_grps:
+        event_counts[pid]=0
     for proc in all_processes:
         #print("create_datacard", proc)
         rr = dict_procs[proc]
@@ -391,26 +389,33 @@ def create_datacard(dict_procs, parameter_name, all_processes, histname, baselin
                 histo = histo * weight_xs[proc]
 
             if syst_name == "nominal":
-
-                event_counts[proc] = np.sum(histo.contents)
-                #print(proc, syst_name, np.sum(histo.contents))
+                found_proc=0
+                for pid,pid_procs in proc_grps:
+                    
+                    if proc in pid_procs:
+                        event_counts[pid]+= np.sum(histo.contents)
+                        found_proc=1
+                        #print(pid,proc, syst_name, np.sum(histo.contents))
+                    
                 if proc != "data":
                     hists_mc += [histo]
+                if found_proc==0:
+                    event_counts[proc] = np.sum(histo.contents)
             #create histogram name for combine datacard
+            
             hist_name = "{0}__{2}".format(proc, histname, syst_name)
             if hist_name == "data__nominal":
                 hist_name = "data_obs"
             hist_name = hist_name.replace("__nominal", "")
             
             ret[hist_name] = copy.deepcopy(histo)
-
     assert(len(hists_mc) > 0)
     hist_mc_tot = copy.deepcopy(hists_mc[0])
     for h in hists_mc[:1]:
         hist_mc_tot += h
     ret["data_fake"] = hist_mc_tot
- 
-    return ret, event_counts
+    ret_g = group_samples_datacard(ret, proc_grps)
+    return ret_g, event_counts
 
 def save_datacard(dc, outfile):
     fi = uproot.recreate(outfile)
@@ -425,6 +430,8 @@ def create_datacard_combine(
     dict_procs, parameter_name,
     all_processes,
     signal_processes,
+    combined_all_processes,
+    combined_signal_processes,
     histname, baseline,
     weight_xs,
     variations,
@@ -441,12 +448,12 @@ def create_datacard_combine(
     save_datacard(dc, rootfile_name)
  
     all_processes.pop(all_processes.index("data"))
-
+    combined_all_processes.pop(combined_all_processes.index("data"))
     shape_uncertainties = {v: 1.0 for v in variations}
     cat = Category(
         name=histname,
-        processes=list(all_processes),
-        signal_processes=signal_processes,
+        processes=list(combined_all_processes),
+        signal_processes=combined_signal_processes,
         common_shape_uncertainties=shape_uncertainties,
         common_scale_uncertainties=common_scale_uncertainties,
         scale_uncertainties=scale_uncertainties,
@@ -483,6 +490,35 @@ def to_th1(hdict, name):
     th1._fTsumwx2 = np.array(hdict.contents_w2 * centers).sum()
 
     return th1
+def group_samples_datacard(histos, groups):
+    ret = {}
+    grp_list=[]
+    for n,h in histos.items():
+        found_h=0
+        for groupname, groupcontents in groups:
+            if n in groupcontents:
+                if groupname not in grp_list:
+                    grp_list.append(groupname)
+                    ret[groupname] = []
+                ret[groupname] += [h]
+                found_h=1
+            else:
+                for gc in groupcontents:
+                    if( (gc == n.split('__')[0]) and (n.split('__')[-1]!=gc)):
+                        ext=n.split('__')[1]
+                        if (groupname+"__"+ext) not in grp_list:
+                            grp_list.append(groupname+"__"+ext)
+                            ret[groupname+"__"+ext]=[]
+                        ret[groupname+"__"+ext] += [h]
+                        found_h=1
+        if found_h==0:
+            if n not in grp_list:
+                grp_list.append(n)
+                ret[n]=[]
+            ret[n]+= [h]
+    for gn in grp_list: 
+        ret[gn] = sum(ret[gn][1:], ret[gn][0])
+    return ret
 
 def group_samples(histos, groups):
     ret = {}
@@ -647,6 +683,14 @@ def PrintDatacard(categories, event_counts, filenames, ofname):
     #
     #shapename = os.path.basename(datacard.output_datacardname)
     #shapename_base = shapename.split(".")[0]
+    if "z_peak" in cat.full_name:
+        dcof.write("RZ rateParam {0} dy_0j 1 \n".format(cat.full_name))  
+        dcof.write("RZ rateParam {0} dy_1j 1 \n".format(cat.full_name))  
+        dcof.write("RZ rateParam {0} dy_2j 1 \n".format(cat.full_name)) 
+    elif ("h_peak" in cat.full_name) or ("h_sideband" in cat.full_name):
+        dcof.write("R rateParam {0} dy_m105_160_amc 1 \n".format(cat.full_name))           
+        dcof.write("R rateParam {0} dy_m105_160_vbf_amc 1 \n".format(cat.full_name))
+    dcof.write("{0} autoMCStats 0 0 1 \n".format(cat.full_name))
     dcof.write("\n")
     dcof.write("# Execute with:\n")
     dcof.write("# combine -n {0} -M FitDiagnostics -t -1 {1} \n".format(cat.full_name, os.path.basename(ofname)))
@@ -657,7 +701,7 @@ if __name__ == "__main__":
 
     pool = multiprocessing.Pool(cmdline_args.nthreads)
 
-    from pars import cross_sections, categories
+    from pars import cross_sections, categories, combined_categories
     from pars import signal_samples, shape_systematics, common_scale_uncertainties, scale_uncertainties
 
     #create a list of all the processes that need to be loaded from the result files
@@ -742,15 +786,18 @@ if __name__ == "__main__":
                 if var in ["hist_puweight", "hist__dijet_inv_mass_gen", "hist__dnn_presel__dnn_pred"]:
                     print("Skipping {0}".format(var))
                     continue
-
                 if ("h_peak" in var):
                     mc_samples = categories["h_peak"]["datacard_processes"]
+                    combined_mc_samples = combined_categories["h_peak"]["datacard_processes"]
                 elif ("h_sideband" in var):
                     mc_samples = categories["h_sideband"]["datacard_processes"]
+                    combined_mc_samples = combined_categories["h_sideband"]["datacard_processes"]
                 elif ("z_peak" in var):
                     mc_samples = categories["z_peak"]["datacard_processes"]
+                    combined_mc_samples = combined_categories["z_peak"]["datacard_processes"]
                 else:
                     mc_samples = categories["dimuon"]["datacard_processes"]
+                    combined_mc_samples = combined_categories["dimuon"]["datacard_processes"]
 
 
                 #If we specified to only use certain processes in the datacard, keep only those
@@ -778,6 +825,8 @@ if __name__ == "__main__":
                     analysis,
                     ["data"] + mc_samples,
                     signal_samples,
+                    ["data"] + combined_mc_samples,
+                    combined_signal_samples,
                     var,
                     "nominal",
                     weight_xs,
