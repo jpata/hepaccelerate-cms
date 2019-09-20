@@ -1,6 +1,6 @@
 [submodule "hepaccelerate"]
 	path = hepaccelerate
-	url = https://github.com/jpata/hepaccelerate.git
+	url = https://github.com/hepaccelerate/hepaccelerate.git
 [submodule "coffea"]
 	path = coffea
-	url = https://github.com/jpata/coffea.git
+	url = https://github.com/hepaccelerate/coffea.git
