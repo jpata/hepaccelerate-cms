@@ -63,7 +63,7 @@ def analyze_data(
     lepsf_trig=None,
     dnn_model=None,
     dnn_normfactors=None,
-    dnnPisa_model=None,
+    dnnPisa_models=[],
     dnnPisa_normfactors1=None,
     dnnPisa_normfactors2=None,
     jetmet_corrections=None,
@@ -79,11 +79,13 @@ def analyze_data(
     bdt01j_ucsd = None,
     miscvariables = None,
     nnlopsreweighting = None,
-    hrelresolution = None 
+    hrelresolution = None,
+    zptreweighting = None 
     ):
 
     muons = data["Muon"]
     jets = data["Jet"]
+    softjets = data["SoftActivityJet"]
     electrons = data["Electron"]
     trigobj = data["TrigObj"]
     scalars = data["eventvars"]
@@ -103,6 +105,7 @@ def analyze_data(
     #temporary hack for JaggedStruct.select_objects (relies on backend)
     muons.hepaccelerate_backend = ha
     jets.hepaccelerate_backend = ha
+    softjets.hepaccelerate_backend = ha
 
     #associate the muon genpt to reco muons based on the NanoAOD index
     genJet, genpart = get_genparticles(data, muons, jets, is_mc, use_cuda)
@@ -179,7 +182,17 @@ def analyze_data(
         parameters["muon_iso_trigger_matched"], parameters["muon_id_trigger_matched"][dataset_era]
     )
     print("muon selection eff", ret_mu["selected_muons"].sum() / float(muons.numobjects()))
-    
+   
+    #Just a check to verify that there are exactly 2 muons per event
+    if doverify:
+        z = ha.sum_in_offsets(
+            muons,
+            ret_mu["selected_muons"],
+            ret_mu["selected_events"],
+            ret_mu["selected_muons"],
+            dtype=NUMPY_LIB.int8)
+        assert(NUMPY_LIB.all(z[z!=0] == 2))
+ 
     # Create arrays with just the leading and subleading particle contents for easier management
     mu_attrs = ["pt", "eta", "phi", "mass", "pdgId", "nTrackerLayers", "charge", "ptErr"]
     if is_mc:
@@ -217,23 +230,6 @@ def analyze_data(
                 m3 = weights_individual[w]["down"].mean()
                 assert(m1 > m3 and m1 < m2) 
  
-    #compute variated weights here to ensure the nominal weight contains all possible other weights  
-    compute_event_weights(weights_individual, scalars, genweight_scalefactor, gghnnlopsw, LHEScalew, pu_corrections, is_mc, dataset_era, dataset_name)
- 
-    #actually multiply all the weights together with the appropriate up/down variations.
-    #creates a 1-level dictionary with weights "nominal", "puweight__up", "puweight__down", ..." 
-    weights_final = finalize_weights(weights_individual)
-
-    #Just a check to verify that there are exactly 2 muons per event
-    if doverify:
-        z = ha.sum_in_offsets(
-            muons,
-            ret_mu["selected_muons"],
-            ret_mu["selected_events"],
-            ret_mu["selected_muons"],
-            dtype=NUMPY_LIB.int8)
-        assert(NUMPY_LIB.all(z[z!=0] == 2))
-
     # Get the selected electrons
     ret_el = get_selected_electrons(electrons, parameters["extra_electrons_pt"], parameters["extra_electrons_eta"], parameters["extra_electrons_id"])
     
@@ -245,7 +241,19 @@ def analyze_data(
     higgs_pt[NUMPY_LIB.isnan(higgs_pt)] = -1
     higgs_pt[NUMPY_LIB.isinf(higgs_pt)] = -1
     higgs_pt[higgs_pt==0] = -1
-    
+   
+    #Z pT reweighting for DY bkg
+    ZpTw = NUMPY_LIB.ones(muons.numevents(), dtype=NUMPY_LIB.float32)
+    if is_mc and (dataset_name in parameters["ZpT_reweight"][dataset_era]):
+       ZpTw = zptreweighting.compute(higgs_pt, parameters["ZpT_reweight"][dataset_era][dataset_name])
+
+    #compute variated weights here to ensure the nominal weight contains all possible other weights  
+    compute_event_weights(parameters, weights_individual, scalars, genweight_scalefactor, gghnnlopsw, ZpTw, LHEScalew, pu_corrections, is_mc, dataset_era, dataset_name)
+
+    #actually multiply all the weights together with the appropriate up/down variations.
+    #creates a 1-level dictionary with weights "nominal", "puweight__up", "puweight__down", ..." 
+    weights_final = finalize_weights(weights_individual)
+ 
     fill_histograms_several(
         hists, "nominal", "hist__dimuon__",
         [
@@ -362,7 +370,10 @@ def analyze_data(
                     leading_muon, subleading_muon, higgs_inv_mass,
                     n_additional_muons, n_additional_electrons,
                     ret_jet, leading_jet, subleading_jet)
-           
+          
+            #compute Nsoft jet variable by removing event footprints
+            n_sel_softjet = nsoftjets(muons.numevents(), softjets, leading_muon, subleading_muon, leading_jet, subleading_jet, parameters["softjet_pt"], parameters["softjet_evt_dr2"])
+
             #compute DNN input variables in 2 muon, >=2jet region
             dnn_presel = (
                 (ret_mu["selected_events"]) & (ret_jet["num_jets"] >= 2) &
@@ -392,10 +403,10 @@ def analyze_data(
 
             #Compute the DNN inputs, the DNN output, fill the DNN input and output variable histograms
             dnn_prediction = None
-            dnn_vars, dnn_prediction, dnnPisa_prediction = compute_fill_dnn(hrelresolution,
-               miscvariables, parameters, use_cuda, dnn_presel, dnn_model, dnn_normfactors, dnnPisa_model, dnnPisa_normfactors1, dnnPisa_normfactors2,
+            dnn_vars, dnn_prediction, dnnPisa_predictions = compute_fill_dnn(hrelresolution,
+               miscvariables, parameters, use_cuda, dnn_presel, dnn_model, dnn_normfactors, dnnPisa_models, dnnPisa_normfactors1, dnnPisa_normfactors2,
                scalars, leading_muon, subleading_muon, leading_jet, subleading_jet,
-               ret_jet["num_jets"],ret_jet["num_jets_btag"],dataset_era
+               ret_jet["num_jets"],ret_jet["num_jets_btag"], n_sel_softjet, dataset_era
             )
             weights_in_dnn_presel = apply_mask(weights_selected, dnn_presel)
           
@@ -436,12 +447,14 @@ def analyze_data(
                 dnn_vars["lumi"] = scalars["luminosityBlock"][dnn_presel]
                 dnn_vars["event"] = scalars["event"][dnn_presel]
                 dnn_vars["dnn_pred"] = dnn_prediction
-                dnn_vars["dnnPisa_pred"] = dnnPisa_prediction
+                if not (len(dnnPisa_predictions)==0):
+                    for imodel in range(len(dnnPisa_predictions)):
+                        dnn_vars["dnnPisa_pred"+str(imodel)] = dnnPisa_predictions[imodel]
                 #Save the DNN training ntuples as npy files
                 if parameters["save_dnn_vars"] and jet_syst_name[0] == "nominal" and parameter_set_name == "baseline":
                     dnn_vars_np = {k: NUMPY_LIB.asnumpy(v) for k, v in dnn_vars.items()}
                     if is_mc:
-                        dnn_vars_np["nomweight"] = NUMPY_LIB.asnumpy(weights_in_dnn_presel["nominal"]*genweight_scalefactor)
+                        dnn_vars_np["nomweight"] = NUMPY_LIB.asnumpy(weights_in_dnn_presel["nominal"]/genweight_scalefactor)
                         dnn_vars_np["genweight"] = NUMPY_LIB.asnumpy(scalars["genWeight"][dnn_presel])
                         if "dy" in dataset_name or "ewk" in dataset_name:
                             for iScale in range(9):
@@ -672,10 +685,12 @@ def finalize_weights(weights, all_weight_names=None):
         print("finalized weight", k, ret[k].mean())
     return ret
 
-def compute_event_weights(weights, scalars, genweight_scalefactor, gghw, LHEScalew, pu_corrections, is_mc, dataset_era, dataset_name):
+def compute_event_weights(parameters, weights, scalars, genweight_scalefactor, gghw, zptw, LHEScalew, pu_corrections, is_mc, dataset_era, dataset_name):
     if is_mc:
-        if "ggh" in dataset_name:
+        if dataset_name in parameters["ggh_nnlops_reweight"]:
             weights["nominal"]["nominal"] = scalars["genWeight"] * genweight_scalefactor * gghw
+        elif dataset_name in parameters["ZpT_reweight"][dataset_era]:
+            weights["nominal"]["nominal"] = scalars["genWeight"] * genweight_scalefactor * zptw
         else:
             weights["nominal"]["nominal"] = scalars["genWeight"] * genweight_scalefactor
  
@@ -948,7 +963,7 @@ def run_analysis(
             parameters=parameters,
             dnn_model=analysis_corrections.dnn_model,
             dnn_normfactors=analysis_corrections.dnn_normfactors,
-            dnnPisa_model=analysis_corrections.dnnPisa_model,
+            dnnPisa_models=analysis_corrections.dnnPisa_models,
             dnnPisa_normfactors1=analysis_corrections.dnnPisa_normfactors1,
             dnnPisa_normfactors2=analysis_corrections.dnnPisa_normfactors2,
             jetmet_corrections=analysis_corrections.jetmet_corrections,
@@ -958,7 +973,8 @@ def run_analysis(
             bdt01j_ucsd  = analysis_corrections.bdt01j_ucsd,
             miscvariables = analysis_corrections.miscvariables,
             nnlopsreweighting = analysis_corrections.nnlopsreweighting,
-            hrelresolution = analysis_corrections.hrelresolution)
+            hrelresolution = analysis_corrections.hrelresolution,
+            zptreweighting = analysis_corrections.zptreweighting)
 
         tnext = time.time()
         print("processed {0:.2E} ev/s".format(nev/float(tnext-tprev)))
@@ -1187,6 +1203,38 @@ def get_bit_values(array, bit_index):
     Given an array of N binary values (e.g. jet IDs), return the bit value at bit_index in [0, N-1].
     """
     return (array & 2**(bit_index)) >> 1
+
+# Custom kernels to get the number of softJets with pT>5 GEV
+def nsoftjets(nevt,softjets, leading_muon, subleading_muon, leading_jet, subleading_jet, ptcut, dr2cut):
+    njet_out = NUMPY_LIB.zeros(nevt, dtype=NUMPY_LIB.int32)
+    nsoftjets_cpu(nevt, softjets.offsets, softjets.pt, softjets.eta, softjets.phi, leading_jet["eta"], subleading_jet["eta"], leading_jet["phi"], subleading_jet["phi"], leading_muon["eta"], subleading_muon["eta"], leading_muon["phi"], subleading_muon["phi"], ptcut, dr2cut, njet_out)
+    return njet_out
+
+@numba.njit(parallel=True, fastmath=True)
+def nsoftjets_cpu(nevt, softjets_offsets, pt, eta, phi, etaj1, etaj2, phij1, phij2, etam1, etam2, phim1, phim2, ptcut, dr2cut, njet_out):
+    phis = [phij1, phij2, phim1, phim2]
+    etas = [etaj1, etaj2, etam1, etam2]
+    for iev in numba.prange(nevt):
+        njet = 0
+        for isoftjets in range(softjets_offsets[iev], softjets_offsets[iev + 1]):
+            if (pt[isoftjets] > ptcut):
+                if (eta[isoftjets]<etaj1[iev] and eta[isoftjets]>etaj2[iev]) or (eta[isoftjets]<etaj2[iev] and eta[isoftjets]>etaj1[iev]):
+                    sj_sel = True
+                    nobj = len(phis)
+                    for index in numba.prange(nobj):
+                        dphi = phi[isoftjets] - phis[index][iev]
+                        if dphi > math.pi:
+                            dphi = dphi - 2*math.pi
+                        elif (dphi + math.pi) < 0:
+                            dphi = dphi + 2*math.pi
+                        deta = eta[isoftjets] - etas[index][iev]
+                        dr = dphi**2 + deta**2
+                        if dr < dr2cut:
+                            sj_sel = False
+                            break
+
+                    if sj_sel: njet += 1
+        njet_out[iev] = njet
 
 def get_selected_jets_id(
     jets,
@@ -1786,7 +1834,7 @@ Fills the DNN input variables based on two muons and two jets.
     'Higgs_pt' - dimuon pt
     'Higgs_eta' - dimuon eta
 """
-def dnn_variables(hrelresolution, leading_muon, subleading_muon, leading_jet, subleading_jet, nsoft, use_cuda):
+def dnn_variables(hrelresolution, leading_muon, subleading_muon, leading_jet, subleading_jet, nsoft, n_sel_softjet, use_cuda):
     #delta eta, phi and R between two muons
     mm_deta, mm_dphi, mm_dr = deltar(leading_muon, subleading_muon, use_cuda)
     
@@ -1895,7 +1943,7 @@ def dnn_variables(hrelresolution, leading_muon, subleading_muon, leading_jet, su
         "Rpt": mmjj_sph["pt"]/(mm_sph["pt"]+jj_sph["pt"]),
         "qqDeltaEta": NUMPY_LIB.abs(jj_deta),
         "ll_zstar": NUMPY_LIB.abs(mm_sph["rapidity"] - 0.5*(leading_jet["rapidity"] + subleading_jet["rapidity"]))/(leading_jet["rapidity"]-subleading_jet["rapidity"]),
-        "NSoft5": nsoft,
+        "NSoft5": n_sel_softjet,
         "minEtaHQ": minEtaHQ,
         "log(Higgs_pt)": NUMPY_LIB.log(mm_sph["pt"]),
         "Mqq": jj_sph["mass"],
@@ -1945,7 +1993,7 @@ def compute_fill_dnn(
     dnn_presel,
     dnn_model,
     dnn_normfactors,
-    dnnPisa_model,
+    dnnPisa_models,
     dnnPisa_normfactors1,
     dnnPisa_normfactors2,
     scalars,
@@ -1955,6 +2003,7 @@ def compute_fill_dnn(
     subleading_jet,
     num_jets,
     num_jets_btag,
+    n_sel_softjet,
     dataset_era):
 
     nev_dnn_presel = NUMPY_LIB.sum(dnn_presel)
@@ -1968,8 +2017,9 @@ def compute_fill_dnn(
     leading_jet_s = apply_mask(leading_jet, dnn_presel)
     subleading_jet_s = apply_mask(subleading_jet, dnn_presel)
     nsoft = scalars["SoftActivityJetNjets5"][dnn_presel]
-
-    dnn_vars = dnn_variables(hrelresolution, leading_muon_s, subleading_muon_s, leading_jet_s, subleading_jet_s, nsoft, use_cuda)
+    nsoftNew = n_sel_softjet[dnn_presel]
+ 
+    dnn_vars = dnn_variables(hrelresolution, leading_muon_s, subleading_muon_s, leading_jet_s, subleading_jet_s, nsoft, nsoftNew, use_cuda)
     if dataset_era == "2017":
     	dnn_vars["MET_pt"] = scalars["METFixEE2017_pt"][dnn_presel]
     else:
@@ -1998,24 +2048,26 @@ def compute_fill_dnn(
         dnn_pred = NUMPY_LIB.zeros(nev_dnn_presel, dtype=NUMPY_LIB.float32)
 
     #Pisa DNN
+    dnnPisa_preds = []
     if parameters["do_dnn_pisa"]:
-        if (not (dnnPisa_model is None)) and nev_dnn_presel > 0:    
-            dnnPisa_vars1_arr = NUMPY_LIB.vstack([dnn_vars[k] for k in parameters["dnnPisa_varlist1_order"]]).T
-            dnnPisa_vars2_arr = NUMPY_LIB.vstack([dnn_vars[k] for k in parameters["dnnPisa_varlist2_order"]]).T
-            dnnPisa_vars1_arr += dnnPisa_normfactors1[0]
-            dnnPisa_vars1_arr *= dnnPisa_normfactors1[1]
-            dnnPisa_vars2_arr += dnnPisa_normfactors2[0] 
-            dnnPisa_vars2_arr *= dnnPisa_normfactors2[1]
-            dnnPisa_pred = NUMPY_LIB.array(dnnPisa_model.predict(
-                [NUMPY_LIB.asnumpy(dnnPisa_vars1_arr),NUMPY_LIB.asnumpy(dnnPisa_vars2_arr)],
-                batch_size=dnnPisa_vars1_arr.shape[0])[:, 0]
-            )
-            if len(dnnPisa_pred) > 0:
-                print("dnnPisa_pred", dnnPisa_pred.min(), dnnPisa_pred.max(), dnnPisa_pred.mean(), dnnPisa_pred.std())
-            dnnPisa_pred = NUMPY_LIB.array(dnnPisa_pred, dtype=NUMPY_LIB.float32)
-        else:
-            dnnPisa_pred = NUMPY_LIB.zeros(nev_dnn_presel, dtype=NUMPY_LIB.float32)
- 
+        for dnnPisa_model in dnnPisa_models:
+            if (not (dnnPisa_model is None)) and nev_dnn_presel > 0:    
+                dnnPisa_vars1_arr = NUMPY_LIB.vstack([dnn_vars[k] for k in parameters["dnnPisa_varlist1_order"]]).T
+                dnnPisa_vars2_arr = NUMPY_LIB.vstack([dnn_vars[k] for k in parameters["dnnPisa_varlist2_order"]]).T
+                dnnPisa_vars1_arr += dnnPisa_normfactors1[0]
+                dnnPisa_vars1_arr *= dnnPisa_normfactors1[1]
+                dnnPisa_vars2_arr += dnnPisa_normfactors2[0] 
+                dnnPisa_vars2_arr *= dnnPisa_normfactors2[1]
+                dnnPisa_pred = NUMPY_LIB.array(dnnPisa_model.predict(
+                    [NUMPY_LIB.asnumpy(dnnPisa_vars1_arr),NUMPY_LIB.asnumpy(dnnPisa_vars2_arr)],
+                    batch_size=dnnPisa_vars1_arr.shape[0])[:, 0]
+                )
+                if len(dnnPisa_pred) > 0:
+                    print("dnnPisa_pred", dnnPisa_pred.min(), dnnPisa_pred.max(), dnnPisa_pred.mean(), dnnPisa_pred.std())
+                dnnPisa_pred = NUMPY_LIB.array(dnnPisa_pred, dtype=NUMPY_LIB.float32)
+            else:
+                dnnPisa_pred = NUMPY_LIB.zeros(nev_dnn_presel, dtype=NUMPY_LIB.float32)
+            dnnPisa_preds += [dnnPisa_pred]
     if parameters["do_bdt_ucsd"]:
         hmmthetacs, hmmphics = miscvariables.csangles(
             NUMPY_LIB.asnumpy(leading_muon_s["pt"]),
@@ -2042,7 +2094,7 @@ def compute_fill_dnn(
     dnn_vars["m2eta"] = NUMPY_LIB.array(subleading_muon_s["eta"])
     dnn_vars["m1ptOverMass"] = NUMPY_LIB.divide(leading_muon_s["pt"],dnn_vars["Higgs_mass"])
     dnn_vars["m2ptOverMass"] = NUMPY_LIB.divide(subleading_muon_s["pt"],dnn_vars["Higgs_mass"])
-    return dnn_vars, dnn_pred, dnnPisa_pred
+    return dnn_vars, dnn_pred, dnnPisa_preds
 
 def get_jer_smearfactors(pt_or_m, ratio_jet_genjet, msk_no_genjet, msk_poor_reso, resos, resosfs):
     

@@ -15,7 +15,7 @@ from hepaccelerate.utils import Dataset, Results
 
 import hmumu_utils
 from hmumu_utils import run_analysis, run_cache, create_dataset_jobfiles, load_puhist_target
-from hmumu_lib import LibHMuMu, RochesterCorrections, LeptonEfficiencyCorrections, GBREvaluator, MiscVariables, NNLOPSReweighting, hRelResolution
+from hmumu_lib import LibHMuMu, RochesterCorrections, LeptonEfficiencyCorrections, GBREvaluator, MiscVariables, NNLOPSReweighting, hRelResolution, ZpTReweighting
 
 import os
 from coffea.util import USE_CUPY
@@ -304,7 +304,7 @@ class AnalysisCorrections:
 
         self.dnn_model = None
         self.dnn_normfactors = None
-        self.dnnPisa_model = None
+        self.dnnPisa_models = []
         self.dnnPisa_normfactors1 = None
         self.dnnPisa_normfactors2 = None
         if do_tensorflow:
@@ -335,17 +335,19 @@ class AnalysisCorrections:
             if args.use_cuda:
                 import cupy
                 self.dnn_normfactors = cupy.array(self.dnn_normfactors[0]), cupy.array(self.dnn_normfactors[1])
-
-            json_path = "data/PisaDNN/model_preparation/model_toexport_evt0.json"
-            with open(json_path, 'r') as file_handle:
-                self.dnnPisa_model = keras.models.model_from_json(file_handle.read())
-            self.dnnPisa_model.load_weights("data/PisaDNN/model_preparation/model_toexport_evt0.h5")
-            self.dnnPisa_normfactors1 = np.load("data/PisaDNN/model_preparation/helphelp_node1.npy")
-            self.dnnPisa_normfactors2 = np.load("data/PisaDNN/model_preparation/helphelp_node2.npy")
-            if args.use_cuda:
-                import cupy
-                self.dnnPisa_normfactors1 = cupy.array(self.dnnPisa_normfactors1[0]), cupy.array(self.dnnPisa_normfactors1[1])
-                self.dnnPisa_normfactors2 = cupy.array(self.dnnPisa_normfactors2[0]), cupy.array(self.dnnPisa_normfactors2[1])
+            
+            for imodel in range(4):
+                json_path = "data/PisaDNN/model_preparation/model_toexport_evt"+str(imodel)+".json"
+                with open(json_path, 'r') as file_handle:
+                    dnnPisa_model = keras.models.model_from_json(file_handle.read())
+                dnnPisa_model.load_weights("data/PisaDNN/model_preparation/model_toexport_evt"+str(imodel)+".h5")
+                self.dnnPisa_models += [dnnPisa_model]
+                self.dnnPisa_normfactors1 = np.load("data/PisaDNN/model_preparation/helphelp_node1.npy")
+                self.dnnPisa_normfactors2 = np.load("data/PisaDNN/model_preparation/helphelp_node2.npy")
+                if args.use_cuda:
+                    import cupy
+                    self.dnnPisa_normfactors1 = cupy.array(self.dnnPisa_normfactors1[0]), cupy.array(self.dnnPisa_normfactors1[1])
+                    self.dnnPisa_normfactors2 = cupy.array(self.dnnPisa_normfactors2[0]), cupy.array(self.dnnPisa_normfactors2[1])
         print("Loading UCSD BDT model")
         self.bdt_ucsd = GBREvaluator(self.libhmm, "data/Hmm_BDT_xml/2016/TMVAClassification_BDTG.weights.2jet_bveto_withmass.xml")
         self.bdt2j_ucsd = {
@@ -363,6 +365,8 @@ class AnalysisCorrections:
         self.nnlopsreweighting = NNLOPSReweighting(self.libhmm, "data/nnlops/NNLOPS_reweight.root")
         print("Loading hRelResolution...")
         self.hrelresolution = hRelResolution(self.libhmm, "data/PisaDNN/muonresolution.root")
+        print("Loading ZpTReweighting...")
+        self.zptreweighting = ZpTReweighting(self.libhmm)
 
 def main(args, datasets):
 
@@ -442,6 +446,9 @@ def main(args, datasets):
             "jet_btag": {"2016": 0.6321, "2017": 0.4941, "2018": 0.4184},
             "do_factorized_jec": args.do_factorized_jec,
 
+            "softjet_pt": 5.0,
+            "softjet_evt_dr2": 0.04, 
+
             "cat5_dijet_inv_mass": 400.0,
             "cat5_abs_jj_deta_cut": 2.5,
 
@@ -475,6 +482,30 @@ def main(args, datasets):
                 "ggh_powheg": 2,
                 "ggh_powhegPS": 2,
             },
+            "ZpT_reweight": {
+                "2016": {
+                    "dy_0j": 2, 
+                    "dy_1j": 2, 
+                    "dy_2j": 2, 
+                    "dy_m105_160_amc": 2, 
+                    "dy_m105_160_vbf_amc": 2,
+                },
+                "2017": {
+                    "dy_0j": 1,
+                    "dy_1j": 1,
+                    "dy_2j": 1,
+                    "dy_m105_160_amc": 1,
+                    "dy_m105_160_vbf_amc": 1,
+                },
+                "2018": {
+                    "dy_0j": 1,
+                    "dy_1j": 1,
+                    "dy_2j": 1,
+                    "dy_m105_160_amc": 1,
+                    "dy_m105_160_vbf_amc": 1,
+                },
+            },
+           
             #Pisa Group's DNN input variable order for keras
             "dnnPisa_varlist1_order": ['Mqq_log','Rpt','qqDeltaEta','ll_zstar','NSoft5','minEtaHQ','Higgs_pt','log(Higgs_pt)','Higgs_eta','Mqq','QJet0_pt_touse','QJet1_pt_touse','QJet0_eta','QJet1_eta','QJet0_phi','QJet1_phi','QJet0_qgl','QJet1_qgl'],
             "dnnPisa_varlist2_order": ['Higgs_m','Higgs_mRelReso','Higgs_mReso'],
