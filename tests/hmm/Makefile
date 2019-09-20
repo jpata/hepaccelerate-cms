@@ -5,7 +5,7 @@ CXX      = g++ -fPIC -fopenmp -O3
 CXXFLAGS= $(shell root-config --cflags)
 LIBS    = $(shell root-config --libs)
 
-SOURCES = GBRForestTools.cc LeptonEfficiencyCorrector.cc RoccoR.cc tinyxml2.cc WeightCalculatorFromHistogram.cc MiscVariables.cc NNLOPSReweighting.cc hRelResolution.cc
+SOURCES = GBRForestTools.cc LeptonEfficiencyCorrector.cc RoccoR.cc tinyxml2.cc WeightCalculatorFromHistogram.cc MiscVariables.cc NNLOPSReweighting.cc hRelResolution.cc ZpTReweighting.cc
 HEADERS = *.h
 
 OBJECTS = $(SOURCES:.cc=.o)

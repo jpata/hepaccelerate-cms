@@ -647,6 +647,14 @@ def PrintDatacard(categories, event_counts, filenames, ofname):
     #
     #shapename = os.path.basename(datacard.output_datacardname)
     #shapename_base = shapename.split(".")[0]
+    if "z_peak" in cat.full_name:
+        dcof.write("RZ rateParam {0} dy_0j 1 \n".format(cat.full_name))  
+        dcof.write("RZ rateParam {0} dy_1j 1 \n".format(cat.full_name))  
+        dcof.write("RZ rateParam {0} dy_2j 1 \n".format(cat.full_name)) 
+    elif ("h_peak" in cat.full_name) or ("h_sideband" in cat.full_name):
+        dcof.write("R rateParam {0} dy_m105_160_amc 1 \n".format(cat.full_name))           
+        dcof.write("R rateParam {0} dy_m105_160_vbf_amc 1 \n".format(cat.full_name))
+    dcof.write("{0} autoMCStats 0 1 1 \n".format(cat.full_name))
     dcof.write("\n")
     dcof.write("# Execute with:\n")
     dcof.write("# combine -n {0} -M FitDiagnostics -t -1 {1} \n".format(cat.full_name, os.path.basename(ofname)))
