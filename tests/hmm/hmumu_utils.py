@@ -373,7 +373,7 @@ def analyze_data(
                     ret_jet, leading_jet, subleading_jet)
           
             #compute Nsoft jet variable by removing event footprints
-            n_sel_softjet, n_sel_HTsoftjet = nsoftjets(scalars["SoftActivityJetNjets5"], muons.numevents(), softjets, leading_muon, subleading_muon, leading_jet, subleading_jet, parameters["softjet_pt"], parameters["softjet_evt_dr2"])
+            n_sel_softjet, n_sel_HTsoftjet = nsoftjets(scalars["SoftActivityJetNjets5"], scalars["SoftActivityJetHT5"], muons.numevents(), softjets, leading_muon, subleading_muon, leading_jet, subleading_jet, parameters["softjet_pt"], parameters["softjet_evt_dr2"])
 
             #compute DNN input variables in 2 muon, >=2jet region
             dnn_presel = (
@@ -1206,14 +1206,14 @@ def get_bit_values(array, bit_index):
     return (array & 2**(bit_index)) >> 1
 
 # Custom kernels to get the number of softJets with pT>5 GEV
-def nsoftjets(nsoft, nevt,softjets, leading_muon, subleading_muon, leading_jet, subleading_jet, ptcut, dr2cut):
+def nsoftjets(nsoft, softht, nevt,softjets, leading_muon, subleading_muon, leading_jet, subleading_jet, ptcut, dr2cut):
     nsjet_out = NUMPY_LIB.zeros(nevt, dtype=NUMPY_LIB.int32)
     HTsjet_out = NUMPY_LIB.zeros(nevt, dtype=NUMPY_LIB.float32)
-    nsoftjets_cpu(nsoft, nevt, softjets.offsets, softjets.pt, softjets.eta, softjets.phi, leading_jet["eta"], subleading_jet["eta"], leading_jet["phi"], subleading_jet["phi"], leading_muon["eta"], subleading_muon["eta"], leading_muon["phi"], subleading_muon["phi"], ptcut, dr2cut, nsjet_out, HTsjet_out)
+    nsoftjets_cpu(nsoft, softht, nevt, softjets.offsets, softjets.pt, softjets.eta, softjets.phi, leading_jet["eta"], subleading_jet["eta"], leading_jet["phi"], subleading_jet["phi"], leading_muon["eta"], subleading_muon["eta"], leading_muon["phi"], subleading_muon["phi"], ptcut, dr2cut, nsjet_out, HTsjet_out)
     return nsjet_out, HTsjet_out
 
 @numba.njit(parallel=True, fastmath=True)
-def nsoftjets_cpu(nsoft, nevt, softjets_offsets, pt, eta, phi, etaj1, etaj2, phij1, phij2, etam1, etam2, phim1, phim2, ptcut, dr2cut, nsjet_out, HTsjet_out):
+def nsoftjets_cpu(nsoft, softht, nevt, softjets_offsets, pt, eta, phi, etaj1, etaj2, phij1, phij2, etam1, etam2, phim1, phim2, ptcut, dr2cut, nsjet_out, HTsjet_out):
     phis = [phij1, phij2, phim1, phim2]
     etas = [etaj1, etaj2, etam1, etam2]
     for iev in numba.prange(nevt):
@@ -1221,8 +1221,8 @@ def nsoftjets_cpu(nsoft, nevt, softjets_offsets, pt, eta, phi, etaj1, etaj2, phi
         htsjet = 0
         for isoftjets in range(softjets_offsets[iev], softjets_offsets[iev + 1]):
             if (pt[isoftjets] > ptcut):
-                if (eta[isoftjets]<etaj1[iev] and eta[isoftjets]>etaj2[iev]) or (eta[isoftjets]<etaj2[iev] and eta[isoftjets]>etaj1[iev]):
-                    sj_sel = True
+                sj_sel = True
+                if ((eta[isoftjets]<etaj1[iev] and eta[isoftjets]>etaj2[iev]) or (eta[isoftjets]<etaj2[iev] and eta[isoftjets]>etaj1[iev])):
                     nobj = len(phis)
                     for index in numba.prange(nobj):
                         dphi = phi[isoftjets] - phis[index][iev]
@@ -1235,14 +1235,15 @@ def nsoftjets_cpu(nsoft, nevt, softjets_offsets, pt, eta, phi, etaj1, etaj2, phi
                         if dr < dr2cut:
                             sj_sel = False
                             break
+                else:
+                    sj_sel = False
 
-                    if sj_sel:
-                        htsjet += pt[isoftjets]
-                    else: 
-                        nbadsjet += 1
+                if not sj_sel:
+                    nbadsjet += 1
+                    htsjet += pt[isoftjets]
 
         nsjet_out[iev] = nsoft[iev] - nbadsjet
-        HTsjet_out[iev] = htsjet
+        HTsjet_out[iev] = softht[iev] - htsjet
 
 def get_selected_jets_id(
     jets,
@@ -2676,6 +2677,7 @@ def create_datastructure(dataset_name, is_mc, dataset_era):
             ("luminosityBlock", "uint32"),
             ("event", "uint64"),
             ("SoftActivityJetNjets5", "int32"),
+            ("SoftActivityJetHT5", "float32"),
             ("fixedGridRhoFastjetAll", "float32"),
         ],
     }
