@@ -1240,7 +1240,7 @@ def nsoftjets_cpu(nsoft, nevt, softjets_offsets, pt, eta, phi, etaj1, etaj2, phi
                         njet += 1
                         htsjet += pt[isoftjets]
 
-        nsjet_out[iev] = nsoft[iev] - 6 + njet
+        nsjet_out[iev] = nsoft[iev] + softjets_offsets[iev] - softjets_offsets[iev + 1] + njet
         HTsjet_out[iev] = htsjet
 
 def get_selected_jets_id(
