@@ -1217,7 +1217,7 @@ def nsoftjets_cpu(nsoft, nevt, softjets_offsets, pt, eta, phi, etaj1, etaj2, phi
     phis = [phij1, phij2, phim1, phim2]
     etas = [etaj1, etaj2, etam1, etam2]
     for iev in numba.prange(nevt):
-        njet = 0
+        nbadsjet = 0
         htsjet = 0
         for isoftjets in range(softjets_offsets[iev], softjets_offsets[iev + 1]):
             if (pt[isoftjets] > ptcut):
@@ -1236,11 +1236,12 @@ def nsoftjets_cpu(nsoft, nevt, softjets_offsets, pt, eta, phi, etaj1, etaj2, phi
                             sj_sel = False
                             break
 
-                    if sj_sel: 
-                        njet += 1
+                    if sj_sel:
                         htsjet += pt[isoftjets]
+                    else: 
+                        nbadsjet += 1
 
-        nsjet_out[iev] = nsoft[iev] + softjets_offsets[iev] - softjets_offsets[iev + 1] + njet
+        nsjet_out[iev] = nsoft[iev] - nbadsjet
         HTsjet_out[iev] = htsjet
 
 def get_selected_jets_id(
