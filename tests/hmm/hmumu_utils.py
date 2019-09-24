@@ -335,7 +335,8 @@ def analyze_data(
                 jets_passing_id,
                 mask_events,
                 parameters["jet_pt_subleading"][dataset_era],
-                parameters["jet_btag"][dataset_era],
+                parameters["jet_btag_medium"][dataset_era],
+                parameters["jet_btag_loose"][dataset_era],
                 is_mc, use_cuda
             )
             print("jet analysis syst={0} sdir={1} mean_pt_change={2:.4f} num_passing_jets={3} ".format(
@@ -406,7 +407,7 @@ def analyze_data(
             dnn_vars, dnn_prediction, dnnPisa_predictions = compute_fill_dnn(hrelresolution,
                miscvariables, parameters, use_cuda, dnn_presel, dnn_model, dnn_normfactors, dnnPisa_models, dnnPisa_normfactors1, dnnPisa_normfactors2,
                scalars, leading_muon, subleading_muon, leading_jet, subleading_jet,
-               ret_jet["num_jets"],ret_jet["num_jets_btag"], n_sel_softjet, dataset_era
+               ret_jet["num_jets"],ret_jet["num_jets_btag_medium"], n_sel_softjet, dataset_era
             )
             weights_in_dnn_presel = apply_mask(weights_selected, dnn_presel)
           
@@ -423,7 +424,7 @@ def analyze_data(
 
             #Assing a numerical category ID 
             category =  assign_category(
-                ret_jet["num_jets"], ret_jet["num_jets_btag"],
+                ret_jet["num_jets"], ret_jet["num_jets_btag_medium"], ret_jet["num_jets_btag_loose"],
                 n_additional_muons, n_additional_electrons,
                 ret_jet["dijet_inv_mass"],
                 leading_jet, subleading_jet,
@@ -1302,7 +1303,8 @@ def get_selected_jets(
     jets,
     mask_events,
     jet_pt_cut_subleading,
-    jet_btag,
+    jet_btag_medium,
+    jet_btag_loose,
     is_mc,
     use_cuda
     ):
@@ -1327,12 +1329,17 @@ def get_selected_jets(
 
     dijet_inv_mass, dijet_pt = compute_inv_mass(jets, mask_events, selected_jets & first_two_jets, use_cuda)
     
-    selected_jets_btag = selected_jets & (jets.btagDeepB >= jet_btag)
+    selected_jets_btag_medium = selected_jets & (jets.btagDeepB >= jet_btag_medium)
+
+    selected_jets_btag_loose = selected_jets & (jets.btagDeepB >= jet_btag_loose)
 
     num_jets = ha.sum_in_offsets(jets, selected_jets, mask_events,
         jets.masks["all"], NUMPY_LIB.int8)
 
-    num_jets_btag = ha.sum_in_offsets(jets, selected_jets_btag, mask_events,
+    num_jets_btag_medium = ha.sum_in_offsets(jets, selected_jets_btag_medium, mask_events,
+        jets.masks["all"], NUMPY_LIB.int8)
+
+    num_jets_btag_loose = ha.sum_in_offsets(jets, selected_jets_btag_loose, mask_events,
         jets.masks["all"], NUMPY_LIB.int8)
 
     # if debug:
@@ -1347,7 +1354,8 @@ def get_selected_jets(
     ret = {
         "selected_jets": selected_jets,
         "num_jets": num_jets,
-        "num_jets_btag": num_jets_btag,
+        "num_jets_btag_medium": num_jets_btag_medium,
+        "num_jets_btag_loose": num_jets_btag_loose,
         "dijet_inv_mass": dijet_inv_mass,
         "dijet_pt": dijet_pt
     }
@@ -2424,7 +2432,7 @@ def sync_printout(
                 print(s, file=fi)
 
 def assign_category(
-    njet, nbjet, n_additional_muons, n_additional_electrons,
+    njet, nbjet_medium, nbjet_loose, n_additional_muons, n_additional_electrons,
     dijet_inv_mass, leading_jet, subleading_jet, cat5_dijet_inv_mass_cut, cat5_abs_jj_deta_cut):
     cats = NUMPY_LIB.zeros_like(njet)
     cats[:] = -9999
@@ -2434,12 +2442,12 @@ def assign_category(
     jj_deta = NUMPY_LIB.abs(leading_jet["eta"] - subleading_jet["eta"])
 
     #cat 1, ttH
-    msk_1 = (nbjet > 0) & NUMPY_LIB.logical_or(n_additional_muons > 0, n_additional_electrons > 0)
+    msk_1 = NUMPY_LIB.logical_or(nbjet_medium > 0, nbjet_loose > 1) & NUMPY_LIB.logical_or(n_additional_muons > 0, n_additional_electrons > 0)
     cats[NUMPY_LIB.invert(msk_prev) & msk_1] = 1
     msk_prev = NUMPY_LIB.logical_or(msk_prev, msk_1)
 
     #cat 2
-    msk_2 = (nbjet > 0) & (njet > 1)
+    msk_2 = NUMPY_LIB.logical_or(nbjet_medium > 0, nbjet_loose > 1) & (njet > 1)
     cats[NUMPY_LIB.invert(msk_prev) & msk_2] = 2
     msk_prev = NUMPY_LIB.logical_or(msk_prev, msk_2)
 
