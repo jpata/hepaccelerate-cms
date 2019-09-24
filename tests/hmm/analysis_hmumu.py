@@ -448,7 +448,7 @@ def main(args, datasets):
             "do_factorized_jec": args.do_factorized_jec,
 
             "softjet_pt": 5.0,
-            "softjet_evt_dr2": 0.04, 
+            "softjet_evt_dr2": 0.16, 
 
             "cat5_dijet_inv_mass": 400.0,
             "cat5_abs_jj_deta_cut": 2.5,
