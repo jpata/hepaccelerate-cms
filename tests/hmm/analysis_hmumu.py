@@ -439,15 +439,17 @@ def main(args, datasets):
             "jet_pt_leading": {"2016": 35.0, "2017": 35.0, "2018": 35.0},
             "jet_pt_subleading": {"2016": 25.0, "2017": 25.0, "2018": 25.0},
             "jet_eta": 4.7,
-            "jet_id": "tight",
+            "jet_id": "loose",
             "jet_puid": "loose",
             "jet_veto_eta": [2.65, 3.139],
             "jet_veto_raw_pt": 50.0,  
-            "jet_btag": {"2016": 0.6321, "2017": 0.4941, "2018": 0.4184},
+            "jet_btag_medium": {"2016": 0.6321, "2017": 0.4941, "2018": 0.4184},
+            "jet_btag_loose": {"2016": 0.2217, "2017": 0.1522, "2018": 0.1241},
             "do_factorized_jec": args.do_factorized_jec,
 
             "softjet_pt": 5.0,
-            "softjet_evt_dr2": 0.04, 
+
+            "softjet_evt_dr2": 0.16, 
 
             "cat5_dijet_inv_mass": 400.0,
             "cat5_abs_jj_deta_cut": 2.5,
