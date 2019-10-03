@@ -482,14 +482,15 @@ def analyze_data(
                 #print(weights_individual['trigger']['nominal'].shape)
                 #print(dnn_presel.shape)
                 #import pdb;pdb.set_trace()
-                dnn_vars["trig_weight"] = weights_individual['trigger']['nominal'][dnn_presel]
-                dnn_vars["L1PreFiringWeight"] = weights_individual['L1PreFiringWeight']['nominal'][dnn_presel]
-                dnn_vars["puWeight"] = weights_individual['puWeight']['nominal'][dnn_presel]
-                dnn_vars["muidWeight"] = weights_individual['id']['nominal'][dnn_presel]*weights_individual['iso']['nominal'][dnn_presel]
-                dnn_vars["m1_id"] = weights_individual['mu1_id']['nominal'][dnn_presel]
-                dnn_vars["m1_iso"] = weights_individual['mu1_iso']['nominal'][dnn_presel]
-                dnn_vars["m2_id"] = weights_individual['mu2_id']['nominal'][dnn_presel]
-                dnn_vars["m2_iso"] = weights_individual['mu2_iso']['nominal'][dnn_presel]
+                if is_mc:
+                    dnn_vars["trig_weight"] = weights_individual['trigger']['nominal'][dnn_presel]
+                    dnn_vars["L1PreFiringWeight"] = weights_individual['L1PreFiringWeight']['nominal'][dnn_presel]
+                    dnn_vars["puWeight"] = weights_individual['puWeight']['nominal'][dnn_presel]
+                    dnn_vars["muidWeight"] = weights_individual['id']['nominal'][dnn_presel]*weights_individual['iso']['nominal'][dnn_presel]
+                    dnn_vars["m1_id"] = weights_individual['mu1_id']['nominal'][dnn_presel]
+                    dnn_vars["m1_iso"] = weights_individual['mu1_iso']['nominal'][dnn_presel]
+                    dnn_vars["m2_id"] = weights_individual['mu2_id']['nominal'][dnn_presel]
+                    dnn_vars["m2_iso"] = weights_individual['mu2_iso']['nominal'][dnn_presel]
                 dnn_vars["j1_jetId"] = leading_jet["jetId"][dnn_presel]
                 dnn_vars["j1_puId"] = leading_jet["puId"][dnn_presel]
                 dnn_vars["j2_jetId"] =subleading_jet["jetId"][dnn_presel]
@@ -1399,8 +1400,8 @@ def get_selected_jets(
 
     dijet_inv_mass, dijet_pt = compute_inv_mass(jets, mask_events, selected_jets & first_two_jets, use_cuda)
     
-    selected_jets_btag_medium = selected_jets & (jets.btagDeepB >= jet_btag_medium)# & (jets.pt > 30.)
-    selected_jets_btag_loose = selected_jets & (jets.btagDeepB >= jet_btag_loose)# & (jets.pt > 30.)
+    selected_jets_btag_medium = selected_jets & (jets.btagDeepB >= jet_btag_medium) & (abs(jets.pt > 2.5))
+    selected_jets_btag_loose = selected_jets & (jets.btagDeepB >= jet_btag_loose) & (abs(jets.eta <2.5))
 
     num_jets = ha.sum_in_offsets(jets, selected_jets, mask_events,
         jets.masks["all"], NUMPY_LIB.int8)
