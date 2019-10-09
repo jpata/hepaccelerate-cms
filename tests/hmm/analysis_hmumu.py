@@ -329,8 +329,8 @@ class AnalysisCorrections:
 
             #load DNN model
             import keras
-            self.dnn_model = keras.models.load_model("data/DNN27vars_sig_vbf_ggh_bkg_dyvbf_dy105To160_ewk105To160_split_60_40_mod10_190821.h5")
-            self.dnn_normfactors = np.load("data/DNN27vars_sig_vbf_ggh_bkg_dyvbf_dy105To160_ewk105To160_split_60_40_mod10_190821.npy")
+            self.dnn_model = keras.models.load_model("data/DNN27vars_sig_vbf_ggh_bkg_dyvbf_dy105To160_ewk105To160_split_60_40_mod10_191008.h5")
+            self.dnn_normfactors = np.load("data/DNN27vars_sig_vbf_ggh_bkg_dyvbf_dy105To160_ewk105To160_split_60_40_mod10_191008.npy")
 
             if args.use_cuda:
                 import cupy
@@ -439,7 +439,7 @@ def main(args, datasets):
             "jet_pt_leading": {"2016": 35.0, "2017": 35.0, "2018": 35.0},
             "jet_pt_subleading": {"2016": 25.0, "2017": 25.0, "2018": 25.0},
             "jet_eta": 4.7,
-            "jet_id": "loose",
+            "jet_id": {"2016":"loose","2017":"tight","2018":"tight"},
             "jet_puid": "loose",
             "jet_veto_eta": [2.65, 3.139],
             "jet_veto_raw_pt": 50.0,  
@@ -512,9 +512,9 @@ def main(args, datasets):
             "dnnPisa_varlist1_order": ['Mqq_log','Rpt','qqDeltaEta','ll_zstar','NSoft5','minEtaHQ','Higgs_pt','log(Higgs_pt)','Higgs_eta','Mqq','QJet0_pt_touse','QJet1_pt_touse','QJet0_eta','QJet1_eta','QJet0_phi','QJet1_phi','QJet0_qgl','QJet1_qgl'],
             "dnnPisa_varlist2_order": ['Higgs_m','Higgs_mRelReso','Higgs_mReso'],
             #Irene's DNN input variable order for keras
-            "dnn_varlist_order": ['softJet5', 'dRmm','dEtamm','M_jj','pt_jj','eta_jj','phi_jj','M_mmjj','eta_mmjj','phi_mmjj','dEta_jj','Zep','dRmin_mj', 'dRmax_mj', 'dRmin_mmj','dRmax_mmj','dPhimm','leadingJet_pt','subleadingJet_pt', 'leadingJet_eta','subleadingJet_eta','leadingJet_qgl','subleadingJet_qgl','cthetaCS','Higgs_pt','Higgs_eta','Higgs_mass'],
+            "dnn_varlist_order": ['HTSoft5', 'dRmm','dEtamm','M_jj','pt_jj','eta_jj','phi_jj','M_mmjj','eta_mmjj','phi_mmjj','dEta_jj','Zep','minEtaHQ','minPhiHQ','dPhimm','leadingJet_pt','subleadingJet_pt','massErr_rel', 'leadingJet_eta','subleadingJet_eta','leadingJet_qgl','subleadingJet_qgl','cthetaCS','Higgs_pt','Higgs_eta','Higgs_mass'],
             "dnn_input_histogram_bins": {
-                "softJet5": (0,10,10),
+                "HTSoft5": (0,10,10),
                 "dRmm": (0,5,11),
                 "dEtamm": (-2,2,11),
                 "dPhimm": (-2,2,11),
@@ -527,12 +527,11 @@ def main(args, datasets):
                 "phi_mmjj": (-3,3,11),
                 "dEta_jj": (-3,3,11),
                 "Zep": (-2,2,11),
-                "dRmin_mj": (0,5,11),
-                "dRmax_mj": (0,5,11),
-                "dRmin_mmj": (0,5,11),
-                "dRmax_mmj": (0,5,11),
+                "minEtaHQ":(-5,5,11),
+                "minPhiHQ":(-5,5,11),
                 "leadingJet_pt": (0, 200, 11),
                 "subleadingJet_pt": (0, 200, 11),
+                "massErr_rel":(0,0.5,11),
                 "leadingJet_eta": (-5, 5, 11),
                 "subleadingJet_eta": (-5, 5, 11),
                 "leadingJet_qgl": (0, 1, 11),

@@ -1309,16 +1309,16 @@ def get_selected_jets_id(
     jet_veto_eta_upper_cut,
     jet_veto_raw_pt,
     dataset_era):
-
+    #import pdb;pdb.set_trace();
     #2017 and 2018: jetId = Var("userInt('tightId')*2+4*userInt('tightIdLepVeto'))
     #Jet ID flags bit0 is loose (always false in 2017 since it does not exist), bit1 is tight, bit2 is tightLepVeto
     #run2_nanoAOD_94X2016: jetId = Var("userInt('tightIdLepVeto')*4+userInt('tightId')*2+userInt('looseId')",int,doc="Jet ID flags bit1 is loose, bit2 is tight, bit3 is tightLepVeto"
-    if jet_id == "tight":
+    if jet_id[dataset_era] == "tight":
         if dataset_era == "2017" or dataset_era == "2018":
             pass_jetid = jets.jetId >= 2
         else:
             pass_jetid = jets.jetId >= 3
-    elif jet_id == "loose": 
+    elif jet_id[dataset_era] == "loose": 
         pass_jetid = jets.jetId >= 1
 
     #The value is a bit representation of the fulfilled working points: tight (1), medium (2), and loose (4).
@@ -1619,8 +1619,8 @@ def select_events_trigger(scalars, parameters, mask_events, hlt_bits):
         mask_events = mask_events & scalars[flag]
     
     pvsel = scalars["PV_npvsGood"] > parameters["nPV"]
-    pvsel = pvsel & (scalars["PV_ndof"] > parameters["NdfPV"])
-    pvsel = pvsel & (scalars["PV_z"] < parameters["zPV"])
+    #pvsel = pvsel & (scalars["PV_ndof"] > parameters["NdfPV"])
+    #pvsel = pvsel & (scalars["PV_z"] < parameters["zPV"])
 
     trig_decision = scalars[hlt_bits[0]]
     for hlt_bit in hlt_bits[1:]:
@@ -2112,6 +2112,13 @@ def compute_fill_dnn(
     HTsoft = n_sel_HTsoftjet[dnn_presel]
 
     dnn_vars = dnn_variables(hrelresolution, leading_muon_s, subleading_muon_s, leading_jet_s, subleading_jet_s, nsoft, nsoftNew, HTsoft, use_cuda)
+    # event-by-event mass resolution
+    dpt1 = (leading_muon_s["ptErr"]*dnn_vars["Higgs_mass"]) / (2*leading_muon_s["pt"])
+    dpt2 = (subleading_muon_s["ptErr"]*dnn_vars["Higgs_mass"]) / (2*subleading_muon_s["pt"])
+    mm_massErr = NUMPY_LIB.sqrt(dpt1*dpt1 +dpt2*dpt2)
+    dnn_vars["massErr"] = mm_massErr
+    dnn_vars["massErr_rel"] = mm_massErr / dnn_vars["Higgs_mass"]
+
     if dataset_era == "2017":
     	dnn_vars["MET_pt"] = scalars["METFixEE2017_pt"][dnn_presel]
     else:
@@ -2175,12 +2182,7 @@ def compute_fill_dnn(
         dnn_vars["hmmthetacs"] = NUMPY_LIB.array(hmmthetacs)
         dnn_vars["hmmphics"] = NUMPY_LIB.array(hmmphics)
     
-    # event-by-event mass resolution
-    dpt1 = (leading_muon_s["ptErr"]*dnn_vars["Higgs_mass"]) / (2*leading_muon_s["pt"])
-    dpt2 = (subleading_muon_s["ptErr"]*dnn_vars["Higgs_mass"]) / (2*subleading_muon_s["pt"])
-    mm_massErr = NUMPY_LIB.sqrt(dpt1*dpt1 +dpt2*dpt2)
-    dnn_vars["massErr"] = mm_massErr
-    dnn_vars["massErr_rel"] = mm_massErr / dnn_vars["Higgs_mass"]
+    
 
     dnn_vars["m1eta"] = NUMPY_LIB.array(leading_muon_s["eta"])
     dnn_vars["m2eta"] = NUMPY_LIB.array(subleading_muon_s["eta"])
