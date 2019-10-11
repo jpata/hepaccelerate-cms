@@ -2030,7 +2030,7 @@ def dnn_variables(hrelresolution, leading_muon, subleading_muon, leading_jet, su
         "Higgs_pt": mm_sph["pt"],
         "Higgs_eta": mm_sph["eta"],
         "Higgs_rapidity": mm_sph["rapidity"],
-        "Higgs_mass": fixm,#mm_sph["mass"],
+        "Higgs_mass": mm_sph["mass"], #fixm
         #DNN pisa variable
         "Mqq_log": NUMPY_LIB.log(jj_sph["mass"] ),
         "Rpt": mmjj_sph["pt"]/(mm_sph["pt"]+jj_sph["pt"]),
