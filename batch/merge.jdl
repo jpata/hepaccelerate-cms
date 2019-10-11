@@ -13,9 +13,9 @@ Requirements=(TARGET.OpSysAndVer=="CentOS7" && regexp("blade-.*", TARGET.Machine
 
 run_as_owner = True
 x509userproxy = $ENV(X509_USER_PROXY)
-RequestDisk = 4
-RequestMemory = 24*3*1000
-RequestCpus = 24
+RequestDisk = 2
+RequestMemory = 4000
+RequestCpus = 4
 
 Environment = USER=$ENV(USER);CONDORJOBID=$(Process);SUBMIT_DIR=$ENV(SUBMIT_DIR)
 

@@ -455,6 +455,7 @@ def analyze_data(
 
             #Assing a numerical category ID 
             category =  assign_category(
+
                 ret_jet["num_jets"], ret_jet["num_jets_btag_medium"],ret_jet["num_jets_btag_loose"],
                 n_additional_muons, n_additional_electrons,
                 ret_jet["dijet_inv_mass"],
@@ -1266,7 +1267,8 @@ def nsoftjets(nsoft, softht, nevt,softjets, leading_muon, subleading_muon, leadi
     return nsjet_out, HTsjet_out
 
 @numba.njit(parallel=True, fastmath=True)
-def nsoftjets_cpu(nsoft, softht, nevt, softjets_offsets, pt, eta, phi, etaj1, etaj2, phij1, phij2, etam1, etam2, phim1, phim2, ptcut, dr2cut, nsjet_out,HTsjet_out):
+
+def nsoftjets_cpu(nsoft, softht, nevt, softjets_offsets, pt, eta, phi, etaj1, etaj2, phij1, phij2, etam1, etam2, phim1, phim2, ptcut, dr2cut, nsjet_out, HTsjet_out):
     phis = [phij1, phij2, phim1, phim2]
     etas = [etaj1, etaj2, etam1, etam2]
     for iev in numba.prange(nevt):
@@ -1290,6 +1292,7 @@ def nsoftjets_cpu(nsoft, softht, nevt, softjets_offsets, pt, eta, phi, etaj1, et
                             break
                 else:
                     sj_sel = False
+
                 if not sj_sel: 
                     htsjet += pt[isoftjets]
                     nbadsjet += 1
@@ -1400,6 +1403,7 @@ def get_selected_jets(
 
     dijet_inv_mass, dijet_pt = compute_inv_mass(jets, mask_events, selected_jets & first_two_jets, use_cuda)
     
+
     selected_jets_btag_medium = selected_jets & (jets.btagDeepB >= jet_btag_medium) & (abs(jets.eta) < 2.5)
     selected_jets_btag_loose = selected_jets & (jets.btagDeepB >= jet_btag_loose) & (abs(jets.eta) <2.5)
 
@@ -2033,6 +2037,7 @@ def dnn_variables(hrelresolution, leading_muon, subleading_muon, leading_jet, su
         "qqDeltaEta": NUMPY_LIB.abs(jj_deta),
         "ll_zstar": NUMPY_LIB.abs(mm_sph["rapidity"] - 0.5*(leading_jet["rapidity"] + subleading_jet["rapidity"]))/(leading_jet["rapidity"]-subleading_jet["rapidity"]),
         "NSoft5": n_sel_softjet,
+        "HTSoft5": n_sel_HTsoftjet,
         "minEtaHQ": minEtaHQ,
         "minPhiHQ": minPhiHQ,
         "log(Higgs_pt)": NUMPY_LIB.log(mm_sph["pt"]),
