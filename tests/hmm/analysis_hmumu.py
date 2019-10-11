@@ -51,6 +51,7 @@ def parse_args():
     parser.add_argument('--eras', action='append', help='Data eras to process', type=str, required=False)
     parser.add_argument('--pinned', action='store_true', help='Use CUDA pinned memory')
     parser.add_argument('--do-sync', action='store_true', help='run only synchronization datasets')
+    parser.add_argument('--do-fsr', action='store_true', help='add FSR recovery')
     parser.add_argument('--do-factorized-jec', action='store_true', help='Enables factorized JEC, disables most validation plots')
     parser.add_argument('--do-profile', action='store_true', help='Profile the code with yappi')
     parser.add_argument('--disable-tensorflow', action='store_true', help='Disable loading and evaluating the tensorflow model')

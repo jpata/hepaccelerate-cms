@@ -71,6 +71,7 @@ def analyze_data(
     parameter_set_name="",
     doverify=False,
     do_sync = False,
+    do_fsr = False,
     dataset_era = "",
     dataset_name = "",
     dataset_num_chunk = "",
@@ -195,11 +196,24 @@ def analyze_data(
  
     # Create arrays with just the leading and subleading particle contents for easier management
     mu_attrs = ["pt", "eta", "phi", "mass", "pdgId", "nTrackerLayers", "charge", "ptErr"]
+
+    if do_fsr:
+        mu_attrs += ["pt_FSR", "eta_FSR", "phi_FSR"]
+
     if is_mc:
         mu_attrs += ["genpt"]
     leading_muon = muons.select_nth(0, ret_mu["selected_events"], ret_mu["selected_muons"], attributes=mu_attrs)
     subleading_muon = muons.select_nth(1, ret_mu["selected_events"], ret_mu["selected_muons"], attributes=mu_attrs)
-    if doverify:
+
+    if do_fsr:
+        mu1_kin = (leading_muon["pt"], leading_muon["eta"], leading_muon["phi"], leading_muon["mass"])
+        fsr1_kin = (leading_muon["pt_FSR"], leading_muon["eta_FSR"], leading_muon["phi_FSR"], 0)
+        mu2_kin = (subleading_muon["pt"], subleading_muon["eta"], subleading_muon["phi"], subleading_muon["mass"])
+        fsr2_kin = (subleading_muon["pt_FSR"], subleading_muon["eta_FSR"], subleading_muon["phi_FSR"], 0)
+        leading_muon["pt"], leading_muon["eta"], leading_muon["phi"] = sum_four_vectors([mu1_kin, fsr1_kin])
+        subleading_muon["pt"], subleading_muon["eta"], subleading_muon["phi"] = sum_four_vectors([mu2_kin, fsr2_kin])
+
+   if doverify:
         assert(NUMPY_LIB.all(leading_muon["pt"][leading_muon["pt"]>0] > parameters["muon_pt_leading"][dataset_era]))
         assert(NUMPY_LIB.all(subleading_muon["pt"][subleading_muon["pt"]>0] > parameters["muon_pt"]))
 
@@ -915,7 +929,8 @@ def run_analysis(
     training_set_generator = InputGen(
         job_descriptions,
         cmdline_args.cache_location,
-        cmdline_args.datapath)
+        cmdline_args.datapath,
+        cmdline_args.do_fsr)
 
     threadk = thread_killer()
     threadk.set_tokill(False)
@@ -969,6 +984,7 @@ def run_analysis(
             dnnPisa_normfactors2=analysis_corrections.dnnPisa_normfactors2,
             jetmet_corrections=analysis_corrections.jetmet_corrections,
             do_sync = cmdline_args.do_sync,
+            do_fsr = cmdline_args.do_fsr,
             bdt_ucsd  = analysis_corrections.bdt_ucsd,
             bdt2j_ucsd  = analysis_corrections.bdt2j_ucsd,
             bdt01j_ucsd  = analysis_corrections.bdt01j_ucsd,
@@ -1392,6 +1408,21 @@ def compute_jet_raw_pt(jets):
     """
     raw_pt = jets.pt * (1.0 - jets.rawFactor)
     return raw_pt
+
+def sum_four_vectors(objects):
+    for pt, eta, phi, mass in objects:
+        px = pt * np.cos(phi)
+        py = pt * np.sin(phi)
+        pz = pt * np.sinh(eta)
+        e = np.sqrt(px**2 + py**2 + pz**2 + mass**2)
+        px_total += px
+        py_total += py
+        pz_total += pz
+        e_total += e
+    pt_total = np.sqrt(px_total**2 + py_total**2)
+    eta_total = np.arcsinh(pz_total / pt_total)
+    phi_total = np.arctan2(py_total, px_total)
+    return pt_total, eta_total, phi_total
 
 def compute_inv_mass(objects, mask_events, mask_objects, use_cuda):
     inv_mass = NUMPY_LIB.zeros(len(mask_events), dtype=np.float32)
@@ -2591,8 +2622,9 @@ def cache_data_multiproc_worker(args):
     dataset_name = job_desc["dataset_name"]
     dataset_era = job_desc["dataset_era"]
     is_mc = job_desc["is_mc"]
+    do_fsr = cmdline_args.do_fsr
 
-    datastructure = create_datastructure(dataset_name, is_mc, dataset_era)
+    datastructure = create_datastructure(dataset_name, is_mc, dataset_era, do_fsr)
 
     #Used for preselection in the cache
     hlt_bits = parameters["baseline"]["hlt_bits"][dataset_era]
@@ -2620,7 +2652,7 @@ def cache_data_multiproc_worker(args):
     return len(ds), processed_size_mb
 
 #Branches to load from the ROOT files
-def create_datastructure(dataset_name, is_mc, dataset_era):
+def create_datastructure(dataset_name, is_mc, dataset_era, do_fsr=False):
     datastructures = {
         "Muon": [
             ("Muon_pt", "float32"), ("Muon_eta", "float32"),
@@ -2681,6 +2713,13 @@ def create_datastructure(dataset_name, is_mc, dataset_era):
             ("fixedGridRhoFastjetAll", "float32"),
         ],
     }
+
+    if do_fsr:
+        datastructures["Muon"] += [
+            ("Muon_pt_FSR", "float32"),
+            ("Muon_eta_FSR", "float32"),
+            ("Muon_phi_FSR", "float32"),
+        ]
 
     if is_mc:
         datastructures["EventVariables"] += [
@@ -2772,7 +2811,7 @@ class thread_killer(object):
             self.to_kill = tokill
 
 class InputGen:
-    def __init__(self, job_descriptions, cache_location, datapath):
+    def __init__(self, job_descriptions, cache_location, datapath, do_fsr):
 
         self.job_descriptions = job_descriptions
         self.chunk_lock = threading.Lock()
@@ -2782,6 +2821,7 @@ class InputGen:
 
         self.cache_location = cache_location
         self.datapath = datapath
+        self.do_fsr = do_fsr
 
     def is_done(self):
         return (self.num_chunk == len(self)) and (self.num_loaded == len(self))
@@ -2799,7 +2839,7 @@ class InputGen:
         print("Loading dataset {0} job desc {1}/{2}, {3}".format(
             job_desc["dataset_name"], self.num_chunk, len(self.job_descriptions), job_desc["filenames"]))
 
-        datastructures = create_datastructure(job_desc["dataset_name"], job_desc["is_mc"], job_desc["dataset_era"])
+        datastructures = create_datastructure(job_desc["dataset_name"], job_desc["is_mc"], job_desc["dataset_era"], self.do_fsr)
 
         ds = create_dataset(
             job_desc["dataset_name"],
