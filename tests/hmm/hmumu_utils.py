@@ -213,7 +213,7 @@ def analyze_data(
         leading_muon["pt"], leading_muon["eta"], leading_muon["phi"] = sum_four_vectors([mu1_kin, fsr1_kin])
         subleading_muon["pt"], subleading_muon["eta"], subleading_muon["phi"] = sum_four_vectors([mu2_kin, fsr2_kin])
 
-   if doverify:
+    if doverify:
         assert(NUMPY_LIB.all(leading_muon["pt"][leading_muon["pt"]>0] > parameters["muon_pt_leading"][dataset_era]))
         assert(NUMPY_LIB.all(subleading_muon["pt"][subleading_muon["pt"]>0] > parameters["muon_pt"]))
 
