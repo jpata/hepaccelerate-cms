@@ -41,4 +41,4 @@ singularity exec --nv -B /storage $SINGULARITY_IMAGE python3 tests/hmm/analysis_
     --nthreads $NTHREADS \
     --out ./out --do-factorized-jec \
     --datasets ggh_amcPS --eras 2016 \
-    --datapath /storage/user/jpata \
+    --datapath $INPUTDATAPATH \
