@@ -1990,7 +1990,8 @@ def dnn_variables(hrelresolution, leading_muon, subleading_muon, leading_jet, su
     #Collin-Soper frame variable
     cthetaCS = 2*(m1["pz"] * m2["e"] - m1["e"]*m2["pz"]) / (mm_sph["mass"] * NUMPY_LIB.sqrt(NUMPY_LIB.power(mm_sph["mass"], 2) + NUMPY_LIB.power(mm_sph["pt"], 2)))
 
-
+    nw = len(leading_jet["eta"])
+    fixm = NUMPY_LIB.full(nw, 125.0, dtype=NUMPY_LIB.float32)
     ret = {
         "leading_muon_pt": leading_muon["pt"],
         "leading_muon_eta": leading_muon["eta"],
@@ -2025,7 +2026,7 @@ def dnn_variables(hrelresolution, leading_muon, subleading_muon, leading_jet, su
         "Higgs_pt": mm_sph["pt"],
         "Higgs_eta": mm_sph["eta"],
         "Higgs_rapidity": mm_sph["rapidity"],
-        "Higgs_mass": mm_sph["mass"],
+        "Higgs_mass": fixm,#mm_sph["mass"],
         #DNN pisa variable
         "Mqq_log": NUMPY_LIB.log(jj_sph["mass"] ),
         "Rpt": mmjj_sph["pt"]/(mm_sph["pt"]+jj_sph["pt"]),
