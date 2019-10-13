@@ -12,8 +12,8 @@ export MAXCHUNKS=1
 #As long as one person produces it, other people can run the analysis on this
 #Currently, use the cache provided by Joosep
 #export CACHE_PATH=/storage/user/jpata/hmm/cache
-export CACHE_PATH=mycache
-
+#export CACHE_PATH=mycache
+export CACHE_PATH=/storage/user/nlu/hmm/cache2
 export SINGULARITY_IMAGE=/storage/user/jpata/cupy2.simg
 export PYTHONPATH=coffea:hepaccelerate:.
 export NUMBA_THREADING_LAYER=tbb
@@ -24,19 +24,21 @@ export HEPACCELERATE_CUDA=0
 export KERAS_BACKEND=tensorflow
 
 #This is the location of the input NanoAOD and generally does not need to be changed
-export INPUTDATAPATH=/storage/user/jpata/
-
+#export INPUTDATAPATH=/storage/user/idutta/Hmm/Vectorized/my_fork/hepaccelerate-cms/
+export INPUTDATAPATH=/storage/user/jpata
 ## Step 1: cache ROOT data (need to repeat only when list of files or branches changes)
 ## This can take a few hours currently for the whole run (using maxchunks -1 and --nthreads 24)
-singularity exec --nv -B /storage -B /mnt/hadoop $SINGULARITY_IMAGE python3 tests/hmm/analysis_hmumu.py \
-   --action cache --maxchunks $MAXCHUNKS --chunksize 1 \
-   --nthreads 1 --cache-location $CACHE_PATH \
-   --datapath $INPUTDATAPATH --era 2016 --dataset ggh_amcPS
-
+#singularity exec --nv -B /storage -B /mnt/hadoop $SINGULARITY_IMAGE python3 tests/hmm/analysis_hmumu.py \
+#   --action cache --maxchunks $MAXCHUNKS --chunksize 1 \
+#   --nthreads 1 --cache-location $CACHE_PATH \
+#   --datapath $INPUTDATAPATH \
+#   --do-sync
 
 ## Step 2: Run the physics analysis
 singularity exec --nv -B /storage $SINGULARITY_IMAGE python3 tests/hmm/analysis_hmumu.py \
     --action analyze --action merge --maxchunks $MAXCHUNKS \
-    --nthreads $NTHREADS --cache-location $CACHE_PATH \
-    --out ./out \
-    --datapath $INPUTDATAPATH --era 2016 --dataset ggh_amcPS 
+    --cache-location $CACHE_PATH \
+    --nthreads $NTHREADS \
+    --out ./out --do-factorized-jec \
+    --datasets ggh_amcPS --eras 2016 \
+    --datapath $INPUTDATAPATH \

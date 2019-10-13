@@ -300,6 +300,7 @@ cross_sections = {
     "ggh_amcPS_TuneCP5up": 0.010571,
     "ggh_amc": 0.010571,
     "vbf": 0.000823,
+    "vbf_sync": 0.000823,
     "vbf_powheg_herwig": 0.000823,
     "vbf_powheg": 0.000823,
     "vbf_powhegPS": 0.000823,
@@ -364,7 +365,7 @@ jec_unc = [
 #    'SubTotalPt', 'SubTotalRelative', 'SubTotalScale', 'TimePtEta', 'Total', 'TotalNoFlavor',
 #    'TotalNoFlavorNoTime', 'TotalNoTime']
 
-jec_unc = ["Total"]
+#jec_unc = ["Total"]
 shape_systematics = jec_unc + ["jer", "trigger", "id", "iso", "puWeight", "L1PreFiringWeight"]
 common_scale_uncertainties = {
     "lumi": 1.025,
@@ -668,5 +669,6 @@ datasets = [
 
 # Synchronization datasets/
 datasets_sync = [
-    ("ggh", "2016", "data/ggh_nano_2016.root", True)
+    #("ggh", "2016", "data/ggh_nano_2016.root", True)
+    #("vbf_sync", "2016", "data/vbf_sync_2016.root",True)
 ]

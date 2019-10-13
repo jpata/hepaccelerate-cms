@@ -38,10 +38,10 @@ ha = None
 NUMPY_LIB = None
 
 #Use these to turn on debugging
+#debug = True
 debug = False
-
 #event IDs for which to print out detailed information
-debug_event_ids = []
+debug_event_ids = [38194,38438,47062,47186,4465]
 
 #list to collect performance data in
 global_metrics = []
@@ -223,6 +223,18 @@ def analyze_data(
             "up": lepton_sf_values["iso__up"], 
             "down": lepton_sf_values["iso__down"]
         }
+        weights_individual["mu1_id"] = {
+            "nominal": lepton_sf_values["mu1_id"]
+        }
+        weights_individual["mu1_iso"] = {
+            "nominal": lepton_sf_values["mu1_iso"]
+        }
+        weights_individual["mu2_id"] = {
+            "nominal": lepton_sf_values["mu2_id"]
+        }
+        weights_individual["mu2_iso"] = {
+            "nominal": lepton_sf_values["mu2_iso"]
+        }
         if doverify:
             for w in ["trigger", "id", "iso"]:
                 m1 = weights_individual[w]["nominal"].mean()
@@ -253,7 +265,25 @@ def analyze_data(
     #actually multiply all the weights together with the appropriate up/down variations.
     #creates a 1-level dictionary with weights "nominal", "puweight__up", "puweight__down", ..." 
     weights_final = finalize_weights(weights_individual)
- 
+    '''
+    if parameters["do_lepton_sf"] and is_mc:
+        lepton_sf_values = compute_lepton_sf(leading_muon, subleading_muon,
+            lepsf_iso[dataset_era], lepsf_id[dataset_era], lepsf_trig[dataset_era],
+            use_cuda, dataset_era, NUMPY_LIB, debug)
+        weights_individual["mu1_id"] = {
+            "nominal": lepton_sf_values["mu1_id"]
+        }
+        weights_individual["mu1_iso"] = {
+            "nominal": lepton_sf_values["mu1_iso"]
+        }
+        weights_individual["mu2_id"] = {
+            "nominal": lepton_sf_values["mu2_id"]
+        }
+        weights_individual["mu2_iso"] = {
+            "nominal": lepton_sf_values["mu2_iso"]
+        }
+    '''
+    #import pdb;pdb.set_trace()
     fill_histograms_several(
         hists, "nominal", "hist__dimuon__",
         [
@@ -284,7 +314,9 @@ def analyze_data(
 
     #Do the jet ID selection and lepton cleaning just once for the nominal jet systematic
     #as that does not depend on jet pt
+
     selected_jets_id = get_selected_jets_id(
+        scalars,
         jets, muons,
         parameters["jet_eta"],
         parameters["jet_mu_dr"],
@@ -361,20 +393,19 @@ def analyze_data(
             # Get the data for the leading and subleading jets as contiguous vectors
             leading_jet = jets_passing_id.select_nth(
                 0, ret_mu["selected_events"], ret_jet["selected_jets"],
-                attributes=["pt", "eta", "phi", "mass", "qgl"])
+                attributes=["pt", "eta", "phi", "mass", "qgl","jetId","puId"])
             subleading_jet = jets_passing_id.select_nth(
                 1, ret_mu["selected_events"], ret_jet["selected_jets"],
-                attributes=["pt", "eta", "phi", "mass", "qgl"])
+                attributes=["pt", "eta", "phi", "mass", "qgl","jetId","puId"])
 
-            if do_sync and jet_syst_name[0] == "nominal":
-                sync_printout(ret_mu, muons, scalars,
-                    leading_muon, subleading_muon, higgs_inv_mass,
-                    n_additional_muons, n_additional_electrons,
-                    ret_jet, leading_jet, subleading_jet)
+            #if do_sync and jet_syst_name[0] == "nominal":
+                #sync_printout(ret_mu, muons, scalars,
+                   # leading_muon, subleading_muon, higgs_inv_mass,
+                   # n_additional_muons, n_additional_electrons,
+                    #ret_jet, leading_jet, subleading_jet)
           
             #compute Nsoft jet variable by removing event footprints
             n_sel_softjet, n_sel_HTsoftjet = nsoftjets(scalars["SoftActivityJetNjets5"], scalars["SoftActivityJetHT5"], muons.numevents(), softjets, leading_muon, subleading_muon, leading_jet, subleading_jet, parameters["softjet_pt"], parameters["softjet_evt_dr2"])
-
             #compute DNN input variables in 2 muon, >=2jet region
             dnn_presel = (
                 (ret_mu["selected_events"]) & (ret_jet["num_jets"] >= 2) &
@@ -424,7 +455,8 @@ def analyze_data(
 
             #Assing a numerical category ID 
             category =  assign_category(
-                ret_jet["num_jets"], ret_jet["num_jets_btag_medium"], ret_jet["num_jets_btag_loose"],
+
+                ret_jet["num_jets"], ret_jet["num_jets_btag_medium"],ret_jet["num_jets_btag_loose"],
                 n_additional_muons, n_additional_electrons,
                 ret_jet["dijet_inv_mass"],
                 leading_jet, subleading_jet,
@@ -448,6 +480,27 @@ def analyze_data(
                 dnn_vars["lumi"] = scalars["luminosityBlock"][dnn_presel]
                 dnn_vars["event"] = scalars["event"][dnn_presel]
                 dnn_vars["dnn_pred"] = dnn_prediction
+                #print(weights_individual['trigger']['nominal'].shape)
+                #print(dnn_presel.shape)
+                #import pdb;pdb.set_trace()
+                if is_mc:
+                    dnn_vars["trig_weight"] = weights_individual['trigger']['nominal'][dnn_presel]
+                    dnn_vars["L1PreFiringWeight"] = weights_individual['L1PreFiringWeight']['nominal'][dnn_presel]
+                    dnn_vars["puWeight"] = weights_individual['puWeight']['nominal'][dnn_presel]
+                    dnn_vars["muidWeight"] = weights_individual['id']['nominal'][dnn_presel]*weights_individual['iso']['nominal'][dnn_presel]
+                    dnn_vars["m1_id"] = weights_individual['mu1_id']['nominal'][dnn_presel]
+                    dnn_vars["m1_iso"] = weights_individual['mu1_iso']['nominal'][dnn_presel]
+                    dnn_vars["m2_id"] = weights_individual['mu2_id']['nominal'][dnn_presel]
+                    dnn_vars["m2_iso"] = weights_individual['mu2_iso']['nominal'][dnn_presel]
+                dnn_vars["j1_jetId"] = leading_jet["jetId"][dnn_presel]
+                dnn_vars["j1_puId"] = leading_jet["puId"][dnn_presel]
+                dnn_vars["j2_jetId"] =subleading_jet["jetId"][dnn_presel]
+                dnn_vars["j2_puId"] = subleading_jet["puId"][dnn_presel]
+                dnn_vars["nmuons"] = n_additional_muons[dnn_presel]
+                dnn_vars["nelectrons"] = n_additional_electrons[dnn_presel]
+                dnn_vars["Nbjet_med"] = ret_jet["num_jets_btag_medium"][dnn_presel]
+                dnn_vars["Nbjet_loose"] = ret_jet["num_jets_btag_loose"][dnn_presel]
+                dnn_vars["Njet_loose"] = ret_jet["num_jets"][dnn_presel]
                 if not (len(dnnPisa_predictions)==0):
                     for imodel in range(len(dnnPisa_predictions)):
                         dnn_vars["dnnPisa_pred"+str(imodel)] = dnnPisa_predictions[imodel]
@@ -463,6 +516,7 @@ def analyze_data(
                     arrs = []
                     names = []
                     for k, v in dnn_vars_np.items():
+                        #print(k,v.shape)
                         arrs += [v]
                         names += [k]
                     arrdata = np.core.records.fromarrays(arrs, names=names)
@@ -649,13 +703,13 @@ def finalize_weights(weights, all_weight_names=None):
 
     #multitply up all the nominal weights
     for this_syst in all_weight_names:
-        if this_syst == "nominal" or this_syst == "LHEScaleWeight":
+        if this_syst == "nominal" or this_syst == "LHEScaleWeight" or this_syst == "mu1_id" or this_syst == "mu1_iso" or this_syst == "mu2_id"or this_syst == "mu2_iso":
             continue
         ret["nominal"] *= weights[this_syst]["nominal"]
 
     #create the variated weights, where just one weight is variated up or down
     for this_syst in all_weight_names:
-        if this_syst == "nominal":
+        if this_syst == "nominal" or this_syst == "mu1_id" or this_syst == "mu1_iso" or this_syst == "mu2_id"or this_syst == "mu2_iso":
             continue
         elif this_syst == "LHEScaleWeight":
             for sdir in ["0", "1", "2", "3", "4", "5", "6", "7", "8"]:
@@ -1213,6 +1267,7 @@ def nsoftjets(nsoft, softht, nevt,softjets, leading_muon, subleading_muon, leadi
     return nsjet_out, HTsjet_out
 
 @numba.njit(parallel=True, fastmath=True)
+
 def nsoftjets_cpu(nsoft, softht, nevt, softjets_offsets, pt, eta, phi, etaj1, etaj2, phij1, phij2, etam1, etam2, phim1, phim2, ptcut, dr2cut, nsjet_out, HTsjet_out):
     phis = [phij1, phij2, phim1, phim2]
     etas = [etaj1, etaj2, etam1, etam2]
@@ -1238,14 +1293,15 @@ def nsoftjets_cpu(nsoft, softht, nevt, softjets_offsets, pt, eta, phi, etaj1, et
                 else:
                     sj_sel = False
 
-                if not sj_sel:
-                    nbadsjet += 1
+                if not sj_sel: 
                     htsjet += pt[isoftjets]
-
+                    nbadsjet += 1
+                            
         nsjet_out[iev] = nsoft[iev] - nbadsjet
         HTsjet_out[iev] = softht[iev] - htsjet
 
 def get_selected_jets_id(
+    scalars,
     jets,
     muons,
     jet_eta_cut,
@@ -1256,30 +1312,31 @@ def get_selected_jets_id(
     jet_veto_eta_upper_cut,
     jet_veto_raw_pt,
     dataset_era):
-
+    #import pdb;pdb.set_trace();
     #2017 and 2018: jetId = Var("userInt('tightId')*2+4*userInt('tightIdLepVeto'))
     #Jet ID flags bit0 is loose (always false in 2017 since it does not exist), bit1 is tight, bit2 is tightLepVeto
     #run2_nanoAOD_94X2016: jetId = Var("userInt('tightIdLepVeto')*4+userInt('tightId')*2+userInt('looseId')",int,doc="Jet ID flags bit1 is loose, bit2 is tight, bit3 is tightLepVeto"
-    if jet_id == "tight":
+    if jet_id[dataset_era] == "tight":
         if dataset_era == "2017" or dataset_era == "2018":
             pass_jetid = jets.jetId >= 2
         else:
             pass_jetid = jets.jetId >= 3
-    elif jet_id == "loose": 
+    elif jet_id[dataset_era] == "loose": 
         pass_jetid = jets.jetId >= 1
 
     #The value is a bit representation of the fulfilled working points: tight (1), medium (2), and loose (4).
     #As tight is also medium and medium is also loose, there are only 4 different settings: 0 (no WP, 0b000), 4 (loose, 0b100), 6 (medium, 0b110), and 7 (tight, 0b111).
+    
     if jet_puid == "loose":
-        pass_jet_puid = jets.puId >= 4
+        pass_jet_puid = NUMPY_LIB.logical_or(NUMPY_LIB.logical_and(jets.puId >= 4 , jets.pt<50.), jets.pt>50.)
     elif jet_puid == "medium":
-        pass_jet_puid = jets.puId >= 6
+        pass_jet_puid = NUMPY_LIB.logical_or(NUMPY_LIB.logical_and(jets.puId >= 6, jets.pt<50.), jets.pt>50.)
     elif jet_puid == "tight":
-        pass_jet_puid = jets.puId >= 7
+        pass_jet_puid = NUMPY_LIB.logical_or(NUMPY_LIB.logical_and(jets.puId >= 7, jets.pt<50.), jets.pt>50.)
     elif jet_puid == "none":
         pass_jet_puid = NUMPY_LIB.ones(jets.numobjects(), dtype=NUMPY_LIB.bool)
 
-    pass_qgl = jets.qgl > -1 
+    pass_qgl = jets.qgl > -2 
 
     abs_eta = NUMPY_LIB.abs(jets.eta)
     raw_pt = compute_jet_raw_pt(jets)
@@ -1304,6 +1361,15 @@ def get_selected_jets_id(
     jets.masks["pass_dr"] = jets_pass_dr
 
     selected_jets = selected_jets & jets_pass_dr
+    '''
+    if debug:
+        for evtid in debug_event_ids:
+            idx = np.where(scalars["event"] == evtid)[0][0]
+            print("jets")
+            
+            jaggedstruct_print(jets, idx,
+                               ["pt", "eta", "phi", "mass", "jetId", "puId","qgl"])
+    '''
     return selected_jets
 
 def get_selected_jets(
@@ -1337,9 +1403,9 @@ def get_selected_jets(
 
     dijet_inv_mass, dijet_pt = compute_inv_mass(jets, mask_events, selected_jets & first_two_jets, use_cuda)
     
-    selected_jets_btag_medium = selected_jets & (jets.btagDeepB >= jet_btag_medium)
 
-    selected_jets_btag_loose = selected_jets & (jets.btagDeepB >= jet_btag_loose)
+    selected_jets_btag_medium = selected_jets & (jets.btagDeepB >= jet_btag_medium) & (abs(jets.eta) < 2.5)
+    selected_jets_btag_loose = selected_jets & (jets.btagDeepB >= jet_btag_loose) & (abs(jets.eta) <2.5)
 
     num_jets = ha.sum_in_offsets(jets, selected_jets, mask_events,
         jets.masks["all"], NUMPY_LIB.int8)
@@ -1349,16 +1415,17 @@ def get_selected_jets(
 
     num_jets_btag_loose = ha.sum_in_offsets(jets, selected_jets_btag_loose, mask_events,
         jets.masks["all"], NUMPY_LIB.int8)
-
-    # if debug:
-    #     for evtid in debug_event_ids:
-    #         idx = np.where(scalars["event"] == evtid)[0][0]
-    #         print("jets")
-    #         jaggedstruct_print(jets, idx,
-    #             ["pt", "eta", "phi", "mass", "jetId", "puId",
-    #             "pass_dr", "selected", 
-    #             "first_two"])
-
+    
+    if debug:
+        for evtid in debug_event_ids:
+            idx = np.where(scalars["event"] == evtid)[0][0]
+            print("jets")
+            jaggedstruct_print(jets, idx,
+                               ["pt", "eta", "phi", "mass", "jetId", "puId",
+                                #"pass_dr", 
+                                "selected", 
+                            "first_two"])
+            
     ret = {
         "selected_jets": selected_jets,
         "num_jets": num_jets,
@@ -1556,8 +1623,8 @@ def select_events_trigger(scalars, parameters, mask_events, hlt_bits):
         mask_events = mask_events & scalars[flag]
     
     pvsel = scalars["PV_npvsGood"] > parameters["nPV"]
-    pvsel = pvsel & (scalars["PV_ndof"] > parameters["NdfPV"])
-    pvsel = pvsel & (scalars["PV_z"] < parameters["zPV"])
+    #pvsel = pvsel & (scalars["PV_ndof"] > parameters["NdfPV"])
+    #pvsel = pvsel & (scalars["PV_z"] < parameters["zPV"])
 
     trig_decision = scalars[hlt_bits[0]]
     for hlt_bit in hlt_bits[1:]:
@@ -1894,6 +1961,14 @@ def dnn_variables(hrelresolution, leading_muon, subleading_muon, leading_jet, su
         EtaHQs += [EtaHQ]
     EtaHQ = NUMPY_LIB.vstack(EtaHQs)
     minEtaHQ = NUMPY_LIB.min(EtaHQ, axis=0)
+
+    #compute deldPhi between Higgs and jet
+    PhiHQs = []
+    for jet in [leading_jet, subleading_jet]:
+        PhiHQ = mm_sph["phi"] - jet["phi"] 
+        PhiHQs += [PhiHQ]
+    PhiHQ = NUMPY_LIB.vstack(PhiHQs)
+    minPhiHQ = NUMPY_LIB.min(PhiHQ, axis=0)
     #compute deltaR between all muons and jets
     dr_mjs = []
     for mu in [leading_muon, subleading_muon]:
@@ -1919,14 +1994,16 @@ def dnn_variables(hrelresolution, leading_muon, subleading_muon, leading_jet, su
     #Collin-Soper frame variable
     cthetaCS = 2*(m1["pz"] * m2["e"] - m1["e"]*m2["pz"]) / (mm_sph["mass"] * NUMPY_LIB.sqrt(NUMPY_LIB.power(mm_sph["mass"], 2) + NUMPY_LIB.power(mm_sph["pt"], 2)))
 
+    nw = len(leading_jet["eta"])
+    fixm = NUMPY_LIB.full(nw, 125.0, dtype=NUMPY_LIB.float32)
     ret = {
-        #"leading_muon_pt": leading_muon["pt"],
-        #"leading_muon_eta": leading_muon["eta"],
-        #"leading_muon_phi": leading_muon["phi"],
+        "leading_muon_pt": leading_muon["pt"],
+        "leading_muon_eta": leading_muon["eta"],
+        "leading_muon_phi": leading_muon["phi"],
         #"leading_muon_mass": leading_muon["mass"],
-        #"subleading_muon_pt": subleading_muon["pt"],
-        #"subleading_muon_eta": subleading_muon["eta"],
-        #"subleading_muon_phi": subleading_muon["phi"],
+        "subleading_muon_pt": subleading_muon["pt"],
+        "subleading_muon_eta": subleading_muon["eta"],
+        "subleading_muon_phi": subleading_muon["phi"],
         #"subleading_muon_mass": subleading_muon["mass"],
         "dEtamm": mm_deta, "dPhimm": mm_dphi, "dRmm": mm_dr,
         "M_jj": jj_sph["mass"], "pt_jj": jj_sph["pt"], "eta_jj": jj_sph["eta"], "phi_jj": jj_sph["phi"],
@@ -1953,7 +2030,7 @@ def dnn_variables(hrelresolution, leading_muon, subleading_muon, leading_jet, su
         "Higgs_pt": mm_sph["pt"],
         "Higgs_eta": mm_sph["eta"],
         "Higgs_rapidity": mm_sph["rapidity"],
-        "Higgs_mass": mm_sph["mass"],
+        "Higgs_mass": mm_sph["mass"], #fixm
         #DNN pisa variable
         "Mqq_log": NUMPY_LIB.log(jj_sph["mass"] ),
         "Rpt": mmjj_sph["pt"]/(mm_sph["pt"]+jj_sph["pt"]),
@@ -1962,6 +2039,7 @@ def dnn_variables(hrelresolution, leading_muon, subleading_muon, leading_jet, su
         "NSoft5": n_sel_softjet,
         "HTSoft5": n_sel_HTsoftjet,
         "minEtaHQ": minEtaHQ,
+        "minPhiHQ": minPhiHQ,
         "log(Higgs_pt)": NUMPY_LIB.log(mm_sph["pt"]),
         "Mqq": jj_sph["mass"],
         "QJet0_pt_touse": leading_jet["pt"],
@@ -1975,6 +2053,7 @@ def dnn_variables(hrelresolution, leading_muon, subleading_muon, leading_jet, su
         "Higgs_m": mm_sph["mass"],
         "Higgs_mRelReso": Higgs_mrelreso,
         "Higgs_mReso": mm_sph["mass"]*Higgs_mrelreso,
+        "HTSoft5": n_sel_HTsoftjet,
     }
 
     if debug:
@@ -2039,6 +2118,13 @@ def compute_fill_dnn(
     HTsoft = n_sel_HTsoftjet[dnn_presel]
 
     dnn_vars = dnn_variables(hrelresolution, leading_muon_s, subleading_muon_s, leading_jet_s, subleading_jet_s, nsoft, nsoftNew, HTsoft, use_cuda)
+    # event-by-event mass resolution
+    dpt1 = (leading_muon_s["ptErr"]*dnn_vars["Higgs_mass"]) / (2*leading_muon_s["pt"])
+    dpt2 = (subleading_muon_s["ptErr"]*dnn_vars["Higgs_mass"]) / (2*subleading_muon_s["pt"])
+    mm_massErr = NUMPY_LIB.sqrt(dpt1*dpt1 +dpt2*dpt2)
+    dnn_vars["massErr"] = mm_massErr
+    dnn_vars["massErr_rel"] = mm_massErr / dnn_vars["Higgs_mass"]
+
     if dataset_era == "2017":
     	dnn_vars["MET_pt"] = scalars["METFixEE2017_pt"][dnn_presel]
     else:
@@ -2102,12 +2188,7 @@ def compute_fill_dnn(
         dnn_vars["hmmthetacs"] = NUMPY_LIB.array(hmmthetacs)
         dnn_vars["hmmphics"] = NUMPY_LIB.array(hmmphics)
     
-    # event-by-event mass resolution
-    dpt1 = (leading_muon_s["ptErr"]*dnn_vars["Higgs_mass"]) / (2*leading_muon_s["pt"])
-    dpt2 = (subleading_muon_s["ptErr"]*dnn_vars["Higgs_mass"]) / (2*subleading_muon_s["pt"])
-    mm_massErr = NUMPY_LIB.sqrt(dpt1*dpt1 +dpt2*dpt2)
-    dnn_vars["massErr"] = mm_massErr
-    dnn_vars["massErr_rel"] = mm_massErr / dnn_vars["Higgs_mass"]
+    
 
     dnn_vars["m1eta"] = NUMPY_LIB.array(leading_muon_s["eta"])
     dnn_vars["m2eta"] = NUMPY_LIB.array(subleading_muon_s["eta"])
@@ -2359,7 +2440,7 @@ def compute_lepton_sf(leading_muon, subleading_muon, lepsf_iso, lepsf_id, lepsf_
         sfs_iso_down += [sf_iso_down]
         sfs_trig_up += [sf_trig_up]
         sfs_trig_down += [sf_trig_down]
-
+    #import pdb;pdb.set_trace();
     #multiply all ID, iso, trigger weights for leading and subleading muons
     sf_id = multiply_all(sfs_id)
     sf_iso = multiply_all(sfs_iso)
@@ -2376,6 +2457,10 @@ def compute_lepton_sf(leading_muon, subleading_muon, lepsf_iso, lepsf_id, lepsf_
         sf_tot = NUMPY_LIB.array(sf_tot)
 
     return {
+        "mu1_id" : sfs_id[0],
+        "mu1_iso" : sfs_iso[0],
+        "mu2_id" : sfs_id[1],
+        "mu2_iso" : sfs_iso[1],
         "id": sf_id,
         "iso": sf_iso,
         "trigger": sf_trig,
