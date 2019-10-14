@@ -210,8 +210,9 @@ def analyze_data(
         fsr1_kin = (leading_muon["pt_FSR"], leading_muon["eta_FSR"], leading_muon["phi_FSR"], 0)
         mu2_kin = (subleading_muon["pt"], subleading_muon["eta"], subleading_muon["phi"], subleading_muon["mass"])
         fsr2_kin = (subleading_muon["pt_FSR"], subleading_muon["eta_FSR"], subleading_muon["phi_FSR"], 0)
-        leading_muon["pt"], leading_muon["eta"], leading_muon["phi"] = sum_four_vectors([mu1_kin, fsr1_kin])
-        subleading_muon["pt"], subleading_muon["eta"], subleading_muon["phi"] = sum_four_vectors([mu2_kin, fsr2_kin])
+        size = len(leading_muon["pt"])
+        leading_muon["pt"], leading_muon["eta"], leading_muon["phi"] = sum_four_vectors([mu1_kin, fsr1_kin], size)
+        subleading_muon["pt"], subleading_muon["eta"], subleading_muon["phi"] = sum_four_vectors([mu2_kin, fsr2_kin], size)
 
     if doverify:
         assert(NUMPY_LIB.all(leading_muon["pt"][leading_muon["pt"]>0] > parameters["muon_pt_leading"][dataset_era]))
@@ -1409,7 +1410,15 @@ def compute_jet_raw_pt(jets):
     raw_pt = jets.pt * (1.0 - jets.rawFactor)
     return raw_pt
 
-def sum_four_vectors(objects):
+def sum_four_vectors(objects, size):
+    px = NUMPY_LIB.zeros(size, dtype=np.float32)
+    py = NUMPY_LIB.zeros(size, dtype=np.float32)
+    pz = NUMPY_LIB.zeros(size, dtype=np.float32)
+    e = NUMPY_LIB.zeros(size, dtype=np.float32)
+    px_total = NUMPY_LIB.zeros(size, dtype=np.float32)
+    py_total = NUMPY_LIB.zeros(size, dtype=np.float32)
+    pz_total = NUMPY_LIB.zeros(size, dtype=np.float32)
+    e_total = NUMPY_LIB.zeros(size, dtype=np.float32)
     for pt, eta, phi, mass in objects:
         px = pt * np.cos(phi)
         py = pt * np.sin(phi)
