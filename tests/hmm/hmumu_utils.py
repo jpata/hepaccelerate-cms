@@ -85,6 +85,8 @@ def analyze_data(
     ):
 
     muons = data["Muon"]
+    if do_fsr:
+        fsrphotons = data["FsrPhoton"]
     jets = data["Jet"]
     softjets = data["SoftActivityJet"]
     electrons = data["Electron"]
@@ -105,6 +107,8 @@ def analyze_data(
 
     #temporary hack for JaggedStruct.select_objects (relies on backend)
     muons.hepaccelerate_backend = ha
+    if do_fsr:
+        fsrphotons.hepaccelerate_backend = ha
     jets.hepaccelerate_backend = ha
     softjets.hepaccelerate_backend = ha
 
@@ -198,18 +202,23 @@ def analyze_data(
     mu_attrs = ["pt", "eta", "phi", "mass", "pdgId", "nTrackerLayers", "charge", "ptErr"]
 
     if do_fsr:
-        mu_attrs += ["pt_FSR", "eta_FSR", "phi_FSR"]
+        mu_attrs += ["fsrPhotonIdx"]
 
     if is_mc:
         mu_attrs += ["genpt"]
     leading_muon = muons.select_nth(0, ret_mu["selected_events"], ret_mu["selected_muons"], attributes=mu_attrs)
     subleading_muon = muons.select_nth(1, ret_mu["selected_events"], ret_mu["selected_muons"], attributes=mu_attrs)
-
+    
     if do_fsr:
         mu1_kin = (leading_muon["pt"], leading_muon["eta"], leading_muon["phi"], leading_muon["mass"])
-        fsr1_kin = (leading_muon["pt_FSR"], leading_muon["eta_FSR"], leading_muon["phi_FSR"], 0)
         mu2_kin = (subleading_muon["pt"], subleading_muon["eta"], subleading_muon["phi"], subleading_muon["mass"])
-        fsr2_kin = (subleading_muon["pt_FSR"], subleading_muon["eta_FSR"], subleading_muon["phi_FSR"], 0)
+        
+        photon_mu1 = fsrphotons.select_nth(leading_muon["fsrPhotonIdx"], ret_mu["selected_events"] & (leading_muon["fsrPhotonIdx"]>=0))
+        photon_mu2 = fsrphotons.select_nth(subleading_muon["fsrPhotonIdx"], ret_mu["selected_events"]& (subleading_muon["fsrPhotonIdx"]>=0))
+
+        fsr1_kin = (photon_mu1["pt"],photon_mu1["eta"],photon_mu1["phi"],0)
+        fsr2_kin = (photon_mu2["pt"],photon_mu2["eta"],photon_mu2["phi"],0)
+
         size = len(leading_muon["pt"])
         leading_muon["pt"], leading_muon["eta"], leading_muon["phi"] = sum_four_vectors([mu1_kin, fsr1_kin], size)
         subleading_muon["pt"], subleading_muon["eta"], subleading_muon["phi"] = sum_four_vectors([mu2_kin, fsr2_kin], size)
@@ -2725,9 +2734,13 @@ def create_datastructure(dataset_name, is_mc, dataset_era, do_fsr=False):
 
     if do_fsr:
         datastructures["Muon"] += [
-            ("Muon_pt_FSR", "float32"),
-            ("Muon_eta_FSR", "float32"),
-            ("Muon_phi_FSR", "float32"),
+            ("Muon_fsrPhotonIdx", "int32"),
+        ]
+        datastructures["FsrPhoton"] = [
+            ("FsrPhoton_pt", "float32"),
+            ("FsrPhoton_eta", "float32"),
+            ("FsrPhoton_phi", "float32"),            
+            ("FsrPhoton_muonIdx", "int32")
         ]
 
     if is_mc:
