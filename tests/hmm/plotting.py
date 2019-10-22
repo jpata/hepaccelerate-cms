@@ -365,7 +365,7 @@ def create_variated_histos(proc,
             else:
                 hret = hdict[sname]
             ret[sname2] = hret
-    if(('DYLHEScaleWeight' in variations) and ('dy' in proc)):
+    if('LHEScaleWeight' in variations):
         h_lhe =[]
         h_nom_up = copy.deepcopy(hbase)
         h_nom_down = copy.deepcopy(hbase)
@@ -378,26 +378,12 @@ def create_variated_histos(proc,
                     h_nom_up.contents[k]=h_lhe[i].contents[k]
                 if(h_lhe[i].contents[k]<h_nom_down.contents[k]):
                     h_nom_down.contents[k]=h_lhe[i].contents[k]
-                
-        ret['DYLHEScaleWeightUp']=h_nom_up
-        ret['DYLHEScaleWeightDown']=h_nom_down
-        
-    if(('EWZLHEScaleWeight' in variations) and ('ewk' in proc)):
-        h_lhe =[]
-        h_nom_up = copy.deepcopy(hbase)
-        h_nom_down = copy.deepcopy(hbase)
-        for i in range(9):
-            sname = 'LHEScaleWeight__{0}'.format(i)
-            h_lhe.append(hdict[sname])
-        
-        for k in range(len(h_lhe[0].contents)):
-            for i in range(9):
-                if(h_lhe[i].contents[k]>h_nom_up.contents[k]):
-                    h_nom_up.contents[k]=h_lhe[i].contents[k]
-                if(h_lhe[i].contents[k]<h_nom_down.contents[k]):
-                    h_nom_down.contents[k]=h_lhe[i].contents[k]
-        ret['EWZLHEScaleWeightUp']=h_nom_up
-        ret['EWZLHEScaleWeightDown']=h_nom_down
+        if('dy' in proc):
+            ret['DYLHEScaleWeightUp']=h_nom_up
+            ret['DYLHEScaleWeightDown']=h_nom_down
+        elif('ewk' in proc):
+            ret['EWZLHEScaleWeightUp']=h_nom_up
+            ret['EWZLHEScaleWeightDown']=h_nom_down
     return ret
 def create_datacard(dict_procs, parameter_name, all_processes, histname, baseline, variations, weight_xs):
     
