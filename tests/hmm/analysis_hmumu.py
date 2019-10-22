@@ -18,7 +18,6 @@ from hmumu_utils import run_analysis, run_cache, create_dataset_jobfiles, load_p
 from hmumu_lib import LibHMuMu, RochesterCorrections, LeptonEfficiencyCorrections, GBREvaluator, MiscVariables, NNLOPSReweighting, hRelResolution, ZpTReweighting
 
 import os
-from coffea.util import USE_CUPY
 import getpass
 
 import json
@@ -251,8 +250,7 @@ class AnalysisCorrections:
                         "RunG": "Summer16_07Aug2017GH_V11_DATA",
                         "RunH": "Summer16_07Aug2017GH_V11_DATA",
                     },
-                    #jer_tag="Summer16_25nsV1_MC",
-                    jer_tag=None,
+                    jer_tag="Summer16_25nsV1_MC",
                     jmr_vals=[1.0, 1.2, 0.8],
                     do_factorized_jec=True),
             },
@@ -267,25 +265,11 @@ class AnalysisCorrections:
                         "RunE": "Fall17_17Nov2017DE_V32_DATA",
                         "RunF": "Fall17_17Nov2017F_V32_DATA",
                     },
-                    #jer_tag="Fall17_V3_MC",
-                    jer_tag=None,
+                    jer_tag="Fall17_V3_MC",
                     jmr_vals=[1.09, 1.14, 1.04],
                     do_factorized_jec=True),
             },
             "2018": {
-                "Autumn18_V8":
-                    JetMetCorrections(
-                    jec_tag="Autumn18_V8_MC",
-                    jec_tag_data={
-                        "RunA": "Autumn18_RunA_V8_DATA",
-                        "RunB": "Autumn18_RunB_V8_DATA",
-                        "RunC": "Autumn18_RunC_V8_DATA",
-                        "RunD": "Autumn18_RunD_V8_DATA",
-                    },
-                    #jer_tag="Fall17_V3_MC",
-                    jer_tag=None,
-                    jmr_vals=[1.0, 1.2, 0.8],
-                    do_factorized_jec=True),
                 "Autumn18_V16":
                     JetMetCorrections(
                     jec_tag="Autumn18_V16_MC",
@@ -295,8 +279,7 @@ class AnalysisCorrections:
                         "RunC": "Autumn18_RunC_V16_DATA",
                         "RunD": "Autumn18_RunD_V16_DATA",
                     },
-                    #jer_tag="Fall17_V3_MC",
-                    jer_tag=None,
+                    jer_tag="Autumn18_V7_MC",
                     jmr_vals=[1.0, 1.2, 0.8],
                     do_factorized_jec=True),
             }
@@ -374,7 +357,7 @@ def main(args, datasets):
     do_tensorflow = not args.disable_tensorflow
 
     #use the environment variable for cupy/cuda choice
-    args.use_cuda = USE_CUPY
+    args.use_cuda = False
 
     analysis_corrections = None
     if "analyze" in args.action:
@@ -434,6 +417,7 @@ def main(args, datasets):
             "do_lepton_sf": True,
             
             "do_jec": True,
+            "do_jer": False,
             "jec_tag": {"2016": "Summer16_07Aug2017_V11", "2017": "Fall17_17Nov2017_V32", "2018": "Autumn18_V16"}, 
             "jet_mu_dr": 0.4,
             "jet_pt_leading": {"2016": 35.0, "2017": 35.0, "2018": 35.0},
@@ -550,8 +534,8 @@ def main(args, datasets):
             },
 
             "categorization_trees": {},
-            "do_bdt_ucsd": True,
-            "do_dnn_pisa": True,
+            "do_bdt_ucsd": False,
+            "do_dnn_pisa": False,
         },
     }
     histo_bins = {
@@ -584,8 +568,8 @@ def main(args, datasets):
 
     analysis_parameters["baseline"]["histo_bins"] = histo_bins
 
-    #analysis_parameters["oldjec"] = copy.deepcopy(analysis_parameters["baseline"])
-    #analysis_parameters["oldjec"]["jec_tag"]["2018"] = "Autumn18_V8"
+    analysis_parameters["jer"] = copy.deepcopy(analysis_parameters["baseline"])
+    analysis_parameters["jer"]["do_jer"] = True
 
     #Run baseline analysis
     outpath = "{0}/partial_results".format(args.out)

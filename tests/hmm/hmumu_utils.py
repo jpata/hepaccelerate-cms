@@ -283,7 +283,6 @@ def analyze_data(
             "nominal": lepton_sf_values["mu2_iso"]
         }
     '''
-    #import pdb;pdb.set_trace()
     fill_histograms_several(
         hists, "nominal", "hist__dimuon__",
         [
@@ -340,18 +339,22 @@ def analyze_data(
     syst_to_consider = ["nominal"]
     if is_mc:
         syst_to_consider += ["Total"]
+        if parameters["do_jer"]:
+            syst_to_consider += ["jer"]
         if parameters["do_factorized_jec"]:
             syst_to_consider = syst_to_consider + jet_systematics.jet_uncertainty_names
 
-    syst_to_consider = syst_to_consider
     print("entering jec loop with {0}".format(syst_to_consider))
     ret_jet_nominal = None
     
     #Now actually call the JEC computation for each scenario
+    jet_pt_startfrom = "pt_jec"
+    if is_mc:
+        jet_pt_startfrom = "pt_jec_jer"
     for uncertainty_name in syst_to_consider:
         #This will be the variated pt vector
         #print("computing variated pt for", uncertainty_name)
-        var_up_down = jet_systematics.get_variated_pts(uncertainty_name)
+        var_up_down = jet_systematics.get_variated_pts(uncertainty_name, startfrom=jet_pt_startfrom)
         for jet_syst_name, jet_pt_vec in var_up_down.items():
             # For events where the JEC/JER was variated, fill only the nominal weight
             weights_selected = select_weights(weights_final, jet_syst_name)
@@ -482,7 +485,6 @@ def analyze_data(
                 dnn_vars["dnn_pred"] = dnn_prediction
                 #print(weights_individual['trigger']['nominal'].shape)
                 #print(dnn_presel.shape)
-                #import pdb;pdb.set_trace()
                 if is_mc:
                     dnn_vars["trig_weight"] = weights_individual['trigger']['nominal'][dnn_presel]
                     dnn_vars["L1PreFiringWeight"] = weights_individual['L1PreFiringWeight']['nominal'][dnn_presel]
@@ -1312,7 +1314,6 @@ def get_selected_jets_id(
     jet_veto_eta_upper_cut,
     jet_veto_raw_pt,
     dataset_era):
-    #import pdb;pdb.set_trace();
     #2017 and 2018: jetId = Var("userInt('tightId')*2+4*userInt('tightIdLepVeto'))
     #Jet ID flags bit0 is loose (always false in 2017 since it does not exist), bit1 is tight, bit2 is tightLepVeto
     #run2_nanoAOD_94X2016: jetId = Var("userInt('tightIdLepVeto')*4+userInt('tightId')*2+userInt('looseId')",int,doc="Jet ID flags bit1 is loose, bit2 is tight, bit3 is tightLepVeto"
@@ -2196,24 +2197,20 @@ def compute_fill_dnn(
     dnn_vars["m2ptOverMass"] = NUMPY_LIB.divide(subleading_muon_s["pt"],dnn_vars["Higgs_mass"])
     return dnn_vars, dnn_pred, dnnPisa_preds
 
-def get_jer_smearfactors(pt_or_m, ratio_jet_genjet, msk_no_genjet, msk_poor_reso, resos, resosfs):
+#based on https://github.com/cms-nanoAOD/nanoAOD-tools/blob/master/python/postprocessing/modules/jme/jetSmearer.py#L114
+def get_jer_smearfactors(pt_or_m, ratio_jet_genjet, msk_no_genjet, resos, resosfs):
     
-    #smearing for matched jets
+    #scale factor for matched jets
     smear_matched_n = 1.0 + (resosfs[:, 0] - 1.0) * ratio_jet_genjet
     smear_matched_u = 1.0 + (resosfs[:, 1] - 1.0) * ratio_jet_genjet
     smear_matched_d = 1.0 + (resosfs[:, 2] - 1.0) * ratio_jet_genjet
 
     #compute random smearing for unmatched jets
-    sigma_unmatched_n = resos * NUMPY_LIB.sqrt(NUMPY_LIB.clip(resosfs[:, 0]**2 - 1.0, 0, 100))
-    sigma_unmatched_u = resos * NUMPY_LIB.sqrt(NUMPY_LIB.clip(resosfs[:, 1]**2 - 1.0, 0, 100))
-    sigma_unmatched_d = resos * NUMPY_LIB.sqrt(NUMPY_LIB.clip(resosfs[:, 2]**2 - 1.0, 0, 100))
-
-    zeros = NUMPY_LIB.ones_like(sigma_unmatched_n)
-    rand = NUMPY_LIB.random.normal(loc=zeros, scale=resos, size=len(zeros))
+    rand_reso = NUMPY_LIB.random.normal(loc=NUMPY_LIB.zeros_like(pt_or_m), scale=resos, size=len(pt_or_m))
     
-    smear_rnd_n = 1. + rand * NUMPY_LIB.sqrt(resosfs[:, 0]**2 - 1.)
-    smear_rnd_u = 1. + rand * NUMPY_LIB.sqrt(resosfs[:, 1]**2 - 1.)
-    smear_rnd_d = 1. + rand * NUMPY_LIB.sqrt(resosfs[:, 2]**2 - 1.)
+    smear_rnd_n = 1. + rand_reso * NUMPY_LIB.sqrt(resosfs[:, 0]**2 - 1.)
+    smear_rnd_u = 1. + rand_reso * NUMPY_LIB.sqrt(resosfs[:, 1]**2 - 1.)
+    smear_rnd_d = 1. + rand_reso * NUMPY_LIB.sqrt(resosfs[:, 2]**2 - 1.)
 
     inds_no_genjet = NUMPY_LIB.nonzero(msk_no_genjet)[0]
 
@@ -2226,15 +2223,17 @@ def get_jer_smearfactors(pt_or_m, ratio_jet_genjet, msk_no_genjet, msk_poor_reso
     ha.copyto_dst_indices(smear_u, smear_rnd_u[msk_no_genjet], inds_no_genjet)
     ha.copyto_dst_indices(smear_d, smear_rnd_d[msk_no_genjet], inds_no_genjet)
 
+    #jets that have no genjet and the resolution in data is better than the one in MC
     smear_n[msk_no_genjet & (resosfs[:, 0]<1.0)] = 1
     smear_u[msk_no_genjet & (resosfs[:, 1]<1.0)] = 1
     smear_d[msk_no_genjet & (resosfs[:, 2]<1.0)] = 1
 
+    #in case smearing accidentally flipped a jet pt
     smear_n[(smear_n * pt_or_m) < 0.01] = 0.01
     smear_u[(smear_u * pt_or_m) < 0.01] = 0.01
     smear_d[(smear_d * pt_or_m) < 0.01] = 0.01
 
-    return smear_n, smear_u, smear_d, sigma_unmatched_n
+    return smear_n, smear_u, smear_d
 
 
 class JetTransformer:
@@ -2275,30 +2274,35 @@ class JetTransformer:
 
         self.corr_jec = NUMPY_LIB.array(self.corr_jec)
         self.pt_jec = NUMPY_LIB.array(self.raw_pt) * self.corr_jec 
+        
+        if self.is_mc:
+            self.jer_nominal, self.jer_up, self.jer_down = self.apply_jer()
+            self.pt_jec_jer = self.pt_jec * self.jer_nominal
 
-    def apply_jer(self):
+    def apply_jer(self, startfrom="pt_jec"):
+        ptvec = getattr(self, startfrom)
+        
         #This is done only on CPU
-            resos = self.jetmet_corrections.jer.getResolution(
-                JetEta=eta, Rho=rho, JetPt=NUMPY_LIB.asnumpy(pt_jec))
-            resosfs = self.jetmet_corrections.jersf.getScaleFactor(JetEta=eta)
+        resos = self.jetmet_corrections.jer.getResolution(JetPt=ptvec, JetEta=self.eta, Rho=self.rho) 
+        resosfs = self.jetmet_corrections.jersf.getScaleFactor(JetPt=ptvec, JetEta=self.eta)
 
-            #The following is done either on CPU or GPU
-            resos = NUMPY_LIB.array(resos)
-            resosfs = NUMPY_LIB.array(resosfs)
+        #The following is done either on CPU or GPU
+        resos = NUMPY_LIB.array(resos)
+        resosfs = NUMPY_LIB.array(resosfs)
 
-            dpt_jet_genjet = jets.pt - jets.genpt
-            dpt_jet_genjet[jets.genpt == 0] = 0
-            ratio_jet_genjet_pt = dpt_jet_genjet / jets.pt
+        dpt_jet_genjet = self.jets.pt - self.jets.genpt
+        dpt_jet_genjet[self.jets.genpt == 0] = 0
+        ratio_jet_genjet_pt = dpt_jet_genjet / self.jets.pt
 
-            msk_no_genjet = ratio_jet_genjet_pt == 0
-            msk_poor_reso = resosfs[:, 0] < 1
+        msk_no_genjet = ratio_jet_genjet_pt == 0
 
-            dm_jet_genjet = jets.mass - jets.genmass
-            dm_jet_genjet[jets.genmass == 0] = 0
-            ratio_jet_genjet_mass = dm_jet_genjet / jets.mass
-           
-            smear_n, smear_u, smear_d, sigma_unmatched_n = get_jer_smearfactors(
-                jets.pt, ratio_jet_genjet_pt, msk_no_genjet, msk_poor_reso, resos, resosfs)
+        dm_jet_genjet = self.jets.mass - self.jets.genmass
+        dm_jet_genjet[self.jets.genmass == 0] = 0
+        ratio_jet_genjet_mass = dm_jet_genjet / self.jets.mass
+        
+        smear_n, smear_u, smear_d = get_jer_smearfactors(
+            self.jets.pt, ratio_jet_genjet_pt, msk_no_genjet, resos, resosfs)
+        return smear_n, smear_u, smear_d
 
     def apply_jec_mc(self):
         corr = self.jetmet_corrections.jec_mc.getCorrection(
@@ -2353,21 +2357,28 @@ class JetTransformer:
             "JetPt": NUMPY_LIB.array(ptvec),
             "JetEta": NUMPY_LIB.array(self.eta)
         }
+        #Get the arguments in the required format
+        func_args = tuple([args[s] for s in function_signature])
 
-        jec_unc_vec = jec_unc_func(*tuple([args[s] for s in function_signature]))
+        #compute the JEC uncertainty
+        jec_unc_vec = jec_unc_func(*func_args)
         return NUMPY_LIB.array(jec_unc_vec)
 
-    def get_variated_pts(self, variation_name):
+    def get_variated_pts(self, variation_name, startfrom="pt_jec_jer"):
+        ptvec = getattr(self, startfrom)
         if variation_name in self.jet_uncertainty_names:
-            startfrom = "pt_jec"
             corrs_up_down = NUMPY_LIB.array(self.apply_jec_unc(startfrom, variation_name), dtype=NUMPY_LIB.float32)
-            ptvec = getattr(self, startfrom)
             return {
                 (variation_name, "up"): ptvec*corrs_up_down[:, 0],
                 (variation_name, "down"): ptvec*corrs_up_down[:, 1]
             }
+        elif variation_name == "jer":
+            return {
+                ("jer", "up"): ptvec*self.jer_up,
+                ("jer", "down"): ptvec*self.jer_down
+            }
         elif variation_name == "nominal":
-            return {("nominal", ""): self.pt_jec}
+            return {("nominal", ""): ptvec}
         else:
             raise KeyError("Variation name {0} was not defined in JetMetCorrections corrections".format(variation_name))
 
@@ -2440,7 +2451,7 @@ def compute_lepton_sf(leading_muon, subleading_muon, lepsf_iso, lepsf_id, lepsf_
         sfs_iso_down += [sf_iso_down]
         sfs_trig_up += [sf_trig_up]
         sfs_trig_down += [sf_trig_down]
-    #import pdb;pdb.set_trace();
+    
     #multiply all ID, iso, trigger weights for leading and subleading muons
     sf_id = multiply_all(sfs_id)
     sf_iso = multiply_all(sfs_iso)
