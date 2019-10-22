@@ -24,14 +24,14 @@ export HEPACCELERATE_CUDA=0
 export KERAS_BACKEND=tensorflow
 
 #This is the location of the input NanoAOD and generally does not need to be changed
-export INPUTDATAPATH=/storage/user/jpata/
+export INPUTDATAPATH=/storage/user/idutta/Hmm/Vectorized/my_fork_vbfsync/hepaccelerate-cms/
 
 ## Step 1: cache ROOT data (need to repeat only when list of files or branches changes)
 ## This can take a few hours currently for the whole run (using maxchunks -1 and --nthreads 24)
 #singularity exec --nv -B /storage -B /mnt/hadoop $SINGULARITY_IMAGE python3 tests/hmm/analysis_hmumu.py \
 #   --action cache --maxchunks $MAXCHUNKS --chunksize 1 \
 #   --nthreads 1 --cache-location $CACHE_PATH \
-#   --datapath $INPUTDATAPATH --era 2016 --dataset ggh_amcPS
+#   --datapath $INPUTDATAPATH --do-sync
 
 
 ## Step 2: Run the physics analysis

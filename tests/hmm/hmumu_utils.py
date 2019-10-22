@@ -1619,8 +1619,8 @@ def select_events_trigger(scalars, parameters, mask_events, hlt_bits):
         mask_events = mask_events & scalars[flag]
     
     pvsel = scalars["PV_npvsGood"] > parameters["nPV"]
-    pvsel = pvsel & (scalars["PV_ndof"] > parameters["NdfPV"])
-    pvsel = pvsel & (scalars["PV_z"] < parameters["zPV"])
+    #pvsel = pvsel & (scalars["PV_ndof"] > parameters["NdfPV"])
+    #pvsel = pvsel & (scalars["PV_z"] < parameters["zPV"])
 
     trig_decision = scalars[hlt_bits[0]]
     for hlt_bit in hlt_bits[1:]:
@@ -2659,7 +2659,6 @@ def cache_preselection(ds, hlt_bits):
 
 def cache_data_multiproc_worker(args):
     job_desc, parameters, cmdline_args = args
-
     print("verifying cache for {0}".format(job_desc))
     filenames_all = job_desc["filenames"]
     assert(len(filenames_all)==1)
@@ -2726,7 +2725,13 @@ def create_datastructure(dataset_name, is_mc, dataset_era):
             ("Jet_area", "float32"),
             ("Jet_rawFactor", "float32")
         ],
-        "SoftActivityJet": [
+        #"FSRPhoton":[
+         #   ("FSRPhoton_pt", "float32"),
+         #   ("FSRPhoton_eta", "float32"),
+         #   ("FSRPhoton_phi", "float32"),
+         #   ("FSRPhoton_mass", "float32"),
+       # ],
+     "SoftActivityJet": [
             ("SoftActivityJet_pt", "float32"),
             ("SoftActivityJet_eta", "float32"),
             ("SoftActivityJet_phi", "float32"),
