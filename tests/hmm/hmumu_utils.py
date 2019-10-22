@@ -1117,18 +1117,21 @@ def get_selected_muons(
         size = muons.numevents()
 
         for i_mu in [0,1]: # FSR recovery for first two muons in an event
-            mu = muons.select_nth(i_mu, attributes=mu_attrs)
-            mu_kin = (mu["pt"], mu["eta"], mu["phi"], mu["mass"])
-            fsrphoton = fsrphotons.select_nth(mu["fsrPhotonIdx"])
-            fsr_kin = (fsrphoton["pt"], fsrphoton["eta"], fsrphoton["phi"],0)
-            mu["pt"], mu["eta"], mu["phi"] = sum_four_vectors([mu_kin, fsr_kin], size)
+            ith_muon_idx = muons.offsets[0:-1] + i_mu
+            event_mask = muons.fsrPhotonIdx[ith_muon_idx] >= 0
 
-            mu_mask = mu["fsrPhotonIdx"]>=0
-            mu_idx = (muons.offsets[0:-1] + i_mu)[mu_mask]
+            mu_idx = ith_muon_idx[event_mask]
+            mu_kin = (muons.pt[mu_idx], muons.eta[mu_idx], muons.phi[mu_idx], muons.mass[mu_idx])
 
-            muons.pt[mu_idx] = mu["pt"][mu_mask]
-            muons.eta[mu_idx] = mu["eta"][mu_mask]
-            muons.phi[mu_idx] = mu["phi"][mu_mask]
+            fsr_idx = (fsrphotons.offsets[0:-1][event_mask] + muons.fsrPhotonIdx[mu_idx]).astype(int)
+            fsr_kin = (fsrphotons.pt[fsr_idx], fsrphotons.eta[fsr_idx], fsrphotons.phi[fsr_idx],0)
+
+            size = fsr_idx.shape[0]
+            sum_ret = sum_four_vectors([mu_kin, fsr_kin], size)
+
+            muons.pt[mu_idx] = sum_ret["pt"]
+            muons.eta[mu_idx] = sum_ret["eta"]
+            muons.phi[mu_idx] = sum_ret["phi"]
 
     passes_iso = muons.pfRelIso04_all < mu_iso_cut
     passes_iso_trig_matched = muons.pfRelIso04_all < mu_iso_trig_matched_cut
@@ -1441,7 +1444,11 @@ def sum_four_vectors(objects, size):
     pt_total = np.sqrt(px_total**2 + py_total**2)
     eta_total = np.arcsinh(pz_total / pt_total)
     phi_total = np.arctan2(py_total, px_total)
-    return pt_total, eta_total, phi_total
+    return {
+        "pt": pt_total,
+        "eta": eta_total,
+        "phi": phi_total
+    }
 
 def compute_inv_mass(objects, mask_events, mask_objects, use_cuda):
     inv_mass = NUMPY_LIB.zeros(len(mask_events), dtype=np.float32)
