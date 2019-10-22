@@ -85,8 +85,7 @@ def analyze_data(
     ):
 
     muons = data["Muon"]
-    if do_fsr:
-        fsrphotons = data["FsrPhoton"]
+    fsrphotons = data["FsrPhoton"] if do_fsr else None
     jets = data["Jet"]
     softjets = data["SoftActivityJet"]
     electrons = data["Electron"]
@@ -180,7 +179,7 @@ def analyze_data(
     #get the two leading muons after applying all muon selection
     ret_mu = get_selected_muons(
         scalars,
-        muons, trigobj, mask_events,
+        muons, fsrphotons, trigobj, mask_events,
         parameters["muon_pt_leading"][dataset_era], parameters["muon_pt"],
         parameters["muon_eta"], parameters["muon_iso"],
         parameters["muon_id"][dataset_era], parameters["muon_trigger_match_dr"],
@@ -201,28 +200,11 @@ def analyze_data(
     # Create arrays with just the leading and subleading particle contents for easier management
     mu_attrs = ["pt", "eta", "phi", "mass", "pdgId", "nTrackerLayers", "charge", "ptErr"]
 
-    if do_fsr:
-        mu_attrs += ["fsrPhotonIdx"]
-
     if is_mc:
         mu_attrs += ["genpt"]
     leading_muon = muons.select_nth(0, ret_mu["selected_events"], ret_mu["selected_muons"], attributes=mu_attrs)
     subleading_muon = muons.select_nth(1, ret_mu["selected_events"], ret_mu["selected_muons"], attributes=mu_attrs)
     
-    if do_fsr:
-        mu1_kin = (leading_muon["pt"], leading_muon["eta"], leading_muon["phi"], leading_muon["mass"])
-        mu2_kin = (subleading_muon["pt"], subleading_muon["eta"], subleading_muon["phi"], subleading_muon["mass"])
-        
-        photon_mu1 = fsrphotons.select_nth(leading_muon["fsrPhotonIdx"], ret_mu["selected_events"] & (leading_muon["fsrPhotonIdx"]>=0))
-        photon_mu2 = fsrphotons.select_nth(subleading_muon["fsrPhotonIdx"], ret_mu["selected_events"]& (subleading_muon["fsrPhotonIdx"]>=0))
-
-        fsr1_kin = (photon_mu1["pt"],photon_mu1["eta"],photon_mu1["phi"],0)
-        fsr2_kin = (photon_mu2["pt"],photon_mu2["eta"],photon_mu2["phi"],0)
-
-        size = len(leading_muon["pt"])
-        leading_muon["pt"], leading_muon["eta"], leading_muon["phi"] = sum_four_vectors([mu1_kin, fsr1_kin], size)
-        subleading_muon["pt"], subleading_muon["eta"], subleading_muon["phi"] = sum_four_vectors([mu2_kin, fsr2_kin], size)
-
     if doverify:
         assert(NUMPY_LIB.all(leading_muon["pt"][leading_muon["pt"]>0] > parameters["muon_pt_leading"][dataset_era]))
         assert(NUMPY_LIB.all(subleading_muon["pt"][subleading_muon["pt"]>0] > parameters["muon_pt"]))
@@ -1109,7 +1091,7 @@ def get_histogram(data, weights, bins, mask=None):
 
 def get_selected_muons(
     scalars,
-    muons, trigobj, mask_events,
+    muons, fsrphotons, trigobj, mask_events,
     mu_pt_cut_leading, mu_pt_cut_subleading,
     mu_aeta_cut, mu_iso_cut, muon_id_type,
     muon_trig_match_dr, mu_iso_trig_matched_cut, muon_id_trig_matched_type):
@@ -1129,6 +1111,25 @@ def get_selected_muons(
     mu_iso_trig_matched_cut (float) - tight isolation requirement the trigger matched muon
     muon_id_trig_matched_type (string) - "tight" muon ID requirement for trigger matched muon
     """
+
+    if fsrphotons:
+        mu_attrs = ["pt", "eta", "phi", "mass", "fsrPhotonIdx"]
+        size = muons.numevents()
+
+        for i_mu in [0,1]: # FSR recovery for first two muons in an event
+            mu = muons.select_nth(i_mu, attributes=mu_attrs)
+            mu_kin = (mu["pt"], mu["eta"], mu["phi"], mu["mass"])
+            fsrphoton = fsrphotons.select_nth(mu["fsrPhotonIdx"])
+            fsr_kin = (fsrphoton["pt"], fsrphoton["eta"], fsrphoton["phi"],0)
+            mu["pt"], mu["eta"], mu["phi"] = sum_four_vectors([mu_kin, fsr_kin], size)
+
+            mu_mask = mu["fsrPhotonIdx"]>=0
+            mu_idx = (muons.offsets[0:-1] + i_mu)[mu_mask]
+
+            muons.pt[mu_idx] = mu["pt"][mu_mask]
+            muons.eta[mu_idx] = mu["eta"][mu_mask]
+            muons.phi[mu_idx] = mu["phi"][mu_mask]
+
     passes_iso = muons.pfRelIso04_all < mu_iso_cut
     passes_iso_trig_matched = muons.pfRelIso04_all < mu_iso_trig_matched_cut
 
@@ -2740,6 +2741,8 @@ def create_datastructure(dataset_name, is_mc, dataset_era, do_fsr=False):
             ("FsrPhoton_pt", "float32"),
             ("FsrPhoton_eta", "float32"),
             ("FsrPhoton_phi", "float32"),            
+            ("FsrPhoton_relIso03", "float32"),
+            ("FsrPhoton_dROverEt2", "float32"),
             ("FsrPhoton_muonIdx", "int32")
         ]
 
