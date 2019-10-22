@@ -2,7 +2,7 @@
 #Abort the script if any step fails
 set -e
 
-#Use this many threads (max 4 makes sense, does not scale above due to numpy serialness)
+#Use this many threads, should be around 1-4
 export NTHREADS=4
 
 #Set to -1 to run on all files, 1 for debugging/testing
@@ -14,7 +14,7 @@ export MAXCHUNKS=1
 #export CACHE_PATH=/storage/user/jpata/hmm/cache
 #export CACHE_PATH=mycache
 export CACHE_PATH=/storage/user/nlu/hmm/cache2
-export SINGULARITY_IMAGE=/storage/user/jpata/cupy2.simg
+export SINGULARITY_IMAGE=/storage/user/jpata/gpuservers/singularity/images/cupy.simg
 export PYTHONPATH=coffea:hepaccelerate:.
 export NUMBA_THREADING_LAYER=tbb
 export NUMBA_ENABLE_AVX=1
@@ -41,4 +41,4 @@ singularity exec --nv -B /storage $SINGULARITY_IMAGE python3 tests/hmm/analysis_
     --nthreads $NTHREADS \
     --out ./out --do-factorized-jec \
     --datasets ggh_amcPS --eras 2016 \
-    --datapath $INPUTDATAPATH \
+    --datapath $INPUTDATAPATH
