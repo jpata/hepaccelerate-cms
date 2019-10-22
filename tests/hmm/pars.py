@@ -359,12 +359,13 @@ jec_unc = [
     'RelativeJEREC2', 'RelativeJERHF', 'RelativePtBB', 'RelativePtEC1', 'RelativePtEC2',
     'RelativePtHF', 'RelativeSample', 'RelativeStatEC', 'RelativeStatFSR', 'RelativeStatHF',
     'SinglePionECAL', 'SinglePionHCAL']
-#jec_unc = ["Total"]
+
 #These subtotals can be used for cross-checks
 #, 'SubTotalAbsolute', 'SubTotalMC', 'SubTotalPileUp',
 #    'SubTotalPt', 'SubTotalRelative', 'SubTotalScale', 'TimePtEta', 'Total', 'TotalNoFlavor',
 #    'TotalNoFlavorNoTime', 'TotalNoTime']
 
+#Uncomment to use just the total JEC for quick tests
 #jec_unc = ["Total"]
 shape_systematics = jec_unc + ["jer", "trigger", "id", "iso", "puWeight", "L1PreFiringWeight"]
 common_scale_uncertainties = {
@@ -484,7 +485,7 @@ varnames = {
 
 analysis_names = {
     "baseline": {"2018": "Autumn18_V16", "2017": "Fall17_17Nov2017_V32", "2016": "Summer16_07Aug2017_V11"},
-    "oldjec": {"2018": "Autumn18_V8", "2017": "", "2016": ""},
+    "jer": {"2018": "JER enabled", "2017": "JER enabled", "2016": "JER enabled"},
 }
 
 # dataset nickname, datataking era, filename glob pattern, isMC
