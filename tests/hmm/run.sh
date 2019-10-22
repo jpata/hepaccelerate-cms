@@ -13,7 +13,7 @@ export MAXCHUNKS=1
 #Currently, use the cache provided by Joosep
 #export CACHE_PATH=/storage/user/jpata/hmm/cache
 export CACHE_PATH=mycache
-
+#export CACHE_PATH=/storage/user/nlu/hmm/cache2
 export SINGULARITY_IMAGE=/storage/user/jpata/cupy2.simg
 export PYTHONPATH=coffea:hepaccelerate:.
 export NUMBA_THREADING_LAYER=tbb
@@ -33,10 +33,11 @@ export INPUTDATAPATH=/storage/user/idutta/Hmm/Vectorized/my_fork_vbfsync/hepacce
 #   --nthreads 1 --cache-location $CACHE_PATH \
 #   --datapath $INPUTDATAPATH --do-sync
 
-
 ## Step 2: Run the physics analysis
 singularity exec --nv -B /storage $SINGULARITY_IMAGE python3 tests/hmm/analysis_hmumu.py \
     --action analyze --action merge --maxchunks $MAXCHUNKS \
-    --nthreads $NTHREADS --cache-location $CACHE_PATH \
-    --out ./out \
+    --cache-location $CACHE_PATH \
+    --nthreads $NTHREADS \
+    --out ./out --do-factorized-jec \
     --do-sync
+    --datapath $INPUTDATAPATH \
