@@ -359,12 +359,12 @@ def create_variated_histos(proc,
             elif sname.endswith("__down"):
                 sname2 = sname.replace("__down", "Down")
 
-                if sname not in hdict:
-                    #print("systematic", sname, "not found, taking baseline") 
-                    hret = hbase
-                else:
-                    hret = hdict[sname]
-                    ret[sname2] = hret
+            if sname not in hdict:
+                #print("systematic", sname, "not found, taking baseline") 
+                hret = hbase
+            else:
+                hret = hdict[sname]
+            ret[sname2] = hret
     if(('DYLHEScaleWeight' in variations) and ('dy' in proc)):
         h_lhe =[]
         h_nom_up = copy.deepcopy(hbase)
