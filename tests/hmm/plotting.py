@@ -338,10 +338,10 @@ def mask_inv_mass(hist):
     hist["contents"][bin_idx1:bin_idx2] = 0.0
     hist["contents_w2"][bin_idx1:bin_idx2] = 0.0
 
-def create_variated_histos(
+def create_variated_histos(proc,
     hdict,
     baseline="nominal",
-    variations=shape_systematics):
+        variations=shape_systematics):
  
     if not baseline in hdict.keys():
         raise KeyError("baseline histogram missing")
@@ -359,12 +359,45 @@ def create_variated_histos(
             elif sname.endswith("__down"):
                 sname2 = sname.replace("__down", "Down")
 
-            if sname not in hdict:
-                #print("systematic", sname, "not found, taking baseline") 
-                hret = hbase
-            else:
-                hret = hdict[sname]
-            ret[sname2] = hret
+                if sname not in hdict:
+                    #print("systematic", sname, "not found, taking baseline") 
+                    hret = hbase
+                else:
+                    hret = hdict[sname]
+                    ret[sname2] = hret
+    if(('DYLHEScaleWeight' in variations) and ('dy' in proc)):
+        h_lhe =[]
+        h_nom_up = copy.deepcopy(hbase)
+        h_nom_down = copy.deepcopy(hbase)
+        for i in range(9):
+            sname = 'LHEScaleWeight__{0}'.format(i)
+            h_lhe.append(hdict[sname])
+        for k in range(len(h_lhe[0].contents)):
+            for i in range(9):
+                if(h_lhe[i].contents[k]>h_nom_up.contents[k]):
+                    h_nom_up.contents[k]=h_lhe[i].contents[k]
+                if(h_lhe[i].contents[k]<h_nom_down.contents[k]):
+                    h_nom_down.contents[k]=h_lhe[i].contents[k]
+                
+        ret['DYLHEScaleWeightUp']=h_nom_up
+        ret['DYLHEScaleWeightDown']=h_nom_down
+        
+    if(('EWZLHEScaleWeight' in variations) and ('ewk' in proc)):
+        h_lhe =[]
+        h_nom_up = copy.deepcopy(hbase)
+        h_nom_down = copy.deepcopy(hbase)
+        for i in range(9):
+            sname = 'LHEScaleWeight__{0}'.format(i)
+            h_lhe.append(hdict[sname])
+        
+        for k in range(len(h_lhe[0].contents)):
+            for i in range(9):
+                if(h_lhe[i].contents[k]>h_nom_up.contents[k]):
+                    h_nom_up.contents[k]=h_lhe[i].contents[k]
+                if(h_lhe[i].contents[k]<h_nom_down.contents[k]):
+                    h_nom_down.contents[k]=h_lhe[i].contents[k]
+        ret['EWZLHEScaleWeightUp']=h_nom_up
+        ret['EWZLHEScaleWeightDown']=h_nom_down
     return ret
 def create_datacard(dict_procs, parameter_name, all_processes, histname, baseline, variations, weight_xs):
     
@@ -382,7 +415,7 @@ def create_datacard(dict_procs, parameter_name, all_processes, histname, baselin
         if proc == "data":
             _variations = []
 
-        variated_histos = create_variated_histos(rr, baseline, _variations)
+        variated_histos = create_variated_histos(proc, rr, baseline, _variations)
 
         for syst_name, histo in variated_histos.items():
             if proc != "data":
@@ -646,8 +679,10 @@ def PrintDatacard(categories, event_counts, filenames, ofname):
 
     #print out shape uncertainties
     for syst in all_shape_uncerts:
+        if('LHEScale' in syst): continue
         dcof.write(syst + "\t shape \t")
         for cat in categories:
+            #import pdb;pdb.set_trace();
             for proc in cat.processes:
                 if (proc in cat.shape_uncertainties.keys() and
                     syst in cat.shape_uncertainties[proc].keys()):
@@ -657,7 +692,24 @@ def PrintDatacard(categories, event_counts, filenames, ofname):
                 dcof.write("\t")
         dcof.write("\n")
 
-
+    dcof.write("EWZLHEScaleWeight" + "\t shape \t")
+    for cat in categories:
+        for proc in cat.processes:
+            if ('ewk' in proc):
+                dcof.write(str(1.0))
+            else:
+                dcof.write("-")
+            dcof.write("\t")
+    dcof.write("\n")
+    dcof.write("DYLHEScaleWeight" + "\t shape \t")
+    for cat in categories:
+        for proc in cat.processes:
+            if ('dy' in proc):
+                dcof.write(str(1.0))
+            else:
+                dcof.write("-")
+            dcof.write("\t")
+    dcof.write("\n")
     #print out scale uncertainties
     for syst in all_scale_uncerts:
         dcof.write(syst + "\t lnN \t")
@@ -671,6 +723,8 @@ def PrintDatacard(categories, event_counts, filenames, ofname):
                 dcof.write("\t")
         dcof.write("\n")
 
+
+    
     #create nuisance groups for easy manipulation and freezing
     nuisance_groups = {}
     for nuisance_group, nuisances in nuisance_groups.items():
@@ -772,7 +826,7 @@ if __name__ == "__main__":
                     }, indent=2)
                 )
 
-
+            #import pdb;pdb.set_trace();
             histnames = []
             if cmdline_args.histnames is None:
                 histnames = [h for h in res["data"]["baseline"].keys() if h.startswith("hist__")]
@@ -852,10 +906,10 @@ if __name__ == "__main__":
                                 plot_args_shape_syst += [(
                                     histos, hdata, mc_samp, analysis,
                                     var, "nominal", weight_xs, int_lumi, outdir, era, unc)]
-        #rets = list(pool.map(make_pdf_plot, plot_args))
-        #rets = list(pool.map(make_pdf_plot, plot_args_weights_off))
+        rets = list(pool.map(make_pdf_plot, plot_args))
+        rets = list(pool.map(make_pdf_plot, plot_args_weights_off))
         rets = list(pool.map(create_datacard_combine_wrap, datacard_args))
-        #rets = list(pool.map(plot_variations, plot_args_shape_syst))
+        rets = list(pool.map(plot_variations, plot_args_shape_syst))
 
         #for args, retval in zip(datacard_args, rets):
         #    res, hd, mc_samples, analysis, var, weight, weight_xs, int_lumi, outdir, datataking_year = args
