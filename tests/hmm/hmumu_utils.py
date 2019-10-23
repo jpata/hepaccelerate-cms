@@ -1116,14 +1116,21 @@ def get_selected_muons(
         mu_attrs = ["pt", "eta", "phi", "mass", "fsrPhotonIdx"]
         size = muons.numevents()
 
-        for i_mu in [0,1]: # FSR recovery for first two muons in an event
-            ith_muon_idx = muons.offsets[0:-1] + i_mu
-            event_mask = muons.fsrPhotonIdx[ith_muon_idx] >= 0
+        # indices of all muons
+        mu_indices = NUMPY_LIB.arange(muons.offsets[0], muons.offsets[-1])
 
-            mu_idx = ith_muon_idx[event_mask]
+        i_mu = 0
+        i_mu_idx = muons.offsets[0:-1]
+        first_fsr_idx = fsrphotons.offsets[0:-1]
+
+        while(mu_indices.size):
+            event_mask = (muons.fsrPhotonIdx[i_mu_idx] >= 0) & (muons.pt[i_mu_idx] > 20.)
+            mu_idx = i_mu_idx[event_mask]
+            print("Found {0} events where muon #{1} exists, in {2} of them the muon has associated FSR photon and passes pT>20 cut.".format(i_mu_idx.shape[0], i_mu+1, mu_idx.shape[0]))
+
             mu_kin = {"pt": muons.pt[mu_idx], "eta": muons.eta[mu_idx], "phi": muons.phi[mu_idx], "mass": muons.mass[mu_idx]}
 
-            fsr_idx = (fsrphotons.offsets[0:-1][event_mask] + muons.fsrPhotonIdx[mu_idx]).astype(int)
+            fsr_idx = (first_fsr_idx[event_mask] + muons.fsrPhotonIdx[mu_idx]).astype(int)
             fsr_kin = {"pt": fsrphotons.pt[fsr_idx], "eta": fsrphotons.eta[fsr_idx], "phi": fsrphotons.phi[fsr_idx],"mass": 0}
 
             _, _, deltar_mu_fsr = deltar(mu_kin, fsr_kin, use_cuda)
@@ -1140,6 +1147,17 @@ def get_selected_muons(
 
             # remove FSR photon from muon isolation cone
             muons.pfRelIso04_all[iso_idx_mu] = (absIso - fsrphotons.pt[iso_idx_fsr]) / muons.pt[iso_idx_mu]
+
+	    # delete the indices of i-th muon from every event
+            mu_indices = mu_indices[~NUMPY_LIB.in1d(mu_indices, i_mu_idx)]
+
+            # throw away the events where (i+1)-th muon is not in the same event as i-th muon
+            # (in those cases the index of (i+1)-th muon has already been deleted from mu_indices)
+            updated_event_mask = NUMPY_LIB.in1d(i_mu_idx+1, mu_indices)
+
+            i_mu_idx = i_mu_idx[updated_event_mask]+1
+            first_fsr_idx = first_fsr_idx[updated_event_mask]
+            i_mu += 1
 
     passes_iso = muons.pfRelIso04_all < mu_iso_cut
     passes_iso_trig_matched = muons.pfRelIso04_all < mu_iso_trig_matched_cut
