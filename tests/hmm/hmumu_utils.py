@@ -27,6 +27,9 @@ from hepaccelerate.utils import Dataset
 from hepaccelerate.utils import Histogram
 import hepaccelerate.backend_cpu as backend_cpu
 
+from coffea.lookup_tools import extractor
+from coffea.util import awkward
+
 from cmsutils.decisiontree import DecisionTreeNode, DecisionTreeLeaf, make_random_node, grow_randomly, make_random_tree, prune_randomly, generate_cut_trees
 from cmsutils.stats import likelihood, sig_q0_asimov, sig_naive
 
@@ -462,7 +465,7 @@ def analyze_data(
             dnn_vars, dnn_prediction, dnnPisa_predictions = compute_fill_dnn(hrelresolution,
                miscvariables, parameters, use_cuda, dnn_presel, dnn_model, dnn_normfactors, dnnPisa_models, dnnPisa_normfactors1, dnnPisa_normfactors2,
                scalars, leading_muon, subleading_muon, leading_jet, subleading_jet,
-               ret_jet["num_jets"],ret_jet["num_jets_btag_medium"], n_sel_softjet, n_sel_HTsoftjet, dataset_era
+               ret_jet["num_jets"],ret_jet["num_jets_btag_medium"], n_sel_softjet, n_sel_HTsoftjet, dataset_era, is_mc
             )
             weights_in_dnn_presel = apply_mask(weights_selected, dnn_presel)
           
@@ -2150,7 +2153,8 @@ def compute_fill_dnn(
     num_jets_btag,
     n_sel_softjet,
     n_sel_HTsoftjet,
-    dataset_era):
+    dataset_era,
+    is_mc):
 
     nev_dnn_presel = NUMPY_LIB.sum(dnn_presel)
 
@@ -2170,7 +2174,8 @@ def compute_fill_dnn(
     # event-by-event mass resolution
     dpt1 = (leading_muon_s["ptErr"]*dnn_vars["Higgs_mass"]) / (2*leading_muon_s["pt"])
     dpt2 = (subleading_muon_s["ptErr"]*dnn_vars["Higgs_mass"]) / (2*subleading_muon_s["pt"])
-    mm_massErr = NUMPY_LIB.sqrt(dpt1*dpt1 +dpt2*dpt2)
+    calibration = get_massErr_calib_factors(leading_muon_s["pt"], NUMPY_LIB.abs(leading_muon_s["eta"]), NUMPY_LIB.abs(subleading_muon_s["eta"]), dataset_era, is_mc)
+    mm_massErr = NUMPY_LIB.sqrt(dpt1*dpt1 +dpt2*dpt2) * calibration
     dnn_vars["massErr"] = mm_massErr
     dnn_vars["massErr_rel"] = mm_massErr / dnn_vars["Higgs_mass"]
 
@@ -2244,6 +2249,20 @@ def compute_fill_dnn(
     dnn_vars["m1ptOverMass"] = NUMPY_LIB.divide(leading_muon_s["pt"],dnn_vars["Higgs_mass"])
     dnn_vars["m2ptOverMass"] = NUMPY_LIB.divide(subleading_muon_s["pt"],dnn_vars["Higgs_mass"])
     return dnn_vars, dnn_pred, dnnPisa_preds
+
+def get_massErr_calib_factors(pt1, abs_eta1, abs_eta2, era, is_mc):
+    mode = "MC" if is_mc else "Data"
+    label = "res_calib_{0}_{1}".format(mode, era)
+    file_path = "data/res_calib/{0}.root".format(label)
+
+    ext = extractor()
+    ext.add_weight_sets(["{0} {0} {1}".format(label, file_path)])
+    ext.finalize()
+
+    evaluator = ext.make_evaluator()
+    calib_factors = evaluator[label](pt1, abs_eta1, abs_eta2)
+
+    return calib_factors
 
 def get_jer_smearfactors(pt_or_m, ratio_jet_genjet, msk_no_genjet, msk_poor_reso, resos, resosfs):
     
