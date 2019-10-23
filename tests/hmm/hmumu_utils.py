@@ -183,7 +183,7 @@ def analyze_data(
         parameters["muon_pt_leading"][dataset_era], parameters["muon_pt"],
         parameters["muon_eta"], parameters["muon_iso"],
         parameters["muon_id"][dataset_era], parameters["muon_trigger_match_dr"],
-        parameters["muon_iso_trigger_matched"], parameters["muon_id_trigger_matched"][dataset_era]
+        parameters["muon_iso_trigger_matched"], parameters["muon_id_trigger_matched"][dataset_era], use_cuda
     )
     print("muon selection eff", ret_mu["selected_muons"].sum() / float(muons.numobjects()))
    
@@ -1094,7 +1094,7 @@ def get_selected_muons(
     muons, fsrphotons, trigobj, mask_events,
     mu_pt_cut_leading, mu_pt_cut_subleading,
     mu_aeta_cut, mu_iso_cut, muon_id_type,
-    muon_trig_match_dr, mu_iso_trig_matched_cut, muon_id_trig_matched_type):
+        muon_trig_match_dr, mu_iso_trig_matched_cut, muon_id_trig_matched_type, use_cuda):
     """
     Given a list of muons in events, selects the muons that pass quality, momentum and charge criteria.
     Selects events that have at least 2 such muons. Selections are made by producing boolean masks.
@@ -1121,10 +1121,15 @@ def get_selected_muons(
             event_mask = muons.fsrPhotonIdx[ith_muon_idx] >= 0
 
             mu_idx = ith_muon_idx[event_mask]
-            mu_kin = (muons.pt[mu_idx], muons.eta[mu_idx], muons.phi[mu_idx], muons.mass[mu_idx])
+            mu_kin = {"pt": muons.pt[mu_idx], "eta": muons.eta[mu_idx], "phi": muons.phi[mu_idx], "mass": muons.mass[mu_idx]}
 
             fsr_idx = (fsrphotons.offsets[0:-1][event_mask] + muons.fsrPhotonIdx[mu_idx]).astype(int)
-            fsr_kin = (fsrphotons.pt[fsr_idx], fsrphotons.eta[fsr_idx], fsrphotons.phi[fsr_idx],0)
+            fsr_kin = {"pt": fsrphotons.pt[fsr_idx], "eta": fsrphotons.eta[fsr_idx], "phi": fsrphotons.phi[fsr_idx],"mass": 0}
+
+            _, _, deltar_mu_fsr = deltar(mu_kin, fsr_kin, use_cuda)
+            iso_idx_mu = mu_idx[deltar_mu_fsr < 0.4]
+            iso_idx_fsr = fsr_idx[deltar_mu_fsr < 0.4]
+            absIso = muons.pfRelIso04_all[iso_idx_mu]*muons.pt[iso_idx_mu] # relative isolation was calclulated using uncorrected muon pT
 
             size = fsr_idx.shape[0]
             sum_ret = sum_four_vectors([mu_kin, fsr_kin], size)
@@ -1132,6 +1137,9 @@ def get_selected_muons(
             muons.pt[mu_idx] = sum_ret["pt"]
             muons.eta[mu_idx] = sum_ret["eta"]
             muons.phi[mu_idx] = sum_ret["phi"]
+
+            # remove FSR photon from muon isolation cone
+            muons.pfRelIso04_all[iso_idx_mu] = (absIso - fsrphotons.pt[iso_idx_fsr]) / muons.pt[iso_idx_mu]
 
     passes_iso = muons.pfRelIso04_all < mu_iso_cut
     passes_iso_trig_matched = muons.pfRelIso04_all < mu_iso_trig_matched_cut
@@ -1432,11 +1440,11 @@ def sum_four_vectors(objects, size):
     py_total = NUMPY_LIB.zeros(size, dtype=np.float32)
     pz_total = NUMPY_LIB.zeros(size, dtype=np.float32)
     e_total = NUMPY_LIB.zeros(size, dtype=np.float32)
-    for pt, eta, phi, mass in objects:
-        px = pt * np.cos(phi)
-        py = pt * np.sin(phi)
-        pz = pt * np.sinh(eta)
-        e = np.sqrt(px**2 + py**2 + pz**2 + mass**2)
+    for obj in objects:
+        px = obj["pt"] * np.cos(obj["phi"])
+        py = obj["pt"] * np.sin(obj["phi"])
+        pz = obj["pt"] * np.sinh(obj["eta"])
+        e = np.sqrt(px**2 + py**2 + pz**2 + obj["mass"]**2)
         px_total += px
         py_total += py
         pz_total += pz
