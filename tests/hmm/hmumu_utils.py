@@ -88,8 +88,7 @@ def analyze_data(
     ):
 
     muons = data["Muon"]
-    if do_fsr:
-        fsrphotons = data["FsrPhoton"]
+    fsrphotons = data["FsrPhoton"] if do_fsr else None
     jets = data["Jet"]
     softjets = data["SoftActivityJet"]
     electrons = data["Electron"]
@@ -183,11 +182,11 @@ def analyze_data(
     #get the two leading muons after applying all muon selection
     ret_mu = get_selected_muons(
         scalars,
-        muons, trigobj, mask_events,
+        muons, fsrphotons, trigobj, mask_events,
         parameters["muon_pt_leading"][dataset_era], parameters["muon_pt"],
         parameters["muon_eta"], parameters["muon_iso"],
         parameters["muon_id"][dataset_era], parameters["muon_trigger_match_dr"],
-        parameters["muon_iso_trigger_matched"], parameters["muon_id_trigger_matched"][dataset_era]
+        parameters["muon_iso_trigger_matched"], parameters["muon_id_trigger_matched"][dataset_era], use_cuda
     )
     print("muon selection eff", ret_mu["selected_muons"].sum() / float(muons.numobjects()))
    
@@ -204,28 +203,11 @@ def analyze_data(
     # Create arrays with just the leading and subleading particle contents for easier management
     mu_attrs = ["pt", "eta", "phi", "mass", "pdgId", "nTrackerLayers", "charge", "ptErr"]
 
-    if do_fsr:
-        mu_attrs += ["fsrPhotonIdx"]
-
     if is_mc:
         mu_attrs += ["genpt"]
     leading_muon = muons.select_nth(0, ret_mu["selected_events"], ret_mu["selected_muons"], attributes=mu_attrs)
     subleading_muon = muons.select_nth(1, ret_mu["selected_events"], ret_mu["selected_muons"], attributes=mu_attrs)
     
-    if do_fsr:
-        mu1_kin = (leading_muon["pt"], leading_muon["eta"], leading_muon["phi"], leading_muon["mass"])
-        mu2_kin = (subleading_muon["pt"], subleading_muon["eta"], subleading_muon["phi"], subleading_muon["mass"])
-        
-        photon_mu1 = fsrphotons.select_nth(leading_muon["fsrPhotonIdx"], ret_mu["selected_events"] & (leading_muon["fsrPhotonIdx"]>=0))
-        photon_mu2 = fsrphotons.select_nth(subleading_muon["fsrPhotonIdx"], ret_mu["selected_events"]& (subleading_muon["fsrPhotonIdx"]>=0))
-
-        fsr1_kin = (photon_mu1["pt"],photon_mu1["eta"],photon_mu1["phi"],0)
-        fsr2_kin = (photon_mu2["pt"],photon_mu2["eta"],photon_mu2["phi"],0)
-
-        size = len(leading_muon["pt"])
-        leading_muon["pt"], leading_muon["eta"], leading_muon["phi"] = sum_four_vectors([mu1_kin, fsr1_kin], size)
-        subleading_muon["pt"], subleading_muon["eta"], subleading_muon["phi"] = sum_four_vectors([mu2_kin, fsr2_kin], size)
-
     if doverify:
         assert(NUMPY_LIB.all(leading_muon["pt"][leading_muon["pt"]>0] > parameters["muon_pt_leading"][dataset_era]))
         assert(NUMPY_LIB.all(subleading_muon["pt"][subleading_muon["pt"]>0] > parameters["muon_pt"]))
@@ -1166,10 +1148,10 @@ def get_histogram(data, weights, bins, mask=None):
 
 def get_selected_muons(
     scalars,
-    muons, trigobj, mask_events,
+    muons, fsrphotons, trigobj, mask_events,
     mu_pt_cut_leading, mu_pt_cut_subleading,
     mu_aeta_cut, mu_iso_cut, muon_id_type,
-    muon_trig_match_dr, mu_iso_trig_matched_cut, muon_id_trig_matched_type):
+        muon_trig_match_dr, mu_iso_trig_matched_cut, muon_id_trig_matched_type, use_cuda):
     """
     Given a list of muons in events, selects the muons that pass quality, momentum and charge criteria.
     Selects events that have at least 2 such muons. Selections are made by producing boolean masks.
@@ -1186,6 +1168,57 @@ def get_selected_muons(
     mu_iso_trig_matched_cut (float) - tight isolation requirement the trigger matched muon
     muon_id_trig_matched_type (string) - "tight" muon ID requirement for trigger matched muon
     """
+
+    if fsrphotons:
+        mu_attrs = ["pt", "eta", "phi", "mass", "fsrPhotonIdx"]
+        size = muons.numevents()
+
+        # indices of all muons
+        mu_indices = NUMPY_LIB.arange(muons.offsets[0], muons.offsets[-1])
+
+        i_mu = 0
+        i_mu_idx = muons.offsets[0:-1]
+        first_fsr_idx = fsrphotons.offsets[0:-1]
+
+        while(mu_indices.size):
+            # only consider events where i-th muon has pT>20 and an FSR photon associated with it
+            event_mask = (muons.fsrPhotonIdx[i_mu_idx] >= 0) & (muons.pt[i_mu_idx] > 20.)
+            mu_idx = i_mu_idx[event_mask]
+            fsr_idx = (first_fsr_idx[event_mask] + muons.fsrPhotonIdx[mu_idx]).astype(int)
+
+            print("Found {0} events where muon #{1} exists, in {2} of them the muon has associated FSR photon and passes pT>20 cut".format(i_mu_idx.shape[0], i_mu+1, mu_idx.shape[0]))
+
+            mu_kin = {"pt": muons.pt[mu_idx], "eta": muons.eta[mu_idx], "phi": muons.phi[mu_idx], "mass": muons.mass[mu_idx]}
+            fsr_kin = {"pt": fsrphotons.pt[fsr_idx], "eta": fsrphotons.eta[fsr_idx], "phi": fsrphotons.phi[fsr_idx],"mass": 0}
+
+            # will update isolation if FSR photon is within muon isolation cone dR<0.4
+            _, _, deltar_mu_fsr = deltar(mu_kin, fsr_kin, use_cuda)
+            iso_idx_mu = mu_idx[deltar_mu_fsr < 0.4]
+            iso_idx_fsr = fsr_idx[deltar_mu_fsr < 0.4]
+            absIso = muons.pfRelIso04_all[iso_idx_mu]*muons.pt[iso_idx_mu] # relative isolation was calclulated using uncorrected muon pT
+
+            # add FSR photon to muon four-vector
+            size = fsr_idx.shape[0]
+            sum_ret = sum_four_vectors([mu_kin, fsr_kin], size)
+            muons.pt[mu_idx] = sum_ret["pt"]
+            muons.eta[mu_idx] = sum_ret["eta"]
+            muons.phi[mu_idx] = sum_ret["phi"]
+
+            # remove FSR photon from muon isolation cone dR<0.4
+            muons.pfRelIso04_all[iso_idx_mu] = (absIso - fsrphotons.pt[iso_idx_fsr]) / muons.pt[iso_idx_mu]
+
+            # delete the indices of i-th muon from every event
+            mu_indices = mu_indices[~NUMPY_LIB.in1d(mu_indices, i_mu_idx)]
+
+            # throw away the events where (i+1)-th muon is not in the same event as i-th muon
+            # (in those cases the index of (i+1)-th muon has already been deleted from mu_indices)
+            updated_event_mask = NUMPY_LIB.in1d(i_mu_idx+1, mu_indices)
+
+            # move to considering (i+1)-th muons
+            i_mu += 1
+            i_mu_idx = i_mu_idx[updated_event_mask]+1
+            first_fsr_idx = first_fsr_idx[updated_event_mask]
+
     passes_iso = muons.pfRelIso04_all < mu_iso_cut
     passes_iso_trig_matched = muons.pfRelIso04_all < mu_iso_trig_matched_cut
 
@@ -1498,11 +1531,11 @@ def sum_four_vectors(objects, size):
     py_total = NUMPY_LIB.zeros(size, dtype=np.float32)
     pz_total = NUMPY_LIB.zeros(size, dtype=np.float32)
     e_total = NUMPY_LIB.zeros(size, dtype=np.float32)
-    for pt, eta, phi, mass in objects:
-        px = pt * np.cos(phi)
-        py = pt * np.sin(phi)
-        pz = pt * np.sinh(eta)
-        e = np.sqrt(px**2 + py**2 + pz**2 + mass**2)
+    for obj in objects:
+        px = obj["pt"] * np.cos(obj["phi"])
+        py = obj["pt"] * np.sin(obj["phi"])
+        pz = obj["pt"] * np.sinh(obj["eta"])
+        e = np.sqrt(px**2 + py**2 + pz**2 + obj["mass"]**2)
         px_total += px
         py_total += py
         pz_total += pz
@@ -1510,7 +1543,11 @@ def sum_four_vectors(objects, size):
     pt_total = np.sqrt(px_total**2 + py_total**2)
     eta_total = np.arcsinh(pz_total / pt_total)
     phi_total = np.arctan2(py_total, px_total)
-    return pt_total, eta_total, phi_total
+    return {
+        "pt": pt_total,
+        "eta": eta_total,
+        "phi": phi_total
+    }
 
 def compute_inv_mass(objects, mask_events, mask_objects, use_cuda):
     inv_mass = NUMPY_LIB.zeros(len(mask_events), dtype=np.float32)
@@ -2844,6 +2881,8 @@ def create_datastructure(dataset_name, is_mc, dataset_era, do_fsr=False):
             ("FsrPhoton_pt", "float32"),
             ("FsrPhoton_eta", "float32"),
             ("FsrPhoton_phi", "float32"),            
+            ("FsrPhoton_relIso03", "float32"),
+            ("FsrPhoton_dROverEt2", "float32"),
             ("FsrPhoton_muonIdx", "int32")
         ]
 
