@@ -3,7 +3,7 @@
 
 # hepaccelerate-cms
 
-CMS-specific accelerated analysis code based on the [hepaccelerate](https://github.com/jpata/hepaccelerate) library.
+CMS-specific accelerated analysis code based on the [hepaccelerate](https://github.com/hepaccelerate/hepaccelerate) library.
 
 Currently implemented analyses:
 - `tests/hmm/analysis_hmumu.py`: CMS-HIG-19-006, [internal](http://cms.cern.ch/iCMS/analysisadmin/cadilines?line=HIG-19-006&tp=an&id=2254&ancode=HIG-19-006)
@@ -42,13 +42,12 @@ On Caltech, an existing singularity image can be used to get the required python
 ~~~
 git clone https://github.com/jpata/hepaccelerate-cms.git
 cd hepaccelerate-cms
-git checkout dev-aug-w2
 git submodule init
 git submodule update
 
 #Compile the C++ helpers
 cd tests/hmm
-singularity exec /storage/user/jpata/cupy2.simg make -j4
+singularity exec /storage/user/jpata/gpuservers/singularity/images/cupy.simg make -j4
 cd ../..
 
 #Run the code as a small test (small dataset by default, edit the file to change this)
@@ -58,7 +57,7 @@ cd ../..
 
 
 ## Running on full dataset using batch queue
-We use the condor batch queue on Caltech T2 to run the analysis. It takes about 2-3h for all 3 years using factorized JEC. Without factorized JEC (using total JEC), the runtime is about 10 minutes.
+We use the condor batch queue on Caltech T2 to run the analysis. It ~20 minutes for all 3 years using just the Total JEC & JER (2-3h using factorized JEC).
 
 ~~~
 #Submit batch jobs after this step is successful
