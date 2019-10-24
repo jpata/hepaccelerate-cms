@@ -50,10 +50,12 @@ debug_event_ids = [38194,38438,47062,47186,4465]
 #list to collect performance data in
 global_metrics = []
 
+#raise an error if there is any inf or nan
 def check_inf_nan(data):
     m = NUMPY_LIB.isinf(data)|NUMPY_LIB.isnan(data)
     assert(np.sum(m)==0) 
 
+#fix inf or nan and raise a warning
 def fix_inf_nan(data, default=0):
     m = NUMPY_LIB.isinf(data)|NUMPY_LIB.isnan(data)
     if NUMPY_LIB.sum(m) != 0:
@@ -61,6 +63,7 @@ def fix_inf_nan(data, default=0):
     data[m] = default
 
 
+#This is the actual data analysis function
 def analyze_data(
     data,
     use_cuda=False,
@@ -96,8 +99,10 @@ def analyze_data(
     random_seed = 0 
     ):
 
+    #set the random seed to the predefined value
     NUMPY_LIB.random.seed(random_seed)
 
+    #create variables for muons, jets etc
     muons = data["Muon"]
     if do_fsr:
         fsrphotons = data["FsrPhoton"]
@@ -111,10 +116,12 @@ def analyze_data(
         LHEScalew = data["LHEScaleWeight"]
     histo_bins = parameters["histo_bins"]
 
+    #first mask of all events enabled
     mask_events = NUMPY_LIB.ones(muons.numevents(), dtype=NUMPY_LIB.bool)
 
     #Compute integrated luminosity on data sample and apply golden JSON
     int_lumi = compute_integrated_luminosity(scalars, lumimask, lumidata, dataset_era, mask_events, is_mc)
+    
     check_and_fix_qgl(jets)
 
     #output histograms 
@@ -133,8 +140,8 @@ def analyze_data(
     #NNLOPS reweighting for ggH signal
     gghnnlopsw = NUMPY_LIB.ones(muons.numevents(), dtype=NUMPY_LIB.float32)
 
+    #find genHiggs
     if is_mc and (dataset_name in parameters["ggh_nnlops_reweight"]):
-        #find genHiggs
         genHiggs_mask = NUMPY_LIB.logical_and((genpart.pdgId == 25), (genpart.status == 62))
         genHiggs_pt = genhpt(muons.numevents(),genpart, genHiggs_mask)
         selected_genJet_mask = genJet.pt>30
@@ -215,7 +222,6 @@ def analyze_data(
  
     # Create arrays with just the leading and subleading particle contents for easier management
     mu_attrs = ["pt", "eta", "phi", "mass", "pdgId", "nTrackerLayers", "charge", "ptErr"]
-
     if do_fsr:
         mu_attrs += ["fsrPhotonIdx"]
 
@@ -389,7 +395,7 @@ def analyze_data(
     
     #Now actually call the JEC computation for each scenario
     jet_pt_startfrom = "pt_jec"
-    if is_mc:
+    if is_mc and parameters["do_jer"]:
         jet_pt_startfrom = "pt_jec_jer"
     for uncertainty_name in syst_to_consider:
         #This will be the variated pt vector
