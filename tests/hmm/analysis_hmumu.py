@@ -50,6 +50,7 @@ def parse_args():
     parser.add_argument('--eras', action='append', help='Data eras to process', type=str, required=False)
     parser.add_argument('--pinned', action='store_true', help='Use CUDA pinned memory')
     parser.add_argument('--do-sync', action='store_true', help='run only synchronization datasets')
+    parser.add_argument('--do-fsr', action='store_true', help='add FSR recovery')
     parser.add_argument('--do-factorized-jec', action='store_true', help='Enables factorized JEC, disables most validation plots')
     parser.add_argument('--do-profile', action='store_true', help='Profile the code with yappi')
     parser.add_argument('--disable-tensorflow', action='store_true', help='Disable loading and evaluating the tensorflow model')
@@ -550,8 +551,8 @@ def main(args, datasets):
         "pt_balance": np.linspace(0, 5, 11, dtype=np.float32),
         "numjets": np.linspace(0, 10, 11, dtype=np.float32),
         "jet_qgl": np.linspace(0, 1, 11, dtype=np.float32),
-        "higgs_inv_mass_uncertainty": np.linspace(0, 10, 101, dtype=np.float32),
-        "higgs_rel_inv_mass_uncertainty": np.linspace(0, 0.05, 101, dtype=np.float32)
+        "massErr": np.linspace(0, 10, 101, dtype=np.float32),
+        "massErr_rel": np.linspace(0, 0.05, 101, dtype=np.float32)
     }
     for hname, bins in analysis_parameters["baseline"]["dnn_input_histogram_bins"].items():
         histo_bins[hname] = np.linspace(bins[0], bins[1], bins[2], dtype=np.float32)

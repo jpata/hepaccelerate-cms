@@ -342,7 +342,8 @@ cross_sections = {
 
 signal_samples = ["ggh_amcPS", "vbf", "wmh", "wph", "zh", "tth"]
 jec_unc = [
-    'AbsoluteFlavMap', 'AbsoluteMPFBias', 'AbsoluteSample', 'AbsoluteScale',
+    #'AbsoluteFlavMap', 
+    'AbsoluteMPFBias', 'AbsoluteSample', 'AbsoluteScale',
     'AbsoluteStat',
 #These can be used as a proxy for all the groups
     #'CorrelationGroupFlavor', 'CorrelationGroupIntercalibration',
@@ -352,9 +353,10 @@ jec_unc = [
     #'FlavorPhotonJet', 'FlavorPureBottom', 'FlavorPureCharm', 'FlavorPureGluon',
     #'FlavorPureQuark', 'FlavorQCD',
     'FlavorZJet',
-
+    'TimePtEta',
     'Fragmentation', 'PileUpDataMC',
-    'PileUpEnvelope', 'PileUpMuZero', 'PileUpPtBB', 'PileUpPtEC1', 'PileUpPtEC2',
+    #'PileUpEnvelope', 'PileUpMuZero',
+    'PileUpPtBB', 'PileUpPtEC1', 'PileUpPtEC2',
     'PileUpPtHF', 'PileUpPtRef', 'RelativeBal', 'RelativeFSR', 'RelativeJEREC1',
     'RelativeJEREC2', 'RelativeJERHF', 'RelativePtBB', 'RelativePtEC1', 'RelativePtEC2',
     'RelativePtHF', 'RelativeSample', 'RelativeStatEC', 'RelativeStatFSR', 'RelativeStatHF',
@@ -362,12 +364,12 @@ jec_unc = [
 
 #These subtotals can be used for cross-checks
 #, 'SubTotalAbsolute', 'SubTotalMC', 'SubTotalPileUp',
-#    'SubTotalPt', 'SubTotalRelative', 'SubTotalScale', 'TimePtEta', 'Total', 'TotalNoFlavor',
+#    'SubTotalPt', 'SubTotalRelative', 'SubTotalScale', 'Total', 'TotalNoFlavor',
 #    'TotalNoFlavorNoTime', 'TotalNoTime']
 
 #Uncomment to use just the total JEC for quick tests
 #jec_unc = ["Total"]
-shape_systematics = jec_unc + ["jer", "trigger", "id", "iso", "puWeight", "L1PreFiringWeight"]
+shape_systematics = jec_unc + ["jer", "trigger", "id", "iso", "puWeight", "L1PreFiringWeight","DYLHEScaleWeight","EWZLHEScaleWeight"]
 common_scale_uncertainties = {
     "lumi": 1.025,
 }
@@ -378,10 +380,13 @@ scale_uncertainties = {
     "wz_2l2q": {"VVxsec": 1.10},
     "zz": {"VVxsec": 1.10},
     "wjets": {"WJetsxsec": 1.10},
+    "vv" :{"VVxsec": 1.10},
+    "stop": {"STxsec": 1.05},
+    "tt" : {"TTxsec": 1.05},
     #"dy_m105_160_amc": {"DYxsec": 1.10},
     #"dy_m105_160__vbf_amc": {"DYxsec": 1.10},
-    "ewk_lljj_mll105_160": {"EWZxsec": 1.20},
-    "ewk_lljj_mll50_mjj120": {"EWZxsec": 1.20},
+    #"ewk_lljj_mll105_160": {"EWZxsec": 1.20},
+    #"ewk_lljj_mll50_mjj120": {"EWZxsec": 1.20},
     "ttjets_sl": {"TTxsec": 1.05},
     "ttjets_dl": {"TTxsec": 1.05},
     "st_t_top": {"STxsec": 1.05},
