@@ -19,7 +19,8 @@ install:
   - pip install psutil
   - pip install matplotlib
   - pip install scipy
-  - pip install git+https://github.com/hepaccelerate/hepaccelerate@v0.1.0
+  - pip install git+https://github.com/hepaccelerate/hepaccelerate
+  - pip install coffea
 
 script:
     - PYTHONPATH=. python tests/hmm/hmumu_utils.py
