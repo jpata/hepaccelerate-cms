@@ -1,8 +1,10 @@
 import numpy as np
 import uproot
 from argparse import Namespace
+import os
 
 from hepaccelerate.utils import choose_backend
+import hmumu_utils
 from hmumu_utils import JetTransformer
 from hmumu_utils import create_datastructure, create_dataset, get_genpt_cpu
 from analysis_hmumu import AnalysisCorrections
@@ -33,25 +35,30 @@ def make_plots(filename, filename_nano_postproc):
 
     plt.figure()
     bins = np.linspace(0,200,1000)
-    plt.hist(data1["pt_raw"], bins=bins, histtype="step");
-    plt.hist(data2["pt_raw"], bins=bins, histtype="step");
+    plt.hist(data1["pt_raw"], bins=bins, histtype="step", label="our code");
+    plt.hist(data2["pt_raw"], bins=bins, histtype="step", label="NanoAODTools");
+    plt.xlabel("raw pt")
     plt.savefig("pt_raw.pdf")
 
     plt.figure()
     bins = np.linspace(0,2,1000)
-    plt.hist(data1["corr_JEC"], bins=bins, histtype="step");
-    plt.hist(data2["corr_JEC"], bins=bins, histtype="step");
+    plt.hist(data1["corr_JEC"], bins=bins, histtype="step", label="our code");
+    plt.hist(data2["corr_JEC"], bins=bins, histtype="step", label="NanoAODTools");
+    plt.xlabel("JEC correction")
     plt.savefig("corr_JEC.pdf")
 
     plt.figure()
     bins = np.linspace(0,2,1000)
-    plt.hist(data1["corr_JER"], bins=bins, histtype="step");
-    plt.hist(data2["corr_JER"], bins=bins, histtype="step");
+    plt.hist(data1["corr_JER"], bins=bins, histtype="step", label="our code");
+    plt.hist(data2["corr_JER"], bins=bins, histtype="step", label="NanoAODTools");
+    plt.xlabel("JER correction")
     plt.savefig("corr_JER.pdf")
 
 if __name__ == "__main__":
     use_cuda = False
     NUMPY_LIB, ha = choose_backend(use_cuda)
+    hmumu_utils.NUMPY_LIB = np
+    hmumu_utils.ha = ha
     
     job_desc = {
         "dataset_name": "ggh_amcPS",
