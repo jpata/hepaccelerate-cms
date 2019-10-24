@@ -418,13 +418,13 @@ def main(args, datasets):
             "do_lepton_sf": True,
             
             "do_jec": True,
-            "do_jer": False,
+            "do_jer": True,
             "jec_tag": {"2016": "Summer16_07Aug2017_V11", "2017": "Fall17_17Nov2017_V32", "2018": "Autumn18_V16"}, 
             "jet_mu_dr": 0.4,
             "jet_pt_leading": {"2016": 35.0, "2017": 35.0, "2018": 35.0},
             "jet_pt_subleading": {"2016": 25.0, "2017": 25.0, "2018": 25.0},
             "jet_eta": 4.7,
-            "jet_id": {"2016":"loose","2017":"tight","2018":"tight"},
+            "jet_id": {"2016":"loose", "2017":"tight", "2018":"tight"},
             "jet_puid": "loose",
             "jet_veto_eta": [2.65, 3.139],
             "jet_veto_raw_pt": 50.0,  
@@ -568,9 +568,6 @@ def main(args, datasets):
     }
 
     analysis_parameters["baseline"]["histo_bins"] = histo_bins
-
-    analysis_parameters["jer"] = copy.deepcopy(analysis_parameters["baseline"])
-    analysis_parameters["jer"]["do_jer"] = True
 
     #Run baseline analysis
     outpath = "{0}/partial_results".format(args.out)
