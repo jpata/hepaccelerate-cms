@@ -10,6 +10,7 @@ import numpy as np
 import sys
 import os
 import math
+import warnings
 
 import numba
 import numba.cuda as cuda
@@ -46,9 +47,16 @@ debug_event_ids = [38194,38438,47062,47186,4465]
 #list to collect performance data in
 global_metrics = []
 
+def check_inf_nan(data):
+    m = NUMPY_LIB.isinf(data)|NUMPY_LIB.isnan(data)
+    assert(np.sum(m)==0) 
+
 def fix_inf_nan(data, default=0):
-    data[NUMPY_LIB.isinf(data)] = default
-    data[NUMPY_LIB.isnan(data)] = default
+    m = NUMPY_LIB.isinf(data)|NUMPY_LIB.isnan(data)
+    if NUMPY_LIB.sum(m) != 0:
+        warnings.warn("array had {0} inf/nan entries!".format(NUMPY_LIB.sum(m)))
+    data[m] = default
+
 
 def analyze_data(
     data,
@@ -80,8 +88,11 @@ def analyze_data(
     miscvariables = None,
     nnlopsreweighting = None,
     hrelresolution = None,
-    zptreweighting = None 
+    zptreweighting = None,
+    random_seed = 0 
     ):
+
+    NUMPY_LIB.random.seed(random_seed)
 
     muons = data["Muon"]
     jets = data["Jet"]
@@ -93,6 +104,7 @@ def analyze_data(
     if "dy" in dataset_name or "ewk" in dataset_name:
         LHEScalew = data["LHEScaleWeight"]
     histo_bins = parameters["histo_bins"]
+
     mask_events = NUMPY_LIB.ones(muons.numevents(), dtype=NUMPY_LIB.bool)
 
     #Compute integrated luminosity on data sample and apply golden JSON
@@ -327,6 +339,7 @@ def analyze_data(
         dataset_era)
     print("jet selection eff based on id", selected_jets_id.sum() / float(len(selected_jets_id)))
 
+    #Now we throw away all the jets that didn't pass the ID to save time on computing JECs on them
     jets_passing_id = jets.select_objects(selected_jets_id)
     
     print("Doing nominal jec on {0} jets".format(jets_passing_id.numobjects()))
@@ -334,7 +347,7 @@ def analyze_data(
         jets_passing_id, scalars,
         parameters,
         jetmet_corrections[dataset_era][parameters["jec_tag"][dataset_era]],
-        NUMPY_LIB, use_cuda, is_mc)
+        NUMPY_LIB, ha, use_cuda, is_mc)
 
     syst_to_consider = ["nominal"]
     if is_mc:
@@ -1112,6 +1125,7 @@ def event_loop(train_batches_queue, use_cuda, **kwargs):
             dataset_name = ds.name,
             dataset_num_chunk = ds.num_chunk,
             is_mc = ds.is_mc,
+            random_seed = ds.random_seed,
             **kwargs)
     ret["num_events"] = len(ds)
 
@@ -2198,55 +2212,64 @@ def compute_fill_dnn(
     return dnn_vars, dnn_pred, dnnPisa_preds
 
 #based on https://github.com/cms-nanoAOD/nanoAOD-tools/blob/master/python/postprocessing/modules/jme/jetSmearer.py#L114
-def get_jer_smearfactors(pt_or_m, ratio_jet_genjet, msk_no_genjet, resos, resosfs):
+#and https://github.com/cms-sw/cmssw/blob/master/PhysicsTools/PatUtils/interface/SmearedJetProducerT.h
+def get_jer_smearfactors(pt_or_m, ratio_jet_genjet, msk_no_genjet, resos, resosfs, NUMPY_LIB, ha):
     
     #scale factor for matched jets
     smear_matched_n = 1.0 + (resosfs[:, 0] - 1.0) * ratio_jet_genjet
     smear_matched_u = 1.0 + (resosfs[:, 1] - 1.0) * ratio_jet_genjet
     smear_matched_d = 1.0 + (resosfs[:, 2] - 1.0) * ratio_jet_genjet
 
-    #compute random smearing for unmatched jets
-    rand_reso = NUMPY_LIB.random.normal(loc=NUMPY_LIB.zeros_like(pt_or_m), scale=resos, size=len(pt_or_m))
-    
-    smear_rnd_n = 1. + rand_reso * NUMPY_LIB.sqrt(resosfs[:, 0]**2 - 1.)
-    smear_rnd_u = 1. + rand_reso * NUMPY_LIB.sqrt(resosfs[:, 1]**2 - 1.)
-    smear_rnd_d = 1. + rand_reso * NUMPY_LIB.sqrt(resosfs[:, 2]**2 - 1.)
-
-    inds_no_genjet = NUMPY_LIB.nonzero(msk_no_genjet)[0]
-
+    #result vector
     smear_n = NUMPY_LIB.array(smear_matched_n)
     smear_u = NUMPY_LIB.array(smear_matched_u)
     smear_d = NUMPY_LIB.array(smear_matched_d)
 
-    #for jets that have no matched genjet, use random smearing
+    #compute random smearing for unmatched jets
+    #note that we currently do not use a deterministic seed, this could be implemented
+    rand_reso = NUMPY_LIB.clip(NUMPY_LIB.random.normal(loc=NUMPY_LIB.zeros_like(pt_or_m), scale=resos, size=len(pt_or_m)), -5, 5)
+    
+    smear_rnd_n = 1. + rand_reso * NUMPY_LIB.sqrt(NUMPY_LIB.clip(resosfs[:, 0]**2 - 1.0, 0, None))
+    smear_rnd_u = 1. + rand_reso * NUMPY_LIB.sqrt(NUMPY_LIB.clip(resosfs[:, 1]**2 - 1.0, 0, None))
+    smear_rnd_d = 1. + rand_reso * NUMPY_LIB.sqrt(NUMPY_LIB.clip(resosfs[:, 2]**2 - 1.0, 0, None))
+
+    inds_no_genjet = NUMPY_LIB.nonzero(msk_no_genjet)[0]
+    
+    #set the smear factor for the unmatched jets
     ha.copyto_dst_indices(smear_n, smear_rnd_n[msk_no_genjet], inds_no_genjet)
     ha.copyto_dst_indices(smear_u, smear_rnd_u[msk_no_genjet], inds_no_genjet)
     ha.copyto_dst_indices(smear_d, smear_rnd_d[msk_no_genjet], inds_no_genjet)
-
-    #jets that have no genjet and the resolution in data is better than the one in MC
-    smear_n[msk_no_genjet & (resosfs[:, 0]<1.0)] = 1
-    smear_u[msk_no_genjet & (resosfs[:, 1]<1.0)] = 1
-    smear_d[msk_no_genjet & (resosfs[:, 2]<1.0)] = 1
-
-    #in case smearing accidentally flipped a jet pt
+    
+    #in case smearing accidentally flipped a jet pt, we don't want that
     smear_n[(smear_n * pt_or_m) < 0.01] = 0.01
     smear_u[(smear_u * pt_or_m) < 0.01] = 0.01
     smear_d[(smear_d * pt_or_m) < 0.01] = 0.01
+
+    #jets that have no genjet and the resolution in data is better than the one in MC (sf < 1)
+    smear_n[msk_no_genjet & (resosfs[:, 0]<1.0)] = 1
+    smear_u[msk_no_genjet & (resosfs[:, 1]<1.0)] = 1
+    smear_d[msk_no_genjet & (resosfs[:, 2]<1.0)] = 1
+    
+    #Oddly this happens in batch jobs but not on login-1
+    fix_inf_nan(smear_n, 1)
+    fix_inf_nan(smear_u, 1)
+    fix_inf_nan(smear_d, 1)
 
     return smear_n, smear_u, smear_d
 
 
 class JetTransformer:
-    def __init__(self, jets, scalars, parameters, jetmet_corrections, NUMPY_LIB, use_cuda, is_mc):
+    def __init__(self, jets, scalars, parameters, jetmet_corrections, NUMPY_LIB, ha, use_cuda, is_mc):
         self.jets = jets
         self.scalars = scalars
         self.jetmet_corrections = jetmet_corrections
         self.NUMPY_LIB = NUMPY_LIB
+        self.ha = ha 
         self.use_cuda = use_cuda
         self.is_mc = is_mc
 
         self.jets_rho = NUMPY_LIB.zeros_like(jets.pt)
-        ha.broadcast(scalars["fixedGridRhoFastjetAll"], self.jets.offsets, self.jets_rho)
+        self.ha.broadcast(scalars["fixedGridRhoFastjetAll"], self.jets.offsets, self.jets_rho)
         
         # Get the uncorrected jet pt and mass
         self.raw_pt = (self.jets.pt * (1.0 - self.jets.rawFactor))
@@ -2257,10 +2280,10 @@ class JetTransformer:
 
         # Need to use the CPU for JEC/JER currently
         if self.use_cuda:
-            self.raw_pt = NUMPY_LIB.asnumpy(self.raw_pt)
-            self.eta = NUMPY_LIB.asnumpy(self.jets.eta)
-            self.rho = NUMPY_LIB.asnumpy(self.jets_rho)
-            self.area = NUMPY_LIB.asnumpy(self.jets.area)
+            self.raw_pt = self.NUMPY_LIB.asnumpy(self.raw_pt)
+            self.eta = self.NUMPY_LIB.asnumpy(self.jets.eta)
+            self.rho = self.NUMPY_LIB.asnumpy(self.jets_rho)
+            self.area = self.NUMPY_LIB.asnumpy(self.jets.area)
         else:
             self.raw_pt = self.raw_pt
             self.eta = self.jets.eta
@@ -2272,11 +2295,13 @@ class JetTransformer:
         else:
             self.corr_jec = self.apply_jec_data()
 
-        self.corr_jec = NUMPY_LIB.array(self.corr_jec)
-        self.pt_jec = NUMPY_LIB.array(self.raw_pt) * self.corr_jec 
-        
+        self.corr_jec = self.NUMPY_LIB.array(self.corr_jec)
+        self.pt_jec = self.NUMPY_LIB.array(self.raw_pt) * self.corr_jec 
+
         if self.is_mc:
+            self.msk_no_genjet = (self.jets.genpt==0)
             self.jer_nominal, self.jer_up, self.jer_down = self.apply_jer()
+            check_inf_nan(self.jer_nominal) 
             self.pt_jec_jer = self.pt_jec * self.jer_nominal
 
     def apply_jer(self, startfrom="pt_jec"):
@@ -2287,21 +2312,15 @@ class JetTransformer:
         resosfs = self.jetmet_corrections.jersf.getScaleFactor(JetPt=ptvec, JetEta=self.eta)
 
         #The following is done either on CPU or GPU
-        resos = NUMPY_LIB.array(resos)
-        resosfs = NUMPY_LIB.array(resosfs)
+        resos = self.NUMPY_LIB.array(resos)
+        resosfs = self.NUMPY_LIB.array(resosfs)
 
-        dpt_jet_genjet = self.jets.pt - self.jets.genpt
+        dpt_jet_genjet = ptvec - self.jets.genpt
         dpt_jet_genjet[self.jets.genpt == 0] = 0
-        ratio_jet_genjet_pt = dpt_jet_genjet / self.jets.pt
-
-        msk_no_genjet = ratio_jet_genjet_pt == 0
-
-        dm_jet_genjet = self.jets.mass - self.jets.genmass
-        dm_jet_genjet[self.jets.genmass == 0] = 0
-        ratio_jet_genjet_mass = dm_jet_genjet / self.jets.mass
+        ratio_jet_genjet_pt = dpt_jet_genjet / ptvec
         
         smear_n, smear_u, smear_d = get_jer_smearfactors(
-            self.jets.pt, ratio_jet_genjet_pt, msk_no_genjet, resos, resosfs)
+            ptvec, ratio_jet_genjet_pt, self.msk_no_genjet, resos, resosfs, self.NUMPY_LIB, self.ha)
         return smear_n, smear_u, smear_d
 
     def apply_jec_mc(self):
@@ -2313,23 +2332,23 @@ class JetTransformer:
         return corr
 
     def apply_jec_data(self):
-        final_corr = NUMPY_LIB.zeros_like(self.jets.pt)
+        final_corr = self.NUMPY_LIB.zeros_like(self.jets.pt)
 
         #final correction is run-dependent, compute that for each run separately
-        for run_idx in NUMPY_LIB.unique(self.scalars["run_index"]):
+        for run_idx in self.NUMPY_LIB.unique(self.scalars["run_index"]):
             
             if self.use_cuda:
                 run_idx = int(run_idx)
             msk = self.scalars["run_index"] == run_idx
             
             #find the jets in the events that pass this run index cut
-            jets_msk = NUMPY_LIB.zeros(self.jets.numobjects(), dtype=NUMPY_LIB.bool)
-            ha.broadcast(msk, self.jets.offsets, jets_msk)
-            inds_nonzero = NUMPY_LIB.nonzero(jets_msk)[0]
+            jets_msk = self.NUMPY_LIB.zeros(self.jets.numobjects(), dtype=self.NUMPY_LIB.bool)
+            self.ha.broadcast(msk, self.jets.offsets, jets_msk)
+            inds_nonzero = self.NUMPY_LIB.nonzero(jets_msk)[0]
 
             #Evaluate jet correction (on CPU only currently)
             if self.use_cuda:
-                jets_msk = NUMPY_LIB.asnumpy(jets_msk)
+                jets_msk = self.NUMPY_LIB.asnumpy(jets_msk)
             run_name = runmap_numerical_r[run_idx]
 
             corr = self.jetmet_corrections.jec_data[run_name].getCorrection(
@@ -2342,7 +2361,7 @@ class JetTransformer:
 
             #update the final jet correction for the jets in the events in this run
             if len(inds_nonzero) > 0:
-                ha.copyto_dst_indices(final_corr, corr, inds_nonzero)
+                self.ha.copyto_dst_indices(final_corr, corr, inds_nonzero)
         corr = final_corr
         return corr
 
@@ -2354,20 +2373,22 @@ class JetTransformer:
         function_signature = self.jetmet_corrections.jesunc._funcs[idx_func].signature
 
         args = {
-            "JetPt": NUMPY_LIB.array(ptvec),
-            "JetEta": NUMPY_LIB.array(self.eta)
+            "JetPt": self.NUMPY_LIB.array(ptvec),
+            "JetEta": self.NUMPY_LIB.array(self.eta)
         }
+        print("apply_jec_unc", startfrom, uncertainty_name, args["JetPt"])
+
         #Get the arguments in the required format
         func_args = tuple([args[s] for s in function_signature])
 
         #compute the JEC uncertainty
         jec_unc_vec = jec_unc_func(*func_args)
-        return NUMPY_LIB.array(jec_unc_vec)
+        return self.NUMPY_LIB.array(jec_unc_vec)
 
     def get_variated_pts(self, variation_name, startfrom="pt_jec_jer"):
         ptvec = getattr(self, startfrom)
         if variation_name in self.jet_uncertainty_names:
-            corrs_up_down = NUMPY_LIB.array(self.apply_jec_unc(startfrom, variation_name), dtype=NUMPY_LIB.float32)
+            corrs_up_down = self.NUMPY_LIB.array(self.apply_jec_unc(startfrom, variation_name), dtype=self.NUMPY_LIB.float32)
             return {
                 (variation_name, "up"): ptvec*corrs_up_down[:, 0],
                 (variation_name, "down"): ptvec*corrs_up_down[:, 1]
@@ -2905,6 +2926,7 @@ class InputGen:
             self.datapath,
             job_desc["is_mc"])
 
+        ds.random_seed = job_desc["random_seed"]
         ds.era = job_desc["dataset_era"]
         ds.numpy_lib = numpy
         ds.num_chunk = job_desc["dataset_num_chunk"]
@@ -2929,10 +2951,15 @@ class InputGen:
     def __len__(self):
         return len(self.job_descriptions)
 
+#each job will have a new seed number
+def seed_generator(start=0):
+    while True:
+        yield start
+        start += 1
 
 def create_dataset_jobfiles(
     dataset_name, dataset_era,
-    filenames, is_mc, chunksize, outpath):
+    filenames, is_mc, chunksize, outpath, seed_generator):
     try:
         os.makedirs(outpath + "/jobfiles")
     except Exception as e:
@@ -2941,13 +2968,16 @@ def create_dataset_jobfiles(
     job_descriptions = []
     ijob = 0
     for files_chunk in chunks(filenames, chunksize):
+   
         job_description = {
             "dataset_name": dataset_name,
             "dataset_era": dataset_era,
             "filenames": files_chunk,
             "is_mc": is_mc,
             "dataset_num_chunk": ijob,
+            "random_seed": next(seed_generator)
         }
+
         job_descriptions += [job_description]
         fn = outpath + "/jobfiles/{0}_{1}_{2}.json".format(dataset_name, dataset_era, ijob)
         if os.path.isfile(fn):

@@ -14,7 +14,7 @@ from hepaccelerate.utils import choose_backend, LumiData, LumiMask
 from hepaccelerate.utils import Dataset, Results
 
 import hmumu_utils
-from hmumu_utils import run_analysis, run_cache, create_dataset_jobfiles, load_puhist_target
+from hmumu_utils import run_analysis, run_cache, create_dataset_jobfiles, load_puhist_target, seed_generator
 from hmumu_lib import LibHMuMu, RochesterCorrections, LeptonEfficiencyCorrections, GBREvaluator, MiscVariables, NNLOPSReweighting, hRelResolution, ZpTReweighting
 
 import os
@@ -609,6 +609,7 @@ def main(args, datasets):
         with open(cache_filename, "w") as fi:
             fi.write(json.dumps(filenames_cache, indent=2))
 
+    #Create the jobfiles
     if ("cache" in args.action or "analyze" in args.action) and (args.jobfiles is None):
         #Create a list of job files for processing
         jobfile_data = []
@@ -618,7 +619,8 @@ def main(args, datasets):
                 cache_filename))
         filenames_cache = json.load(open(cache_filename, "r"))
 
-        for dataset in datasets:
+        seed_gen = seed_generator()
+        for dataset in sorted(datasets):
             dataset_name, dataset_era, dataset_globpattern, is_mc = dataset
             try:
                 filenames_all = filenames_cache[dataset_name + "_" + dataset_era]
@@ -632,7 +634,7 @@ def main(args, datasets):
             print("Saving dataset {0}_{1} with {2} files in {3} files per chunk to jobfiles".format(
                 dataset_name, dataset_era, len(filenames_all_full), chunksize))
             jobfile_dataset = create_dataset_jobfiles(dataset_name, dataset_era,
-                filenames_all_full, is_mc, chunksize, args.out)
+                filenames_all_full, is_mc, chunksize, args.out, seed_gen)
             jobfile_data += jobfile_dataset
             print("Dataset {0}_{1} consists of {2} chunks".format(
                 dataset_name, dataset_era, len(jobfile_dataset)))
@@ -643,8 +645,12 @@ def main(args, datasets):
     #For each dataset, find out which chunks we want to process
     if "cache" in args.action or "analyze" in args.action:
         jobfile_data = []
+
+        #Load from file
         if not (args.jobfiles_load is None):
             args.jobfiles = [l.strip() for l in open(args.jobfiles_load).readlines()]
+
+        #Check for existing jobfiles
         if args.jobfiles is None:
             print("You did not specify to process specific dataset chunks, assuming you want to process all chunks")
             print("If this is not true, please specify e.g. --jobfiles data_2018_0.json data_2018_1.json ...")
@@ -657,7 +663,7 @@ def main(args, datasets):
                     jobfiles_dataset = jobfiles_dataset[:args.maxchunks]
                 args.jobfiles += jobfiles_dataset
        
-        #Now load the jobfiles 
+        #Now actually load the jobfiles 
         assert(len(args.jobfiles) > 0)
         print("You specified --jobfiles {0}, processing only these dataset chunks".format(" ".join(args.jobfiles))) 
         jobfile_data = []
