@@ -463,18 +463,12 @@ def merge_partial_results(dataset_name, dataset_era, outpath):
         pickle.dump(results, fi, protocol=pickle.HIGHEST_PROTOCOL) 
     return
 
-
 def main(args, datasets):
-
     do_prof = args.do_profile
     do_tensorflow = not args.disable_tensorflow
 
     #use the environment variable for cupy/cuda choice
     args.use_cuda = USE_CUPY
-
-    analysis_corrections = None
-    if "analyze" in args.action:
-        analysis_corrections = AnalysisCorrections(args, do_tensorflow)
 
     # Optionally disable pinned memory (will be somewhat slower)
     if args.use_cuda:
@@ -718,6 +712,7 @@ def main(args, datasets):
     #Run the physics analysis on all specified jobfiles  
     if "analyze" in args.action:
         print("Running the 'analyze' step of the analysis, processing the events into histograms with all systematics")
+        analysis_corrections = AnalysisCorrections(args, do_tensorflow)
         run_analysis(args, outpath_partial, jobfile_data, analysis_parameters, analysis_corrections)
     
     if do_prof:
@@ -738,6 +733,5 @@ def main(args, datasets):
     print("maxrss={0} MB".format(total_memory/1024))
 
 if __name__ == "__main__":
-
     args = parse_args()
     main(args, datasets)
