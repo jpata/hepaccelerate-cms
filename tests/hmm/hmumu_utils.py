@@ -1116,6 +1116,7 @@ def run_analysis(
     bench_ret["evspeed"] = nev_total/dt/1000/1000
     with open(cmdline_args.out + "/analysis_benchmarks.txt", "a") as of:
         of.write(json.dumps(bench_ret) + '\n')
+    return bench_ret
 
 def event_loop(train_batches_queue, use_cuda, **kwargs):
     ds = train_batches_queue.get(block=True)

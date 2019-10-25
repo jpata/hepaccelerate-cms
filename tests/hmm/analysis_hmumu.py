@@ -454,10 +454,10 @@ def merge_partial_results(dataset_name, dataset_era, outpath):
         results += [res]
     results = sum(results, Results({}))
     try:
-        os.makedirs(args.out + "/results")
+        os.makedirs(outpath + "/results")
     except FileExistsError as e:
         pass
-    result_filename = args.out + "/results/{0}_{1}.pkl".format(dataset_name, dataset_era)
+    result_filename = outpath + "/results/{0}_{1}.pkl".format(dataset_name, dataset_era)
     print("Saving results to {0}".format(result_filename))
     with open(result_filename, "wb") as fi:
         pickle.dump(results, fi, protocol=pickle.HIGHEST_PROTOCOL) 
