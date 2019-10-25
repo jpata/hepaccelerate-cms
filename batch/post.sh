@@ -2,7 +2,7 @@
 set -e
 
 #Should match RequestCpus in merge.jdl
-export NTHREADS=4
+export NTHREADS=8
 
 cd /storage/user/$USER/hmm
 #if [ -d /storage/user/$USER/hmm/out ]; then
