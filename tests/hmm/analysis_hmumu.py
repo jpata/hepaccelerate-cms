@@ -353,6 +353,66 @@ class AnalysisCorrections:
         print("Loading ZpTReweighting...")
         self.zptreweighting = ZpTReweighting(self.libhmm)
 
+def check_and_recreate_filename_cache(cache_filename, cache_location, datapath):
+    if os.path.isfile(cache_filename):
+        print("Cache file {0} already exists, we will not overwrite it to be safe.".format(cache_filename), file=sys.stderr)
+        print("Delete it or change --cache-location and try again.", file=sys.stderr)
+        sys.exit(1)
+        print("--action cache and no jobfiles specified, creating datasets.json dump of all filenames")
+    
+    if not os.path.isdir(cache_location):
+        os.makedirs(cache_location)
+    filenames_cache = {}
+
+    for dataset in datasets:
+        dataset_name, dataset_era, dataset_globpattern, is_mc = dataset
+        filenames_all = glob.glob(datapath + dataset_globpattern, recursive=True)
+        filenames_all = [fn for fn in filenames_all if not "Friend" in fn]
+        filenames_cache[dataset_name + "_" + dataset_era] = [
+            fn.replace(datapath, "") for fn in filenames_all]
+
+        if len(filenames_all) == 0:
+            raise Exception("Dataset {0} matched 0 files from glob pattern {1}, verify that the data files are located in {2}".format(
+                dataset_name, dataset_globpattern, datapath
+            ))
+    
+    #save all dataset filenames to a json file 
+    print("Creating a json dump of all the dataset filenames based on data found in {0}".format(datapath))
+    with open(cache_filename, "w") as fi:
+        fi.write(json.dumps(filenames_cache, indent=2))
+
+def create_all_jobfiles(datasets, cache_filename, datapath, chunksize, outpath):
+    #Create a list of job files for processing
+    jobfile_data = []
+    print("Loading list of filenames from {0}".format(cache_filename))
+    if not os.path.isfile(cache_filename):
+        raise Exception("Cached dataset list of filenames not found in {0}, please run this code with --action cache".format(
+            cache_filename))
+    filenames_cache = json.load(open(cache_filename, "r"))
+
+    seed_gen = seed_generator()
+    for dataset in sorted(datasets):
+        dataset_name, dataset_era, dataset_globpattern, is_mc = dataset
+        try:
+            filenames_all = filenames_cache[dataset_name + "_" + dataset_era]
+        except KeyError as e:
+            print("Could not load {0} from {1}, please make sure this dataset has been added to cache".format(
+                dataset_name + "_" + dataset_era, cache_filename), file=sys.stderr)
+            raise e
+
+        filenames_all_full = [datapath + "/" + fn for fn in filenames_all]
+        chunksize = chunksize * chunksize_multiplier.get(dataset_name, 1)
+        print("Saving dataset {0}_{1} with {2} files in {3} files per chunk to jobfiles".format(
+            dataset_name, dataset_era, len(filenames_all_full), chunksize))
+        jobfile_dataset = create_dataset_jobfiles(dataset_name, dataset_era,
+            filenames_all_full, is_mc, chunksize, outpath, seed_gen)
+        jobfile_data += jobfile_dataset
+        print("Dataset {0}_{1} consists of {2} chunks".format(
+            dataset_name, dataset_era, len(jobfile_dataset)))
+
+    assert(len(jobfile_data) > 0)
+    assert(len(jobfile_data[0]["filenames"]) > 0)
+
 def main(args, datasets):
 
     do_prof = args.do_profile
@@ -583,63 +643,11 @@ def main(args, datasets):
     #Recreate dump of all filenames
     cache_filename = args.cache_location + "/datasets.json"
     if ("cache" in args.action) and (args.jobfiles is None):
-        print("--action cache and no jobfiles specified, creating datasets.json dump of all filenames")
-        if not os.path.isdir(args.cache_location):
-            os.makedirs(args.cache_location)
-        filenames_cache = {}
-        for dataset in datasets:
-            dataset_name, dataset_era, dataset_globpattern, is_mc = dataset
-            filenames_all = glob.glob(args.datapath + dataset_globpattern, recursive=True)
-            filenames_all = [fn for fn in filenames_all if not "Friend" in fn]
-            filenames_cache[dataset_name + "_" + dataset_era] = [
-                fn.replace(args.datapath, "") for fn in filenames_all]
-
-            if len(filenames_all) == 0:
-                raise Exception("Dataset {0} matched 0 files from glob pattern {1}, verify that the data files are located in {2}".format(
-                    dataset_name, dataset_globpattern, args.datapath
-                ))
-    
-        #save all dataset filenames to a json file 
-        print("Creating a json dump of all the dataset filenames based on data found in {0}".format(args.datapath))
-        if os.path.isfile(cache_filename):
-            print("Cache file {0} already exists, we will not overwrite it to be safe.".format(cache_filename), file=sys.stderr)
-            print("Delete it or change --cache-location and try again.", file=sys.stderr)
-            sys.exit(1)
-        with open(cache_filename, "w") as fi:
-            fi.write(json.dumps(filenames_cache, indent=2))
+        check_and_recreate_filename_cache(cache_filename, args.cache_location, args.datapath)
 
     #Create the jobfiles
     if ("cache" in args.action or "analyze" in args.action) and (args.jobfiles is None):
-        #Create a list of job files for processing
-        jobfile_data = []
-        print("Loading list of filenames from {0}".format(cache_filename))
-        if not os.path.isfile(cache_filename):
-            raise Exception("Cached dataset list of filenames not found in {0}, please run this code with --action cache".format(
-                cache_filename))
-        filenames_cache = json.load(open(cache_filename, "r"))
-
-        seed_gen = seed_generator()
-        for dataset in sorted(datasets):
-            dataset_name, dataset_era, dataset_globpattern, is_mc = dataset
-            try:
-                filenames_all = filenames_cache[dataset_name + "_" + dataset_era]
-            except KeyError as e:
-                print("Could not load {0} from {1}, please make sure this dataset has been added to cache".format(
-                    dataset_name + "_" + dataset_era, cache_filename), file=sys.stderr)
-                raise e
-
-            filenames_all_full = [args.datapath + "/" + fn for fn in filenames_all]
-            chunksize = args.chunksize * chunksize_multiplier.get(dataset_name, 1)
-            print("Saving dataset {0}_{1} with {2} files in {3} files per chunk to jobfiles".format(
-                dataset_name, dataset_era, len(filenames_all_full), chunksize))
-            jobfile_dataset = create_dataset_jobfiles(dataset_name, dataset_era,
-                filenames_all_full, is_mc, chunksize, args.out, seed_gen)
-            jobfile_data += jobfile_dataset
-            print("Dataset {0}_{1} consists of {2} chunks".format(
-                dataset_name, dataset_era, len(jobfile_dataset)))
-
-        assert(len(jobfile_data) > 0)
-        assert(len(jobfile_data[0]["filenames"]) > 0)
+        create_all_jobfiles(datasets, cache_filename, args.datapath, args.chunksize, args.out)
 
     #For each dataset, find out which chunks we want to process
     if "cache" in args.action or "analyze" in args.action:
