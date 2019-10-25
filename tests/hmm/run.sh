@@ -18,6 +18,7 @@ export SINGULARITY_IMAGE=/storage/user/jpata/gpuservers/singularity/images/cupy.
 export PYTHONPATH=coffea:hepaccelerate:.
 export NUMBA_THREADING_LAYER=tbb
 export NUMBA_ENABLE_AVX=1
+export NUMBA_CPU_FEATURES=+sse,+sse2,+avx,+avx2
 export NUMBA_NUM_THREADS=$NTHREADS
 export OMP_NUM_THREADS=$NTHREADS
 export HEPACCELERATE_CUDA=0
