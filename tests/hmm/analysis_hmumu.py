@@ -24,6 +24,7 @@ import json
 import glob
 import sys
 
+from coffea.util import USE_CUPY
 from coffea.lookup_tools import extractor
 from coffea.jetmet_tools import FactorizedJetCorrector
 from coffea.jetmet_tools import JetResolution
@@ -358,7 +359,7 @@ def main(args, datasets):
     do_tensorflow = not args.disable_tensorflow
 
     #use the environment variable for cupy/cuda choice
-    args.use_cuda = False
+    args.use_cuda = USE_CUPY
 
     analysis_corrections = None
     if "analyze" in args.action:
