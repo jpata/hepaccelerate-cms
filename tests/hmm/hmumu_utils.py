@@ -142,10 +142,10 @@ def analyze_data(
     #find genHiggs
     if is_mc and (dataset_name in parameters["ggh_nnlops_reweight"]):
         genHiggs_mask = NUMPY_LIB.logical_and((genpart.pdgId == 25), (genpart.status == 62))
-        genHiggs_pt = genhpt(muons.numevents(),genpart, genHiggs_mask)
+        genHiggs_pt = genhpt(genpart, genHiggs_mask, use_cuda)
         selected_genJet_mask = genJet.pt>30
         genNjets = ha.sum_in_offsets(genJet.offsets, selected_genJet_mask, mask_events,genJet.masks["all"], NUMPY_LIB.int8)
-        gghnnlopsw = nnlopsreweighting.compute(genNjets,genHiggs_pt, parameters["ggh_nnlops_reweight"][dataset_name])
+        gghnnlopsw = nnlopsreweighting.compute(genNjets, genHiggs_pt, parameters["ggh_nnlops_reweight"][dataset_name])
 
     #Find the first two genjets in the event that are not matched to gen-leptons
     mask_vbf_filter = None
@@ -1862,27 +1862,29 @@ def get_theoryweights_cpu(offsets, variations, index, out_var):
         out_var[iev] = variations[offsets[iev]+index]
 
 # Custom kernels to get the pt of the genHiggs
-def genhpt(nevt,genpart, mask):
+def genhpt(genpart, mask, use_cuda):
+    nevt = genpart.numevents()
     assert(mask.shape == genpart.status.shape)
-    mask_out = NUMPY_LIB.zeros(nevt, dtype=NUMPY_LIB.float32)
-    genhpt_cpu(
-        nevt, genpart.offsets, genpart.pdgId, genpart.status, genpart.pt, mask, mask_out
-    )
-    return mask_out
+    vals_out = NUMPY_LIB.zeros(nevt, dtype=NUMPY_LIB.float32)
+    if not use_cuda:
+        genhpt_cpu(
+            nevt, genpart.offsets, genpart.pdgId, genpart.status, genpart.pt, mask, vals_out
+        )
+    else:
+        raise Exception("genhpt not implemented on GPU")
+
+    return vals_out
 
 @numba.njit(parallel=True, fastmath=True)
 def genhpt_cpu(nevt, genparts_offsets, pdgid, status, pt, mask, out_genhpt):
     #loop over events
     for iev in numba.prange(nevt):
         gen_Higgs_pt = -1;
-        #loop over genpart
+        #loop over genpart, get the first particle in the event that matches the mask
         for igenpart in range(genparts_offsets[iev], genparts_offsets[iev + 1]):
             if mask[igenpart]:
-                #print("pdgid stats: ", pdgid[igenpart], status[igenpart])
                 gen_Higgs_pt = pt[igenpart]
-                #print("gen_Higgs_pt: ",gen_Higgs_pt)
                 break 
-        #print("final gen_Higgs_pt: ",gen_Higgs_pt)
         out_genhpt[iev] = gen_Higgs_pt
 
 # Custom kernels to get the pt of the muon based on the matched genPartIdx of the reco muon
