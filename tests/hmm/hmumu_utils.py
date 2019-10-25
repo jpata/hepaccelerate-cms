@@ -144,7 +144,7 @@ def analyze_data(
         genHiggs_mask = NUMPY_LIB.logical_and((genpart.pdgId == 25), (genpart.status == 62))
         genHiggs_pt = genhpt(muons.numevents(),genpart, genHiggs_mask)
         selected_genJet_mask = genJet.pt>30
-        genNjets = ha.sum_in_offsets(genJet, selected_genJet_mask, mask_events,genJet.masks["all"], NUMPY_LIB.int8)
+        genNjets = ha.sum_in_offsets(genJet.offsets, selected_genJet_mask, mask_events,genJet.masks["all"], NUMPY_LIB.int8)
         gghnnlopsw = nnlopsreweighting.compute(genNjets,genHiggs_pt, parameters["ggh_nnlops_reweight"][dataset_name])
 
     #Find the first two genjets in the event that are not matched to gen-leptons
@@ -157,17 +157,20 @@ def analyze_data(
         genpart_mask = NUMPY_LIB.logical_or(genpart_mask, (genpart_pdgid == 15))
 
         genjets_not_matched_genlepton = ha.mask_deltar_first(
-            genJet, genJet.masks["all"], genpart, genpart_mask, 0.3
+            {"eta": genJet.eta, "phi": genJet.phi, "offsets": genJet.offsets},
+            genJet.masks["all"],
+            {"eta": genpart.eta, "phi": genpart.phi, "offsets": genpart.offsets},
+            genpart_mask, 0.3
         )
         out_genjet_mask = NUMPY_LIB.zeros(genJet.numobjects(), dtype=NUMPY_LIB.bool)
         inds = NUMPY_LIB.zeros_like(mask_events)
         targets = NUMPY_LIB.ones_like(mask_events)
         inds[:] = 0
-        ha.set_in_offsets(out_genjet_mask, genJet.offsets, inds, targets, mask_events, genjets_not_matched_genlepton)
+        ha.set_in_offsets(genJet.offsets, out_genjet_mask, inds, targets, mask_events, genjets_not_matched_genlepton)
         inds[:] = 1
-        ha.set_in_offsets(out_genjet_mask, genJet.offsets, inds, targets, mask_events, genjets_not_matched_genlepton)
+        ha.set_in_offsets(genJet.offsets, out_genjet_mask, inds, targets, mask_events, genjets_not_matched_genlepton)
 
-        num_good_genjets = ha.sum_in_offsets(genJet, out_genjet_mask, mask_events, genJet.masks["all"], NUMPY_LIB.int8)
+        num_good_genjets = ha.sum_in_offsets(genJet.offsets, out_genjet_mask, mask_events, genJet.masks["all"], NUMPY_LIB.int8)
 
         genjet_inv_mass, _ = compute_inv_mass(genJet, mask_events, out_genjet_mask, use_cuda)
         genjet_inv_mass[num_good_genjets<2] = 0
@@ -212,7 +215,7 @@ def analyze_data(
     #Just a check to verify that there are exactly 2 muons per event
     if doverify:
         z = ha.sum_in_offsets(
-            muons,
+            muons.offsets,
             ret_mu["selected_muons"],
             ret_mu["selected_events"],
             ret_mu["selected_muons"],
@@ -332,8 +335,8 @@ def analyze_data(
     masswindow_h_sideband = masswindow_h_region & NUMPY_LIB.invert(masswindow_h_peak)
 
     #get the number of additional muons (not OS) that pass ID and iso cuts
-    n_additional_muons = ha.sum_in_offsets(muons, ret_mu["additional_muon_sel"], ret_mu["selected_events"], ret_mu["additional_muon_sel"], dtype=NUMPY_LIB.int8)
-    n_additional_electrons = ha.sum_in_offsets(electrons, ret_el["additional_electron_sel"], ret_mu["selected_events"], ret_el["additional_electron_sel"], dtype=NUMPY_LIB.int8)
+    n_additional_muons = ha.sum_in_offsets(muons.offsets, ret_mu["additional_muon_sel"], ret_mu["selected_events"], ret_mu["additional_muon_sel"], dtype=NUMPY_LIB.int8)
+    n_additional_electrons = ha.sum_in_offsets(electrons.offsets, ret_el["additional_electron_sel"], ret_mu["selected_events"], ret_el["additional_electron_sel"], dtype=NUMPY_LIB.int8)
     n_additional_leptons = n_additional_muons + n_additional_electrons
 
     #This computes the JEC, JER and associated systematics
@@ -501,11 +504,6 @@ def analyze_data(
             #Assign the final analysis discriminator based on category
             #scalars["final_discriminator"] = NUMPY_LIB.zeros_like(higgs_inv_mass)
             if not (dnn_prediction is None):
-                #inds_nonzero = NUMPY_LIB.nonzero(dnn_presel)[0]
-                #if len(inds_nonzero) > 0:
-                #    ha.copyto_dst_indices(scalars["final_discriminator"], dnn_prediction, inds_nonzero)
-                #scalars["final_discriminator"][category != 5] = 0
-
                 #Add some additional debugging info to the DNN training ntuples
                 dnn_vars["cat_index"] = category[dnn_presel]
                 dnn_vars["run"] = scalars["run"][dnn_presel]
@@ -1275,7 +1273,9 @@ def get_selected_muons(
     #Get muons that are high-pt and are matched to trigger object
     mask_trigger_objects_mu = (trigobj.id == 13)
     muons_matched_to_trigobj = NUMPY_LIB.invert(ha.mask_deltar_first(
-        muons, muons_passing_id_trig_matched & passes_leading_pt, trigobj,
+        {"eta": muons.eta, "phi": muons.phi, "offsets": muons.offsets},
+        muons_passing_id_trig_matched & passes_leading_pt,
+        {"eta": trigobj.eta, "phi": trigobj.phi, "offsets": trigobj.offsets},
         mask_trigger_objects_mu, muon_trig_match_dr
     ))
     muons.attrs_data["triggermatch"] = muons_matched_to_trigobj
@@ -1284,19 +1284,19 @@ def get_selected_muons(
 
     #At least one muon must be matched to trigger object, find such events
     events_passes_triggermatch = ha.sum_in_offsets(
-        muons, muons_matched_to_trigobj, mask_events,
+        muons.offsets, muons_matched_to_trigobj, mask_events,
         muons.masks["all"], NUMPY_LIB.int8
     ) >= 1
 
     #select events that have muons passing cuts: 2 passing ID, 1 passing leading pt, 2 passing subleading pt
     events_passes_muid = ha.sum_in_offsets(
-        muons, muons_passing_id, mask_events, muons.masks["all"],
+        muons.offsets, muons_passing_id, mask_events, muons.masks["all"],
         NUMPY_LIB.int8) >= 2
     events_passes_leading_pt = ha.sum_in_offsets(
-        muons, muons_passing_id & passes_leading_pt, mask_events,
+        muons.offsets, muons_passing_id & passes_leading_pt, mask_events,
         muons.masks["all"], NUMPY_LIB.int8) >= 1
     events_passes_subleading_pt = ha.sum_in_offsets(
-        muons, muons_passing_id & passes_subleading_pt,
+        muons.offsets, muons_passing_id & passes_subleading_pt,
         mask_events, muons.masks["all"], NUMPY_LIB.int8) >= 2
 
     #Get the mask of selected events
@@ -1309,10 +1309,10 @@ def get_selected_muons(
     )
 
     #Find two opposite sign muons among the muons passing ID and subleading pt
-    muons_passing_os = ha.select_muons_opposite_sign(
-        muons, muons_passing_id & passes_subleading_pt)
+    muons_passing_os = ha.select_opposite_sign(
+        muons.offsets, muons.charge, muons_passing_id & passes_subleading_pt)
     events_passes_os = ha.sum_in_offsets(
-        muons, muons_passing_os, mask_events,
+        muons.offsets, muons_passing_os, mask_events,
         muons.masks["all"], NUMPY_LIB.int32) == 2
 
     muons.attrs_data["pass_os"] = muons_passing_os
@@ -1352,10 +1352,10 @@ def nsoftjets(nsoft, softht, nevt,softjets, leading_muon, subleading_muon, leadi
     return nsjet_out, HTsjet_out
 
 @numba.njit(parallel=True, fastmath=True)
-
 def nsoftjets_cpu(nsoft, softht, nevt, softjets_offsets, pt, eta, phi, etaj1, etaj2, phij1, phij2, etam1, etam2, phim1, phim2, ptcut, dr2cut, nsjet_out, HTsjet_out):
     phis = [phij1, phij2, phim1, phim2]
     etas = [etaj1, etaj2, etam1, etam2]
+    #process events in parallel
     for iev in numba.prange(nevt):
         nbadsjet = 0
         htsjet = 0
@@ -1364,12 +1364,8 @@ def nsoftjets_cpu(nsoft, softht, nevt, softjets_offsets, pt, eta, phi, etaj1, et
                 sj_sel = True
                 if ((eta[isoftjets]<etaj1[iev] and eta[isoftjets]>etaj2[iev]) or (eta[isoftjets]<etaj2[iev] and eta[isoftjets]>etaj1[iev])):
                     nobj = len(phis)
-                    for index in numba.prange(nobj):
-                        dphi = phi[isoftjets] - phis[index][iev]
-                        if dphi > math.pi:
-                            dphi = dphi - 2*math.pi
-                        elif (dphi + math.pi) < 0:
-                            dphi = dphi + 2*math.pi
+                    for index in range(nobj):
+                        dphi = deltaphi_cpu_devfunc(phi[isoftjets], phis[index][iev])
                         deta = eta[isoftjets] - etas[index][iev]
                         dr = dphi**2 + deta**2
                         if dr < dr2cut:
@@ -1439,7 +1435,9 @@ def get_selected_jets_id(
         selected_jets = selected_jets & jet_eta_pass_veto
     
     jets_pass_dr = ha.mask_deltar_first(
-        jets, selected_jets, muons,
+        {"eta": jets.eta, "phi": jets.phi, "offsets": jets.offsets},
+        selected_jets,
+        {"eta": muons.eta, "phi": muons.phi, "offsets": muons.offsets},
         muons.masks["iso_id_aeta"], jet_dr_cut)
 
     jets.masks["pass_dr"] = jets_pass_dr
@@ -1479,9 +1477,9 @@ def get_selected_jets(
     inds = NUMPY_LIB.zeros_like(mask_events, dtype=NUMPY_LIB.int32) 
     targets = NUMPY_LIB.ones_like(mask_events, dtype=NUMPY_LIB.int32) 
     inds[:] = 0
-    ha.set_in_offsets(first_two_jets, jets.offsets, inds, targets, mask_events, selected_jets)
+    ha.set_in_offsets(jets.offsets, first_two_jets, inds, targets, mask_events, selected_jets)
     inds[:] = 1
-    ha.set_in_offsets(first_two_jets, jets.offsets, inds, targets, mask_events, selected_jets)
+    ha.set_in_offsets(jets.offsets, first_two_jets, inds, targets, mask_events, selected_jets)
     jets.attrs_data["selected"] = selected_jets
     jets.attrs_data["first_two"] = first_two_jets
 
@@ -1491,13 +1489,13 @@ def get_selected_jets(
     selected_jets_btag_medium = selected_jets & (jets.btagDeepB >= jet_btag_medium) & (abs(jets.eta) < 2.5)
     selected_jets_btag_loose = selected_jets & (jets.btagDeepB >= jet_btag_loose) & (abs(jets.eta) <2.5)
 
-    num_jets = ha.sum_in_offsets(jets, selected_jets, mask_events,
+    num_jets = ha.sum_in_offsets(jets.offsets, selected_jets, mask_events,
         jets.masks["all"], NUMPY_LIB.int8)
 
-    num_jets_btag_medium = ha.sum_in_offsets(jets, selected_jets_btag_medium, mask_events,
+    num_jets_btag_medium = ha.sum_in_offsets(jets.offsets, selected_jets_btag_medium, mask_events,
         jets.masks["all"], NUMPY_LIB.int8)
 
-    num_jets_btag_loose = ha.sum_in_offsets(jets, selected_jets_btag_loose, mask_events,
+    num_jets_btag_loose = ha.sum_in_offsets(jets.offsets, selected_jets_btag_loose, mask_events,
         jets.masks["all"], NUMPY_LIB.int8)
     
     if debug:
@@ -1822,18 +1820,24 @@ def rochester_correction_muon_qterm(
 
     return NUMPY_LIB.array(qterm)
 
+@numba.njit(fastmath=True)
+def deltaphi_cpu_devfunc(phi1, phi2):
+    dphi = phi1 - phi2
+    out_dphi = 0 
+    if dphi > math.pi:
+        dphi = dphi - 2*math.pi
+        out_dphi = dphi
+    elif (dphi + math.pi) < 0:
+        dphi = dphi + 2*math.pi
+        out_dphi = dphi
+    else:
+        out_dphi = dphi
+    return out_dphi
+
 @numba.njit('float32[:], float32[:], float32[:]', parallel=True, fastmath=True)
 def deltaphi_cpu(phi1, phi2, out_dphi):
     for iev in numba.prange(len(phi1)):
-        dphi = phi1[iev] - phi2[iev] 
-        if dphi > math.pi:
-            dphi = dphi - 2*math.pi
-            out_dphi[iev] = dphi
-        elif (dphi + math.pi) < 0:
-            dphi = dphi + 2*math.pi
-            out_dphi[iev] = dphi
-        else:
-            out_dphi[iev] = dphi
+        out_dphi[iev] = deltaphi_cpu_devfunc(phi1[iev], phi2[iev])
 
 @cuda.jit
 def deltaphi_cudakernel(phi1, phi2, out_dphi):
@@ -1989,7 +1993,7 @@ def deltar(obj1, obj2, use_cuda):
         deltaphi_cudakernel[21,1024](obj1["phi"],obj2["phi"],dphi)
         cuda.synchronize()
     else:
-        deltaphi_cpu(obj1["phi"],obj2["phi"],dphi)
+        deltaphi_cpu(obj1["phi"], obj2["phi"], dphi)
     dr = NUMPY_LIB.sqrt(deta**2 + dphi**2)
     return deta, dphi, dr 
 
@@ -2381,7 +2385,7 @@ class JetTransformer:
         self.is_mc = is_mc
 
         self.jets_rho = NUMPY_LIB.zeros_like(jets.pt)
-        self.ha.broadcast(scalars["fixedGridRhoFastjetAll"], self.jets.offsets, self.jets_rho)
+        self.ha.broadcast(self.jets.offsets, scalars["fixedGridRhoFastjetAll"], self.jets_rho)
         
         # Get the uncorrected jet pt and mass
         self.raw_pt = (self.jets.pt * (1.0 - self.jets.rawFactor))
@@ -2455,7 +2459,7 @@ class JetTransformer:
             
             #find the jets in the events that pass this run index cut
             jets_msk = self.NUMPY_LIB.zeros(self.jets.numobjects(), dtype=self.NUMPY_LIB.bool)
-            self.ha.broadcast(msk, self.jets.offsets, jets_msk)
+            self.ha.broadcast(self.jets.offsets, msk, jets_msk)
             inds_nonzero = self.NUMPY_LIB.nonzero(jets_msk)[0]
 
             #Evaluate jet correction (on CPU only currently)
