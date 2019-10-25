@@ -1,6 +1,4 @@
 import os
-os.environ["NUMBAPRO_NVVM"] = "/usr/local/cuda/nvvm/lib64/libnvvm.so"
-os.environ["NUMBAPRO_LIBDEVICE"] = "/usr/local/cuda/nvvm/libdevice/"
 import numba
 
 import argparse
@@ -8,6 +6,7 @@ import numpy as np
 import copy
 import pickle
 import shutil
+import resource
 
 import hepaccelerate.backend_cpu as backend_cpu
 from hepaccelerate.utils import choose_backend, LumiData, LumiMask
@@ -34,8 +33,6 @@ from coffea.jetmet_tools import JetResolutionScaleFactor
 from concurrent.futures import ProcessPoolExecutor, wait, ALL_COMPLETED
 
 from pars import datasets, datasets_sync
-
-chunksize_multiplier = {}
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Caltech HiggsMuMu analysis')
@@ -401,7 +398,6 @@ def create_all_jobfiles(datasets, cache_filename, datapath, chunksize, outpath):
             raise e
 
         filenames_all_full = [datapath + "/" + fn for fn in filenames_all]
-        chunksize = chunksize * chunksize_multiplier.get(dataset_name, 1)
         print("Saving dataset {0}_{1} with {2} files in {3} files per chunk to jobfiles".format(
             dataset_name, dataset_era, len(filenames_all_full), chunksize))
         jobfile_dataset = create_dataset_jobfiles(dataset_name, dataset_era,
@@ -412,6 +408,61 @@ def create_all_jobfiles(datasets, cache_filename, datapath, chunksize, outpath):
 
     assert(len(jobfile_data) > 0)
     assert(len(jobfile_data[0]["filenames"]) > 0)
+
+
+def load_jobfiles(datasets, jobfiles_load_from_file, jobfiles, maxchunks, outpath):
+    #Load from file
+    if not (jobfiles_load_from_file is None):
+        jobfiles = [l.strip() for l in open(jobfiles_load_from_file).readlines()]
+
+    #Check for existing jobfiles
+    if jobfiles is None:
+        print("You did not specify to process specific dataset chunks, assuming you want to process all chunks")
+        print("If this is not true, please specify e.g. --jobfiles data_2018_0.json data_2018_1.json ...")
+        jobfiles = []
+        for dataset in datasets:
+            dataset_name, dataset_era, dataset_globpattern, is_mc = dataset
+            jobfile_pattern = outpath + "/jobfiles/{0}_{1}_*.json".format(dataset_name, dataset_era)
+            jobfiles_dataset = glob.glob(jobfile_pattern)
+            if len(jobfiles_dataset) == 0:
+                raise Exception("Could not find any jobfiles matching pattern {0}".format(jobfile_pattern))
+
+            if maxchunks > 0:
+                jobfiles_dataset = jobfiles_dataset[:maxchunks]
+            jobfiles += jobfiles_dataset
+    
+    #Now actually load the jobfiles 
+    assert(len(jobfiles) > 0)
+    print("You specified --jobfiles {0}, processing only these dataset chunks".format(" ".join(jobfiles))) 
+    jobfile_data = []
+    for f in jobfiles:
+        jobfile_data += [json.load(open(f))]
+
+    chunkstr = " ".join(["{0}_{1}_{2}".format(
+        ch["dataset_name"], ch["dataset_era"], ch["dataset_num_chunk"])
+        for ch in jobfile_data])
+    print("Will process {0} dataset chunks: {1}".format(len(jobfile_data), chunkstr))
+    assert(len(jobfile_data) > 0)
+    return jobfile_data
+
+def merge_partial_results(dataset_name, dataset_era, outpath):
+    results = []
+    partial_results = glob.glob(outpath + "/{0}_{1}_*.pkl".format(dataset_name, dataset_era))
+    print("Merging {0} partial results for dataset {1}_{2}".format(len(partial_results), dataset_name, dataset_era))
+    for res_file in partial_results:
+        res = pickle.load(open(res_file, "rb"))
+        results += [res]
+    results = sum(results, Results({}))
+    try:
+        os.makedirs(args.out + "/results")
+    except FileExistsError as e:
+        pass
+    result_filename = args.out + "/results/{0}_{1}.pkl".format(dataset_name, dataset_era)
+    print("Saving results to {0}".format(result_filename))
+    with open(result_filename, "wb") as fi:
+        pickle.dump(results, fi, protocol=pickle.HIGHEST_PROTOCOL) 
+    return
+
 
 def main(args, datasets):
 
@@ -600,6 +651,7 @@ def main(args, datasets):
             "do_dnn_pisa": False,
         },
     }
+    #define the histogram binning
     histo_bins = {
         "muon_pt": np.linspace(0, 200, 101, dtype=np.float32),
         "muon_eta": np.linspace(-2.5, 2.5, 21, dtype=np.float32),
@@ -630,14 +682,14 @@ def main(args, datasets):
 
     analysis_parameters["baseline"]["histo_bins"] = histo_bins
 
-    #Run baseline analysis
-    outpath = "{0}/partial_results".format(args.out)
+    outpath_partial = "{0}/partial_results".format(args.out)
     try:
-        os.makedirs(outpath)
+        os.makedirs(outpath_partial)
     except FileExistsError as e:
-            pass
+        print("Output path {0} already exists, not recreating".format(outpath_partial))
 
-    with open('{0}/parameters.pkl'.format(outpath), 'wb') as handle:
+    #save the parameters as a pkl file
+    with open('{0}/parameters.pkl'.format(outpath_partial), 'wb') as handle:
         pickle.dump(analysis_parameters, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
     #Recreate dump of all filenames
@@ -651,91 +703,39 @@ def main(args, datasets):
 
     #For each dataset, find out which chunks we want to process
     if "cache" in args.action or "analyze" in args.action:
-        jobfile_data = []
-
-        #Load from file
-        if not (args.jobfiles_load is None):
-            args.jobfiles = [l.strip() for l in open(args.jobfiles_load).readlines()]
-
-        #Check for existing jobfiles
-        if args.jobfiles is None:
-            print("You did not specify to process specific dataset chunks, assuming you want to process all chunks")
-            print("If this is not true, please specify e.g. --jobfiles data_2018_0.json data_2018_1.json ...")
-            args.jobfiles = []
-            for dataset in datasets:
-                dataset_name, dataset_era, dataset_globpattern, is_mc = dataset
-                jobfiles_dataset = glob.glob(args.out + "/jobfiles/{0}_{1}_*.json".format(dataset_name, dataset_era))
-                assert(len(jobfiles_dataset) > 0)
-                if args.maxchunks > 0:
-                    jobfiles_dataset = jobfiles_dataset[:args.maxchunks]
-                args.jobfiles += jobfiles_dataset
-       
-        #Now actually load the jobfiles 
-        assert(len(args.jobfiles) > 0)
-        print("You specified --jobfiles {0}, processing only these dataset chunks".format(" ".join(args.jobfiles))) 
-        jobfile_data = []
-        for f in args.jobfiles:
-            jobfile_data += [json.load(open(f))]
-
-        chunkstr = " ".join(["{0}_{1}_{2}".format(
-            ch["dataset_name"], ch["dataset_era"], ch["dataset_num_chunk"])
-            for ch in jobfile_data])
-        print("Will process {0} dataset chunks: {1}".format(len(jobfile_data), chunkstr))
-        assert(len(jobfile_data) > 0)
+        jobfile_data = load_jobfiles(datasets, args.jobfiles_load, args.jobfiles, args.maxchunks, args.out)
 
     #Start the profiler only in the actual data processing
     if do_prof:
         import yappi
-        filename = 'analysis.prof'
         yappi.set_clock_type('cpu')
         yappi.start(builtins=True)
 
     if "cache" in args.action:
         print("Running the 'cache' step of the analysis, ROOT files will be opened and branches will be uncompressed")
-        print("Will retrieve dataset filenames based on existing ROOT files on filesystem in datapath={0}".format(args.datapath)) 
-       
-        try:
-            os.makedirs(cmdline_args.cache_location)
-        except Exception as e:
-            pass
-
-        run_cache(args, outpath, jobfile_data, analysis_parameters)
-    
+        run_cache(args, outpath_partial, jobfile_data, analysis_parameters)
+   
+    #Run the physics analysis on all specified jobfiles  
     if "analyze" in args.action:
-        run_analysis(args, outpath, jobfile_data, analysis_parameters, analysis_corrections)
+        print("Running the 'analyze' step of the analysis, processing the events into histograms with all systematics")
+        run_analysis(args, outpath_partial, jobfile_data, analysis_parameters, analysis_corrections)
+    
+    if do_prof:
+        stats = yappi.get_func_stats()
+        stats.save("analysis.prof", type='callgrind')
 
+    #Merge the partial results (pieces of each dataset)
     if "merge" in args.action:
         with ProcessPoolExecutor(max_workers=args.nthreads) as executor:
             for dataset in datasets:
                 dataset_name, dataset_era, dataset_globpattern, is_mc = dataset
-                fut = executor.submit(merge_partial_results, dataset_name, dataset_era, outpath)
+                fut = executor.submit(merge_partial_results, dataset_name, dataset_era, outpath_partial)
         print("done merging")
-    if do_prof:
-        stats = yappi.get_func_stats()
-        stats.save(filename, type='callgrind')
 
-    import resource
+    #print memory usage
     total_memory = resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss
     total_memory += resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
     print("maxrss={0} MB".format(total_memory/1024))
-
-def merge_partial_results(dataset_name, dataset_era, outpath):
-    results = []
-    partial_results = glob.glob(outpath + "/{0}_{1}_*.pkl".format(dataset_name, dataset_era))
-    print("Merging {0} partial results for dataset {1}_{2}".format(len(partial_results), dataset_name, dataset_era))
-    for res_file in partial_results:
-        res = pickle.load(open(res_file, "rb"))
-        results += [res]
-    results = sum(results, Results({}))
-    try:
-        os.makedirs(args.out + "/results")
-    except FileExistsError as e:
-        pass
-    result_filename = args.out + "/results/{0}_{1}.pkl".format(dataset_name, dataset_era)
-    print("Saving results to {0}".format(result_filename))
-    with open(result_filename, "wb") as fi:
-        pickle.dump(results, fi, protocol=pickle.HIGHEST_PROTOCOL) 
-    return
 
 if __name__ == "__main__":
 

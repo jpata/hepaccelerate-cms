@@ -29,11 +29,10 @@ export INPUTDATAPATH=/storage/user/jpata
 
 ## Step 1: cache ROOT data (need to repeat only when list of files or branches changes)
 ## This can take a few hours currently for the whole run (using maxchunks -1 and --nthreads 24)
-#singularity exec --nv -B /storage -B /mnt/hadoop $SINGULARITY_IMAGE python3 tests/hmm/analysis_hmumu.py \
+#singularity exec --nv -B /storage $SINGULARITY_IMAGE python3 tests/hmm/analysis_hmumu.py \
 #   --action cache --maxchunks $MAXCHUNKS --chunksize 1 \
 #   --nthreads 1 --cache-location $CACHE_PATH \
-#   --datapath $INPUTDATAPATH \
-#   --do-sync
+#   --datapath $INPUTDATAPATH
 
 ## Step 2: Run the physics analysis
 singularity exec --nv -B /storage $SINGULARITY_IMAGE python3 tests/hmm/analysis_hmumu.py \
