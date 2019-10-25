@@ -445,9 +445,9 @@ def load_jobfiles(datasets, jobfiles_load_from_file, jobfiles, maxchunks, outpat
     assert(len(jobfile_data) > 0)
     return jobfile_data
 
-def merge_partial_results(dataset_name, dataset_era, outpath):
+def merge_partial_results(dataset_name, dataset_era, outpath, outpath_partial):
     results = []
-    partial_results = glob.glob(outpath + "/{0}_{1}_*.pkl".format(dataset_name, dataset_era))
+    partial_results = glob.glob(outpath_partial + "/{0}_{1}_*.pkl".format(dataset_name, dataset_era))
     print("Merging {0} partial results for dataset {1}_{2}".format(len(partial_results), dataset_name, dataset_era))
     for res_file in partial_results:
         res = pickle.load(open(res_file, "rb"))
@@ -549,7 +549,7 @@ def main(args, datasets):
         with ProcessPoolExecutor(max_workers=args.nthreads) as executor:
             for dataset in datasets:
                 dataset_name, dataset_era, dataset_globpattern, is_mc = dataset
-                fut = executor.submit(merge_partial_results, dataset_name, dataset_era, outpath_partial)
+                fut = executor.submit(merge_partial_results, dataset_name, dataset_era, args.out, outpath_partial)
         print("done merging")
 
     #print memory usage
