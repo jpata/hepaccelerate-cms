@@ -7,15 +7,15 @@ Requirements=(TARGET.OpSysAndVer=="CentOS7" && regexp("blade-.*", TARGET.Machine
 #Requirements=(TARGET.OpSysAndVer=="CentOS7")
 +RunAsOwner = True
 +InteractiveUser = true
-+SingularityImage = "/storage/user/jpata/cupy2.simg"
++SingularityImage = "/storage/user/jpata/gpuservers/singularity/images/cupy.simg"
 +SingularityBindCVMFS = True
 +RequestWalltime = 10*3600
 
 run_as_owner = True
 x509userproxy = $ENV(X509_USER_PROXY)
 RequestDisk = 2
-RequestMemory = 4000
-RequestCpus = 4
+RequestMemory = 20000
+RequestCpus = 8
 
 Environment = USER=$ENV(USER);CONDORJOBID=$(Process);SUBMIT_DIR=$ENV(SUBMIT_DIR)
 
