@@ -1,3 +1,5 @@
+import numpy as np
+
 categories = {
     "dimuon": {
         "datacard_processes" : [
@@ -361,12 +363,13 @@ jec_unc = [
     'RelativeJEREC2', 'RelativeJERHF', 'RelativePtBB', 'RelativePtEC1', 'RelativePtEC2',
     'RelativePtHF', 'RelativeSample', 'RelativeStatEC', 'RelativeStatFSR', 'RelativeStatHF',
     'SinglePionECAL', 'SinglePionHCAL']
-#jec_unc = ["Total"]
+
 #These subtotals can be used for cross-checks
 #, 'SubTotalAbsolute', 'SubTotalMC', 'SubTotalPileUp',
 #    'SubTotalPt', 'SubTotalRelative', 'SubTotalScale', 'Total', 'TotalNoFlavor',
 #    'TotalNoFlavorNoTime', 'TotalNoTime']
 
+#Uncomment to use just the total JEC for quick tests
 #jec_unc = ["Total"]
 shape_systematics = jec_unc + ["jer", "trigger", "id", "iso", "puWeight", "L1PreFiringWeight","DYLHEScaleWeight","EWZLHEScaleWeight"]
 common_scale_uncertainties = {
@@ -489,7 +492,7 @@ varnames = {
 
 analysis_names = {
     "baseline": {"2018": "Autumn18_V16", "2017": "Fall17_17Nov2017_V32", "2016": "Summer16_07Aug2017_V11"},
-    "oldjec": {"2018": "Autumn18_V8", "2017": "", "2016": ""},
+    "jer": {"2018": "JER enabled", "2017": "JER enabled", "2016": "JER enabled"},
 }
 
 # dataset nickname, datataking era, filename glob pattern, isMC
@@ -677,3 +680,183 @@ datasets_sync = [
     #("ggh", "2016", "data/ggh_nano_2016.root", True)
     #("vbf_sync", "2016", "data/vbf_sync_2016.root",True)
 ]
+    
+#All analysis definitions (cut values etc) should go here
+analysis_parameters = {
+    "baseline": {
+
+        "nPV": 0,
+        "NdfPV": 4,
+        "zPV": 24,
+
+        # Will be applied with OR
+        "hlt_bits": {
+            "2016": ["HLT_IsoMu24", "HLT_IsoTkMu24"],
+            "2017": ["HLT_IsoMu27"],
+            "2018": ["HLT_IsoMu24"],
+            },
+
+        "muon_pt": 20,
+        "muon_pt_leading": {"2016": 26.0, "2017": 29.0, "2018": 26.0},
+        "muon_eta": 2.4,
+        "muon_iso": 0.25,
+        "muon_id": {"2016": "medium", "2017": "medium", "2018": "medium"},
+        "muon_trigger_match_dr": 0.1,
+        "muon_iso_trigger_matched": 0.15,
+        "muon_id_trigger_matched": {"2016": "tight", "2017": "tight", "2018": "tight"},
+
+        "do_rochester_corrections": True, 
+        "do_lepton_sf": True,
+        
+        "do_jec": True,
+        "do_jer": True,
+        "jec_tag": {"2016": "Summer16_07Aug2017_V11", "2017": "Fall17_17Nov2017_V32", "2018": "Autumn18_V16"}, 
+        "jet_mu_dr": 0.4,
+        "jet_pt_leading": {"2016": 35.0, "2017": 35.0, "2018": 35.0},
+        "jet_pt_subleading": {"2016": 25.0, "2017": 25.0, "2018": 25.0},
+        "jet_eta": 4.7,
+        "jet_id": {"2016":"loose", "2017":"tight", "2018":"tight"},
+        "jet_puid": "loose",
+        "jet_veto_eta": [2.65, 3.139],
+        "jet_veto_raw_pt": 50.0,  
+        "jet_btag_medium": {"2016": 0.6321, "2017": 0.4941, "2018": 0.4184},
+        "jet_btag_loose": {"2016": 0.2217, "2017": 0.1522, "2018": 0.1241},
+        "do_factorized_jec": True,
+
+        "softjet_pt": 5.0,
+        "softjet_evt_dr2": 0.16, 
+
+        "cat5_dijet_inv_mass": 400.0,
+        "cat5_abs_jj_deta_cut": 2.5,
+
+        "masswindow_z_peak": [76, 106],
+        "masswindow_h_sideband": [110, 150],
+        "masswindow_h_peak": [115, 135],
+
+        "inv_mass_bins": 41,
+
+        "extra_electrons_pt": 20,
+        "extra_electrons_eta": 2.5,
+        "extra_electrons_iso": 0.4, #Check if we want to apply this
+        "extra_electrons_id": "mvaFall17V1Iso_WP90",
+
+        "save_dnn_vars": True,
+        "dnn_vars_path": "out/dnn_vars",
+
+        #If true, apply mjj > cut, otherwise inverse
+        "vbf_filter_mjj_cut": 350,
+        "vbf_filter": {
+            "dy_m105_160_mg": True,
+            "dy_m105_160_amc": True,
+            "dy_m105_160_vbf_mg": False,
+            "dy_m105_160_vbf_amc": False, 
+        },
+        "ggh_nnlops_reweight": {
+            "ggh_amc": 1,
+            "ggh_amcPS": 1,
+            "ggh_amcPS_TuneCP5down": 1,
+            "ggh_amcPS_TuneCP5up": 1,
+            "ggh_powheg": 2,
+            "ggh_powhegPS": 2,
+        },
+        "ZpT_reweight": {
+            "2016": {
+                "dy_0j": 2, 
+                "dy_1j": 2, 
+                "dy_2j": 2, 
+                "dy_m105_160_amc": 2, 
+                "dy_m105_160_vbf_amc": 2,
+            },
+            "2017": {
+                "dy_0j": 1,
+                "dy_1j": 1,
+                "dy_2j": 1,
+                "dy_m105_160_amc": 1,
+                "dy_m105_160_vbf_amc": 1,
+            },
+            "2018": {
+                "dy_0j": 1,
+                "dy_1j": 1,
+                "dy_2j": 1,
+                "dy_m105_160_amc": 1,
+                "dy_m105_160_vbf_amc": 1,
+            },
+        },
+       
+        #Pisa Group's DNN input variable order for keras
+        "dnnPisa_varlist1_order": ['Mqq_log','Rpt','qqDeltaEta','ll_zstar','NSoft5','minEtaHQ','Higgs_pt','log(Higgs_pt)','Higgs_eta','Mqq','QJet0_pt_touse','QJet1_pt_touse','QJet0_eta','QJet1_eta','QJet0_phi','QJet1_phi','QJet0_qgl','QJet1_qgl'],
+        "dnnPisa_varlist2_order": ['Higgs_m','Higgs_mRelReso','Higgs_mReso'],
+        #Irene's DNN input variable order for keras
+        "dnn_varlist_order": ['HTSoft5', 'dRmm','dEtamm','M_jj','pt_jj','eta_jj','phi_jj','M_mmjj','eta_mmjj','phi_mmjj','dEta_jj','Zep','minEtaHQ','minPhiHQ','dPhimm','leadingJet_pt','subleadingJet_pt','massErr_rel', 'leadingJet_eta','subleadingJet_eta','leadingJet_qgl','subleadingJet_qgl','cthetaCS','Higgs_pt','Higgs_eta','Higgs_mass'],
+        "dnn_input_histogram_bins": {
+            "HTSoft5": (0,10,10),
+            "dRmm": (0,5,11),
+            "dEtamm": (-2,2,11),
+            "dPhimm": (-2,2,11),
+            "M_jj": (0,2000,11),
+            "pt_jj": (0,400,11),
+            "eta_jj": (-5,5,11),
+            "phi_jj": (-5,5,11),
+            "M_mmjj": (0,2000,11),
+            "eta_mmjj": (-3,3,11),
+            "phi_mmjj": (-3,3,11),
+            "dEta_jj": (-3,3,11),
+            "Zep": (-2,2,11),
+            "minEtaHQ":(-5,5,11),
+            "minPhiHQ":(-5,5,11),
+            "leadingJet_pt": (0, 200, 11),
+            "subleadingJet_pt": (0, 200, 11),
+            "massErr_rel":(0,0.5,11),
+            "leadingJet_eta": (-5, 5, 11),
+            "subleadingJet_eta": (-5, 5, 11),
+            "leadingJet_qgl": (0, 1, 11),
+            "subleadingJet_qgl": (0, 1, 11),
+            "cthetaCS": (-1, 1, 11),
+            "Higgs_pt": (0, 200, 11),
+            "Higgs_eta": (-3, 3, 11),
+            "Higgs_mass": (110, 150, 11),
+            "dnn_pred": (0, 1, 1001),
+            "dnn_pred2": (0, 1, 11),
+            "bdt_ucsd": (-1, 1, 11),
+            "bdt2j_ucsd": (-1, 1, 11),
+            "bdt01j_ucsd": (-1, 1, 11),
+            "MET_pt": (0, 200, 11),
+            "hmmthetacs": (-1, 1, 11),
+            "hmmphics": (-4, 4, 11),
+        },
+
+        "categorization_trees": {},
+        "do_bdt_ucsd": False,
+        "do_dnn_pisa": False,
+    },
+}
+#define the histogram binning
+histo_bins = {
+    "muon_pt": np.linspace(0, 200, 101, dtype=np.float32),
+    "muon_eta": np.linspace(-2.5, 2.5, 21, dtype=np.float32),
+    "npvs": np.linspace(0, 100, 101, dtype=np.float32),
+    "dijet_inv_mass": np.linspace(0, 2000, 11, dtype=np.float32),
+    "inv_mass": np.linspace(70, 150, 11, dtype=np.float32),
+    "numjet": np.linspace(0, 10, 11, dtype=np.float32),
+    "jet_pt": np.linspace(0, 300, 101, dtype=np.float32),
+    "jet_eta": np.linspace(-4.7, 4.7, 11, dtype=np.float32),
+    "pt_balance": np.linspace(0, 5, 11, dtype=np.float32),
+    "numjets": np.linspace(0, 10, 11, dtype=np.float32),
+    "jet_qgl": np.linspace(0, 1, 11, dtype=np.float32),
+    "massErr": np.linspace(0, 10, 101, dtype=np.float32),
+    "massErr_rel": np.linspace(0, 0.05, 101, dtype=np.float32)
+}
+for hname, bins in analysis_parameters["baseline"]["dnn_input_histogram_bins"].items():
+    histo_bins[hname] = np.linspace(bins[0], bins[1], bins[2], dtype=np.float32)
+
+for masswindow in ["z_peak", "h_peak", "h_sideband"]:
+    mw = analysis_parameters["baseline"]["masswindow_" + masswindow]
+    histo_bins["inv_mass_{0}".format(masswindow)] = np.linspace(mw[0], mw[1], 41, dtype=np.float32)
+
+histo_bins["dnn_pred2"] = {
+    "h_peak": np.array([0., 0.905, 0.915, 0.925, 0.935, 0.94, 0.945, 0.95, 0.955, 0.96, 0.965,0.97, 0.975,0.98, 0.985,1.0], dtype=np.float32),
+    "z_peak": np.array([0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 1.0], dtype=np.float32),
+    "h_sideband": np.array([0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 1.0], dtype=np.float32),
+}
+
+analysis_parameters["baseline"]["histo_bins"] = histo_bins

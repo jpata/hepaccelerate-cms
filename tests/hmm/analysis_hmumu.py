@@ -1,6 +1,4 @@
 import os
-os.environ["NUMBAPRO_NVVM"] = "/usr/local/cuda/nvvm/lib64/libnvvm.so"
-os.environ["NUMBAPRO_LIBDEVICE"] = "/usr/local/cuda/nvvm/libdevice/"
 import numba
 
 import argparse
@@ -8,23 +6,24 @@ import numpy as np
 import copy
 import pickle
 import shutil
+import resource
 
 import hepaccelerate.backend_cpu as backend_cpu
 from hepaccelerate.utils import choose_backend, LumiData, LumiMask
 from hepaccelerate.utils import Dataset, Results
 
 import hmumu_utils
-from hmumu_utils import run_analysis, run_cache, create_dataset_jobfiles, load_puhist_target
+from hmumu_utils import run_analysis, run_cache, create_dataset_jobfiles, load_puhist_target, seed_generator
 from hmumu_lib import LibHMuMu, RochesterCorrections, LeptonEfficiencyCorrections, GBREvaluator, MiscVariables, NNLOPSReweighting, hRelResolution, ZpTReweighting
 
 import os
-from coffea.util import USE_CUPY
 import getpass
 
 import json
 import glob
 import sys
 
+from coffea.util import USE_CUPY
 from coffea.lookup_tools import extractor
 from coffea.jetmet_tools import FactorizedJetCorrector
 from coffea.jetmet_tools import JetResolution
@@ -34,8 +33,6 @@ from coffea.jetmet_tools import JetResolutionScaleFactor
 from concurrent.futures import ProcessPoolExecutor, wait, ALL_COMPLETED
 
 from pars import datasets, datasets_sync
-
-chunksize_multiplier = {}
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Caltech HiggsMuMu analysis')
@@ -252,8 +249,7 @@ class AnalysisCorrections:
                         "RunG": "Summer16_07Aug2017GH_V11_DATA",
                         "RunH": "Summer16_07Aug2017GH_V11_DATA",
                     },
-                    #jer_tag="Summer16_25nsV1_MC",
-                    jer_tag=None,
+                    jer_tag="Summer16_25nsV1_MC",
                     jmr_vals=[1.0, 1.2, 0.8],
                     do_factorized_jec=True),
             },
@@ -268,25 +264,11 @@ class AnalysisCorrections:
                         "RunE": "Fall17_17Nov2017DE_V32_DATA",
                         "RunF": "Fall17_17Nov2017F_V32_DATA",
                     },
-                    #jer_tag="Fall17_V3_MC",
-                    jer_tag=None,
+                    jer_tag="Fall17_V3_MC",
                     jmr_vals=[1.09, 1.14, 1.04],
                     do_factorized_jec=True),
             },
             "2018": {
-                "Autumn18_V8":
-                    JetMetCorrections(
-                    jec_tag="Autumn18_V8_MC",
-                    jec_tag_data={
-                        "RunA": "Autumn18_RunA_V8_DATA",
-                        "RunB": "Autumn18_RunB_V8_DATA",
-                        "RunC": "Autumn18_RunC_V8_DATA",
-                        "RunD": "Autumn18_RunD_V8_DATA",
-                    },
-                    #jer_tag="Fall17_V3_MC",
-                    jer_tag=None,
-                    jmr_vals=[1.0, 1.2, 0.8],
-                    do_factorized_jec=True),
                 "Autumn18_V16":
                     JetMetCorrections(
                     jec_tag="Autumn18_V16_MC",
@@ -296,8 +278,7 @@ class AnalysisCorrections:
                         "RunC": "Autumn18_RunC_V16_DATA",
                         "RunD": "Autumn18_RunD_V16_DATA",
                     },
-                    #jer_tag="Fall17_V3_MC",
-                    jer_tag=None,
+                    jer_tag="Autumn18_V7_MC",
                     jmr_vals=[1.0, 1.2, 0.8],
                     do_factorized_jec=True),
             }
@@ -369,17 +350,125 @@ class AnalysisCorrections:
         print("Loading ZpTReweighting...")
         self.zptreweighting = ZpTReweighting(self.libhmm)
 
-def main(args, datasets):
+def check_and_recreate_filename_cache(cache_filename, cache_location, datapath):
+    if os.path.isfile(cache_filename):
+        print("Cache file {0} already exists, we will not overwrite it to be safe.".format(cache_filename), file=sys.stderr)
+        print("Delete it or change --cache-location and try again.", file=sys.stderr)
+        sys.exit(1)
+        print("--action cache and no jobfiles specified, creating datasets.json dump of all filenames")
+    
+    if not os.path.isdir(cache_location):
+        os.makedirs(cache_location)
+    filenames_cache = {}
 
+    for dataset in datasets:
+        dataset_name, dataset_era, dataset_globpattern, is_mc = dataset
+        filenames_all = glob.glob(datapath + dataset_globpattern, recursive=True)
+        filenames_all = [fn for fn in filenames_all if not "Friend" in fn]
+        filenames_cache[dataset_name + "_" + dataset_era] = [
+            fn.replace(datapath, "") for fn in filenames_all]
+
+        if len(filenames_all) == 0:
+            raise Exception("Dataset {0} matched 0 files from glob pattern {1}, verify that the data files are located in {2}".format(
+                dataset_name, dataset_globpattern, datapath
+            ))
+    
+    #save all dataset filenames to a json file 
+    print("Creating a json dump of all the dataset filenames based on data found in {0}".format(datapath))
+    with open(cache_filename, "w") as fi:
+        fi.write(json.dumps(filenames_cache, indent=2))
+
+def create_all_jobfiles(datasets, cache_filename, datapath, chunksize, outpath):
+    #Create a list of job files for processing
+    jobfile_data = []
+    print("Loading list of filenames from {0}".format(cache_filename))
+    if not os.path.isfile(cache_filename):
+        raise Exception("Cached dataset list of filenames not found in {0}, please run this code with --action cache".format(
+            cache_filename))
+    filenames_cache = json.load(open(cache_filename, "r"))
+
+    seed_gen = seed_generator()
+    for dataset in sorted(datasets):
+        dataset_name, dataset_era, dataset_globpattern, is_mc = dataset
+        try:
+            filenames_all = filenames_cache[dataset_name + "_" + dataset_era]
+        except KeyError as e:
+            print("Could not load {0} from {1}, please make sure this dataset has been added to cache".format(
+                dataset_name + "_" + dataset_era, cache_filename), file=sys.stderr)
+            raise e
+
+        filenames_all_full = [datapath + "/" + fn for fn in filenames_all]
+        print("Saving dataset {0}_{1} with {2} files in {3} files per chunk to jobfiles".format(
+            dataset_name, dataset_era, len(filenames_all_full), chunksize))
+        jobfile_dataset = create_dataset_jobfiles(dataset_name, dataset_era,
+            filenames_all_full, is_mc, chunksize, outpath, seed_gen)
+        jobfile_data += jobfile_dataset
+        print("Dataset {0}_{1} consists of {2} chunks".format(
+            dataset_name, dataset_era, len(jobfile_dataset)))
+
+    assert(len(jobfile_data) > 0)
+    assert(len(jobfile_data[0]["filenames"]) > 0)
+
+
+def load_jobfiles(datasets, jobfiles_load_from_file, jobfiles, maxchunks, outpath):
+    #Load from file
+    if not (jobfiles_load_from_file is None):
+        jobfiles = [l.strip() for l in open(jobfiles_load_from_file).readlines()]
+
+    #Check for existing jobfiles
+    if jobfiles is None:
+        print("You did not specify to process specific dataset chunks, assuming you want to process all chunks")
+        print("If this is not true, please specify e.g. --jobfiles data_2018_0.json data_2018_1.json ...")
+        jobfiles = []
+        for dataset in datasets:
+            dataset_name, dataset_era, dataset_globpattern, is_mc = dataset
+            jobfile_pattern = outpath + "/jobfiles/{0}_{1}_*.json".format(dataset_name, dataset_era)
+            jobfiles_dataset = glob.glob(jobfile_pattern)
+            if len(jobfiles_dataset) == 0:
+                raise Exception("Could not find any jobfiles matching pattern {0}".format(jobfile_pattern))
+
+            if maxchunks > 0:
+                jobfiles_dataset = jobfiles_dataset[:maxchunks]
+            jobfiles += jobfiles_dataset
+    
+    #Now actually load the jobfiles 
+    assert(len(jobfiles) > 0)
+    print("You specified --jobfiles {0}, processing only these dataset chunks".format(" ".join(jobfiles))) 
+    jobfile_data = []
+    for f in jobfiles:
+        jobfile_data += [json.load(open(f))]
+
+    chunkstr = " ".join(["{0}_{1}_{2}".format(
+        ch["dataset_name"], ch["dataset_era"], ch["dataset_num_chunk"])
+        for ch in jobfile_data])
+    print("Will process {0} dataset chunks: {1}".format(len(jobfile_data), chunkstr))
+    assert(len(jobfile_data) > 0)
+    return jobfile_data
+
+def merge_partial_results(dataset_name, dataset_era, outpath, outpath_partial):
+    results = []
+    partial_results = glob.glob(outpath_partial + "/{0}_{1}_*.pkl".format(dataset_name, dataset_era))
+    print("Merging {0} partial results for dataset {1}_{2}".format(len(partial_results), dataset_name, dataset_era))
+    for res_file in partial_results:
+        res = pickle.load(open(res_file, "rb"))
+        results += [res]
+    results = sum(results, Results({}))
+    try:
+        os.makedirs(outpath + "/results")
+    except FileExistsError as e:
+        pass
+    result_filename = outpath + "/results/{0}_{1}.pkl".format(dataset_name, dataset_era)
+    print("Saving results to {0}".format(result_filename))
+    with open(result_filename, "wb") as fi:
+        pickle.dump(results, fi, protocol=pickle.HIGHEST_PROTOCOL) 
+    return
+
+def main(args, datasets):
     do_prof = args.do_profile
     do_tensorflow = not args.disable_tensorflow
 
     #use the environment variable for cupy/cuda choice
     args.use_cuda = USE_CUPY
-
-    analysis_corrections = None
-    if "analyze" in args.action:
-        analysis_corrections = AnalysisCorrections(args, do_tensorflow)
 
     # Optionally disable pinned memory (will be somewhat slower)
     if args.use_cuda:
@@ -407,341 +496,67 @@ def main(args, datasets):
     Dataset.numpy_lib = hmumu_utils.NUMPY_LIB
     NUMPY_LIB = hmumu_utils.NUMPY_LIB 
 
-    # All analysis definitions (cut values etc) should go here
-    analysis_parameters = {
-        "baseline": {
-
-            "nPV": 0,
-            "NdfPV": 4,
-            "zPV": 24,
-
-            # Will be applied with OR
-            "hlt_bits": {
-                "2016": ["HLT_IsoMu24", "HLT_IsoTkMu24"],
-                "2017": ["HLT_IsoMu27"],
-                "2018": ["HLT_IsoMu24"],
-                },
-
-            "muon_pt": 20,
-            "muon_pt_leading": {"2016": 26.0, "2017": 29.0, "2018": 26.0},
-            "muon_eta": 2.4,
-            "muon_iso": 0.25,
-            "muon_id": {"2016": "medium", "2017": "medium", "2018": "medium"},
-            "muon_trigger_match_dr": 0.1,
-            "muon_iso_trigger_matched": 0.15,
-            "muon_id_trigger_matched": {"2016": "tight", "2017": "tight", "2018": "tight"},
- 
-            "do_rochester_corrections": True, 
-            "do_lepton_sf": True,
-            
-            "do_jec": True,
-            "jec_tag": {"2016": "Summer16_07Aug2017_V11", "2017": "Fall17_17Nov2017_V32", "2018": "Autumn18_V16"}, 
-            "jet_mu_dr": 0.4,
-            "jet_pt_leading": {"2016": 35.0, "2017": 35.0, "2018": 35.0},
-            "jet_pt_subleading": {"2016": 25.0, "2017": 25.0, "2018": 25.0},
-            "jet_eta": 4.7,
-            "jet_id": {"2016":"loose","2017":"tight","2018":"tight"},
-            "jet_puid": "loose",
-            "jet_veto_eta": [2.65, 3.139],
-            "jet_veto_raw_pt": 50.0,  
-            "jet_btag_medium": {"2016": 0.6321, "2017": 0.4941, "2018": 0.4184},
-            "jet_btag_loose": {"2016": 0.2217, "2017": 0.1522, "2018": 0.1241},
-            "do_factorized_jec": args.do_factorized_jec,
-
-            "softjet_pt": 5.0,
-            "softjet_evt_dr2": 0.16, 
-
-            "cat5_dijet_inv_mass": 400.0,
-            "cat5_abs_jj_deta_cut": 2.5,
-
-            "masswindow_z_peak": [76, 106],
-            "masswindow_h_sideband": [110, 150],
-            "masswindow_h_peak": [115, 135],
-
-            "inv_mass_bins": 41,
-
-            "extra_electrons_pt": 20,
-            "extra_electrons_eta": 2.5,
-            "extra_electrons_iso": 0.4, #Check if we want to apply this
-            "extra_electrons_id": "mvaFall17V1Iso_WP90",
-
-            "save_dnn_vars": True,
-            "dnn_vars_path": "{0}/dnn_vars".format(args.out),
-
-            #If true, apply mjj > cut, otherwise inverse
-            "vbf_filter_mjj_cut": 350,
-            "vbf_filter": {
-                "dy_m105_160_mg": True,
-                "dy_m105_160_amc": True,
-                "dy_m105_160_vbf_mg": False,
-                "dy_m105_160_vbf_amc": False, 
-            },
-            "ggh_nnlops_reweight": {
-                "ggh_amc": 1,
-                "ggh_amcPS": 1,
-                "ggh_amcPS_TuneCP5down": 1,
-                "ggh_amcPS_TuneCP5up": 1,
-                "ggh_powheg": 2,
-                "ggh_powhegPS": 2,
-            },
-            "ZpT_reweight": {
-                "2016": {
-                    "dy_0j": 2, 
-                    "dy_1j": 2, 
-                    "dy_2j": 2, 
-                    "dy_m105_160_amc": 2, 
-                    "dy_m105_160_vbf_amc": 2,
-                },
-                "2017": {
-                    "dy_0j": 1,
-                    "dy_1j": 1,
-                    "dy_2j": 1,
-                    "dy_m105_160_amc": 1,
-                    "dy_m105_160_vbf_amc": 1,
-                },
-                "2018": {
-                    "dy_0j": 1,
-                    "dy_1j": 1,
-                    "dy_2j": 1,
-                    "dy_m105_160_amc": 1,
-                    "dy_m105_160_vbf_amc": 1,
-                },
-            },
-           
-            #Pisa Group's DNN input variable order for keras
-            "dnnPisa_varlist1_order": ['Mqq_log','Rpt','qqDeltaEta','ll_zstar','NSoft5','minEtaHQ','Higgs_pt','log(Higgs_pt)','Higgs_eta','Mqq','QJet0_pt_touse','QJet1_pt_touse','QJet0_eta','QJet1_eta','QJet0_phi','QJet1_phi','QJet0_qgl','QJet1_qgl'],
-            "dnnPisa_varlist2_order": ['Higgs_m','Higgs_mRelReso','Higgs_mReso'],
-            #Irene's DNN input variable order for keras
-            "dnn_varlist_order": ['HTSoft5', 'dRmm','dEtamm','M_jj','pt_jj','eta_jj','phi_jj','M_mmjj','eta_mmjj','phi_mmjj','dEta_jj','Zep','minEtaHQ','minPhiHQ','dPhimm','leadingJet_pt','subleadingJet_pt','massErr_rel', 'leadingJet_eta','subleadingJet_eta','leadingJet_qgl','subleadingJet_qgl','cthetaCS','Higgs_pt','Higgs_eta','Higgs_mass'],
-            "dnn_input_histogram_bins": {
-                "HTSoft5": (0,10,10),
-                "dRmm": (0,5,11),
-                "dEtamm": (-2,2,11),
-                "dPhimm": (-2,2,11),
-                "M_jj": (0,2000,11),
-                "pt_jj": (0,400,11),
-                "eta_jj": (-5,5,11),
-                "phi_jj": (-5,5,11),
-                "M_mmjj": (0,2000,11),
-                "eta_mmjj": (-3,3,11),
-                "phi_mmjj": (-3,3,11),
-                "dEta_jj": (-3,3,11),
-                "Zep": (-2,2,11),
-                "minEtaHQ":(-5,5,11),
-                "minPhiHQ":(-5,5,11),
-                "leadingJet_pt": (0, 200, 11),
-                "subleadingJet_pt": (0, 200, 11),
-                "massErr_rel":(0,0.5,11),
-                "leadingJet_eta": (-5, 5, 11),
-                "subleadingJet_eta": (-5, 5, 11),
-                "leadingJet_qgl": (0, 1, 11),
-                "subleadingJet_qgl": (0, 1, 11),
-                "cthetaCS": (-1, 1, 11),
-                "Higgs_pt": (0, 200, 11),
-                "Higgs_eta": (-3, 3, 11),
-                "Higgs_mass": (110, 150, 11),
-                "dnn_pred": (0, 1, 1001),
-                "dnn_pred2": (0, 1, 11),
-                "bdt_ucsd": (-1, 1, 11),
-                "bdt2j_ucsd": (-1, 1, 11),
-                "bdt01j_ucsd": (-1, 1, 11),
-                "MET_pt": (0, 200, 11),
-                "hmmthetacs": (-1, 1, 11),
-                "hmmphics": (-4, 4, 11),
-            },
-
-            "categorization_trees": {},
-            "do_bdt_ucsd": False,
-            "do_dnn_pisa": False,
-        },
-    }
-    histo_bins = {
-        "muon_pt": np.linspace(0, 200, 101, dtype=np.float32),
-        "muon_eta": np.linspace(-2.5, 2.5, 21, dtype=np.float32),
-        "npvs": np.linspace(0, 100, 101, dtype=np.float32),
-        "dijet_inv_mass": np.linspace(0, 2000, 11, dtype=np.float32),
-        "inv_mass": np.linspace(70, 150, 11, dtype=np.float32),
-        "numjet": np.linspace(0, 10, 11, dtype=np.float32),
-        "jet_pt": np.linspace(0, 300, 101, dtype=np.float32),
-        "jet_eta": np.linspace(-4.7, 4.7, 11, dtype=np.float32),
-        "pt_balance": np.linspace(0, 5, 11, dtype=np.float32),
-        "numjets": np.linspace(0, 10, 11, dtype=np.float32),
-        "jet_qgl": np.linspace(0, 1, 11, dtype=np.float32),
-        "massErr": np.linspace(0, 10, 101, dtype=np.float32),
-        "massErr_rel": np.linspace(0, 0.05, 101, dtype=np.float32)
-    }
-    for hname, bins in analysis_parameters["baseline"]["dnn_input_histogram_bins"].items():
-        histo_bins[hname] = np.linspace(bins[0], bins[1], bins[2], dtype=np.float32)
-
-    for masswindow in ["z_peak", "h_peak", "h_sideband"]:
-        mw = analysis_parameters["baseline"]["masswindow_" + masswindow]
-        histo_bins["inv_mass_{0}".format(masswindow)] = np.linspace(mw[0], mw[1], 41, dtype=np.float32)
-
-    histo_bins["dnn_pred2"] = {
-        "h_peak": np.array([0., 0.905, 0.915, 0.925, 0.935, 0.94, 0.945, 0.95, 0.955, 0.96, 0.965,0.97, 0.975,0.98, 0.985,1.0], dtype=np.float32),
-        "z_peak": np.array([0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 1.0], dtype=np.float32),
-        "h_sideband": np.array([0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 1.0], dtype=np.float32),
-    }
-
-    analysis_parameters["baseline"]["histo_bins"] = histo_bins
-
-    #analysis_parameters["oldjec"] = copy.deepcopy(analysis_parameters["baseline"])
-    #analysis_parameters["oldjec"]["jec_tag"]["2018"] = "Autumn18_V8"
-
-    #Run baseline analysis
-    outpath = "{0}/partial_results".format(args.out)
+    outpath_partial = "{0}/partial_results".format(args.out)
     try:
-        os.makedirs(outpath)
+        os.makedirs(outpath_partial)
     except FileExistsError as e:
-            pass
+        print("Output path {0} already exists, not recreating".format(outpath_partial))
 
-    with open('{0}/parameters.pkl'.format(outpath), 'wb') as handle:
+    #save the parameters as a pkl file
+    from pars import analysis_parameters
+    for analysis_name in analysis_parameters.keys():
+        analysis_parameters[analysis_name]["do_factorized_jec"] = args.do_factorized_jec
+        analysis_parameters[analysis_name]["dnn_vars_path"] = "{0}/dnn_vars".format(args.out)
+ 
+    with open('{0}/parameters.pkl'.format(outpath_partial), 'wb') as handle:
         pickle.dump(analysis_parameters, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
     #Recreate dump of all filenames
     cache_filename = args.cache_location + "/datasets.json"
     if ("cache" in args.action) and (args.jobfiles is None):
-        print("--action cache and no jobfiles specified, creating datasets.json dump of all filenames")
-        if not os.path.isdir(args.cache_location):
-            os.makedirs(args.cache_location)
-        filenames_cache = {}
-        for dataset in datasets:
-            dataset_name, dataset_era, dataset_globpattern, is_mc = dataset
-            filenames_all = glob.glob(args.datapath + dataset_globpattern, recursive=True)
-            filenames_all = [fn for fn in filenames_all if not "Friend" in fn]
-            filenames_cache[dataset_name + "_" + dataset_era] = [
-                fn.replace(args.datapath, "") for fn in filenames_all]
+        check_and_recreate_filename_cache(cache_filename, args.cache_location, args.datapath)
 
-            if len(filenames_all) == 0:
-                raise Exception("Dataset {0} matched 0 files from glob pattern {1}, verify that the data files are located in {2}".format(
-                    dataset_name, dataset_globpattern, args.datapath
-                ))
-    
-        #save all dataset filenames to a json file 
-        print("Creating a json dump of all the dataset filenames based on data found in {0}".format(args.datapath))
-        if os.path.isfile(cache_filename):
-            print("Cache file {0} already exists, we will not overwrite it to be safe.".format(cache_filename), file=sys.stderr)
-            print("Delete it or change --cache-location and try again.", file=sys.stderr)
-            sys.exit(1)
-        with open(cache_filename, "w") as fi:
-            fi.write(json.dumps(filenames_cache, indent=2))
-
+    #Create the jobfiles
     if ("cache" in args.action or "analyze" in args.action) and (args.jobfiles is None):
-        #Create a list of job files for processing
-        jobfile_data = []
-        print("Loading list of filenames from {0}".format(cache_filename))
-        if not os.path.isfile(cache_filename):
-            raise Exception("Cached dataset list of filenames not found in {0}, please run this code with --action cache".format(
-                cache_filename))
-        filenames_cache = json.load(open(cache_filename, "r"))
-
-        for dataset in datasets:
-            dataset_name, dataset_era, dataset_globpattern, is_mc = dataset
-            try:
-                filenames_all = filenames_cache[dataset_name + "_" + dataset_era]
-            except KeyError as e:
-                print("Could not load {0} from {1}, please make sure this dataset has been added to cache".format(
-                    dataset_name + "_" + dataset_era, cache_filename), file=sys.stderr)
-                raise e
-
-            filenames_all_full = [args.datapath + "/" + fn for fn in filenames_all]
-            chunksize = args.chunksize * chunksize_multiplier.get(dataset_name, 1)
-            print("Saving dataset {0}_{1} with {2} files in {3} files per chunk to jobfiles".format(
-                dataset_name, dataset_era, len(filenames_all_full), chunksize))
-            jobfile_dataset = create_dataset_jobfiles(dataset_name, dataset_era,
-                filenames_all_full, is_mc, chunksize, args.out)
-            jobfile_data += jobfile_dataset
-            print("Dataset {0}_{1} consists of {2} chunks".format(
-                dataset_name, dataset_era, len(jobfile_dataset)))
-
-        assert(len(jobfile_data) > 0)
-        assert(len(jobfile_data[0]["filenames"]) > 0)
+        create_all_jobfiles(datasets, cache_filename, args.datapath, args.chunksize, args.out)
 
     #For each dataset, find out which chunks we want to process
     if "cache" in args.action or "analyze" in args.action:
-        jobfile_data = []
-        if not (args.jobfiles_load is None):
-            args.jobfiles = [l.strip() for l in open(args.jobfiles_load).readlines()]
-        if args.jobfiles is None:
-            print("You did not specify to process specific dataset chunks, assuming you want to process all chunks")
-            print("If this is not true, please specify e.g. --jobfiles data_2018_0.json data_2018_1.json ...")
-            args.jobfiles = []
-            for dataset in datasets:
-                dataset_name, dataset_era, dataset_globpattern, is_mc = dataset
-                jobfiles_dataset = glob.glob(args.out + "/jobfiles/{0}_{1}_*.json".format(dataset_name, dataset_era))
-                assert(len(jobfiles_dataset) > 0)
-                if args.maxchunks > 0:
-                    jobfiles_dataset = jobfiles_dataset[:args.maxchunks]
-                args.jobfiles += jobfiles_dataset
-       
-        #Now load the jobfiles 
-        assert(len(args.jobfiles) > 0)
-        print("You specified --jobfiles {0}, processing only these dataset chunks".format(" ".join(args.jobfiles))) 
-        jobfile_data = []
-        for f in args.jobfiles:
-            jobfile_data += [json.load(open(f))]
-
-        chunkstr = " ".join(["{0}_{1}_{2}".format(
-            ch["dataset_name"], ch["dataset_era"], ch["dataset_num_chunk"])
-            for ch in jobfile_data])
-        print("Will process {0} dataset chunks: {1}".format(len(jobfile_data), chunkstr))
-        assert(len(jobfile_data) > 0)
+        jobfile_data = load_jobfiles(datasets, args.jobfiles_load, args.jobfiles, args.maxchunks, args.out)
 
     #Start the profiler only in the actual data processing
     if do_prof:
         import yappi
-        filename = 'analysis.prof'
         yappi.set_clock_type('cpu')
         yappi.start(builtins=True)
 
     if "cache" in args.action:
         print("Running the 'cache' step of the analysis, ROOT files will be opened and branches will be uncompressed")
-        print("Will retrieve dataset filenames based on existing ROOT files on filesystem in datapath={0}".format(args.datapath)) 
-       
-        try:
-            os.makedirs(cmdline_args.cache_location)
-        except Exception as e:
-            pass
-
-        run_cache(args, outpath, jobfile_data, analysis_parameters)
-    
+        run_cache(args, outpath_partial, jobfile_data, analysis_parameters)
+   
+    #Run the physics analysis on all specified jobfiles  
     if "analyze" in args.action:
-        run_analysis(args, outpath, jobfile_data, analysis_parameters, analysis_corrections)
+        print("Running the 'analyze' step of the analysis, processing the events into histograms with all systematics")
+        analysis_corrections = AnalysisCorrections(args, do_tensorflow)
+        run_analysis(args, outpath_partial, jobfile_data, analysis_parameters, analysis_corrections)
+    
+    if do_prof:
+        stats = yappi.get_func_stats()
+        stats.save("analysis.prof", type='callgrind')
 
+    #Merge the partial results (pieces of each dataset)
     if "merge" in args.action:
         with ProcessPoolExecutor(max_workers=args.nthreads) as executor:
             for dataset in datasets:
                 dataset_name, dataset_era, dataset_globpattern, is_mc = dataset
-                fut = executor.submit(merge_partial_results, dataset_name, dataset_era, outpath)
+                fut = executor.submit(merge_partial_results, dataset_name, dataset_era, args.out, outpath_partial)
         print("done merging")
-    if do_prof:
-        stats = yappi.get_func_stats()
-        stats.save(filename, type='callgrind')
 
-    import resource
+    #print memory usage
     total_memory = resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss
     total_memory += resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
     print("maxrss={0} MB".format(total_memory/1024))
 
-def merge_partial_results(dataset_name, dataset_era, outpath):
-    results = []
-    partial_results = glob.glob(outpath + "/{0}_{1}_*.pkl".format(dataset_name, dataset_era))
-    print("Merging {0} partial results for dataset {1}_{2}".format(len(partial_results), dataset_name, dataset_era))
-    for res_file in partial_results:
-        res = pickle.load(open(res_file, "rb"))
-        results += [res]
-    results = sum(results, Results({}))
-    try:
-        os.makedirs(args.out + "/results")
-    except FileExistsError as e:
-        pass
-    result_filename = args.out + "/results/{0}_{1}.pkl".format(dataset_name, dataset_era)
-    print("Saving results to {0}".format(result_filename))
-    with open(result_filename, "wb") as fi:
-        pickle.dump(results, fi, protocol=pickle.HIGHEST_PROTOCOL) 
-    return
-
 if __name__ == "__main__":
-
     args = parse_args()
     main(args, datasets)

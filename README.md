@@ -16,7 +16,7 @@ Variations of this code have been tested at:
 
 ~~~
 #Installation
-pip3 install --user awkward uproot numba
+pip3 install awkward uproot numba
 git clone https://github.com/jpata/hepaccelerate-cms.git
 cd hepaccelerate-cms
 git submodule init
@@ -54,7 +54,6 @@ cd ../..
 #This should take approximately 5 minutes and processes 1 file from each dataset for each year
 ./tests/hmm/run.sh
 ~~~
-
 
 ## Running on full dataset using batch queue
 We use the condor batch queue on Caltech T2 to run the analysis. It ~20 minutes for all 3 years using just the Total JEC & JER (2-3h using factorized JEC).
