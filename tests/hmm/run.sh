@@ -31,7 +31,7 @@ export INPUTDATAPATH=/storage/user/idutta/Hmm/Vectorized/my_fork_vbfsync/hepacce
 #singularity exec --nv -B /storage -B /mnt/hadoop $SINGULARITY_IMAGE python3 tests/hmm/analysis_hmumu.py \
 #   --action cache --maxchunks $MAXCHUNKS --chunksize 1 \
 #   --nthreads 1 --cache-location $CACHE_PATH \
-#   --datapath $INPUTDATAPATH --do-sync
+#   --datapath $INPUTDATAPATH --do-sync --do-fsr
 
 ## Step 2: Run the physics analysis
 singularity exec --nv -B /storage $SINGULARITY_IMAGE python3 tests/hmm/analysis_hmumu.py \
@@ -39,5 +39,5 @@ singularity exec --nv -B /storage $SINGULARITY_IMAGE python3 tests/hmm/analysis_
     --cache-location $CACHE_PATH \
     --nthreads $NTHREADS \
     --out ./out --do-factorized-jec \
-    --do-sync
+    --do-sync --do-fsr\
     --datapath $INPUTDATAPATH \
