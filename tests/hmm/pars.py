@@ -671,4 +671,5 @@ datasets = [
 datasets_sync = [
     #("ggh", "2016", "data/ggh_nano_2016.root", True)
     #("vbf_sync", "2016", "data/vbf_sync_2016.root",True)
+    ("vbf_sync", "2016", "data/myNanoProdMc2016_NANO.root",True)
 ]
