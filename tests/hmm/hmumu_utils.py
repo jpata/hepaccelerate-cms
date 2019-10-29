@@ -345,7 +345,7 @@ def analyze_data(
     #Do the jet ID selection and lepton cleaning just once for the nominal jet systematic
     #as that does not depend on jet pt
 
-    selected_jets_id = get_selected_jets_id(
+    selected_jets_id, passed_puid = get_selected_jets_id(
         scalars,
         jets, muons,
         parameters["jet_eta"],
@@ -360,7 +360,9 @@ def analyze_data(
 
     #Now we throw away all the jets that didn't pass the ID to save time on computing JECs on them
     jets_passing_id = jets.select_objects(selected_jets_id)
-    
+
+    puid_weights = get_puid_weights(jets_passing_id, passed_puid)
+
     print("Doing nominal jec on {0} jets".format(jets_passing_id.numobjects()))
     jet_systematics = JetTransformer(
         jets_passing_id, scalars,
@@ -1192,7 +1194,6 @@ def get_selected_muons(
     """
 
     if fsrphotons:
-        mu_attrs = ["pt", "eta", "phi", "mass", "fsrPhotonIdx"]
         size = muons.numevents()
 
         # indices of all muons
@@ -1453,7 +1454,7 @@ def get_selected_jets_id(
             jaggedstruct_print(jets, idx,
                                ["pt", "eta", "phi", "mass", "jetId", "puId","qgl"])
     '''
-    return selected_jets
+    return selected_jets, pass_jet_puid
 
 def get_selected_jets(
     scalars,
@@ -1519,6 +1520,84 @@ def get_selected_jets(
     }
 
     return ret
+
+
+def get_puid_weights(jets, passed_mask_all):
+    '''
+    the following naming scheme is used to avoid confusion with dimensionality:
+    arrays "*_all" have size equal to total number of jets in dataset
+    arrays "*_global" have size equal to number of events with at least i jets
+    arrays "*_local" have size equal to number of events with at least i jets, after all additional selections are applied
+    '''
+
+    size = jets.numevents()
+
+    jet_idx_all = NUMPY_LIB.arange(jets.offsets[0], jets.offsets[-1])
+    jet_idx_global = jets.offsets[0:-1]
+
+    event_idx_global = NUMPY_LIB.arange(0, size)
+    passed_mask_global = passed_mask_all[jet_idx_global]
+
+    puid_weights = NUMPY_LIB.ones(size, dtype=np.float32)
+
+    numjets = jets.offsets[1:] - jets.offsets[0:-1]
+
+    i_jet = 0
+    while(jet_idx_all.size):
+        # filter events (global->local)
+        event_mask = numjets[event_idx_global]>0
+        event_idx_local = event_idx_global[event_mask]
+        event_idx_simple = NUMPY_LIB.arange(0, event_idx_local.shape[0])
+        passed_mask_local = passed_mask_global[event_mask]
+        jet_idx_local = jet_idx_global[event_mask]
+        print("Found {0} events where jet #{1} exists. In {2} of them the jet passed PU ID".format(event_idx_local.shape[0], i_jet+1, event_idx_local[passed_mask_local].shape[0]))
+
+        # retrieve PU ID efficiency and SF
+        puid_eff, puid_sf, denom_zero_mask = get_puid_eff_sf(jets.pt[jet_idx_local], jets.eta[jet_idx_local])
+
+        nopass_mask_local = ~passed_mask_local & ~denom_zero_mask
+
+        puid_eff_pass = puid_eff[event_idx_simple[passed_mask_local]]
+        puid_eff_nopass = puid_eff[event_idx_simple[nopass_mask_local]]
+        puid_sf_pass = puid_sf[event_idx_simple[passed_mask_local]]
+        puid_sf_nopass = puid_sf[event_idx_simple[nopass_mask_local]]
+
+        passed_idx_local = event_idx_local[passed_mask_local]
+        didnt_pass_idx_local = event_idx_local[nopass_mask_local]
+
+        # update PU ID event weights
+        puid_weights[passed_idx_local] *= puid_sf_pass
+        puid_weights[didnt_pass_idx_local] *= (1 - puid_sf_nopass*puid_eff_nopass) / (1 - puid_eff_nopass)
+
+        # delete the indices of i-th jet from every event
+        jet_idx_all = jet_idx_all[~NUMPY_LIB.in1d(jet_idx_all, jet_idx_local)]
+
+        # throw away the events where (i+1)-th jet is not in the same event as i-th jet
+        # (in those cases the index of (i+1)-th jet has already been deleted from jet_indices)
+        iplus1_mask_local = NUMPY_LIB.in1d(jet_idx_local+1, jet_idx_all)
+
+        # move to considering (i+1)-th jets
+        i_jet += 1
+        jet_idx_local = jet_idx_local[iplus1_mask_local]+1
+
+        # update "global" variables when moving to next event
+        jet_idx_global = jet_idx_local
+        event_idx_global = event_idx_local[iplus1_mask_local]
+        passed_mask_global = passed_mask_local[iplus1_mask_local]
+
+    return puid_weights
+
+def get_puid_eff_sf(jet_pt, jet_eta):
+    size = jet_pt.shape[0]
+
+    # placeholder - will implement reading the values from ROOT files
+    puid_eff = NUMPY_LIB.ones(size, dtype=np.float32)
+    puid_sf = NUMPY_LIB.ones(size, dtype=np.float32)
+
+    # to prevent division by 0 later
+    denom_zero_mask = (puid_sf == 1)
+
+    return puid_eff, puid_sf, denom_zero_mask
 
 def get_selected_electrons(electrons, pt_cut, eta_cut, id_type):
     if id_type == "mvaFall17V1Iso_WP90":
