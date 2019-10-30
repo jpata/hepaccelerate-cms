@@ -290,6 +290,29 @@ def analyze_data(
     if is_mc and (dataset_name in parameters["ZpT_reweight"][dataset_era]):
        ZpTw = zptreweighting.compute(higgs_pt, parameters["ZpT_reweight"][dataset_era][dataset_name])
 
+
+    #Do the jet ID selection and lepton cleaning just once for the nominal jet systematic
+    #as that does not depend on jet pt
+
+    selected_jets_id, passed_puid = get_selected_jets_id(
+        scalars,
+        jets, muons,
+        parameters["jet_eta"],
+        parameters["jet_mu_dr"],
+        parameters["jet_id"],
+        parameters["jet_puid"],
+        parameters["jet_veto_eta"][0],
+        parameters["jet_veto_eta"][1],
+        parameters["jet_veto_raw_pt"],
+        dataset_era)
+    print("jet selection eff based on id", selected_jets_id.sum() / float(len(selected_jets_id)))
+
+    #Now we throw away all the jets that didn't pass the ID to save time on computing JECs on them
+    jets_passing_id = jets.select_objects(selected_jets_id)
+
+    puid_weights = get_puid_weights(jets_passing_id, passed_puid, dataset_era, parameters["jet_puid"])
+    weights_individual["jet_puid"] = {"nominal": puid_weights, "up": puid_weights, "down": puid_weights}
+
     #compute variated weights here to ensure the nominal weight contains all possible other weights  
     compute_event_weights(parameters, weights_individual, scalars, genweight_scalefactor, gghnnlopsw, ZpTw, LHEScalew, pu_corrections, is_mc, dataset_era, dataset_name)
 
@@ -341,27 +364,6 @@ def analyze_data(
 
     #This computes the JEC, JER and associated systematics
     print("event selection eff based on 2 muons", ret_mu["selected_events"].sum() / float(len(mask_events)))
-
-    #Do the jet ID selection and lepton cleaning just once for the nominal jet systematic
-    #as that does not depend on jet pt
-
-    selected_jets_id, passed_puid = get_selected_jets_id(
-        scalars,
-        jets, muons,
-        parameters["jet_eta"],
-        parameters["jet_mu_dr"],
-        parameters["jet_id"],
-        parameters["jet_puid"],
-        parameters["jet_veto_eta"][0],
-        parameters["jet_veto_eta"][1],
-        parameters["jet_veto_raw_pt"],
-        dataset_era)
-    print("jet selection eff based on id", selected_jets_id.sum() / float(len(selected_jets_id)))
-
-    #Now we throw away all the jets that didn't pass the ID to save time on computing JECs on them
-    jets_passing_id = jets.select_objects(selected_jets_id)
-
-    puid_weights = get_puid_weights(jets_passing_id, passed_puid, dataset_era, parameters["jet_puid"])
 
     print("Doing nominal jec on {0} jets".format(jets_passing_id.numobjects()))
     jet_systematics = JetTransformer(
