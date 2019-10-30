@@ -361,7 +361,7 @@ def analyze_data(
     #Now we throw away all the jets that didn't pass the ID to save time on computing JECs on them
     jets_passing_id = jets.select_objects(selected_jets_id)
 
-    puid_weights = get_puid_weights(jets_passing_id, passed_puid)
+    puid_weights = get_puid_weights(jets_passing_id, passed_puid, dataset_era, parameters["jet_puid"])
 
     print("Doing nominal jec on {0} jets".format(jets_passing_id.numobjects()))
     jet_systematics = JetTransformer(
@@ -1522,82 +1522,57 @@ def get_selected_jets(
     return ret
 
 
-def get_puid_weights(jets, passed_mask_all):
-    '''
-    the following naming scheme is used to avoid confusion with dimensionality:
-    arrays "*_all" have size equal to total number of jets in dataset
-    arrays "*_global" have size equal to number of events with at least i jets
-    arrays "*_local" have size equal to number of events with at least i jets, after all additional selections are applied
-    '''
+def get_puid_weights(jets, passed_puid, era, puid_wp):
 
-    size = jets.numevents()
+    nev = jets.numevents()
 
-    jet_idx_all = NUMPY_LIB.arange(jets.offsets[0], jets.offsets[-1])
-    jet_idx_global = jets.offsets[0:-1]
+    if puid_wp is "none":
+        return NUMPY_LIB.ones(nev)
 
-    event_idx_global = NUMPY_LIB.arange(0, size)
-    passed_mask_global = passed_mask_all[jet_idx_global]
+    calibration_file = "data/puidSF/PUIDMaps.root"
+    wp_dict = {"loose": "L", "medium": "M", "tight": "T"}
+    jets_pu_eff, jets_pu_sf = get_puid_eff_sf(calibration_file, jets.pt, jets.eta, era, wp_dict[puid_wp])
+    p_puid_mc = NUMPY_LIB.zeros(nev)
+    p_puid_data = NUMPY_LIB.zeros(nev)
+    compute_eff_product(jets.offsets, passed_puid, jets_pu_eff, p_puid_mc)
+    compute_eff_product(jets.offsets, passed_puid, jets_pu_eff*jets_pu_sf, p_puid_data)
+    eventweight_puid = np.divide(p_puid_data, p_puid_mc, out=np.zeros_like(p_puid_data), where=p_puid_mc!=0)
 
-    puid_weights = NUMPY_LIB.ones(size, dtype=np.float32)
+    return eventweight_puid
 
-    numjets = jets.offsets[1:] - jets.offsets[0:-1]
+def get_puid_eff_sf(calibration_file, jet_pt, jet_eta, era, wp):
 
-    i_jet = 0
-    while(jet_idx_all.size):
-        # filter events (global->local)
-        event_mask = numjets[event_idx_global]>0
-        event_idx_local = event_idx_global[event_mask]
-        event_idx_simple = NUMPY_LIB.arange(0, event_idx_local.shape[0])
-        passed_mask_local = passed_mask_global[event_mask]
-        jet_idx_local = jet_idx_global[event_mask]
-        print("Found {0} events where jet #{1} exists. In {2} of them the jet passed PU ID".format(event_idx_local.shape[0], i_jet+1, event_idx_local[passed_mask_local].shape[0]))
+    h_eff_name = f"h2_eff_mc{era}_{wp}"
+    print("Extracting PUID eff. from "+h_eff_name)
+    ext_eff = extractor()
+    ext_eff.add_weight_sets(["{0} {0} {1}".format(h_eff_name, calibration_file)])
+    ext_eff.finalize()
+    evaluator_eff = ext_eff.make_evaluator()
+    puid_eff = evaluator_eff[h_eff_name](jet_pt, jet_eta)
 
-        # retrieve PU ID efficiency and SF
-        puid_eff, puid_sf, denom_zero_mask = get_puid_eff_sf(jets.pt[jet_idx_local], jets.eta[jet_idx_local])
+    h_sf_name = f"h2_eff_sf{era}_{wp}"
+    print("Extracting PUID SF from "+h_sf_name)
+    ext_sf = extractor()
+    ext_sf.add_weight_sets(["{0} {0} {1}".format(h_sf_name, calibration_file)])
+    ext_sf.finalize()
+    evaluator_sf = ext_sf.make_evaluator()
+    puid_sf = evaluator_sf[h_sf_name](jet_pt, jet_eta)
 
-        nopass_mask_local = ~passed_mask_local & ~denom_zero_mask
+    return puid_eff, puid_sf
 
-        puid_eff_pass = puid_eff[event_idx_simple[passed_mask_local]]
-        puid_eff_nopass = puid_eff[event_idx_simple[nopass_mask_local]]
-        puid_sf_pass = puid_sf[event_idx_simple[passed_mask_local]]
-        puid_sf_nopass = puid_sf[event_idx_simple[nopass_mask_local]]
-
-        passed_idx_local = event_idx_local[passed_mask_local]
-        didnt_pass_idx_local = event_idx_local[nopass_mask_local]
-
-        # update PU ID event weights
-        puid_weights[passed_idx_local] *= puid_sf_pass
-        puid_weights[didnt_pass_idx_local] *= (1 - puid_sf_nopass*puid_eff_nopass) / (1 - puid_eff_nopass)
-
-        # delete the indices of i-th jet from every event
-        jet_idx_all = jet_idx_all[~NUMPY_LIB.in1d(jet_idx_all, jet_idx_local)]
-
-        # throw away the events where (i+1)-th jet is not in the same event as i-th jet
-        # (in those cases the index of (i+1)-th jet has already been deleted from jet_indices)
-        iplus1_mask_local = NUMPY_LIB.in1d(jet_idx_local+1, jet_idx_all)
-
-        # move to considering (i+1)-th jets
-        i_jet += 1
-        jet_idx_local = jet_idx_local[iplus1_mask_local]+1
-
-        # update "global" variables when moving to next event
-        jet_idx_global = jet_idx_local
-        event_idx_global = event_idx_local[iplus1_mask_local]
-        passed_mask_global = passed_mask_local[iplus1_mask_local]
-
-    return puid_weights
-
-def get_puid_eff_sf(jet_pt, jet_eta):
-    size = jet_pt.shape[0]
-
-    # placeholder - will implement reading the values from ROOT files
-    puid_eff = NUMPY_LIB.ones(size, dtype=np.float32)
-    puid_sf = NUMPY_LIB.ones(size, dtype=np.float32)
-
-    # to prevent division by 0 later
-    denom_zero_mask = (puid_sf == 1)
-
-    return puid_eff, puid_sf, denom_zero_mask
+@numba.njit(parallel=True)
+def compute_eff_product(offsets, jets_mask_passes_id, jets_eff, out_proba):
+    #loop over events in parallel
+    for iev in numba.prange(len(offsets)-1):
+        p_tot = 1.0
+        #loop over jets in event
+        for ij in range(offsets[iev], offsets[iev+1]):
+            this_jet_passes = jets_mask_passes_id[ij]
+            if this_jet_passes:
+                p_tot *= jets_eff[ij]
+            else:
+                p_tot *= 1.0 - jets_eff[ij]
+        out_proba[iev] = p_tot
 
 def get_selected_electrons(electrons, pt_cut, eta_cut, id_type):
     if id_type == "mvaFall17V1Iso_WP90":
