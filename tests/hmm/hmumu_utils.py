@@ -96,6 +96,7 @@ def analyze_data(
     nnlopsreweighting = None,
     hrelresolution = None,
     zptreweighting = None,
+    puidreweighting = None,
     random_seed = 0 
     ):
 
@@ -310,8 +311,10 @@ def analyze_data(
     #Now we throw away all the jets that didn't pass the ID to save time on computing JECs on them
     jets_passing_id = jets.select_objects(selected_jets_id)
 
-    puid_weights = get_puid_weights(jets_passing_id, passed_puid, dataset_era, parameters["jet_puid"])
-    weights_individual["jet_puid"] = {"nominal": puid_weights, "up": puid_weights, "down": puid_weights}
+    if parameters["jet_puid"] is not "none":
+        puid_extractors, puid_hist_names = puidreweighting[dataset_era][parameters["jet_puid"]]
+        puid_weights = get_puid_weights(jets_passing_id, passed_puid, puid_extractors, puid_hist_names)
+        weights_individual["jet_puid"] = {"nominal": puid_weights, "up": puid_weights, "down": puid_weights}
 
     #compute variated weights here to ensure the nominal weight contains all possible other weights  
     compute_event_weights(parameters, weights_individual, scalars, genweight_scalefactor, gghnnlopsw, ZpTw, LHEScalew, pu_corrections, is_mc, dataset_era, dataset_name)
@@ -1064,7 +1067,8 @@ def run_analysis(
             miscvariables = analysis_corrections.miscvariables,
             nnlopsreweighting = analysis_corrections.nnlopsreweighting,
             hrelresolution = analysis_corrections.hrelresolution,
-            zptreweighting = analysis_corrections.zptreweighting)
+            zptreweighting = analysis_corrections.zptreweighting,
+            puidreweighting = analysis_corrections.puidreweighting)
 
         tnext = time.time()
         print("processed {0:.2E} ev/s".format(nev/float(tnext-tprev)))
@@ -1524,16 +1528,11 @@ def get_selected_jets(
     return ret
 
 
-def get_puid_weights(jets, passed_puid, era, puid_wp):
+def get_puid_weights(jets, passed_puid, extractors, hist_names):
 
     nev = jets.numevents()
 
-    if puid_wp is "none":
-        return NUMPY_LIB.ones(nev)
-
-    calibration_file = "data/puidSF/PUIDMaps.root"
-    wp_dict = {"loose": "L", "medium": "M", "tight": "T"}
-    jets_pu_eff, jets_pu_sf = get_puid_eff_sf(calibration_file, jets.pt, jets.eta, era, wp_dict[puid_wp])
+    jets_pu_eff, jets_pu_sf = jet_puid_evaluate(extractors, hist_names, jets.pt, jets.eta)
     p_puid_mc = NUMPY_LIB.zeros(nev)
     p_puid_data = NUMPY_LIB.zeros(nev)
     compute_eff_product(jets.offsets, passed_puid, jets_pu_eff, p_puid_mc)
@@ -1542,20 +1541,27 @@ def get_puid_weights(jets, passed_puid, era, puid_wp):
 
     return eventweight_puid
 
-def get_puid_eff_sf(calibration_file, jet_pt, jet_eta, era, wp):
-
-    h_eff_name = f"h2_eff_mc{era}_{wp}"
+def jet_puid_extract(calibration_file, h_eff_name, h_sf_name):
     print("Extracting PUID eff. from "+h_eff_name)
     ext_eff = extractor()
     ext_eff.add_weight_sets(["{0} {0} {1}".format(h_eff_name, calibration_file)])
+
+    print("Extracting PUID SF from "+h_sf_name)
+    ext_sf = extractor()
+    ext_sf.add_weight_sets(["{0} {0} {1}".format(h_sf_name, calibration_file)])
+
+    extractors = (ext_eff, ext_sf)
+    hist_names = (h_eff_name, h_sf_name)
+    return extractors, hist_names
+
+def jet_puid_evaluate(extractors, hist_names, jet_pt, jet_eta):
+    ext_eff, ext_sf = extractors
+    h_eff_name, h_sf_name = hist_names
+
     ext_eff.finalize()
     evaluator_eff = ext_eff.make_evaluator()
     puid_eff = evaluator_eff[h_eff_name](jet_pt, jet_eta)
 
-    h_sf_name = f"h2_eff_sf{era}_{wp}"
-    print("Extracting PUID SF from "+h_sf_name)
-    ext_sf = extractor()
-    ext_sf.add_weight_sets(["{0} {0} {1}".format(h_sf_name, calibration_file)])
     ext_sf.finalize()
     evaluator_sf = ext_sf.make_evaluator()
     puid_sf = evaluator_sf[h_sf_name](jet_pt, jet_eta)
