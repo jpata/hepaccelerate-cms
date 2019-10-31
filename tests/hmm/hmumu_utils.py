@@ -312,8 +312,7 @@ def analyze_data(
     jets_passing_id = jets.select_objects(selected_jets_id)
 
     if parameters["jet_puid"] is not "none":
-        puid_extractors, puid_hist_names = puidreweighting[dataset_era][parameters["jet_puid"]]
-        puid_weights = get_puid_weights(jets_passing_id, passed_puid, puid_extractors, puid_hist_names)
+        puid_weights = get_puid_weights(jets_passing_id, passed_puid, puidreweighting, dataset_era, parameters["jet_puid"])
         weights_individual["jet_puid"] = {"nominal": puid_weights, "up": puid_weights, "down": puid_weights}
 
     #compute variated weights here to ensure the nominal weight contains all possible other weights  
@@ -1528,44 +1527,22 @@ def get_selected_jets(
     return ret
 
 
-def get_puid_weights(jets, passed_puid, extractors, hist_names):
-
+def get_puid_weights(jets, passed_puid, evaluator, era, wp):
     nev = jets.numevents()
-
-    jets_pu_eff, jets_pu_sf = jet_puid_evaluate(extractors, hist_names, jets.pt, jets.eta)
+    wp_dict = {"loose": "L", "medium": "M", "tight": "T"}
+    jets_pu_eff, jets_pu_sf = jet_puid_evaluate(evaluator, era, wp_dict[wp], jets.pt, jets.eta)
     p_puid_mc = NUMPY_LIB.zeros(nev)
     p_puid_data = NUMPY_LIB.zeros(nev)
     compute_eff_product(jets.offsets, passed_puid, jets_pu_eff, p_puid_mc)
     compute_eff_product(jets.offsets, passed_puid, jets_pu_eff*jets_pu_sf, p_puid_data)
     eventweight_puid = np.divide(p_puid_data, p_puid_mc, out=np.zeros_like(p_puid_data), where=p_puid_mc!=0)
-
     return eventweight_puid
 
-def jet_puid_extract(calibration_file, h_eff_name, h_sf_name):
-    print("Extracting PUID eff. from "+h_eff_name)
-    ext_eff = extractor()
-    ext_eff.add_weight_sets(["{0} {0} {1}".format(h_eff_name, calibration_file)])
-
-    print("Extracting PUID SF from "+h_sf_name)
-    ext_sf = extractor()
-    ext_sf.add_weight_sets(["{0} {0} {1}".format(h_sf_name, calibration_file)])
-
-    extractors = (ext_eff, ext_sf)
-    hist_names = (h_eff_name, h_sf_name)
-    return extractors, hist_names
-
-def jet_puid_evaluate(extractors, hist_names, jet_pt, jet_eta):
-    ext_eff, ext_sf = extractors
-    h_eff_name, h_sf_name = hist_names
-
-    ext_eff.finalize()
-    evaluator_eff = ext_eff.make_evaluator()
-    puid_eff = evaluator_eff[h_eff_name](jet_pt, jet_eta)
-
-    ext_sf.finalize()
-    evaluator_sf = ext_sf.make_evaluator()
-    puid_sf = evaluator_sf[h_sf_name](jet_pt, jet_eta)
-
+def jet_puid_evaluate(evaluator, era, wp, jet_pt, jet_eta):
+    h_eff_name = f"h2_eff_mc{era}_{wp}"
+    h_sf_name = f"h2_eff_sf{era}_{wp}"
+    puid_eff = evaluator[h_eff_name](jet_pt, jet_eta)
+    puid_sf = evaluator[h_sf_name](jet_pt, jet_eta)
     return puid_eff, puid_sf
 
 @numba.njit(parallel=True)

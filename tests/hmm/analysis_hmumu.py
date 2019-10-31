@@ -13,7 +13,7 @@ from hepaccelerate.utils import choose_backend, LumiData, LumiMask
 from hepaccelerate.utils import Dataset, Results
 
 import hmumu_utils
-from hmumu_utils import run_analysis, run_cache, create_dataset_jobfiles, load_puhist_target, seed_generator, jet_puid_extract
+from hmumu_utils import run_analysis, run_cache, create_dataset_jobfiles, load_puhist_target, seed_generator
 from hmumu_lib import LibHMuMu, RochesterCorrections, LeptonEfficiencyCorrections, GBREvaluator, MiscVariables, NNLOPSReweighting, hRelResolution, ZpTReweighting
 
 import os
@@ -351,23 +351,12 @@ class AnalysisCorrections:
         self.zptreweighting = ZpTReweighting(self.libhmm)
 
         puid_maps = "data/puidSF/PUIDMaps.root"
-        self.puidreweighting = {
-            "2016": {
-                "loose" : jet_puid_extract(puid_maps, "h2_eff_mc2016_L", "h2_eff_sf2016_L"),
-                "medium": jet_puid_extract(puid_maps, "h2_eff_mc2016_M", "h2_eff_sf2016_M"),
-                "tight" : jet_puid_extract(puid_maps, "h2_eff_mc2016_T", "h2_eff_sf2016_T")
-            },
-            "2017": {
-                "loose" : jet_puid_extract(puid_maps, "h2_eff_mc2017_L", "h2_eff_sf2017_L"),
-		"medium": jet_puid_extract(puid_maps, "h2_eff_mc2017_M", "h2_eff_sf2017_M"),
-                "tight" : jet_puid_extract(puid_maps, "h2_eff_mc2017_T", "h2_eff_sf2017_T")
-            },
-            "2018": {
-                "loose" : jet_puid_extract(puid_maps, "h2_eff_mc2018_L", "h2_eff_sf2018_L"),
-		"medium": jet_puid_extract(puid_maps, "h2_eff_mc2018_M", "h2_eff_sf2018_M"),
-                "tight" : jet_puid_extract(puid_maps, "h2_eff_mc2018_T", "h2_eff_sf2018_T")
-            }
-        }
+        print("Extracting PU ID weights from "+puid_maps)
+        puid_extractor = extractor()
+        puid_extractor.add_weight_sets(["* * {0}".format(puid_maps)])
+        puid_extractor.finalize()
+        self.puidreweighting = puid_extractor.make_evaluator()
+
 
 def check_and_recreate_filename_cache(cache_filename, cache_location, datapath, datasets):
     if os.path.isfile(cache_filename):
