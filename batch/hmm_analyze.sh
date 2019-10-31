@@ -23,7 +23,7 @@ export NUMBA_NUM_THREADS=$NTHREADS
 export OMP_NUM_THREADS=$NTHREADS
 
 #This is where the skim files are loaded form
-export CACHE_PATH=/storage/user/$USER/hmm/cache
+export CACHE_PATH=/storage/user/nlu/hmm/cache2
 
 #Local output director in worker node tmp
 export OUTDIR=out
@@ -35,10 +35,10 @@ cd $SUBMIT_DIR
 python3 tests/hmm/analysis_hmumu.py \
     --action analyze \
     --nthreads $NTHREADS --cache-location $CACHE_PATH \
-    --datapath /storage/user/jpata/ \
-    --do-factorized-jec --out $workdir/$OUTDIR \
+    --datapath /storage/user/jpata/ --era 2016 --era 2017 --era 2018 \
+    --out $workdir/$OUTDIR \
+    --do-factorized-jec \
     --jobfiles-load $workdir/args.txt
-
 
 cd $workdir
 
