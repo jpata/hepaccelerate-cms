@@ -350,7 +350,7 @@ class AnalysisCorrections:
         print("Loading ZpTReweighting...")
         self.zptreweighting = ZpTReweighting(self.libhmm)
 
-def check_and_recreate_filename_cache(cache_filename, cache_location, datapath):
+def check_and_recreate_filename_cache(cache_filename, cache_location, datapath,datasets):
     if os.path.isfile(cache_filename):
         print("Cache file {0} already exists, we will not overwrite it to be safe.".format(cache_filename), file=sys.stderr)
         print("Delete it or change --cache-location and try again.", file=sys.stderr)
@@ -515,7 +515,7 @@ def main(args, datasets):
     cache_filename = args.cache_location + "/datasets.json"
     if ("cache" in args.action) and (args.jobfiles is None):
 
-        check_and_recreate_filename_cache(cache_filename, args.cache_location, args.datapath)
+        check_and_recreate_filename_cache(cache_filename, args.cache_location, args.datapath,datasets)
 
     #Create the jobfiles
     if ("cache" in args.action or "analyze" in args.action) and (args.jobfiles is None):
