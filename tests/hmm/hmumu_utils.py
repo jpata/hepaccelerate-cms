@@ -1187,7 +1187,7 @@ def get_histogram(data, weights, bins, mask=None):
     """
     return Histogram(*ha.histogram_from_vector(data, weights, bins, mask))
  
-#remove parallel running for safety - it's not clear if different loop iterations can modify overlapping data
+#remove parallel running for safety - it's not clear if different loop iterations modify overlapping data, which is not allowed
 @numba.njit(parallel=False)
 def fix_muon_fsrphoton_index(offsets_fsrphotons, offsets_muons, fsrphotons_dROverEt2, fsrphotons_muonIdx, muons_fsrPhotonIdx, out_muons_fsrPhotonIdx):
     for iev in range(len(offsets_fsrphotons)-1):
@@ -1202,10 +1202,6 @@ def fix_muon_fsrphoton_index(offsets_fsrphotons, offsets_muons, fsrphotons_dROve
                     #print('changed')
             k = k+1
     #return out_muons_fsrPhotonIdx
-
-def correct_muon_with_fsr(muons_offsets, fsr_offsets, muons_fsrIndex, muons_pt, muons_eta, muons_phi, fsr_pt, fsr_eta, fsr_phi):
-    for iev in numba.prange(len(muons_offsets) - 1):
-        pass
 
 def get_selected_muons(
     scalars,
@@ -1233,7 +1229,6 @@ def get_selected_muons(
     if fsrphotons:
 
         out_muons_fsrPhotonIdx = NUMPY_LIB.array(muons.fsrPhotonIdx)
-        print(muons.offsets)
         fix_muon_fsrphoton_index(fsrphotons.offsets, muons.offsets, fsrphotons.dROverEt2, fsrphotons.muonIdx, muons.fsrPhotonIdx, out_muons_fsrPhotonIdx)
         mu_attrs = ["pt", "eta", "phi", "mass", "fsrPhotonIdx"]
         size = muons.numevents()
@@ -1243,7 +1238,6 @@ def get_selected_muons(
         mu_indices = NUMPY_LIB.arange(muons.offsets[0], muons.offsets[-1])
         
         i_mu = 0
-        print(muons.offsets)
         i_mu_idx = muons.offsets[0:-1]
         
         first_fsr_idx = fsrphotons.offsets[0:-1]
@@ -2059,7 +2053,7 @@ def to_spherical(arrs):
     return {"pt": pt, "eta": eta, "phi": phi, "mass": mass, "rapidity": rap}
 
 """
-Given two objects, computes the dr = sqrt(deta^2+dphi^2) between them.
+Given two arrays of objects with the same length, computes the dr = sqrt(deta^2+dphi^2) between them.
     obj1: array of spherical coordinates (pt, eta, phi, m) for the first object
     obj2: array of spherical coordinates for the second object
 
