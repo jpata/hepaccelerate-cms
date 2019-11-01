@@ -38,7 +38,7 @@ def parse_args():
     parser.add_argument('--async-data', action='store_true', help='Load data on a separate thread, faster but disable for debugging')
     parser.add_argument('--action', '-a', action='append', help='List of analysis steps to do', choices=['analyze', 'merge'], required=False, default=None)
     parser.add_argument('--nthreads', '-t', action='store', help='Number of CPU threads or workers to use', type=int, default=4, required=False)
-    parser.add_argument('--datapath', '-p', action='store', help='Input file path that contains the CMS /store/... folder, e.g. /mnt/hadoop', required=False, default="/storage/user/idutta/Hmm/Vectorized/my_fork_vbfsync/hepaccelerate-cms/")
+    parser.add_argument('--datapath', '-p', action='store', help='Input file path that contains the CMS /store/... folder, e.g. /mnt/hadoop', required=False, default="/storage/user/jpata")
     parser.add_argument('--maxchunks', '-m', action='store', help='Maximum number of files to process for each dataset', default=1, type=int)
     parser.add_argument('--chunksize', '-c', action='store', help='Number of files to process simultaneously (larger is faster, but uses more memory)', default=1, type=int)
     parser.add_argument('--out', action='store', help='Output location', default='out', type=str)
@@ -63,6 +63,13 @@ def parse_args():
     if args.eras is None:
         args.eras = ["2016", "2017", "2018"]
     return args
+class BTagWeights:
+    def __init__(self,
+        tag_name):
+        btag_extractor = extractor()
+        btag_extractor.add_weight_sets(['* * data/btagSF/{0}.csv'.format(tag_name)])
+        btag_extractor.finalize()
+        self.evaluator = btag_extractor.make_evaluator() 
 
 class JetMetCorrections:
     def __init__(self,
@@ -351,6 +358,14 @@ class AnalysisCorrections:
         puid_extractor.finalize()
         self.puidreweighting = puid_extractor.make_evaluator()
 
+        print("Extracting b-tag weights...")
+        self.btag_weights = {
+            
+            "DeepCSV_2016": BTagWeights( tag_name = "DeepCSV_2016LegacySF_V1"),
+            "DeepCSV_2017": BTagWeights( tag_name = "DeepCSV_94XSF_V4_B_F"),
+            "DeepCSV_2018": BTagWeights( tag_name = "DeepCSV_102XSF_V1")
+        }
+        
 
 def check_and_recreate_filename_cache(cache_filename, datapath, datasets, use_merged):
     if os.path.isfile(cache_filename):
