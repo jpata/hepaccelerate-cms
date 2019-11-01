@@ -35,6 +35,7 @@ def parse_args():
     parser.add_argument('--keep-processes', action='append', help='Keep only certain processes, defaults to all', default=None)
     parser.add_argument('--histnames', action='append', help='Process only these histograms, defaults to all', default=None)
     parser.add_argument('--nthreads', action='store', help='Number of parallel threads', default=4, type=int)
+    parser.add_argument('--eras', action='append', help='Data eras to process', type=str, required=False)
     args = parser.parse_args()
     return args
 
@@ -754,20 +755,23 @@ if __name__ == "__main__":
     #create a list of all the processes that need to be loaded from the result files
     mc_samples_load = set([d[0] for d in datasets])
 
-    eras = []
     data_results_glob = cmdline_args.input + "/results/data_*.pkl"
     print("looking for {0}".format(data_results_glob))
     data_results = glob.glob(data_results_glob)
     if len(data_results) == 0:
         raise Exception("Did not find any data_*.pkl files in {0}, please check that this is a valid results directory and that the merge step has been completed".format(data_results_glob))
 
-    for dr in data_results:
-        dr_filename = os.path.basename(dr)
-        dr_filename_noext = dr_filename.split(".")[0]
-        name, era = dr_filename_noext.split("_")
-        eras += [era]
+    eras = []
+    if cmdline_args.eras is None:
+        for dr in data_results:
+            dr_filename = os.path.basename(dr)
+            dr_filename_noext = dr_filename.split(".")[0]
+            name, era = dr_filename_noext.split("_")
+            eras += [era]
+    else:
+        eras = cmdline_args.eras
+ 
     print("Will make datacards and control plots for eras {0}".format(eras))
-
     for era in eras:
         rea = {}
         genweights = {}
@@ -864,8 +868,10 @@ if __name__ == "__main__":
                         "well as --keep-processes commandline option."
                         )
 
+                histos = {}
+                for sample in mc_samples + ["data"]:
+                    histos[sample] = res[sample][analysis][var]
 
-                histos = {s: res[s][analysis][var] for s in mc_samples + ["data"]}
                 print(era, analysis, var)
                 datacard_args += [
                     (histos,

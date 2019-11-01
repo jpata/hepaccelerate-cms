@@ -1,22 +1,20 @@
 Universe = vanilla
-Executable = hmm_analyze.sh
-Log = logs/example_job.$(Cluster).log
-Output = logs/example_job.out.$(Cluster).$(Process)
-Error = logs/example_job.err.$(Cluster).$(Process)
+Executable = dask-worker.sh
+Log = logs/dask.$(Cluster).log
+Output = logs/dask.out.$(Cluster).$(Process)
+Error = logs/dask.err.$(Cluster).$(Process)
 Requirements=(TARGET.OpSysAndVer=="CentOS7" && regexp("blade.*", TARGET.Machine))
 #Requirements=(TARGET.OpSysAndVer=="CentOS7")
 +RunAsOwner = True
 +InteractiveUser = true
 +SingularityImage = "/storage/user/jpata/gpuservers/singularity/images/cupy.simg"
 +SingularityBindCVMFS = True
-+RequestWalltime = 6*3600
++RequestWalltime = 1*3600
 
 run_as_owner = True
 x509userproxy = $ENV(X509_USER_PROXY)
 RequestDisk = 4
 RequestMemory = 6000
-RequestCpus = 2
+RequestCpus = 1
 
-transfer_input_files = jobfiles.tgz
-
-Environment = USER=$ENV(USER);CONDORJOBID=$(Process);SUBMIT_DIR=$ENV(SUBMIT_DIR)
+Queue 50
