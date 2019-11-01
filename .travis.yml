@@ -20,6 +20,7 @@ install:
   - pip install matplotlib
   - pip install scipy
   - pip install requests
+  - pip install cffi
   - pip install git+https://github.com/hepaccelerate/hepaccelerate
   - pip install coffea
 
