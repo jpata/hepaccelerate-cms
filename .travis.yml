@@ -24,3 +24,5 @@ install:
 
 script:
     - PYTHONPATH=. python tests/hmm/hmumu_utils.py
+    - PYTHONPATH=. python tests/hmm/analysis_hmumu.py
+    - PYTHONPATH=. python tests/hmm/test_hmumu_utils.py
