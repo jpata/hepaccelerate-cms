@@ -350,6 +350,14 @@ class AnalysisCorrections:
         print("Loading ZpTReweighting...")
         self.zptreweighting = ZpTReweighting(self.libhmm)
 
+        puid_maps = "data/puidSF/PUIDMaps.root"
+        print("Extracting PU ID weights from "+puid_maps)
+        puid_extractor = extractor()
+        puid_extractor.add_weight_sets(["* * {0}".format(puid_maps)])
+        puid_extractor.finalize()
+        self.puidreweighting = puid_extractor.make_evaluator()
+
+
 def check_and_recreate_filename_cache(cache_filename, cache_location, datapath, datasets):
     if os.path.isfile(cache_filename):
         print("Cache file {0} already exists, we will not overwrite it to be safe.".format(cache_filename), file=sys.stderr)
