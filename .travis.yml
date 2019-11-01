@@ -21,9 +21,7 @@ install:
   - pip install scipy
   - pip install requests
   - pip install cffi
-  - pip install git+https://github.com/hepaccelerate/hepaccelerate
-  - pip install coffea
 
 script:
-    - PYTHONPATH=. python tests/hmm/hmumu_utils.py
-    - PYTHONPATH=. python tests/hmm/test_hmumu_utils.py
+    - PYTHONPATH=coffea:hepaccelerate:. python tests/hmm/hmumu_utils.py
+    - PYTHONPATH=coffea:hepaccelerate:. python tests/hmm/test_hmumu_utils.py
