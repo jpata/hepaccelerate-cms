@@ -44,9 +44,9 @@ class TestAnalysisMC(unittest.TestCase):
             "data/myNanoProdMc2016_NANO.root",
             "https://jpata.web.cern.ch/jpata/hmm/test_files/myNanoProdMc2016_NANO.root"
         )
-        self.datastructures = create_datastructure("sync", True, "2016", do_fsr=True)
+        self.datastructures = create_datastructure("vbf_sync", True, "2016", do_fsr=True)
         self.dataset = Dataset(
-            "sync",
+            "vbf_sync",
             ["data/myNanoProdMc2016_NANO.root"],
             self.datastructures,
             cache_location=".",
