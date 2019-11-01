@@ -31,9 +31,6 @@ import hepaccelerate.backend_cpu as backend_cpu
 from coffea.lookup_tools import extractor
 from coffea.util import awkward
 
-from cmsutils.decisiontree import DecisionTreeNode, DecisionTreeLeaf, make_random_node, grow_randomly, make_random_tree, prune_randomly, generate_cut_trees
-from cmsutils.stats import likelihood, sig_q0_asimov, sig_naive
-
 from pars import runmap_numerical, runmap_numerical_r, data_runs, genweight_scalefactor
 
 #global variables need to be configured here for the hepaccelerate backend and numpy library
@@ -272,7 +269,22 @@ def analyze_data(
                 m1 = weights_individual[w]["nominal"].mean()
                 m2 = weights_individual[w]["up"].mean()
                 m3 = weights_individual[w]["down"].mean()
-                assert(m1 > m3 and m1 < m2) 
+                assert(m1 > m3 and m1 < m2)
+    else:
+        #set default weights to 1
+        def default_weight(n):
+            return {
+                "nominal": NUMPY_LIB.ones(n, dtype=NUMPY_LIB.float32),
+                "up": NUMPY_LIB.ones(n, dtype=NUMPY_LIB.float32),
+                "down": NUMPY_LIB.ones(n, dtype=NUMPY_LIB.float32)
+            }
+        weights_individual["trigger"] = default_weight(len(leading_muon["pt"])) 
+        weights_individual["id"] = default_weight(len(leading_muon["pt"])) 
+        weights_individual["iso"] = default_weight(len(leading_muon["pt"])) 
+        weights_individual["mu1_id"] = default_weight(len(leading_muon["pt"]))
+        weights_individual["mu1_iso"] = default_weight(len(leading_muon["pt"]))
+        weights_individual["mu2_id"] = default_weight(len(leading_muon["pt"]))
+        weights_individual["mu2_iso"] = default_weight(len(leading_muon["pt"]))
  
     # Get the selected electrons
     ret_el = get_selected_electrons(electrons, parameters["extra_electrons_pt"], parameters["extra_electrons_eta"], parameters["extra_electrons_id"])
@@ -1174,20 +1186,21 @@ def get_histogram(data, weights, bins, mask=None):
     """Given N-unit vectors of data and weights, returns the histogram in bins
     """
     return Histogram(*ha.histogram_from_vector(data, weights, bins, mask))
-  
-@numba.njit(parallel=True)
+ 
+#remove parallel running for safety - it's not clear if different loop iterations modify overlapping data, which is not allowed
+@numba.njit(parallel=False)
 def fix_muon_fsrphoton_index(offsets_fsrphotons, offsets_muons, fsrphotons_dROverEt2, fsrphotons_muonIdx, muons_fsrPhotonIdx, out_muons_fsrPhotonIdx):
-    for iev in numba.prange(len(offsets_fsrphotons)-1):
-            k=0
-            for i in range(offsets_fsrphotons[iev],offsets_fsrphotons[iev+1]):
-                midx=np.int64(offsets_muons[iev]+fsrphotons_muonIdx[i])
-                fidx = np.int64(offsets_fsrphotons[iev]+muons_fsrPhotonIdx[midx])
-                #print(scalars['event'][iev], k,fsrphotons.muonIdx[i],midx,fidx,muons.fsrPhotonIdx[midx],fsrphotons.dROverEt2[fidx],fsrphotons.dROverEt2[i])
-                if(k!=muons_fsrPhotonIdx[midx]):
-                    if(fsrphotons_dROverEt2[i] < fsrphotons_dROverEt2[fidx]):
-                        out_muons_fsrPhotonIdx[midx]=k
-                        #print('changed')
-                k = k+1
+    for iev in range(len(offsets_fsrphotons)-1):
+        k=0
+        for i in range(offsets_fsrphotons[iev],offsets_fsrphotons[iev+1]):
+            midx=np.int64(offsets_muons[iev]+fsrphotons_muonIdx[i])
+            fidx = np.int64(offsets_fsrphotons[iev]+muons_fsrPhotonIdx[midx])
+            #print(scalars['event'][iev], k,fsrphotons.muonIdx[i],midx,fidx,muons.fsrPhotonIdx[midx],fsrphotons.dROverEt2[fidx],fsrphotons.dROverEt2[i])
+            if(k!=muons_fsrPhotonIdx[midx]):
+                if(fsrphotons_dROverEt2[i] < fsrphotons_dROverEt2[fidx]):
+                    out_muons_fsrPhotonIdx[midx]=k
+                    #print('changed')
+            k = k+1
     #return out_muons_fsrPhotonIdx
 
 def get_selected_muons(
@@ -2040,7 +2053,7 @@ def to_spherical(arrs):
     return {"pt": pt, "eta": eta, "phi": phi, "mass": mass, "rapidity": rap}
 
 """
-Given two objects, computes the dr = sqrt(deta^2+dphi^2) between them.
+Given two arrays of objects with the same length, computes the dr = sqrt(deta^2+dphi^2) between them.
     obj1: array of spherical coordinates (pt, eta, phi, m) for the first object
     obj2: array of spherical coordinates for the second object
 
@@ -2093,6 +2106,7 @@ Fills the DNN input variables based on two muons and two jets.
     'Higgs_eta' - dimuon eta
 """
 def dnn_variables(hrelresolution, leading_muon, subleading_muon, leading_jet, subleading_jet, nsoft, n_sel_softjet, n_sel_HTsoftjet, use_cuda):
+    nev = len(leading_muon["pt"])
     #delta eta, phi and R between two muons
     mm_deta, mm_dphi, mm_dr = deltar(leading_muon, subleading_muon, use_cuda)
     
@@ -2115,8 +2129,11 @@ def dnn_variables(hrelresolution, leading_muon, subleading_muon, leading_jet, su
     mm = {k: m1[k] + m2[k] for k in ["px", "py", "pz", "e"]}
     mm_sph = to_spherical(mm)
 
-    #mass resolusion
-    Higgs_mrelreso = hrelresolution.compute(leading_muon["pt"],leading_muon["eta"],subleading_muon["pt"],subleading_muon["eta"])
+    #mass resolution
+    if not hrelresolution is None:
+        Higgs_mrelreso = hrelresolution.compute(leading_muon["pt"],leading_muon["eta"],subleading_muon["pt"],subleading_muon["eta"])
+    else:
+        Higgs_mrelreso = NUMPY_LIB.zeros(nev, dtype=NUMPY_LIB.float32)
 
     #jets in cartesian, create dijet system 
     j1 = to_cartesian(leading_jet)

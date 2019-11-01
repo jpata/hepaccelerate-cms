@@ -19,8 +19,10 @@ install:
   - pip install psutil
   - pip install matplotlib
   - pip install scipy
-  - pip install git+https://github.com/hepaccelerate/hepaccelerate
-  - pip install coffea
+  - pip install requests
+  - pip install cffi
+  - pip install lz4 cloudpickle tqdm six futures
 
 script:
-    - PYTHONPATH=. python tests/hmm/hmumu_utils.py
+    - PYTHONPATH=coffea:hepaccelerate:. python tests/hmm/hmumu_utils.py
+    - PYTHONPATH=coffea:hepaccelerate:. python tests/hmm/test_hmumu_utils.py
