@@ -45,7 +45,7 @@ NUMPY_LIB = None
 #debug = True
 debug = False
 #event IDs for which to print out detailed information
-debug_event_ids = [38194,38438,47062,47186,4465]
+debug_event_ids = [99088]
 
 #list to collect performance data in
 global_metrics = []
@@ -96,6 +96,7 @@ def analyze_data(
     nnlopsreweighting = None,
     hrelresolution = None,
     zptreweighting = None,
+    puidreweighting = None,
     random_seed = 0 
     ):
 
@@ -290,6 +291,30 @@ def analyze_data(
     if is_mc and (dataset_name in parameters["ZpT_reweight"][dataset_era]):
        ZpTw = zptreweighting.compute(higgs_pt, parameters["ZpT_reweight"][dataset_era][dataset_name])
 
+
+    #Do the jet ID selection and lepton cleaning just once for the nominal jet systematic
+    #as that does not depend on jet pt
+
+    selected_jets_id, passed_puid = get_selected_jets_id(
+        scalars,
+        jets, muons,
+        parameters["jet_eta"],
+        parameters["jet_mu_dr"],
+        parameters["jet_id"],
+        parameters["jet_puid"],
+        parameters["jet_veto_eta"][0],
+        parameters["jet_veto_eta"][1],
+        parameters["jet_veto_raw_pt"],
+        dataset_era)
+    print("jet selection eff based on id", selected_jets_id.sum() / float(len(selected_jets_id)))
+
+    #Now we throw away all the jets that didn't pass the ID to save time on computing JECs on them
+    jets_passing_id = jets.select_objects(selected_jets_id)
+
+    if parameters["jet_puid"] is not "none":
+        puid_weights = get_puid_weights(jets_passing_id, passed_puid, puidreweighting, dataset_era, parameters["jet_puid"])
+        weights_individual["jet_puid"] = {"nominal": puid_weights, "up": puid_weights, "down": puid_weights}
+
     #compute variated weights here to ensure the nominal weight contains all possible other weights  
     compute_event_weights(parameters, weights_individual, scalars, genweight_scalefactor, gghnnlopsw, ZpTw, LHEScalew, pu_corrections, is_mc, dataset_era, dataset_name)
 
@@ -342,25 +367,6 @@ def analyze_data(
     #This computes the JEC, JER and associated systematics
     print("event selection eff based on 2 muons", ret_mu["selected_events"].sum() / float(len(mask_events)))
 
-    #Do the jet ID selection and lepton cleaning just once for the nominal jet systematic
-    #as that does not depend on jet pt
-
-    selected_jets_id = get_selected_jets_id(
-        scalars,
-        jets, muons,
-        parameters["jet_eta"],
-        parameters["jet_mu_dr"],
-        parameters["jet_id"],
-        parameters["jet_puid"],
-        parameters["jet_veto_eta"][0],
-        parameters["jet_veto_eta"][1],
-        parameters["jet_veto_raw_pt"],
-        dataset_era)
-    print("jet selection eff based on id", selected_jets_id.sum() / float(len(selected_jets_id)))
-
-    #Now we throw away all the jets that didn't pass the ID to save time on computing JECs on them
-    jets_passing_id = jets.select_objects(selected_jets_id)
-    
     print("Doing nominal jec on {0} jets".format(jets_passing_id.numobjects()))
     jet_systematics = JetTransformer(
         jets_passing_id, scalars,
@@ -371,7 +377,7 @@ def analyze_data(
     syst_to_consider = ["nominal"]
     if is_mc:
         syst_to_consider += ["Total"]
-        if parameters["do_jer"]:
+        if parameters["do_jer"][dataset_era]:
             syst_to_consider += ["jer"]
         if parameters["do_factorized_jec"]:
             syst_to_consider = syst_to_consider + jet_systematics.jet_uncertainty_names
@@ -381,7 +387,7 @@ def analyze_data(
     
     #Now actually call the JEC computation for each scenario
     jet_pt_startfrom = "pt_jec"
-    if is_mc and parameters["do_jer"]:
+    if is_mc and parameters["do_jer"][dataset_era]:
         jet_pt_startfrom = "pt_jec_jer"
     for uncertainty_name in syst_to_consider:
         #This will be the variated pt vector
@@ -1060,7 +1066,8 @@ def run_analysis(
             miscvariables = analysis_corrections.miscvariables,
             nnlopsreweighting = analysis_corrections.nnlopsreweighting,
             hrelresolution = analysis_corrections.hrelresolution,
-            zptreweighting = analysis_corrections.zptreweighting)
+            zptreweighting = analysis_corrections.zptreweighting,
+            puidreweighting = analysis_corrections.puidreweighting)
 
         tnext = time.time()
         print("processed {0:.2E} ev/s".format(nev/float(tnext-tprev)))
@@ -1167,6 +1174,21 @@ def get_histogram(data, weights, bins, mask=None):
     """Given N-unit vectors of data and weights, returns the histogram in bins
     """
     return Histogram(*ha.histogram_from_vector(data, weights, bins, mask))
+  
+@numba.njit(parallel=True)
+def fix_muon_fsrphoton_index(offsets_fsrphotons, offsets_muons, fsrphotons_dROverEt2, fsrphotons_muonIdx, muons_fsrPhotonIdx, out_muons_fsrPhotonIdx):
+    for iev in numba.prange(len(offsets_fsrphotons)-1):
+            k=0
+            for i in range(offsets_fsrphotons[iev],offsets_fsrphotons[iev+1]):
+                midx=np.int64(offsets_muons[iev]+fsrphotons_muonIdx[i])
+                fidx = np.int64(offsets_fsrphotons[iev]+muons_fsrPhotonIdx[midx])
+                #print(scalars['event'][iev], k,fsrphotons.muonIdx[i],midx,fidx,muons.fsrPhotonIdx[midx],fsrphotons.dROverEt2[fidx],fsrphotons.dROverEt2[i])
+                if(k!=muons_fsrPhotonIdx[midx]):
+                    if(fsrphotons_dROverEt2[i] < fsrphotons_dROverEt2[fidx]):
+                        out_muons_fsrPhotonIdx[midx]=k
+                        #print('changed')
+                k = k+1
+    #return out_muons_fsrPhotonIdx
 
 def get_selected_muons(
     scalars,
@@ -1192,27 +1214,30 @@ def get_selected_muons(
     """
 
     if fsrphotons:
+
+        out_muons_fsrPhotonIdx = NUMPY_LIB.array(muons.fsrPhotonIdx)
+        fix_muon_fsrphoton_index(fsrphotons.offsets, muons.offsets, fsrphotons.dROverEt2, fsrphotons.muonIdx, muons.fsrPhotonIdx, out_muons_fsrPhotonIdx)
         mu_attrs = ["pt", "eta", "phi", "mass", "fsrPhotonIdx"]
         size = muons.numevents()
-
+        #print(muons.offsets)
+        #print(fsrphotons.offsets)
         # indices of all muons
         mu_indices = NUMPY_LIB.arange(muons.offsets[0], muons.offsets[-1])
-
+        
         i_mu = 0
         i_mu_idx = muons.offsets[0:-1]
+        
         first_fsr_idx = fsrphotons.offsets[0:-1]
-
         while(mu_indices.size):
             # only consider events where i-th muon has pT>20 and an FSR photon associated with it
-            event_mask = (muons.fsrPhotonIdx[i_mu_idx] >= 0) & (muons.pt[i_mu_idx] > 20.)
+            event_mask = (out_muons_fsrPhotonIdx[i_mu_idx] >= 0) & (muons.pt[i_mu_idx] > 20.)
             mu_idx = i_mu_idx[event_mask]
-            fsr_idx = (first_fsr_idx[event_mask] + muons.fsrPhotonIdx[mu_idx]).astype(int)
-
+            fsr_idx = np.int64(first_fsr_idx[event_mask] + out_muons_fsrPhotonIdx[mu_idx])
+            #print(fsr_idx.shape,fsrphotons.eta.shape)
             print("Found {0} events where muon #{1} exists, in {2} of them the muon has associated FSR photon and passes pT>20 cut".format(i_mu_idx.shape[0], i_mu+1, mu_idx.shape[0]))
 
             mu_kin = {"pt": muons.pt[mu_idx], "eta": muons.eta[mu_idx], "phi": muons.phi[mu_idx], "mass": muons.mass[mu_idx]}
             fsr_kin = {"pt": fsrphotons.pt[fsr_idx], "eta": fsrphotons.eta[fsr_idx], "phi": fsrphotons.phi[fsr_idx],"mass": 0}
-
             # will update isolation if FSR photon is within muon isolation cone dR<0.4
             _, _, deltar_mu_fsr = deltar(mu_kin, fsr_kin, use_cuda)
             iso_idx_mu = mu_idx[deltar_mu_fsr < 0.4]
@@ -1257,17 +1282,16 @@ def get_selected_muons(
         raise Exception("unknown muon id: {0}".format(muon_id_type))
 
     #find muons that pass ID
-    passes_global = (muons.isGlobal == 1)
     passes_subleading_pt = muons.pt > mu_pt_cut_subleading
     passes_leading_pt = muons.pt > mu_pt_cut_leading
     passes_aeta = NUMPY_LIB.abs(muons.eta) < mu_aeta_cut
     muons_passing_id =  (
-        passes_global & passes_iso & passes_id &
+        passes_iso & passes_id &
         passes_subleading_pt & passes_aeta
     )
 
     muons_passing_id_trig_matched =  (
-        passes_global & passes_iso_trig_matched & passes_id_trig_matched &
+        passes_iso_trig_matched & passes_id_trig_matched &
         passes_subleading_pt & passes_aeta
     )
 
@@ -1453,7 +1477,7 @@ def get_selected_jets_id(
             jaggedstruct_print(jets, idx,
                                ["pt", "eta", "phi", "mass", "jetId", "puId","qgl"])
     '''
-    return selected_jets
+    return selected_jets, pass_jet_puid
 
 def get_selected_jets(
     scalars,
@@ -1519,6 +1543,39 @@ def get_selected_jets(
     }
 
     return ret
+
+
+def get_puid_weights(jets, passed_puid, evaluator, era, wp):
+    nev = jets.numevents()
+    wp_dict = {"loose": "L", "medium": "M", "tight": "T"}
+    jets_pu_eff, jets_pu_sf = jet_puid_evaluate(evaluator, era, wp_dict[wp], jets.pt, jets.eta)
+    p_puid_mc = NUMPY_LIB.zeros(nev)
+    p_puid_data = NUMPY_LIB.zeros(nev)
+    compute_eff_product(jets.offsets, passed_puid, jets_pu_eff, p_puid_mc)
+    compute_eff_product(jets.offsets, passed_puid, jets_pu_eff*jets_pu_sf, p_puid_data)
+    eventweight_puid = np.divide(p_puid_data, p_puid_mc, out=np.zeros_like(p_puid_data), where=p_puid_mc!=0)
+    return eventweight_puid
+
+def jet_puid_evaluate(evaluator, era, wp, jet_pt, jet_eta):
+    h_eff_name = f"h2_eff_mc{era}_{wp}"
+    h_sf_name = f"h2_eff_sf{era}_{wp}"
+    puid_eff = evaluator[h_eff_name](jet_pt, jet_eta)
+    puid_sf = evaluator[h_sf_name](jet_pt, jet_eta)
+    return puid_eff, puid_sf
+
+@numba.njit(parallel=True)
+def compute_eff_product(offsets, jets_mask_passes_id, jets_eff, out_proba):
+    #loop over events in parallel
+    for iev in numba.prange(len(offsets)-1):
+        p_tot = 1.0
+        #loop over jets in event
+        for ij in range(offsets[iev], offsets[iev+1]):
+            this_jet_passes = jets_mask_passes_id[ij]
+            if this_jet_passes:
+                p_tot *= jets_eff[ij]
+            else:
+                p_tot *= 1.0 - jets_eff[ij]
+        out_proba[iev] = p_tot
 
 def get_selected_electrons(electrons, pt_cut, eta_cut, id_type):
     if id_type == "mvaFall17V1Iso_WP90":
@@ -2416,13 +2473,13 @@ class JetTransformer:
 
         self.corr_jec = self.NUMPY_LIB.array(self.corr_jec)
         self.pt_jec = self.NUMPY_LIB.array(self.raw_pt) * self.corr_jec 
-
+        
         if self.is_mc:
             self.msk_no_genjet = (self.jets.genpt==0)
             self.jer_nominal, self.jer_up, self.jer_down = self.apply_jer()
             check_inf_nan(self.jer_nominal) 
             self.pt_jec_jer = self.pt_jec * self.jer_nominal
-
+        
     def apply_jer(self, startfrom="pt_jec"):
         ptvec = getattr(self, startfrom)
         
@@ -2818,7 +2875,6 @@ def cache_preselection(ds, hlt_bits):
 
 def cache_data_multiproc_worker(args):
     job_desc, parameters, cmdline_args = args
-
     print("verifying cache for {0}".format(job_desc))
     filenames_all = job_desc["filenames"]
     assert(len(filenames_all)==1)
@@ -2886,7 +2942,7 @@ def create_datastructure(dataset_name, is_mc, dataset_era, do_fsr=False):
             ("Jet_area", "float32"),
             ("Jet_rawFactor", "float32")
         ],
-        "SoftActivityJet": [
+     "SoftActivityJet": [
             ("SoftActivityJet_pt", "float32"),
             ("SoftActivityJet_eta", "float32"),
             ("SoftActivityJet_phi", "float32"),
