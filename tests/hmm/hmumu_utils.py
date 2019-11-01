@@ -45,7 +45,7 @@ NUMPY_LIB = None
 #debug = True
 debug = False
 #event IDs for which to print out detailed information
-debug_event_ids = [38194,38438,47062,47186,4465]
+debug_event_ids = [99088]
 
 #list to collect performance data in
 global_metrics = []
@@ -377,7 +377,7 @@ def analyze_data(
     syst_to_consider = ["nominal"]
     if is_mc:
         syst_to_consider += ["Total"]
-        if parameters["do_jer"]:
+        if parameters["do_jer"][dataset_era]:
             syst_to_consider += ["jer"]
         if parameters["do_factorized_jec"]:
             syst_to_consider = syst_to_consider + jet_systematics.jet_uncertainty_names
@@ -387,7 +387,7 @@ def analyze_data(
     
     #Now actually call the JEC computation for each scenario
     jet_pt_startfrom = "pt_jec"
-    if is_mc and parameters["do_jer"]:
+    if is_mc and parameters["do_jer"][dataset_era]:
         jet_pt_startfrom = "pt_jec_jer"
     for uncertainty_name in syst_to_consider:
         #This will be the variated pt vector
@@ -1174,6 +1174,21 @@ def get_histogram(data, weights, bins, mask=None):
     """Given N-unit vectors of data and weights, returns the histogram in bins
     """
     return Histogram(*ha.histogram_from_vector(data, weights, bins, mask))
+  
+@numba.njit(parallel=True)
+def fix_muon_fsrphoton_index(offsets_fsrphotons, offsets_muons, fsrphotons_dROverEt2, fsrphotons_muonIdx, muons_fsrPhotonIdx, out_muons_fsrPhotonIdx):
+    for iev in numba.prange(len(offsets_fsrphotons)-1):
+            k=0
+            for i in range(offsets_fsrphotons[iev],offsets_fsrphotons[iev+1]):
+                midx=np.int64(offsets_muons[iev]+fsrphotons_muonIdx[i])
+                fidx = np.int64(offsets_fsrphotons[iev]+muons_fsrPhotonIdx[midx])
+                #print(scalars['event'][iev], k,fsrphotons.muonIdx[i],midx,fidx,muons.fsrPhotonIdx[midx],fsrphotons.dROverEt2[fidx],fsrphotons.dROverEt2[i])
+                if(k!=muons_fsrPhotonIdx[midx]):
+                    if(fsrphotons_dROverEt2[i] < fsrphotons_dROverEt2[fidx]):
+                        out_muons_fsrPhotonIdx[midx]=k
+                        #print('changed')
+                k = k+1
+    #return out_muons_fsrPhotonIdx
 
 def get_selected_muons(
     scalars,
@@ -1199,26 +1214,30 @@ def get_selected_muons(
     """
 
     if fsrphotons:
-        size = muons.numevents()
 
+        out_muons_fsrPhotonIdx = NUMPY_LIB.array(muons.fsrPhotonIdx)
+        fix_muon_fsrphoton_index(fsrphotons.offsets, muons.offsets, fsrphotons.dROverEt2, fsrphotons.muonIdx, muons.fsrPhotonIdx, out_muons_fsrPhotonIdx)
+        mu_attrs = ["pt", "eta", "phi", "mass", "fsrPhotonIdx"]
+        size = muons.numevents()
+        #print(muons.offsets)
+        #print(fsrphotons.offsets)
         # indices of all muons
         mu_indices = NUMPY_LIB.arange(muons.offsets[0], muons.offsets[-1])
-
+        
         i_mu = 0
         i_mu_idx = muons.offsets[0:-1]
+        
         first_fsr_idx = fsrphotons.offsets[0:-1]
-
         while(mu_indices.size):
             # only consider events where i-th muon has pT>20 and an FSR photon associated with it
-            event_mask = (muons.fsrPhotonIdx[i_mu_idx] >= 0) & (muons.pt[i_mu_idx] > 20.)
+            event_mask = (out_muons_fsrPhotonIdx[i_mu_idx] >= 0) & (muons.pt[i_mu_idx] > 20.)
             mu_idx = i_mu_idx[event_mask]
-            fsr_idx = (first_fsr_idx[event_mask] + muons.fsrPhotonIdx[mu_idx]).astype(int)
-
+            fsr_idx = np.int64(first_fsr_idx[event_mask] + out_muons_fsrPhotonIdx[mu_idx])
+            #print(fsr_idx.shape,fsrphotons.eta.shape)
             print("Found {0} events where muon #{1} exists, in {2} of them the muon has associated FSR photon and passes pT>20 cut".format(i_mu_idx.shape[0], i_mu+1, mu_idx.shape[0]))
 
             mu_kin = {"pt": muons.pt[mu_idx], "eta": muons.eta[mu_idx], "phi": muons.phi[mu_idx], "mass": muons.mass[mu_idx]}
             fsr_kin = {"pt": fsrphotons.pt[fsr_idx], "eta": fsrphotons.eta[fsr_idx], "phi": fsrphotons.phi[fsr_idx],"mass": 0}
-
             # will update isolation if FSR photon is within muon isolation cone dR<0.4
             _, _, deltar_mu_fsr = deltar(mu_kin, fsr_kin, use_cuda)
             iso_idx_mu = mu_idx[deltar_mu_fsr < 0.4]
@@ -1263,17 +1282,16 @@ def get_selected_muons(
         raise Exception("unknown muon id: {0}".format(muon_id_type))
 
     #find muons that pass ID
-    passes_global = (muons.isGlobal == 1)
     passes_subleading_pt = muons.pt > mu_pt_cut_subleading
     passes_leading_pt = muons.pt > mu_pt_cut_leading
     passes_aeta = NUMPY_LIB.abs(muons.eta) < mu_aeta_cut
     muons_passing_id =  (
-        passes_global & passes_iso & passes_id &
+        passes_iso & passes_id &
         passes_subleading_pt & passes_aeta
     )
 
     muons_passing_id_trig_matched =  (
-        passes_global & passes_iso_trig_matched & passes_id_trig_matched &
+        passes_iso_trig_matched & passes_id_trig_matched &
         passes_subleading_pt & passes_aeta
     )
 
@@ -2455,13 +2473,13 @@ class JetTransformer:
 
         self.corr_jec = self.NUMPY_LIB.array(self.corr_jec)
         self.pt_jec = self.NUMPY_LIB.array(self.raw_pt) * self.corr_jec 
-
+        
         if self.is_mc:
             self.msk_no_genjet = (self.jets.genpt==0)
             self.jer_nominal, self.jer_up, self.jer_down = self.apply_jer()
             check_inf_nan(self.jer_nominal) 
             self.pt_jec_jer = self.pt_jec * self.jer_nominal
-
+        
     def apply_jer(self, startfrom="pt_jec"):
         ptvec = getattr(self, startfrom)
         
@@ -2857,7 +2875,6 @@ def cache_preselection(ds, hlt_bits):
 
 def cache_data_multiproc_worker(args):
     job_desc, parameters, cmdline_args = args
-
     print("verifying cache for {0}".format(job_desc))
     filenames_all = job_desc["filenames"]
     assert(len(filenames_all)==1)
@@ -2925,7 +2942,7 @@ def create_datastructure(dataset_name, is_mc, dataset_era, do_fsr=False):
             ("Jet_area", "float32"),
             ("Jet_rawFactor", "float32")
         ],
-        "SoftActivityJet": [
+     "SoftActivityJet": [
             ("SoftActivityJet_pt", "float32"),
             ("SoftActivityJet_eta", "float32"),
             ("SoftActivityJet_phi", "float32"),
