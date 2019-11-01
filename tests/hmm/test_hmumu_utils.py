@@ -1,3 +1,4 @@
+import os, requests
 import numpy as np
 import unittest
 from hepaccelerate.utils import choose_backend, Dataset
