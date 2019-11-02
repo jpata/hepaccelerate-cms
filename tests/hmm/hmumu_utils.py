@@ -1623,21 +1623,19 @@ def sum_four_vectors(objects, size):
     pz_total = NUMPY_LIB.zeros(size, dtype=np.float32)
     e_total = NUMPY_LIB.zeros(size, dtype=np.float32)
     for obj in objects:
-        px = obj["pt"] * np.cos(obj["phi"])
-        py = obj["pt"] * np.sin(obj["phi"])
-        pz = obj["pt"] * np.sinh(obj["eta"])
-        e = np.sqrt(px**2 + py**2 + pz**2 + obj["mass"]**2)
+        px, py, pz, e = ha.spherical_to_cartesian(
+            obj["pt"], obj["eta"], obj["phi"], obj["mass"])
         px_total += px
         py_total += py
         pz_total += pz
         e_total += e
-    pt_total = np.sqrt(px_total**2 + py_total**2)
-    eta_total = np.arcsinh(pz_total / pt_total)
-    phi_total = np.arctan2(py_total, px_total)
+    pt_total, eta_total, phi_total, mass_total = ha.cartesian_to_spherical(
+        px_total, py_total, pz_total, e_total)
     return {
         "pt": pt_total,
         "eta": eta_total,
-        "phi": phi_total
+        "phi": phi_total,
+        "mass_total": mass_total
     }
 
 def compute_inv_mass(objects, mask_events, mask_objects, use_cuda):
@@ -1673,11 +1671,7 @@ def compute_inv_mass_kernel(offsets, pts, etas, phis, masses, mask_events, mask_
                     phi = phis[iobj]
                     mass = masses[iobj]
 
-                    px = pt * np.cos(phi)
-                    py = pt * np.sin(phi)
-                    pz = pt * np.sinh(eta)
-                    e = np.sqrt(px**2 + py**2 + pz**2 + mass**2)
-                    
+                    px, py, pz, e = ha.spherical_to_cartesian(pt, eta, phi, mass) 
                     px_total += px 
                     py_total += py 
                     pz_total += pz 
@@ -1709,10 +1703,7 @@ def compute_inv_mass_cudakernel(offsets, pts, etas, phis, masses, mask_events, m
                     phi = phis[iobj]
                     mass = masses[iobj]
 
-                    px = pt * math.cos(phi)
-                    py = pt * math.sin(phi)
-                    pz = pt * math.sinh(eta)
-                    e = math.sqrt(px**2 + py**2 + pz**2 + mass**2)
+                    px, py, pz, e = ha.spherical_to_cartesian(pt, eta, phi, mass) 
                     
                     px_total += px 
                     py_total += py 
@@ -2024,10 +2015,7 @@ def to_cartesian(arrs):
     eta = arrs["eta"]
     phi = arrs["phi"]
     mass = arrs["mass"]
-    px = pt * NUMPY_LIB.cos(phi)
-    py = pt * NUMPY_LIB.sin(phi)
-    pz = pt * NUMPY_LIB.sinh(eta)
-    e = NUMPY_LIB.sqrt(px**2 + py**2 + pz**2 + mass**2)
+    px, py, pz, e = ha.spherical_to_cartesian(pt, eta, phi, mass)
     return {"px": px, "py": py, "pz": pz, "e": e}
 
 def rapidity(e, pz):
@@ -2045,10 +2033,7 @@ def to_spherical(arrs):
     py = arrs["py"]
     pz = arrs["pz"]
     e = arrs["e"]
-    pt = NUMPY_LIB.sqrt(px**2 + py**2)
-    eta = NUMPY_LIB.arcsinh(pz / pt)
-    phi = NUMPY_LIB.arctan2(py, px)
-    mass = NUMPY_LIB.sqrt(NUMPY_LIB.abs(e**2 - (px**2 + py**2 + pz**2)))
+    pt, eta, phi, mass = ha.cartesian_to_spherical(px, py, pz, e)
     rap = rapidity(e, pz)
     return {"pt": pt, "eta": eta, "phi": phi, "mass": mass, "rapidity": rap}
 
