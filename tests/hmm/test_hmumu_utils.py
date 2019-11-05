@@ -167,7 +167,7 @@ class TestAnalysisMC(unittest.TestCase):
         h = ret["hist__dimuon_invmass_z_peak_cat5__M_mmjj"]
         
         nev_zpeak_nominal = np.sum(h["nominal"].contents)
-        self.assertAlmostEqual(nev_zpeak_nominal, 0.014593757, places=4)
+        self.assertAlmostEqual(nev_zpeak_nominal, 0.013123948, places=4)
         
         self.assertTrue("Total__up" in h.keys())
         self.assertTrue("Total__down" in h.keys())
