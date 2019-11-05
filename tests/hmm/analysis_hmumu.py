@@ -293,21 +293,17 @@ class AnalysisCorrections:
             print("Loading tensorflow model")
             #disable GPU for tensorflow
             import tensorflow as tf
-            config = tf.ConfigProto()
+            config = tf.compat.v1.ConfigProto()
             config.intra_op_parallelism_threads=args.nthreads
             config.inter_op_parallelism_threads=args.nthreads
 
             if not args.use_cuda: 
                 os.environ["CUDA_VISIBLE_DEVICES"]="-1"
             else:
-                from keras.backend.tensorflow_backend import set_session
-                import tensorflow as tf
-                config = tf.ConfigProto()
                 config.gpu_options.allow_growth = False
                 config.gpu_options.per_process_gpu_memory_fraction = gpu_memory_fraction
 
-            from keras.backend.tensorflow_backend import set_session
-            set_session(tf.Session(config=config))
+            tf.compat.v1.keras.backend.set_session(tf.compat.v1.Session(config=config))
 
             #load DNN model
             import keras
