@@ -1227,57 +1227,11 @@ def get_selected_muons(
     """
 
     if fsrphotons:
-
         out_muons_fsrPhotonIdx = NUMPY_LIB.array(muons.fsrPhotonIdx)
         fix_muon_fsrphoton_index(fsrphotons.offsets, muons.offsets, fsrphotons.dROverEt2, fsrphotons.muonIdx, muons.fsrPhotonIdx, out_muons_fsrPhotonIdx)
-        mu_attrs = ["pt", "eta", "phi", "mass", "fsrPhotonIdx"]
-        size = muons.numevents()
-        #print(muons.offsets)
-        #print(fsrphotons.offsets)
-        # indices of all muons
-        mu_indices = NUMPY_LIB.arange(muons.offsets[0], muons.offsets[-1])
-        
-        i_mu = 0
-        i_mu_idx = muons.offsets[0:-1]
-        
-        first_fsr_idx = fsrphotons.offsets[0:-1]
-        while(mu_indices.size):
-            # only consider events where i-th muon has pT>20 and an FSR photon associated with it
-            event_mask = (out_muons_fsrPhotonIdx[i_mu_idx] >= 0) & (muons.pt[i_mu_idx] > 20.)
-            mu_idx = i_mu_idx[event_mask]
-            fsr_idx = np.int64(first_fsr_idx[event_mask] + out_muons_fsrPhotonIdx[mu_idx])
-            #print(fsr_idx.shape,fsrphotons.eta.shape)
-            print("Found {0} events where muon #{1} exists, in {2} of them the muon has associated FSR photon and passes pT>20 cut".format(i_mu_idx.shape[0], i_mu+1, mu_idx.shape[0]))
-
-            mu_kin = {"pt": muons.pt[mu_idx], "eta": muons.eta[mu_idx], "phi": muons.phi[mu_idx], "mass": muons.mass[mu_idx]}
-            fsr_kin = {"pt": fsrphotons.pt[fsr_idx], "eta": fsrphotons.eta[fsr_idx], "phi": fsrphotons.phi[fsr_idx],"mass": 0}
-            # will update isolation if FSR photon is within muon isolation cone dR<0.4
-            _, _, deltar_mu_fsr = deltar(mu_kin, fsr_kin, use_cuda)
-            iso_idx_mu = mu_idx[deltar_mu_fsr < 0.4]
-            iso_idx_fsr = fsr_idx[deltar_mu_fsr < 0.4]
-            absIso = muons.pfRelIso04_all[iso_idx_mu]*muons.pt[iso_idx_mu] # relative isolation was calclulated using uncorrected muon pT
-
-            # add FSR photon to muon four-vector
-            size = fsr_idx.shape[0]
-            sum_ret = sum_four_vectors([mu_kin, fsr_kin], size)
-            muons.pt[mu_idx] = sum_ret["pt"]
-            muons.eta[mu_idx] = sum_ret["eta"]
-            muons.phi[mu_idx] = sum_ret["phi"]
-
-            # remove FSR photon from muon isolation cone dR<0.4
-            muons.pfRelIso04_all[iso_idx_mu] = (absIso - fsrphotons.pt[iso_idx_fsr]) / muons.pt[iso_idx_mu]
-
-            # delete the indices of i-th muon from every event
-            mu_indices = mu_indices[~NUMPY_LIB.in1d(mu_indices, i_mu_idx)]
-
-            # throw away the events where (i+1)-th muon is not in the same event as i-th muon
-            # (in those cases the index of (i+1)-th muon has already been deleted from mu_indices)
-            updated_event_mask = NUMPY_LIB.in1d(i_mu_idx+1, mu_indices)
-
-            # move to considering (i+1)-th muons
-            i_mu += 1
-            i_mu_idx = i_mu_idx[updated_event_mask]+1
-            first_fsr_idx = first_fsr_idx[updated_event_mask]
+        out_muons_pt = correct_muon_with_fsr(muons.offsets, fsrphotons.offsets,
+                              muons.pt, muons.eta, muons.phi, muons.mass, muons.pfRelIso04_all, out_muons_fsrPhotonIdx,
+                              fsrphotons.pt, fsrphotons.eta, fsrphotons.phi)
 
     passes_iso = muons.pfRelIso04_all < mu_iso_cut
     passes_iso_trig_matched = muons.pfRelIso04_all < mu_iso_trig_matched_cut
@@ -1375,6 +1329,64 @@ def get_selected_muons(
         "muons_passing_os": muons_passing_os,
         "additional_muon_sel": additional_muon_sel,
     }
+
+#Corrects the muon momentum and isolation, if a matched FSR photon with dR<0.4 is found
+@numba.njit
+def correct_muon_with_fsr(
+        muons_offsets, fsr_offsets,
+        muons_pt, muons_eta, muons_phi, muons_mass, muons_iso, muons_fsrIndex,
+        fsr_pt, fsr_eta, fsr_phi
+    ):
+
+    for iev in numba.prange(len(muons_offsets) - 1):
+
+        #loop over muons in event
+        mu_first = muons_offsets[iev]
+        mu_last = muons_offsets[iev + 1]
+        for imu in range(mu_first, mu_last):
+            #relative FSR index in the event
+            fsr_idx_relative = muons_fsrIndex[imu]
+
+            if (fsr_idx_relative >= 0) and (muons_pt[imu]>20):
+                #absolute index in the full FSR vector for all events
+                ifsr = fsr_offsets[iev] + fsr_idx_relative
+                mu_kin = {"pt": muons_pt[imu], "eta": muons_eta[imu], "phi": muons_phi[imu], "mass": muons_mass[imu]}
+                fsr_kin = {"pt": fsr_pt[ifsr], "eta": fsr_eta[ifsr], "phi": fsr_phi[ifsr],"mass": 0}
+
+                # dR between muon and photon
+                deta = muons_eta[imu] - fsr_eta[ifsr]
+                dphi = deltaphi_cpu_devfunc(muons_phi[imu], fsr_phi[ifsr])
+                dr = NUMPY_LIB.sqrt(deta**2 + dphi**2)
+
+                update_iso = dr<0.4
+
+                if update_iso:
+                    muons_iso_abs = (muons_iso[imu]*muons_pt[imu] - fsr_pt[ifsr])
+
+                #compute and set corrected momentum
+                px_total = 0
+                py_total = 0
+                pz_total = 0
+                e_total = 0
+                for obj in [mu_kin, fsr_kin]:
+                    px = obj["pt"] * np.cos(obj["phi"])
+                    py = obj["pt"] * np.sin(obj["phi"])
+                    pz = obj["pt"] * np.sinh(obj["eta"])
+                    e = NUMPY_LIB.sqrt(px**2 + py**2 + pz**2 + obj["mass"]**2)
+                    px_total += px
+                    py_total += py
+                    pz_total += pz
+                    e_total += e
+                out_pt = NUMPY_LIB.sqrt(px_total**2 + py_total**2)
+                out_eta = NUMPY_LIB.arcsinh(pz_total / out_pt)
+                out_phi = NUMPY_LIB.arctan2(py_total, px_total)
+
+                muons_pt[imu] = out_pt
+                muons_eta[imu] = out_eta
+                muons_phi[imu] = out_phi
+                if update_iso:
+                    muons_iso[imu] = muons_iso_abs / out_pt
+
 
 def get_bit_values(array, bit_index):
     """
