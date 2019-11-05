@@ -1227,7 +1227,11 @@ def get_selected_muons(
     """
 
     if fsrphotons:
+        out_muons_pt = correct_muon_with_fsr(muons.offsets, fsrphotons.offsets,
+                              muons.pt, muons.eta, muons.phi, muons.mass, muons.pfRelIso04_all, muons.fsrPhotonIdx,
+                              fsrphotons.pt, fsrphotons.eta, fsrphotons.phi)
 
+    if False:
         out_muons_fsrPhotonIdx = NUMPY_LIB.array(muons.fsrPhotonIdx)
         fix_muon_fsrphoton_index(fsrphotons.offsets, muons.offsets, fsrphotons.dROverEt2, fsrphotons.muonIdx, muons.fsrPhotonIdx, out_muons_fsrPhotonIdx)
         mu_attrs = ["pt", "eta", "phi", "mass", "fsrPhotonIdx"]
@@ -1375,6 +1379,64 @@ def get_selected_muons(
         "muons_passing_os": muons_passing_os,
         "additional_muon_sel": additional_muon_sel,
     }
+
+#Corrects the muon momentum and isolation, if a matched FSR photon with dR<0.4 is found
+@numba.njit
+def correct_muon_with_fsr(
+        muons_offsets, fsr_offsets,
+        muons_pt, muons_eta, muons_phi, muons_mass, muons_iso, muons_fsrIndex,
+        fsr_pt, fsr_eta, fsr_phi
+    ):
+
+    for iev in numba.prange(len(muons_offsets) - 1):
+
+        #loop over muons in event
+        mu_first = muons_offsets[iev]
+        mu_last = muons_offsets[iev + 1]
+        for imu in range(mu_first, mu_last):
+            #relative FSR index in the event
+            fsr_idx_relative = muons_fsrIndex[imu]
+
+            if (fsr_idx_relative >= 0) and (muons_pt[imu]>20):
+                #absolute index in the full FSR vector for all events
+                ifsr = fsr_offsets[iev] + fsr_idx_relative
+                mu_kin = {"pt": muons_pt[imu], "eta": muons_eta[imu], "phi": muons_phi[imu], "mass": muons_mass[imu]}
+                fsr_kin = {"pt": fsr_pt[ifsr], "eta": fsr_eta[ifsr], "phi": fsr_phi[ifsr],"mass": 0}
+
+                # dR between muon and photon
+                deta = muons_eta[imu] - fsr_eta[ifsr]
+                dphi = deltaphi_cpu_devfunc(muons_phi[imu], fsr_phi[ifsr])
+                dr = NUMPY_LIB.sqrt(deta**2 + dphi**2)
+
+                update_iso = dr<0.4
+
+                if update_iso:
+                    muons_iso_abs = (muons_iso[imu]*muons_pt[imu] - fsr_pt[ifsr])
+
+                #compute and set corrected momentum
+                px_total = 0
+                py_total = 0
+                pz_total = 0
+                e_total = 0
+                for obj in [mu_kin, fsr_kin]:
+                    px = obj["pt"] * np.cos(obj["phi"])
+                    py = obj["pt"] * np.sin(obj["phi"])
+                    pz = obj["pt"] * np.sinh(obj["eta"])
+                    e = NUMPY_LIB.sqrt(px**2 + py**2 + pz**2 + obj["mass"]**2)
+                    px_total += px
+                    py_total += py
+                    pz_total += pz
+                    e_total += e
+                out_pt = NUMPY_LIB.sqrt(px_total**2 + py_total**2)
+                out_eta = NUMPY_LIB.arcsinh(pz_total / out_pt)
+                out_phi = NUMPY_LIB.arctan2(py_total, px_total)
+
+                muons_pt[imu] = out_pt
+                muons_eta[imu] = out_eta
+                muons_phi[imu] = out_phi
+                if update_iso:
+                    muons_iso[imu] = muons_iso_abs / out_pt
+
 
 def get_bit_values(array, bit_index):
     """
