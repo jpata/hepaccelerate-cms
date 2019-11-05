@@ -143,7 +143,9 @@ def analyze_data(
         genHiggs_pt = genhpt(genpart, genHiggs_mask, use_cuda)
         selected_genJet_mask = genJet.pt>30
         genNjets = ha.sum_in_offsets(genJet.offsets, selected_genJet_mask, mask_events,genJet.masks["all"], NUMPY_LIB.int8)
-        gghnnlopsw = nnlopsreweighting.compute(genNjets, genHiggs_pt, parameters["ggh_nnlops_reweight"][dataset_name])
+        gghnnlopsw = nnlopsreweighting.compute(NUMPY_LIB.asnumpy(genNjets), NUMPY_LIB.asnumpy(genHiggs_pt), parameters["ggh_nnlops_reweight"][dataset_name])
+        if use_cuda:
+            gghnnlopsw = NUMPY_LIB.array(gghnnlopsw)
 
     #Find the first two genjets in the event that are not matched to gen-leptons
     mask_vbf_filter = None
@@ -324,7 +326,7 @@ def analyze_data(
     jets_passing_id = jets.select_objects(selected_jets_id)
 
     if parameters["jet_puid"] is not "none":
-        puid_weights = get_puid_weights(jets_passing_id, passed_puid, puidreweighting, dataset_era, parameters["jet_puid"])
+        puid_weights = get_puid_weights(jets_passing_id, passed_puid, puidreweighting, dataset_era, parameters["jet_puid"], use_cuda)
         weights_individual["jet_puid"] = {"nominal": puid_weights, "up": puid_weights, "down": puid_weights}
 
     #compute variated weights here to ensure the nominal weight contains all possible other weights  
@@ -458,7 +460,11 @@ def analyze_data(
                     #ret_jet, leading_jet, subleading_jet)
           
             #compute Nsoft jet variable by removing event footprints
-            n_sel_softjet, n_sel_HTsoftjet = nsoftjets(scalars["SoftActivityJetNjets5"], scalars["SoftActivityJetHT5"], muons.numevents(), softjets, leading_muon, subleading_muon, leading_jet, subleading_jet, parameters["softjet_pt"], parameters["softjet_evt_dr2"])
+            n_sel_softjet, n_sel_HTsoftjet = nsoftjets(
+                scalars["SoftActivityJetNjets5"], scalars["SoftActivityJetHT5"],
+                muons.numevents(), softjets, leading_muon, subleading_muon,
+                leading_jet, subleading_jet, parameters["softjet_pt"],
+                parameters["softjet_evt_dr2"], use_cuda)
             #compute DNN input variables in 2 muon, >=2jet region
             dnn_presel = (
                 (ret_mu["selected_events"]) & (ret_jet["num_jets"] >= 2) &
@@ -1131,8 +1137,10 @@ def run_analysis(
     bench_ret.update(cmdline_args.__dict__)
     bench_ret["hostname"] = os.uname()[1]
     bench_ret["nev_total"] = nev_total
+    bench_ret["nev_loaded"] = nev_loaded
+    bench_ret["size"] = processed_size_mb
     bench_ret["total_time"] = dt
-    bench_ret["evspeed"] = nev_total/dt/1000/1000
+    bench_ret["evspeed"] = nev_total/dt
     with open(cmdline_args.out + "/analysis_benchmarks.txt", "a") as of:
         of.write(json.dumps(bench_ret) + '\n')
     return bench_ret
@@ -1190,18 +1198,19 @@ def get_histogram(data, weights, bins, mask=None):
 #remove parallel running for safety - it's not clear if different loop iterations modify overlapping data, which is not allowed
 @numba.njit(parallel=False)
 def fix_muon_fsrphoton_index(offsets_fsrphotons, offsets_muons, fsrphotons_dROverEt2, fsrphotons_muonIdx, muons_fsrPhotonIdx, out_muons_fsrPhotonIdx):
-    for iev in range(len(offsets_fsrphotons)-1):
-        k=0
-        for i in range(offsets_fsrphotons[iev],offsets_fsrphotons[iev+1]):
-            midx=np.int64(offsets_muons[iev]+fsrphotons_muonIdx[i])
-            fidx = np.int64(offsets_fsrphotons[iev]+muons_fsrPhotonIdx[midx])
-            #print(scalars['event'][iev], k,fsrphotons.muonIdx[i],midx,fidx,muons.fsrPhotonIdx[midx],fsrphotons.dROverEt2[fidx],fsrphotons.dROverEt2[i])
-            if(k!=muons_fsrPhotonIdx[midx]):
-                if(fsrphotons_dROverEt2[i] < fsrphotons_dROverEt2[fidx]):
-                    out_muons_fsrPhotonIdx[midx]=k
-                    #print('changed')
-            k = k+1
-    #return out_muons_fsrPhotonIdx
+    for iev in range(len(offsets_fsrphotons) - 1):
+        k = 0
+        for i in range(offsets_fsrphotons[iev], offsets_fsrphotons[iev + 1]):
+            #Index of muon associated to FSR
+            midx = offsets_muons[iev] + fsrphotons_muonIdx[i]
+
+            #Index of FSR photon associated to muon
+            fidx = offsets_fsrphotons[iev] + muons_fsrPhotonIdx[midx]
+
+            if k != muons_fsrPhotonIdx[midx]:
+                if fsrphotons_dROverEt2[i] < fsrphotons_dROverEt2[fidx]:
+                    out_muons_fsrPhotonIdx[midx] = k
+            k = k + 1
 
 def get_selected_muons(
     scalars,
@@ -1227,9 +1236,17 @@ def get_selected_muons(
     """
 
     if fsrphotons:
-
-        out_muons_fsrPhotonIdx = NUMPY_LIB.array(muons.fsrPhotonIdx)
-        fix_muon_fsrphoton_index(fsrphotons.offsets, muons.offsets, fsrphotons.dROverEt2, fsrphotons.muonIdx, muons.fsrPhotonIdx, out_muons_fsrPhotonIdx)
+        
+        #no GPU algo for the following
+        out_muons_fsrPhotonIdx = np.array(muons.fsrPhotonIdx)
+        fix_muon_fsrphoton_index(
+            NUMPY_LIB.asnumpy(fsrphotons.offsets),
+            NUMPY_LIB.asnumpy(muons.offsets),
+            NUMPY_LIB.asnumpy(fsrphotons.dROverEt2),
+            NUMPY_LIB.asnumpy(fsrphotons.muonIdx),
+            NUMPY_LIB.asnumpy(muons.fsrPhotonIdx),
+            NUMPY_LIB.asnumpy(out_muons_fsrPhotonIdx)
+        )
         mu_attrs = ["pt", "eta", "phi", "mass", "fsrPhotonIdx"]
         size = muons.numevents()
         #print(muons.offsets)
@@ -1383,10 +1400,20 @@ def get_bit_values(array, bit_index):
     return (array & 2**(bit_index)) >> 1
 
 # Custom kernels to get the number of softJets with pT>5 GEV
-def nsoftjets(nsoft, softht, nevt,softjets, leading_muon, subleading_muon, leading_jet, subleading_jet, ptcut, dr2cut):
+def nsoftjets(nsoft, softht, nevt,softjets, leading_muon, subleading_muon, leading_jet, subleading_jet, ptcut, dr2cut, use_cuda):
     nsjet_out = NUMPY_LIB.zeros(nevt, dtype=NUMPY_LIB.int32)
     HTsjet_out = NUMPY_LIB.zeros(nevt, dtype=NUMPY_LIB.float32)
-    nsoftjets_cpu(nsoft, softht, nevt, softjets.offsets, softjets.pt, softjets.eta, softjets.phi, leading_jet["eta"], subleading_jet["eta"], leading_jet["phi"], subleading_jet["phi"], leading_muon["eta"], subleading_muon["eta"], leading_muon["phi"], subleading_muon["phi"], ptcut, dr2cut, nsjet_out, HTsjet_out)
+    if use_cuda:
+        nsoftjets_cudakernel[32, 1024](
+            nsoft, softht, nevt,
+            softjets.offsets, softjets.pt, softjets.eta, softjets.phi,
+            leading_jet["eta"], subleading_jet["eta"], leading_jet["phi"],
+            subleading_jet["phi"], leading_muon["eta"], subleading_muon["eta"],
+            leading_muon["phi"], subleading_muon["phi"], ptcut, dr2cut,
+            nsjet_out, HTsjet_out)
+        cuda.synchronize() 
+    else:
+        nsoftjets_cpu(nsoft, softht, nevt, softjets.offsets, softjets.pt, softjets.eta, softjets.phi, leading_jet["eta"], subleading_jet["eta"], leading_jet["phi"], subleading_jet["phi"], leading_muon["eta"], subleading_muon["eta"], leading_muon["phi"], subleading_muon["phi"], ptcut, dr2cut, nsjet_out, HTsjet_out)
     return nsjet_out, HTsjet_out
 
 @numba.njit(parallel=True, fastmath=True)
@@ -1405,6 +1432,46 @@ def nsoftjets_cpu(nsoft, softht, nevt, softjets_offsets, pt, eta, phi, etaj1, et
                     for index in range(nobj):
                         dphi = deltaphi_cpu_devfunc(phi[isoftjets], phis[index][iev])
                         deta = eta[isoftjets] - etas[index][iev]
+                        dr = dphi**2 + deta**2
+                        if dr < dr2cut:
+                            sj_sel = False
+                            break
+                else:
+                    sj_sel = False
+
+                if not sj_sel: 
+                    htsjet += pt[isoftjets]
+                    nbadsjet += 1
+                            
+        nsjet_out[iev] = nsoft[iev] - nbadsjet
+        HTsjet_out[iev] = softht[iev] - htsjet
+
+@cuda.jit
+def nsoftjets_cudakernel(nsoft, softht, nevt, softjets_offsets, pt, eta, phi, etaj1, etaj2, phij1, phij2, etam1, etam2, phim1, phim2, ptcut, dr2cut, nsjet_out, HTsjet_out):
+    #process events in parallel
+    xi = cuda.grid(1)
+    xstride = cuda.gridsize(1)
+    for iev in range(xi, nevt, xstride):
+        nbadsjet = 0
+        htsjet = 0
+        phis = cuda.local.array(4, numba.float32)
+        phis[0] = phij1[iev]
+        phis[1] = phij2[iev]
+        phis[2] = phim1[iev]
+        phis[3] = phim2[iev]
+        etas = cuda.local.array(4, numba.float32)
+        etas[0] = etaj1[iev]
+        etas[1] = etaj2[iev]
+        etas[2] = etam1[iev]
+        etas[3] = etam2[iev]
+        for isoftjets in range(softjets_offsets[iev], softjets_offsets[iev + 1]):
+            if (pt[isoftjets] > ptcut):
+                sj_sel = True
+                if ((eta[isoftjets]<etaj1[iev] and eta[isoftjets]>etaj2[iev]) or (eta[isoftjets]<etaj2[iev] and eta[isoftjets]>etaj1[iev])):
+                    nobj = len(phis)
+                    for index in range(nobj):
+                        dphi = deltaphi_cuda_devfunc(phi[isoftjets], phis[index])
+                        deta = eta[isoftjets] - etas[index]
                         dr = dphi**2 + deta**2
                         if dr < dr2cut:
                             sj_sel = False
@@ -1558,15 +1625,14 @@ def get_selected_jets(
     return ret
 
 
-def get_puid_weights(jets, passed_puid, evaluator, era, wp):
+def get_puid_weights(jets, passed_puid, evaluator, era, wp, use_cuda):
     nev = jets.numevents()
     wp_dict = {"loose": "L", "medium": "M", "tight": "T"}
-    jets_pu_eff, jets_pu_sf = jet_puid_evaluate(evaluator, era, wp_dict[wp], jets.pt, jets.eta)
-    p_puid_mc = NUMPY_LIB.zeros(nev)
-    p_puid_data = NUMPY_LIB.zeros(nev)
-    compute_eff_product(jets.offsets, passed_puid, jets_pu_eff, p_puid_mc)
-    compute_eff_product(jets.offsets, passed_puid, jets_pu_eff*jets_pu_sf, p_puid_data)
-    eventweight_puid = np.divide(p_puid_data, p_puid_mc, out=np.zeros_like(p_puid_data), where=p_puid_mc!=0)
+    jets_pu_eff, jets_pu_sf = jet_puid_evaluate(evaluator, era, wp_dict[wp], NUMPY_LIB.asnumpy(jets.pt), NUMPY_LIB.asnumpy(jets.eta))
+    p_puid_mc = compute_eff_product(jets.offsets, passed_puid, jets_pu_eff, use_cuda)
+    p_puid_data = compute_eff_product(jets.offsets, passed_puid, jets_pu_eff*jets_pu_sf, use_cuda)
+    eventweight_puid = NUMPY_LIB.divide(p_puid_data, p_puid_mc)
+    eventweight_puid[p_puid_mc==0] = 0
     return eventweight_puid
 
 def jet_puid_evaluate(evaluator, era, wp, jet_pt, jet_eta):
@@ -1574,13 +1640,38 @@ def jet_puid_evaluate(evaluator, era, wp, jet_pt, jet_eta):
     h_sf_name = f"h2_eff_sf{era}_{wp}"
     puid_eff = evaluator[h_eff_name](jet_pt, jet_eta)
     puid_sf = evaluator[h_sf_name](jet_pt, jet_eta)
-    return puid_eff, puid_sf
+    return NUMPY_LIB.array(puid_eff), NUMPY_LIB.array(puid_sf)
+
+def compute_eff_product(offsets, jets_mask_passes_id, jets_eff, use_cuda):
+    nev = len(offsets) - 1
+    p_puid = NUMPY_LIB.zeros(nev, dtype=NUMPY_LIB.float32)
+    if use_cuda:
+        compute_eff_product_cudakernel(offsets, jets_mask_passes_id, jets_eff, p_puid)
+        cuda.synchronize()
+    else:
+        compute_eff_product_cpu(offsets, jets_mask_passes_id, jets_eff, p_puid)
+    return p_puid
 
 @numba.njit(parallel=True)
-def compute_eff_product(offsets, jets_mask_passes_id, jets_eff, out_proba):
+def compute_eff_product_cpu(offsets, jets_mask_passes_id, jets_eff, out_proba):
     #loop over events in parallel
     for iev in numba.prange(len(offsets)-1):
         p_tot = 1.0
+        #loop over jets in event
+        for ij in range(offsets[iev], offsets[iev+1]):
+            this_jet_passes = jets_mask_passes_id[ij]
+            if this_jet_passes:
+                p_tot *= jets_eff[ij]
+            else:
+                p_tot *= 1.0 - jets_eff[ij]
+        out_proba[iev] = p_tot
+
+@cuda.jit
+def compute_eff_product_cudakernel(offsets, jets_mask_passes_id, jets_eff, out_proba):
+    xi = cuda.grid(1)
+    xstride = cuda.gridsize(1)
+    for iev in range(xi, offsets.shape[0]-1, xstride):
+        p_tot = np.float32(1.0)
         #loop over jets in event
         for ij in range(offsets[iev], offsets[iev+1]):
             this_jet_passes = jets_mask_passes_id[ij]
@@ -1703,7 +1794,7 @@ def compute_inv_mass_cudakernel(offsets, pts, etas, phis, masses, mask_events, m
                     phi = phis[iobj]
                     mass = masses[iobj]
 
-                    px, py, pz, e = ha.spherical_to_cartesian(pt, eta, phi, mass) 
+                    px, py, pz, e = ha.spherical_to_cartesian_devfunc(pt, eta, phi, mass) 
                     
                     px_total += px 
                     py_total += py 
@@ -1896,6 +1987,20 @@ def deltaphi_cpu_devfunc(phi1, phi2):
         out_dphi = dphi
     return out_dphi
 
+@cuda.jit(device=True)
+def deltaphi_cuda_devfunc(phi1, phi2):
+    dphi = phi1 - phi2
+    out_dphi = 0 
+    if dphi > math.pi:
+        dphi = dphi - 2*math.pi
+        out_dphi = dphi
+    elif (dphi + math.pi) < 0:
+        dphi = dphi + 2*math.pi
+        out_dphi = dphi
+    else:
+        out_dphi = dphi
+    return out_dphi
+
 @numba.njit('float32[:], float32[:], float32[:]', parallel=True, fastmath=True)
 def deltaphi_cpu(phi1, phi2, out_dphi):
     for iev in numba.prange(len(phi1)):
@@ -1907,15 +2012,7 @@ def deltaphi_cudakernel(phi1, phi2, out_dphi):
     xstride = cuda.gridsize(1)
     
     for iev in range(xi, len(phi1), xstride):
-        dphi = phi1[iev] - phi2[iev] 
-        if dphi > math.pi:
-            dphi = dphi - 2*math.pi
-            out_dphi[iev] = dphi
-        elif (dphi + math.pi) < 0:
-            dphi = dphi + 2*math.pi
-            out_dphi[iev] = dphi
-        else:
-            out_dphi[iev] = dphi
+        out_dphi[iev] = deltaphi_cuda_devfunc(phi1[iev], phi2[iev]) 
 
 @numba.njit(parallel=True, fastmath=True)
 def get_theoryweights_cpu(offsets, variations, index, out_var):
@@ -1927,13 +2024,21 @@ def get_theoryweights_cpu(offsets, variations, index, out_var):
 def genhpt(genpart, mask, use_cuda):
     nevt = genpart.numevents()
     assert(mask.shape == genpart.status.shape)
-    vals_out = NUMPY_LIB.zeros(nevt, dtype=NUMPY_LIB.float32)
+    vals_out = np.zeros(nevt, dtype=np.float32)
     if not use_cuda:
         genhpt_cpu(
             nevt, genpart.offsets, genpart.pdgId, genpart.status, genpart.pt, mask, vals_out
         )
     else:
-        raise Exception("genhpt not implemented on GPU")
+        genhpt_cpu(
+            nevt,
+            NUMPY_LIB.asnumpy(genpart.offsets),
+            NUMPY_LIB.asnumpy(genpart.pdgId),
+            NUMPY_LIB.asnumpy(genpart.status),
+            NUMPY_LIB.asnumpy(genpart.pt),
+            NUMPY_LIB.asnumpy(mask),
+            vals_out
+        )
 
     return vals_out
 
@@ -2116,7 +2221,11 @@ def dnn_variables(hrelresolution, leading_muon, subleading_muon, leading_jet, su
 
     #mass resolution
     if not hrelresolution is None:
-        Higgs_mrelreso = hrelresolution.compute(leading_muon["pt"],leading_muon["eta"],subleading_muon["pt"],subleading_muon["eta"])
+        Higgs_mrelreso = NUMPY_LIB.array(hrelresolution.compute(
+            NUMPY_LIB.asnumpy(leading_muon["pt"]),
+            NUMPY_LIB.asnumpy(leading_muon["eta"]),
+            NUMPY_LIB.asnumpy(subleading_muon["pt"]),
+            NUMPY_LIB.asnumpy(subleading_muon["eta"])))
     else:
         Higgs_mrelreso = NUMPY_LIB.zeros(nev, dtype=NUMPY_LIB.float32)
 
@@ -2385,7 +2494,8 @@ def get_massErr_calib_factors(pt1, abs_eta1, abs_eta2, era, is_mc):
     ext.finalize()
 
     evaluator = ext.make_evaluator()
-    calib_factors = evaluator[label](pt1, abs_eta1, abs_eta2)
+    calib_factors = evaluator[label](NUMPY_LIB.asnumpy(pt1), NUMPY_LIB.asnumpy(abs_eta1), NUMPY_LIB.asnumpy(abs_eta2))
+    calib_factors = NUMPY_LIB.array(calib_factors)
 
     return calib_factors
 
@@ -2486,8 +2596,8 @@ class JetTransformer:
         ptvec = getattr(self, startfrom)
         
         #This is done only on CPU
-        resos = self.jetmet_corrections.jer.getResolution(JetPt=ptvec, JetEta=self.eta, Rho=self.rho) 
-        resosfs = self.jetmet_corrections.jersf.getScaleFactor(JetPt=ptvec, JetEta=self.eta)
+        resos = self.jetmet_corrections.jer.getResolution(JetPt=NUMPY_LIB.asnumpy(ptvec), JetEta=self.eta, Rho=self.rho) 
+        resosfs = self.jetmet_corrections.jersf.getScaleFactor(JetPt=NUMPY_LIB.asnumpy(ptvec), JetEta=self.eta)
 
         #The following is done either on CPU or GPU
         resos = self.NUMPY_LIB.array(resos)
@@ -2609,18 +2719,18 @@ def compute_lepton_sf(leading_muon, subleading_muon, lepsf_iso, lepsf_id, lepsf_
         if dataset_era == "2016":
             pdgid[:] = 11
 
-        sf_iso = lepsf_iso.compute(pdgid, mu["pt"], mu["eta"])
-        sf_iso_err = lepsf_iso.compute_error(pdgid, mu["pt"], mu["eta"])
+        sf_iso = NUMPY_LIB.array(lepsf_iso.compute(pdgid, mu["pt"], mu["eta"]))
+        sf_iso_err = NUMPY_LIB.array(lepsf_iso.compute_error(pdgid, mu["pt"], mu["eta"]))
 
-        sf_id = lepsf_id.compute(pdgid, mu["pt"], mu["eta"])
-        sf_id_err = lepsf_id.compute_error(pdgid, mu["pt"], mu["eta"])
+        sf_id = NUMPY_LIB.array(lepsf_id.compute(pdgid, mu["pt"], mu["eta"]))
+        sf_id_err = NUMPY_LIB.array(lepsf_id.compute_error(pdgid, mu["pt"], mu["eta"]))
 
         if dataset_era == "2016":
-            sf_trig = lepsf_trig.compute(pdgid, mu["pt"], NUMPY_LIB.abs(mu["eta"]))
-            sf_trig_err = lepsf_trig.compute_error(pdgid, mu["pt"], NUMPY_LIB.abs(mu["eta"]))
+            sf_trig = NUMPY_LIB.array(lepsf_trig.compute(pdgid, mu["pt"], np.abs(mu["eta"])))
+            sf_trig_err = NUMPY_LIB.array(lepsf_trig.compute_error(pdgid, mu["pt"], np.abs(mu["eta"])))
         else:
-            sf_trig = lepsf_trig.compute(pdgid, mu["pt"], mu["eta"])
-            sf_trig_err = lepsf_trig.compute_error(pdgid, mu["pt"], mu["eta"])
+            sf_trig = NUMPY_LIB.array(lepsf_trig.compute(pdgid, mu["pt"], mu["eta"]))
+            sf_trig_err = NUMPY_LIB.array(lepsf_trig.compute_error(pdgid, mu["pt"], mu["eta"]))
 
         sf_id_up = (sf_id + sf_id_err)
         sf_id_down = (sf_id - sf_id_err)
@@ -2662,11 +2772,7 @@ def compute_lepton_sf(leading_muon, subleading_muon, lepsf_iso, lepsf_id, lepsf_
     sf_trig_up = multiply_all(sfs_trig_up)
     sf_trig_down = multiply_all(sfs_trig_down)
 
-    #move to GPU
-    if use_cuda:
-        sf_tot = NUMPY_LIB.array(sf_tot)
-
-    return {
+    ret = {
         "mu1_id" : sfs_id[0],
         "mu1_iso" : sfs_iso[0],
         "mu2_id" : sfs_id[1],
@@ -2681,6 +2787,11 @@ def compute_lepton_sf(leading_muon, subleading_muon, lepsf_iso, lepsf_id, lepsf_
         "trigger__up": sf_trig_up,
         "trigger__down": sf_trig_down
     }
+
+    if use_cuda:
+        for k in ret.keys():
+            ret[k] = NUMPY_LIB.array(ret[k])
+    return ret
 
 def jaggedstruct_print(struct, idx, attrs):
     of1 = struct.offsets[idx]

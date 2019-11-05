@@ -3,8 +3,10 @@ import numpy as np
 import unittest
 from hepaccelerate.utils import choose_backend, Dataset
 from hmumu_utils import create_datastructure
+from coffea.util import USE_CUPY
 
-use_cuda = False
+if USE_CUPY:
+    from numba import cuda
 
 def download_file(filename, url):
     """
@@ -39,7 +41,7 @@ def download_if_not_exists(filename, url):
 class TestAnalysisMC(unittest.TestCase):
     @classmethod
     def setUpClass(self):
-        self.NUMPY_LIB, self.ha = choose_backend(use_cuda=use_cuda)
+        self.NUMPY_LIB, self.ha = choose_backend(use_cuda=USE_CUPY)
         download_if_not_exists(
             "data/myNanoProdMc2016_NANO.root",
             "https://jpata.web.cern.ch/jpata/hmm/test_files/myNanoProdMc2016_NANO.root"
@@ -57,6 +59,9 @@ class TestAnalysisMC(unittest.TestCase):
         self.dataset.era = "2016"
         self.dataset.load_root()
 
+        self.dataset.numpy_lib = self.NUMPY_LIB
+        self.dataset.move_to_device(self.NUMPY_LIB)
+
     def setUp(self):
         pass
 
@@ -66,13 +71,18 @@ class TestAnalysisMC(unittest.TestCase):
         assert(nev>0)
 
     def test_get_genpt(self):
-        from hmumu_utils import get_genpt_cpu
+        from hmumu_utils import get_genpt_cpu, get_genpt_cuda
         NUMPY_LIB = self.NUMPY_LIB
 
         muons = self.dataset.structs["Muon"][0]
         genpart = self.dataset.structs["GenPart"][0]
         muons_genpt = NUMPY_LIB.zeros(muons.numobjects(), dtype=NUMPY_LIB.float32)
-        get_genpt_cpu(muons.offsets, muons.genPartIdx, genpart.offsets, genpart.pt, muons_genpt)
+        if USE_CUPY:
+            get_genpt_cuda[32,1024](muons.offsets, muons.genPartIdx, genpart.offsets, genpart.pt, muons_genpt)
+            cuda.synchronize()
+        else:
+            get_genpt_cpu(muons.offsets, muons.genPartIdx, genpart.offsets, genpart.pt, muons_genpt)
+        muons_genpt = NUMPY_LIB.asnumpy(muons_genpt)
         self.assertAlmostEqual(NUMPY_LIB.sum(muons_genpt), 11943932)
         self.assertListEqual(list(muons_genpt[:10]), [105.0, 30.4375, 0.0, 0.0, 140.5, 28.625, 102.75, 41.25, 120.5, 80.5])
 
@@ -83,17 +93,15 @@ class TestAnalysisMC(unittest.TestCase):
         muons = self.dataset.structs["Muon"][0]
         fsrphotons = self.dataset.structs["FsrPhoton"][0]
         
-        out_muons_fsrPhotonIdx = NUMPY_LIB.array(muons.fsrPhotonIdx)
+        out_muons_fsrPhotonIdx = np.zeros_like(NUMPY_LIB.asnumpy(muons.fsrPhotonIdx))
         fix_muon_fsrphoton_index(
-            fsrphotons.offsets,
-            muons.offsets,
-            fsrphotons.dROverEt2,
-            fsrphotons.muonIdx,
-            muons.fsrPhotonIdx,
+            NUMPY_LIB.asnumpy(fsrphotons.offsets),
+            NUMPY_LIB.asnumpy(muons.offsets),
+            NUMPY_LIB.asnumpy(fsrphotons.dROverEt2),
+            NUMPY_LIB.asnumpy(fsrphotons.muonIdx),
+            NUMPY_LIB.asnumpy(muons.fsrPhotonIdx),
             out_muons_fsrPhotonIdx
         )
-        print(muons.fsrPhotonIdx)
-        print(out_muons_fsrPhotonIdx)
 
     def test_analyze_data(self):
         import hmumu_utils
@@ -142,12 +150,12 @@ class TestAnalysisMC(unittest.TestCase):
                         do_factorized_jec=True),
                 },
             },
-            "do_fsr": True
+            "do_fsr": False
         }
 
         ret = self.dataset.analyze(
             analyze_data,
-            use_cuda = use_cuda,
+            use_cuda = USE_CUPY,
             parameter_set_name = "baseline",
             parameters = analysis_parameters["baseline"],
             dataset_era = self.dataset.era,
@@ -159,7 +167,7 @@ class TestAnalysisMC(unittest.TestCase):
         h = ret["hist__dimuon_invmass_z_peak_cat5__M_mmjj"]
         
         nev_zpeak_nominal = np.sum(h["nominal"].contents)
-        self.assertAlmostEqual(nev_zpeak_nominal, 0.014593757)
+        self.assertAlmostEqual(nev_zpeak_nominal, 0.014593757, places=4)
         
         self.assertTrue("Total__up" in h.keys())
         self.assertTrue("Total__down" in h.keys())
