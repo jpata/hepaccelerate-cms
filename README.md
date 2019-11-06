@@ -15,8 +15,8 @@ Variations of this code have been tested at:
 - T3 PSI
 
 ~~~
-#Installation
-pip3 install awkward uproot numba
+#Installation (e.g. on your laptop)
+pip3 install awkward uproot numba tqdm lz4 cloudpickle scipy
 git clone https://github.com/jpata/hepaccelerate-cms.git
 cd hepaccelerate-cms
 git submodule init
@@ -29,12 +29,6 @@ cd ../..
 ~~~
 
 Best results can be achieved if the CMS data is stored locally on a filesystem (few TB needed) and if you have a cache disk on the analysis machine of a few hundred GB.
-
-# Contributing
-If you use this code, we are happy to consider issues and merge improvements.
-- Please make an issue on the Issues page for any bugs you find.
-- To contribute changes, please use the 'Fork and Pull' model: https://reflectoring.io/github-fork-and-pull.
-- For non-trivial pull requests, please ask at least one other person with push access to review the changes.
 
 ## Installation on Caltech T2 or GPU machine
 
@@ -77,7 +71,6 @@ rm -Rf /storage/user/$USER/hmm/out/partial_results
 du -csh /storage/user/$USER/hmm/out
 ~~~
 
-
 ## Making plots, datacards and histograms
 From the output results, one can make datacards and plots by executing this command:
 ~~~
@@ -85,6 +78,11 @@ From the output results, one can make datacards and plots by executing this comm
 ~~~
 This creates a directory called `baseline` which has the datacards and plots. This can also be run on the batch using `merge.jdl`.
 
+# Contributing
+If you use this code, we are happy to consider issues and merge improvements.
+- Please make an issue on the Issues page for any bugs you find.
+- To contribute changes, please use the 'Fork and Pull' model: https://reflectoring.io/github-fork-and-pull.
+- For non-trivial pull requests, please ask at least one other person with push access to review the changes.
 
 # Misc notes
 Luminosity, details on how to set up on this [link](https://cms-service-lumi.web.cern.ch/cms-service-lumi/brilwsdoc.html).
