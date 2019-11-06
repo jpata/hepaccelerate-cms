@@ -1253,8 +1253,8 @@ def get_selected_muons(
         correct_muon_with_fsr(
             NUMPY_LIB.asnumpy(muons.offsets),
             NUMPY_LIB.asnumpy(fsrphotons.offsets),
-            mu_pt, mu_eta, mu_phi, mu_iso, mu_mass, mu_iso,
-            NUMPY_LIB.asnumpy(out_muons_fsrPhotonIdx),
+            mu_pt, mu_eta, mu_phi, mu_mass, mu_iso,
+            out_muons_fsrPhotonIdx,
             NUMPY_LIB.asnumpy(fsrphotons.pt),
             NUMPY_LIB.asnumpy(fsrphotons.eta),
             NUMPY_LIB.asnumpy(fsrphotons.phi)
