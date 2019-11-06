@@ -379,7 +379,6 @@ def create_variated_histos(proc,
                     h_nom_up.contents[k]=h_lhe[i].contents[k]
                 if(h_lhe[i].contents[k]<h_nom_down.contents[k]):
                     h_nom_down.contents[k]=h_lhe[i].contents[k]
-
         #remove the normalization aspect from QCD scale
         sum_nom_up=np.sum(h_nom_up.contents)
         sum_nom_down=np.sum(h_nom_down.contents)
