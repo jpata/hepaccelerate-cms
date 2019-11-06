@@ -94,6 +94,7 @@ def analyze_data(
     hrelresolution = None,
     zptreweighting = None,
     puidreweighting = None,
+    btag_weights = None,
     random_seed = 0 
     ):
 
@@ -327,6 +328,10 @@ def analyze_data(
         puid_weights = get_puid_weights(jets_passing_id, passed_puid, puidreweighting, dataset_era, parameters["jet_puid"])
         weights_individual["jet_puid"] = {"nominal": puid_weights, "up": puid_weights, "down": puid_weights}
 
+    
+    #btag_weights = get_btag_weights(jets_passing_id, btag_weights, dataset_era, parameters['jet_btag_medium'][dataset_era], parameters['jet_btag_loose'][dataset_era])
+    btag_weights = get_btag_weights_shape(jets_passing_id, btag_weights, dataset_era)
+    weights_individual["btag_weight"] = {"nominal": btag_weights, "up": btag_weights, "down": btag_weights}
     #compute variated weights here to ensure the nominal weight contains all possible other weights  
     compute_event_weights(parameters, weights_individual, scalars, genweight_scalefactor, gghnnlopsw, ZpTw, LHEScalew, pu_corrections, is_mc, dataset_era, dataset_name)
 
@@ -446,10 +451,10 @@ def analyze_data(
             # Get the data for the leading and subleading jets as contiguous vectors
             leading_jet = jets_passing_id.select_nth(
                 0, ret_mu["selected_events"], ret_jet["selected_jets"],
-                attributes=["pt", "eta", "phi", "mass", "qgl","jetId","puId"])
+                attributes=["pt", "eta", "phi", "mass", "qgl","jetId","puId", "hadronFlavour"])
             subleading_jet = jets_passing_id.select_nth(
                 1, ret_mu["selected_events"], ret_jet["selected_jets"],
-                attributes=["pt", "eta", "phi", "mass", "qgl","jetId","puId"])
+                attributes=["pt", "eta", "phi", "mass", "qgl","jetId","puId", "hadronFlavour"])
 
             #if do_sync and jet_syst_name[0] == "nominal":
                 #sync_printout(ret_mu, muons, scalars,
@@ -1079,7 +1084,8 @@ def run_analysis(
             nnlopsreweighting = analysis_corrections.nnlopsreweighting,
             hrelresolution = analysis_corrections.hrelresolution,
             zptreweighting = analysis_corrections.zptreweighting,
-            puidreweighting = analysis_corrections.puidreweighting)
+            puidreweighting = analysis_corrections.puidreweighting,
+            btag_weights = analysis_corrections.btag_weights)
 
         tnext = time.time()
         print("processed {0:.2E} ev/s".format(nev/float(tnext-tprev)))
@@ -1584,9 +1590,73 @@ def get_puid_weights(jets, passed_puid, evaluator, era, wp):
 def jet_puid_evaluate(evaluator, era, wp, jet_pt, jet_eta):
     h_eff_name = f"h2_eff_mc{era}_{wp}"
     h_sf_name = f"h2_eff_sf{era}_{wp}"
+    #import pdb;pdb.set_trace();
     puid_eff = evaluator[h_eff_name](jet_pt, jet_eta)
     puid_sf = evaluator[h_sf_name](jet_pt, jet_eta)
     return puid_eff, puid_sf
+
+def compute_event_btag_weight(offsets, jets_mask_tagged_M, jets_mask_tagged_L, jets_eff_M, jets_sf_M, jets_eff_L, jets_sf_L, out_proba):
+    for iev in numba.prange(len(offsets)-1):
+        p_tot = 1.0
+        #loop over jets in event
+        for ij in range(offsets[iev], offsets[iev+1]):
+            this_jet_passes_M = jets_mask_passes_tagged_M[ij]
+            this_jet_passes_L = jets_mask_passes_tagged_L[ij]
+            if this_jet_passes_M:
+                p_tot *= jets_eff_M[ij]
+            elif((this_jet_passes_L) and (not this_jet_passes_M)):
+                p_tot *= (jets_eff_M[ij] - jets_eff_L[ij])
+            elif((not this_jet_passes_L)):
+                p_tot *= (1.0 - jets_eff_L[ij])
+            else:
+                assert(False)
+        out_proba[iev] = p_tot
+
+def get_btag_weights(jets, evaluator, era, jet_btag_medium, jet_btag_loose):
+    tag_name = 'DeepCSV_'+era
+    nev = jets.numevents()
+    p_btag_mc = NUMPY_LIB.zeros(nev)
+    p_btag_data = NUMPY_LIB.zeros(nev)
+    
+    jets_mask_tagged_M = (jets.btagDeepB >= jet_btag_medium) & (NUMPY_LIB.abs(jets.eta) <2.5)
+    jets_mask_tagged_L = (jets.btagDeepB >= jet_btag_loose) & (NUMPY_LIB.abs(jets.eta) <2.5)
+    
+    jets_eff_M, jets_sf_M = evaluator[tag_name].evaluator["DeepCSV_1_comb_central_0"](jets.eta, jets.pt, jets.btagDeepB)
+    jets_eff_L, jets_sf_L = evaluator[tag_name].evaluator["DeepCSV_0_comb_central_0"](jets.eta, jets.pt, jets.btagDeepB)
+    
+    compute_event_btag_weight(jets.offsets, jets_mask_tagged_M, jets_mask_tagged_L, jets_eff_M, jets_sf_M, jets_eff_L, jets_sf_L, p_btag_mc)
+    compute_event_btag_weight(jets.offsets, jets_mask_tagged_M, jets_mask_tagged_L, jets_eff_M, jets_sf_M, jets_eff_L, jets_sf_L, p_btag_data)
+            
+    eventweight_btag = np.divide(p_btag_data, p_btag_mc, out=np.zeros_like(p_btag_data), where=p_puid_mc!=0)
+    return eventweight_btag
+
+def compute_event_btag_weight_shape(offsets, eta_mask, jets_sf, out_weight):
+    #import pdb;pdb.set_trace();
+    for iev in numba.prange(len(offsets)-1):
+        p_tot = 1.0
+        #loop over jets in event
+        for ij in range(offsets[iev], offsets[iev+1]):
+            if eta_mask[ij]:
+                p_tot *= jets_sf[ij]
+        out_weight[iev] = p_tot
+
+def get_btag_weights_shape(jets, evaluator, era):
+    tag_name = 'DeepCSV_'+era
+    nev = jets.numevents()
+    eta_mask = NUMPY_LIB.abs(jets.eta<2.5)
+    p_jetWt = NUMPY_LIB.ones(len(jets.pt))
+    eventweight_btag = NUMPY_LIB.ones(nev)
+    for tag in ["DeepCSV_3_iterativefit_central_0", "DeepCSV_3_iterativefit_central_1", "DeepCSV_3_iterativefit_central_2"]:
+        SF_btag = evaluator[tag_name].evaluator[tag](jets.eta, jets.pt, jets.btagDeepB)
+        if tag.endswith("0"):
+            SF_btag[jets.hadronFlavour != 5] = 1.
+        if tag.endswith("1"):
+            SF_btag[jets.hadronFlavour != 4] = 1.
+        if tag.endswith("2"):
+            SF_btag[jets.hadronFlavour != 0] = 1.
+        p_jetWt*=SF_btag
+    compute_event_btag_weight_shape(jets.offsets, eta_mask, p_jetWt, eventweight_btag)
+    return eventweight_btag
 
 @numba.njit(parallel=True)
 def compute_eff_product(offsets, jets_mask_passes_id, jets_eff, out_proba):
@@ -2969,7 +3039,8 @@ def create_datastructure(dataset_name, is_mc, dataset_era, do_fsr=False):
             ("Jet_jetId", "int32"),
             ("Jet_puId", "int32"),
             ("Jet_area", "float32"),
-            ("Jet_rawFactor", "float32")
+            ("Jet_rawFactor", "float32"),
+            ("Jet_hadronFlavour","int32")
         ],
      "SoftActivityJet": [
             ("SoftActivityJet_pt", "float32"),
