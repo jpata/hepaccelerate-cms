@@ -1,5 +1,4 @@
-[![Build Status](https://travis-ci.com/jpata/hepaccelerate.svg?branch=master)](https://travis-ci.com/jpata/hepaccelerate-cms)
-[![pipeline status](https://gitlab.cern.ch/jpata/hepaccelerate-cms/badges/master/pipeline.svg)](https://gitlab.cern.ch/jpata/hepaccelerate-cms/commits/master)
+[![Build Status](https://travis-ci.com/jpata/hepaccelerate-cms.svg?branch=master)](https://travis-ci.com/jpata/hepaccelerate-cms)
 
 # hepaccelerate-cms
 
