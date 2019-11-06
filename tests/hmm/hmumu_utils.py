@@ -1236,14 +1236,14 @@ def get_selected_muons(
     """
 
     if fsrphotons:
-        out_muons_fsrPhotonIdx = np.array(muons.fsrPhotonIdx)
+        out_muons_fsrPhotonIdx = NUMPY_LIB.asnumpy(muons.fsrPhotonIdx)
         fix_muon_fsrphoton_index(
             NUMPY_LIB.asnumpy(fsrphotons.offsets),
             NUMPY_LIB.asnumpy(muons.offsets),
             NUMPY_LIB.asnumpy(fsrphotons.dROverEt2),
             NUMPY_LIB.asnumpy(fsrphotons.muonIdx),
             NUMPY_LIB.asnumpy(muons.fsrPhotonIdx),
-            NUMPY_LIB.asnumpy(out_muons_fsrPhotonIdx)
+            out_muons_fsrPhotonIdx
         )
         mu_pt = NUMPY_LIB.asnumpy(muons.pt) 
         mu_eta = NUMPY_LIB.asnumpy(muons.eta) 
@@ -1266,11 +1266,11 @@ def get_selected_muons(
             mu_phi = NUMPY_LIB.array(mu_phi)
             mu_mass = NUMPY_LIB.array(mu_mass)
             mu_iso = NUMPY_LIB.array(mu_iso)
-        mu.pt = mu_pt
-        mu.eta = mu_eta
-        mu.phi = mu_phi
-        mu.mass = mu_mass
-        mu.pfRelIso04_all = mu_iso
+        muons.pt = mu_pt
+        muons.eta = mu_eta
+        muons.phi = mu_phi
+        muons.mass = mu_mass
+        muons.pfRelIso04_all = mu_iso
 
     passes_iso = muons.pfRelIso04_all < mu_iso_cut
     passes_iso_trig_matched = muons.pfRelIso04_all < mu_iso_trig_matched_cut
@@ -1395,7 +1395,7 @@ def correct_muon_with_fsr(
                 # dR between muon and photon
                 deta = muons_eta[imu] - fsr_eta[ifsr]
                 dphi = deltaphi_cpu_devfunc(muons_phi[imu], fsr_phi[ifsr])
-                dr = NUMPY_LIB.sqrt(deta**2 + dphi**2)
+                dr = np.sqrt(deta**2 + dphi**2)
 
                 update_iso = dr<0.4
 
@@ -1411,14 +1411,14 @@ def correct_muon_with_fsr(
                     px = obj["pt"] * np.cos(obj["phi"])
                     py = obj["pt"] * np.sin(obj["phi"])
                     pz = obj["pt"] * np.sinh(obj["eta"])
-                    e = NUMPY_LIB.sqrt(px**2 + py**2 + pz**2 + obj["mass"]**2)
+                    e = np.sqrt(px**2 + py**2 + pz**2 + obj["mass"]**2)
                     px_total += px
                     py_total += py
                     pz_total += pz
                     e_total += e
-                out_pt = NUMPY_LIB.sqrt(px_total**2 + py_total**2)
-                out_eta = NUMPY_LIB.arcsinh(pz_total / out_pt)
-                out_phi = NUMPY_LIB.arctan2(py_total, px_total)
+                out_pt = np.sqrt(px_total**2 + py_total**2)
+                out_eta = np.arcsinh(pz_total / out_pt)
+                out_phi = np.arctan2(py_total, px_total)
 
                 muons_pt[imu] = out_pt
                 muons_eta[imu] = out_eta
