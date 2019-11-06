@@ -329,9 +329,11 @@ def analyze_data(
         weights_individual["jet_puid"] = {"nominal": puid_weights, "up": puid_weights, "down": puid_weights}
 
     
-    #btag_weights = get_btag_weights(jets_passing_id, btag_weights, dataset_era, parameters['jet_btag_medium'][dataset_era], parameters['jet_btag_loose'][dataset_era])
-    btag_weights = get_btag_weights_shape(jets_passing_id, btag_weights, dataset_era)
-    weights_individual["btag_weight"] = {"nominal": btag_weights, "up": btag_weights, "down": btag_weights}
+    btagWeights, btagWeights_up, btagWeights_down = get_btag_weights_shape(jets_passing_id, btag_weights, dataset_era)
+    weights_individual["btag_weight"] = {"nominal": btagWeights, "up": btagWeights, "down": btagWeights}
+    weights_individual["btag_weight_bFl"] = {"nominal": btagWeights, "up": btagWeights_up[0], "down": btagWeights_down[0]}
+    weights_individual["btag_weight_cFl"] = {"nominal": btagWeights, "up": btagWeights_up[1], "down": btagWeights_down[1]}
+    weights_individual["btag_weight_lFl"] = {"nominal": btagWeights, "up": btagWeights_up[2], "down": btagWeights_down[2]}
     #compute variated weights here to ensure the nominal weight contains all possible other weights  
     compute_event_weights(parameters, weights_individual, scalars, genweight_scalefactor, gghnnlopsw, ZpTw, LHEScalew, pu_corrections, is_mc, dataset_era, dataset_name)
 
@@ -544,6 +546,7 @@ def analyze_data(
                     dnn_vars["m1_iso"] = weights_individual['mu1_iso']['nominal'][dnn_presel]
                     dnn_vars["m2_id"] = weights_individual['mu2_id']['nominal'][dnn_presel]
                     dnn_vars["m2_iso"] = weights_individual['mu2_iso']['nominal'][dnn_presel]
+                    
                 dnn_vars["j1_jetId"] = leading_jet["jetId"][dnn_presel]
                 dnn_vars["j1_puId"] = leading_jet["puId"][dnn_presel]
                 dnn_vars["j2_jetId"] =subleading_jet["jetId"][dnn_presel]
@@ -755,13 +758,13 @@ def finalize_weights(weights, all_weight_names=None):
 
     #multitply up all the nominal weights
     for this_syst in all_weight_names:
-        if this_syst == "nominal" or this_syst == "LHEScaleWeight" or this_syst == "mu1_id" or this_syst == "mu1_iso" or this_syst == "mu2_id"or this_syst == "mu2_iso":
+        if this_syst == "nominal" or this_syst == "LHEScaleWeight" or this_syst == "mu1_id" or this_syst == "mu1_iso" or this_syst == "mu2_id"or this_syst == "mu2_iso" or this_syst == "btag_weight_bFl" or this_syst == "btag_weight_cFl" or this_syst == "btag_weight_lFl":
             continue
         ret["nominal"] *= weights[this_syst]["nominal"]
 
     #create the variated weights, where just one weight is variated up or down
     for this_syst in all_weight_names:
-        if this_syst == "nominal" or this_syst == "mu1_id" or this_syst == "mu1_iso" or this_syst == "mu2_id"or this_syst == "mu2_iso":
+        if this_syst == "nominal" or this_syst == "mu1_id" or this_syst == "mu1_iso" or this_syst == "mu2_id"or this_syst == "mu2_iso" or this_syst == "btag_weight":
             continue
         elif this_syst == "LHEScaleWeight":
             for sdir in ["0", "1", "2", "3", "4", "5", "6", "7", "8"]:
@@ -1337,7 +1340,7 @@ def get_selected_muons(
     }
 
 #Corrects the muon momentum and isolation, if a matched FSR photon with dR<0.4 is found
-@numba.njit
+@numba.njit(parallel=True)
 def correct_muon_with_fsr(
         muons_offsets, fsr_offsets,
         muons_pt, muons_eta, muons_phi, muons_mass, muons_iso, muons_fsrIndex,
@@ -1595,41 +1598,7 @@ def jet_puid_evaluate(evaluator, era, wp, jet_pt, jet_eta):
     puid_sf = evaluator[h_sf_name](jet_pt, jet_eta)
     return puid_eff, puid_sf
 
-def compute_event_btag_weight(offsets, jets_mask_tagged_M, jets_mask_tagged_L, jets_eff_M, jets_sf_M, jets_eff_L, jets_sf_L, out_proba):
-    for iev in numba.prange(len(offsets)-1):
-        p_tot = 1.0
-        #loop over jets in event
-        for ij in range(offsets[iev], offsets[iev+1]):
-            this_jet_passes_M = jets_mask_passes_tagged_M[ij]
-            this_jet_passes_L = jets_mask_passes_tagged_L[ij]
-            if this_jet_passes_M:
-                p_tot *= jets_eff_M[ij]
-            elif((this_jet_passes_L) and (not this_jet_passes_M)):
-                p_tot *= (jets_eff_M[ij] - jets_eff_L[ij])
-            elif((not this_jet_passes_L)):
-                p_tot *= (1.0 - jets_eff_L[ij])
-            else:
-                assert(False)
-        out_proba[iev] = p_tot
-
-def get_btag_weights(jets, evaluator, era, jet_btag_medium, jet_btag_loose):
-    tag_name = 'DeepCSV_'+era
-    nev = jets.numevents()
-    p_btag_mc = NUMPY_LIB.zeros(nev)
-    p_btag_data = NUMPY_LIB.zeros(nev)
-    
-    jets_mask_tagged_M = (jets.btagDeepB >= jet_btag_medium) & (NUMPY_LIB.abs(jets.eta) <2.5)
-    jets_mask_tagged_L = (jets.btagDeepB >= jet_btag_loose) & (NUMPY_LIB.abs(jets.eta) <2.5)
-    
-    jets_eff_M, jets_sf_M = evaluator[tag_name].evaluator["DeepCSV_1_comb_central_0"](jets.eta, jets.pt, jets.btagDeepB)
-    jets_eff_L, jets_sf_L = evaluator[tag_name].evaluator["DeepCSV_0_comb_central_0"](jets.eta, jets.pt, jets.btagDeepB)
-    
-    compute_event_btag_weight(jets.offsets, jets_mask_tagged_M, jets_mask_tagged_L, jets_eff_M, jets_sf_M, jets_eff_L, jets_sf_L, p_btag_mc)
-    compute_event_btag_weight(jets.offsets, jets_mask_tagged_M, jets_mask_tagged_L, jets_eff_M, jets_sf_M, jets_eff_L, jets_sf_L, p_btag_data)
-            
-    eventweight_btag = np.divide(p_btag_data, p_btag_mc, out=np.zeros_like(p_btag_data), where=p_puid_mc!=0)
-    return eventweight_btag
-
+@numba.njit(parallel=True)
 def compute_event_btag_weight_shape(offsets, eta_mask, jets_sf, out_weight):
     #import pdb;pdb.set_trace();
     for iev in numba.prange(len(offsets)-1):
@@ -1646,6 +1615,8 @@ def get_btag_weights_shape(jets, evaluator, era):
     eta_mask = NUMPY_LIB.abs(jets.eta<2.5)
     p_jetWt = NUMPY_LIB.ones(len(jets.pt))
     eventweight_btag = NUMPY_LIB.ones(nev)
+    # Code help from https://github.com/chreissel/hepaccelerate/blob/mass_fit/lib_analysis.py#L118
+    # Code help from https://gitlab.cern.ch/uhh-cmssw/CAST/blob/master/BTaggingWeight/plugins/BTaggingReShapeProducer.cc
     for tag in ["DeepCSV_3_iterativefit_central_0", "DeepCSV_3_iterativefit_central_1", "DeepCSV_3_iterativefit_central_2"]:
         SF_btag = evaluator[tag_name].evaluator[tag](jets.eta, jets.pt, jets.btagDeepB)
         if tag.endswith("0"):
@@ -1656,7 +1627,46 @@ def get_btag_weights_shape(jets, evaluator, era):
             SF_btag[jets.hadronFlavour != 0] = 1.
         p_jetWt*=SF_btag
     compute_event_btag_weight_shape(jets.offsets, eta_mask, p_jetWt, eventweight_btag)
-    return eventweight_btag
+    #not all syst are for all flavours
+    # bFlav - jes, lf, hfstats1, hfstats2
+    # cFlav - cferr1, cferr2
+    # lFlav - jes, hf, hfstats1, lfstats2
+    tag_sys=['jes', 'hf', 'hfstats1', 'hfstats2', 'lf', 'lfstats1', 'lfstats2', 'cferr1', 'cferr2']
+    
+    p_jetWt_up= []
+    p_jetWt_down=[]
+    eventweight_btag_up = []
+    eventweight_btag_down = []
+    for i in range(0,3): #0 is for b flav, 1 is c flav and 2 is udsg
+        p_jetWt_up.append(NUMPY_LIB.ones(len(jets.pt)))
+        p_jetWt_down.append(NUMPY_LIB.ones(len(jets.pt)))
+        eventweight_btag_up.append(NUMPY_LIB.ones(nev))
+        eventweight_btag_down.append(NUMPY_LIB.ones(nev))
+    #print(evaluator[tag_name].evaluator.keys())
+    for i in range(0,3):
+        for sdir in ['up','down']:
+            for tsys in tag_sys:
+                tsys_name = "DeepCSV_3_iterativefit_" + sdir + '_' + tsys + '_' + str(i)
+                #automatically skip syst which aren't for a particular flavour
+                if tsys_name not in evaluator[tag_name].evaluator.keys():
+                    print(tsys_name, " not found in ",era)
+                    continue
+                SF_btag = evaluator[tag_name].evaluator[tsys_name](jets.eta, jets.pt, jets.btagDeepB)
+                if tsys_name.endswith("0"):
+                    SF_btag[jets.hadronFlavour != 5] = 1.
+                if tsys_name.endswith("1"):
+                    SF_btag[jets.hadronFlavour != 4] = 1.
+                if tsys_name.endswith("2"):
+                    SF_btag[jets.hadronFlavour != 0] = 1.
+                if sdir == 'up':
+                    p_jetWt_up[i]*=SF_btag
+                else:
+                    p_jetWt_down[i]*=SF_btag
+            if sdir == 'up':
+                compute_event_btag_weight_shape(jets.offsets, eta_mask, p_jetWt_up[i], eventweight_btag_up[i])
+            else:
+                compute_event_btag_weight_shape(jets.offsets, eta_mask, p_jetWt_down[i], eventweight_btag_down[i])
+    return eventweight_btag , eventweight_btag_up, eventweight_btag_down
 
 @numba.njit(parallel=True)
 def compute_eff_product(offsets, jets_mask_passes_id, jets_eff, out_proba):
