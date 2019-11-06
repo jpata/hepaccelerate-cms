@@ -150,7 +150,7 @@ class TestAnalysisMC(unittest.TestCase):
                         do_factorized_jec=True),
                 },
             },
-            "do_fsr": False
+            "do_fsr": True
         }
 
         ret = self.dataset.analyze(
