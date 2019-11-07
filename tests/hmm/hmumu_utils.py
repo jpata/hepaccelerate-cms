@@ -1017,7 +1017,10 @@ def run_analysis(
         job_descriptions,
         cmdline_args.cache_location,
         cmdline_args.datapath,
-        cmdline_args.do_fsr)
+        cmdline_args.do_fsr,
+        nthreads=cmdline_args.nthreads,
+        use_cache=cmdline_args.enable_cache,
+        filter_hlt_bits=parameters["baseline"]["hlt_bits"])
 
     threadk = thread_killer()
     threadk.set_tokill(False)
@@ -2888,7 +2891,9 @@ def create_dataset(name, filenames, datastructures, cache_location, datapath, is
 
 def cache_preselection(ds, hlt_bits):
     for ifile in range(len(ds.filenames)):
-
+        print("cache_preselection: applying preselection on {0} with OR of HLT bits: {1}".format(
+            ds.filenames[ifile], hlt_bits)
+        )
         #OR of the trigger bits by summing
         hlt_res = [ds.eventvars[ifile][hlt_bit]==1 for hlt_bit in hlt_bits]
         sel = NUMPY_LIB.stack(hlt_res).sum(axis=0) >= 1
@@ -2927,7 +2932,7 @@ def cache_data_multiproc_worker(args):
         print("Cache on file {0} is complete, skipping".format(filename))
         return 0, 0
 
-    ds.load_root()
+    ds.load_root(nthreads=1)
 
     #put any preselection here
     processed_size_mb = ds.memsize()/1024.0/1024.0
@@ -3107,17 +3112,19 @@ class thread_killer(object):
             self.to_kill = tokill
 
 class InputGen:
-    def __init__(self, job_descriptions, cache_location, datapath, do_fsr):
-
+    def __init__(self, job_descriptions, cache_location, datapath, do_fsr, nthreads=1, use_cache=True, filter_hlt_bits=[]):
         self.job_descriptions = job_descriptions
         self.chunk_lock = threading.Lock()
         self.loaded_lock = threading.Lock()
         self.num_chunk = 0
         self.num_loaded = 0
+        self.use_cache = use_cache
+        self.nthreads = nthreads
 
         self.cache_location = cache_location
         self.datapath = datapath
         self.do_fsr = do_fsr
+        self.filter_hlt_bits = filter_hlt_bits
 
     def is_done(self):
         return (self.num_chunk == len(self)) and (self.num_loaded == len(self))
@@ -3153,7 +3160,12 @@ class InputGen:
         self.chunk_lock.release()
 
         # Load caches on multiple threads
-        ds.from_cache()
+        if self.use_cache:
+            ds.from_cache()
+        else:
+        # skip cache
+            ds.load_root(nthreads=self.nthreads)
+            cache_preselection(ds, self.filter_hlt_bits[ds.era])
 
         #Merge data arrays to one big array
         ds.merge_inplace()
