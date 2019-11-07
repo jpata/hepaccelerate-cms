@@ -328,12 +328,12 @@ def analyze_data(
         puid_weights = get_puid_weights(jets_passing_id, passed_puid, puidreweighting, dataset_era, parameters["jet_puid"])
         weights_individual["jet_puid"] = {"nominal": puid_weights, "up": puid_weights, "down": puid_weights}
 
-    
-    btagWeights, btagWeights_up, btagWeights_down = get_btag_weights_shape(jets_passing_id, btag_weights, dataset_era)
-    weights_individual["btag_weight"] = {"nominal": btagWeights, "up": btagWeights, "down": btagWeights}
-    weights_individual["btag_weight_bFl"] = {"nominal": btagWeights, "up": btagWeights_up[0], "down": btagWeights_down[0]}
-    weights_individual["btag_weight_cFl"] = {"nominal": btagWeights, "up": btagWeights_up[1], "down": btagWeights_down[1]}
-    weights_individual["btag_weight_lFl"] = {"nominal": btagWeights, "up": btagWeights_up[2], "down": btagWeights_down[2]}
+    if is_mc:
+        btagWeights, btagWeights_up, btagWeights_down = get_btag_weights_shape(jets_passing_id, btag_weights, dataset_era)
+        weights_individual["btag_weight"] = {"nominal": btagWeights, "up": btagWeights, "down": btagWeights}
+        weights_individual["btag_weight_bFl"] = {"nominal": btagWeights, "up": btagWeights_up[0], "down": btagWeights_down[0]}
+        weights_individual["btag_weight_cFl"] = {"nominal": btagWeights, "up": btagWeights_up[1], "down": btagWeights_down[1]}
+        weights_individual["btag_weight_lFl"] = {"nominal": btagWeights, "up": btagWeights_up[2], "down": btagWeights_down[2]}
     #compute variated weights here to ensure the nominal weight contains all possible other weights  
     compute_event_weights(parameters, weights_individual, scalars, genweight_scalefactor, gghnnlopsw, ZpTw, LHEScalew, pu_corrections, is_mc, dataset_era, dataset_name)
 
@@ -451,13 +451,16 @@ def analyze_data(
             # Set this default value as in Nan and Irene's code
             ret_jet["dijet_inv_mass"][ret_jet["num_jets"] < 2] = -1000.0
             # Get the data for the leading and subleading jets as contiguous vectors
+            jet_attrs = ["pt", "eta", "phi", "mass", "qgl","jetId","puId"]
+            if is_mc:
+                jet_attrs += ["hadronFlavour"]
+
             leading_jet = jets_passing_id.select_nth(
                 0, ret_mu["selected_events"], ret_jet["selected_jets"],
-                attributes=["pt", "eta", "phi", "mass", "qgl","jetId","puId", "hadronFlavour"])
+                attributes=jet_attrs)
             subleading_jet = jets_passing_id.select_nth(
                 1, ret_mu["selected_events"], ret_jet["selected_jets"],
-                attributes=["pt", "eta", "phi", "mass", "qgl","jetId","puId", "hadronFlavour"])
-
+                attributes=jet_attrs)
             #if do_sync and jet_syst_name[0] == "nominal":
                 #sync_printout(ret_mu, muons, scalars,
                    # leading_muon, subleading_muon, higgs_inv_mass,
