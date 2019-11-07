@@ -3120,7 +3120,6 @@ def create_datastructure(dataset_name, is_mc, dataset_era, do_fsr=False):
             ("Jet_puId", "int32"),
             ("Jet_area", "float32"),
             ("Jet_rawFactor", "float32"),
-            ("Jet_hadronFlavour","int32")
         ],
      "SoftActivityJet": [
             ("SoftActivityJet_pt", "float32"),
@@ -3182,6 +3181,9 @@ def create_datastructure(dataset_name, is_mc, dataset_era, do_fsr=False):
             ]
         datastructures["Muon"] += [
             ("Muon_genPartIdx", "int32"),
+        ]
+        datastructures["Jet"] += [
+        ("Jet_hadronFlavour","int32"),
         ]
         datastructures["GenPart"] = [
             ("GenPart_pt", "float32"),
