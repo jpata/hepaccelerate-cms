@@ -52,6 +52,7 @@ def parse_args():
     parser.add_argument('--do-factorized-jec', action='store_true', help='Enables factorized JEC, disables most validation plots')
     parser.add_argument('--do-profile', action='store_true', help='Profile the code with yappi')
     parser.add_argument('--disable-tensorflow', action='store_true', help='Disable loading and evaluating the tensorflow model')
+    parser.add_argument('--enable-cache', action='store_true', help='Enable loading the cache instead of loading directly from the ROOT file')
     parser.add_argument('--jobfiles', action='store', help='Jobfiles to process by the "cache" or "analyze" step', default=None, nargs='+', required=False)
     parser.add_argument('--jobfiles-load', action='store', help='Load the list of jobfiles to process from this file', default=None, required=False)
     
@@ -523,7 +524,6 @@ def main(args, datasets):
     #Recreate dump of all filenames
     cache_filename = args.cache_location + "/datasets.json"
     if ("cache" in args.action) and (args.jobfiles is None):
-
         check_and_recreate_filename_cache(cache_filename, args.cache_location, args.datapath, datasets)
 
     #Create the jobfiles
@@ -540,7 +540,7 @@ def main(args, datasets):
         yappi.set_clock_type('cpu')
         yappi.start(builtins=True)
 
-    if "cache" in args.action:
+    if "cache" in args.action and args.enable_cache:
         print("Running the 'cache' step of the analysis, ROOT files will be opened and branches will be uncompressed")
         run_cache(args, outpath_partial, jobfile_data, analysis_parameters)
    
