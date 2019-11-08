@@ -1491,7 +1491,7 @@ def get_selected_jets_id(
     )
     if dataset_era == "2017":
         jet_eta_pass_veto = NUMPY_LIB.logical_or(
-            (raw_pt > jet_veto_raw_pt),
+            (jet_puid == "tight"), #(raw_pt > jet_veto_raw_pt),
             NUMPY_LIB.logical_or(
                 (abs_eta > jet_veto_eta_upper_cut),
                 (abs_eta < jet_veto_eta_lower_cut)
