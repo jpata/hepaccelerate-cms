@@ -320,10 +320,7 @@ class AnalysisCorrections:
                 self.dnn_normfactors = cupy.array(self.dnn_normfactors[0]), cupy.array(self.dnn_normfactors[1])
             
             for imodel in range(4):
-                json_path = "data/PisaDNN/model_preparation/model_toexport_evt"+str(imodel)+".json"
-                with open(json_path, 'r') as file_handle:
-                    dnnPisa_model = keras.models.model_from_json(file_handle.read())
-                dnnPisa_model.load_weights("data/PisaDNN/model_preparation/model_toexport_evt"+str(imodel)+".h5")
+                dnnPisa_model = keras.models.load_model("data/PisaDNN/model_preparation/nn_evt"+str(imodel)+"_allYear_NoNorm.h5")
                 self.dnnPisa_models += [dnnPisa_model]
                 self.dnnPisa_normfactors1 = np.load("data/PisaDNN/model_preparation/helphelp_node1.npy")
                 self.dnnPisa_normfactors2 = np.load("data/PisaDNN/model_preparation/helphelp_node2.npy")

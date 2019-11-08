@@ -2242,7 +2242,7 @@ def dnn_variables(hrelresolution, leading_muon, subleading_muon, leading_jet, su
         "Mqq_log": NUMPY_LIB.log(jj_sph["mass"] ),
         "Rpt": mmjj_sph["pt"]/(mm_sph["pt"]+jj_sph["pt"]),
         "qqDeltaEta": NUMPY_LIB.abs(jj_deta),
-        "ll_zstar": NUMPY_LIB.abs(mm_sph["rapidity"] - 0.5*(leading_jet["rapidity"] + subleading_jet["rapidity"]))/(leading_jet["rapidity"]-subleading_jet["rapidity"]),
+        "log(ll_zstar)": NUMPY_LIB.log(NUMPY_LIB.abs((mm_sph["rapidity"] - 0.5*(leading_jet["rapidity"] + subleading_jet["rapidity"]))/(leading_jet["rapidity"]-subleading_jet["rapidity"]))),
         "NSoft5": n_sel_softjet,
         "HTSoft5": n_sel_HTsoftjet,
         "minEtaHQ": minEtaHQ,
@@ -2340,6 +2340,9 @@ def compute_fill_dnn(
     	dnn_vars["MET_pt"] = scalars["MET_pt"][dnn_presel]
     dnn_vars["num_jets"] = num_jets[dnn_presel]
     dnn_vars["num_jets_btag"] = num_jets_btag[dnn_presel]
+
+    year_var = float(dataset_era)*NUMPY_LIB.ones(nev_dnn_presel, dtype=NUMPY_LIB.float32)
+    dnn_vars["year"] = year_var
  
     if (not (dnn_model is None)) and nev_dnn_presel > 0:
         #print("dnn_model: ",dnn_model)
@@ -2365,23 +2368,21 @@ def compute_fill_dnn(
     dnnPisa_preds = []
     if parameters["do_dnn_pisa"]:
         for dnnPisa_model in dnnPisa_models:
-            if (not (dnnPisa_model is None)) and nev_dnn_presel > 0:    
+            if (not (dnnPisa_model is None)) and nev_dnn_presel > 0:
                 dnnPisa_vars1_arr = NUMPY_LIB.vstack([dnn_vars[k] for k in parameters["dnnPisa_varlist1_order"]]).T
                 dnnPisa_vars2_arr = NUMPY_LIB.vstack([dnn_vars[k] for k in parameters["dnnPisa_varlist2_order"]]).T
-                dnnPisa_vars1_arr += dnnPisa_normfactors1[0]
-                dnnPisa_vars1_arr *= dnnPisa_normfactors1[1]
-                dnnPisa_vars2_arr += dnnPisa_normfactors2[0] 
-                dnnPisa_vars2_arr *= dnnPisa_normfactors2[1]
-                dnnPisa_pred = NUMPY_LIB.array(dnnPisa_model.predict(
-                    [NUMPY_LIB.asnumpy(dnnPisa_vars1_arr),NUMPY_LIB.asnumpy(dnnPisa_vars2_arr)],
-                    batch_size=dnnPisa_vars1_arr.shape[0])[:, 0]
-                )
+                dnnPisa_vars1_arr -= dnnPisa_normfactors1[0]
+                dnnPisa_vars1_arr /= dnnPisa_normfactors1[1]
+                dnnPisa_vars2_arr -= dnnPisa_normfactors2[0]
+                dnnPisa_vars2_arr /= dnnPisa_normfactors2[1]
+                dnnPisa_pred = NUMPY_LIB.array(dnnPisa_model.predict([NUMPY_LIB.asnumpy(dnnPisa_vars1_arr),NUMPY_LIB.asnumpy(dnnPisa_vars2_arr)])[:, 0])
                 if len(dnnPisa_pred) > 0:
                     print("dnnPisa_pred", dnnPisa_pred.min(), dnnPisa_pred.max(), dnnPisa_pred.mean(), dnnPisa_pred.std())
                 dnnPisa_pred = NUMPY_LIB.array(dnnPisa_pred, dtype=NUMPY_LIB.float32)
             else:
                 dnnPisa_pred = NUMPY_LIB.zeros(nev_dnn_presel, dtype=NUMPY_LIB.float32)
             dnnPisa_preds += [dnnPisa_pred]
+
     if parameters["do_bdt_ucsd"]:
         hmmthetacs, hmmphics = miscvariables.csangles(
             NUMPY_LIB.asnumpy(leading_muon_s["pt"]),
@@ -3056,7 +3057,8 @@ def create_datastructure(dataset_name, is_mc, dataset_era, do_fsr=False):
                 ("LHEScaleWeight", "float32"),
             ]
         datastructures["Jet"] += [
-            ("Jet_genJetIdx", "int32")
+            ("Jet_genJetIdx", "int32"),
+            ("Jet_hadronFlavour", "int32")
         ]
         datastructures["GenJet"] = [
             ("GenJet_pt", "float32"), 
