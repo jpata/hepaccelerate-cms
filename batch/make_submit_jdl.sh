@@ -20,7 +20,7 @@ tar -cvzf jobfiles.tgz jobfiles
 
 echo "Preparing job chunks"
 #Run N different random chunks per job
-python chunk_submits.py $NCHUNK > jobfiles_merged.txt
+python chunk_submits.py $NCHUNK jobfiles.txt > jobfiles_merged.txt
 
 #Prepare submit script
 cat analyze.jdl > submit.jdl

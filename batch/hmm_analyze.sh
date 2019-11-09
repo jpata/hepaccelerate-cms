@@ -35,7 +35,7 @@ cd $SUBMIT_DIR
 python3 tests/hmm/analysis_hmumu.py \
     --action analyze \
     --nthreads $NTHREADS --cache-location $CACHE_PATH \
-    --datapath /storage/user/jpata/ --era 2016 --era 2017 --era 2018 \
+    --datapath /mnt/hadoop --era 2016 --era 2017 --era 2018 \
     --out $workdir/$OUTDIR \
     --do-factorized-jec \
     --jobfiles-load $workdir/args.txt

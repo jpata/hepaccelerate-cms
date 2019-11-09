@@ -9,7 +9,7 @@ if __name__ == "__main__":
     #How many different files to process per job
     PERJOB = int(sys.argv[1])
     
-    infile = open("jobfiles.txt")
+    infile = open(sys.argv[2])
     lines = [l.strip() for l in infile.readlines()]
 
     #shuffle the files across jobs so they all have about the same runtime
