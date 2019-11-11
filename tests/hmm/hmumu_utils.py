@@ -2168,12 +2168,6 @@ def dnn_variables(hrelresolution, leading_muon, subleading_muon, leading_jet, su
     EtaHQ = NUMPY_LIB.vstack(EtaHQs)
     minEtaHQ = NUMPY_LIB.min(EtaHQ, axis=0)
 
-    EtaHQs_Caltech = []
-    for jet in [leading_jet, subleading_jet]:
-        EtaHQs_Caltech += [mm_sph["eta"] - jet["eta"]]
-    EtaHQ_Caltech = NUMPY_LIB.vstack(EtaHQs_Caltech)
-    minEtaHQ_Caltech = NUMPY_LIB.min(EtaHQ_Caltech, axis=0)
-
     #compute deldPhi between Higgs and jet
     PhiHQs = []
     for jet in [leading_jet, subleading_jet]:
