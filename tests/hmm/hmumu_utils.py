@@ -1415,7 +1415,7 @@ def nsoftjets_cpu(nsoft, softht, nevt, softjets_offsets, pt, eta, phi, etaj1, et
         for isoftjets in range(softjets_offsets[iev], softjets_offsets[iev + 1]):
             if (pt[isoftjets] > ptcut):
                 sj_sel = True
-                if ((eta[isoftjets]<etaj1[iev] and eta[isoftjets]>etaj2[iev]) or (eta[isoftjets]<etaj2[iev] and eta[isoftjets]>etaj1[iev])):
+                if ((eta[isoftjets]<etaj1[iev]) and (eta[isoftjets]>etaj2[iev]) and (etaj1[iev]>etaj2[iev])) or ((eta[isoftjets]<etaj2[iev]) and (eta[isoftjets]>etaj1[iev]) and (etaj1[iev]<etaj2[iev])):
                     nobj = len(phis)
                     for index in range(nobj):
                         dphi = deltaphi_cpu_devfunc(phi[isoftjets], phis[index][iev])
@@ -2164,16 +2164,14 @@ def dnn_variables(hrelresolution, leading_muon, subleading_muon, leading_jet, su
     #compute deletaEta between Higgs and jet
     EtaHQs = []
     for jet in [leading_jet, subleading_jet]:
-        EtaHQ = mm_sph["eta"] - jet["eta"] 
-        EtaHQs += [EtaHQ]
+        EtaHQs += [NUMPY_LIB.abs(mm_sph["eta"] - jet["eta"])]
     EtaHQ = NUMPY_LIB.vstack(EtaHQs)
     minEtaHQ = NUMPY_LIB.min(EtaHQ, axis=0)
 
     #compute deldPhi between Higgs and jet
     PhiHQs = []
     for jet in [leading_jet, subleading_jet]:
-        PhiHQ = mm_sph["phi"] - jet["phi"] 
-        PhiHQs += [PhiHQ]
+        PhiHQs += [NUMPY_LIB.abs(mm_sph["phi"] - jet["phi"])]
     PhiHQ = NUMPY_LIB.vstack(PhiHQs)
     minPhiHQ = NUMPY_LIB.min(PhiHQ, axis=0)
     #compute deltaR between all muons and jets
@@ -2240,7 +2238,7 @@ def dnn_variables(hrelresolution, leading_muon, subleading_muon, leading_jet, su
         "Higgs_mass": mm_sph["mass"], #fixm
         #DNN pisa variable
         "Mqq_log": NUMPY_LIB.log(jj_sph["mass"] ),
-        "Rpt": mmjj_sph["pt"]/(mm_sph["pt"]+jj_sph["pt"]),
+        "Rpt": mmjj_sph["pt"]/(mm_sph["pt"]+leading_jet["pt"]+subleading_jet["pt"]),
         "qqDeltaEta": NUMPY_LIB.abs(jj_deta),
         "log(ll_zstar)": NUMPY_LIB.log(NUMPY_LIB.abs((mm_sph["rapidity"] - 0.5*(leading_jet["rapidity"] + subleading_jet["rapidity"]))/(leading_jet["rapidity"]-subleading_jet["rapidity"]))),
         "NSoft5": n_sel_softjet,
