@@ -29,5 +29,5 @@ singularity exec --nv -B /storage $SINGULARITY_IMAGE python3 tests/hmm/analysis_
     --action analyze --action merge --maxchunks $MAXCHUNKS \
     --nthreads $NTHREADS \
     --out ./out \
-    --datapath $INPUTDATAPATH --datasets ttjets_sl \
+    --datapath $INPUTDATAPATH \
     --disable-tensorflow
