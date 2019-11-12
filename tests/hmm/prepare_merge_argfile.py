@@ -14,6 +14,7 @@ def chunks(l, n):
     for i in range(0, len(l), n):
         yield l[i:i + n]
 
+#Merge input files such that they are approximately 1GB
 def chunks_filesize(files, maxsize=1e9):
     size = 0
     current_files = []
@@ -28,7 +29,7 @@ def chunks_filesize(files, maxsize=1e9):
         yield current_files
 
 def parse_args():
-    parser = argparse.ArgumentParser(description='Skim and merge NanoAOD files')
+    parser = argparse.ArgumentParser(description='Produce argument file to skim, slim, recompress and merge NanoAOD files')
     parser.add_argument('--input', '-i', action='store', help='List of input files', required=True)
     parser.add_argument('--datapath', '-d', action='store', help='Data input path', required=True)
     parser.add_argument('--outpath', '-o', action='store', help='Data output path', required=True)

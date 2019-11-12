@@ -44,7 +44,7 @@ cd tests/hmm
 singularity exec /storage/user/jpata/gpuservers/singularity/images/cupy.simg make -j4
 cd ../..
 
-#Run the code as a small test (small dataset by default, edit the file to change this)
+#Run the code as a small test (small subset of the data by default, edit the file to change this)
 #This should take approximately 5 minutes and processes 1 file from each dataset for each year
 ./tests/hmm/run.sh
 ~~~
@@ -57,11 +57,21 @@ We use the condor batch queue on Caltech T2 to run the analysis. It ~20 minutes 
 mkdir /storage/user/$USER/hmm
 export SUBMIT_DIR=`pwd`
 cd batch
+
+#Run the NanoAOD skimming step (cache creation)
+#This is quite heavy (~6h total), so do this one time
+#When adding new samples
+rm -Rf skim_merge
+./make_cache_jdl.sh
+condor_submit cache.jdl
+#Wait until done
+
+#Now run the analysis
 ./make_submit_jdl.sh
 condor_submit submit.jdl
+#Wait until done
 
 #submit merging and plotting
-... (wait for completion)
 condor_submit merge.jdl
 
 cd ..

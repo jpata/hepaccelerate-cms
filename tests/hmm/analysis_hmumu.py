@@ -44,7 +44,7 @@ def parse_args():
     parser.add_argument('--out', action='store', help='Output location', default='out', type=str)
     parser.add_argument('--datasets', action='append', help='Dataset names process', type=str, required=False)
     parser.add_argument('--datasets-yaml', action='store', help='Dataset definition file', type=str, required=False, default="data/datasets_NanoAODv5.yml")
-    parser.add_argument('--cachepath', action='store', help='Location of cache', type=str, required=False, default="/storage/user/jpata/skim_merged/")
+    parser.add_argument('--cachepath', action='store', help='Location of the skimmed NanoAOD files', type=str, required=False)
     parser.add_argument('--eras', action='append', help='Data eras to process', type=str, required=False)
     parser.add_argument('--pinned', action='store_true', help='Use CUDA pinned memory')
     parser.add_argument('--do-sync', action='store_true', help='run only synchronization datasets')
@@ -382,7 +382,7 @@ def check_and_recreate_filename_cache(cache_filename, datapath, datasets):
             raise Exception("Dataset {0} matched 0 files from glob pattern {1}, verify that the data files are located in {2}".format(
                 dataset_name, dataset_globpattern, datapath
             ))
-    
+
     #save all dataset filenames to a json file 
     print("Creating a json dump of all the dataset filenames based on data found in {0}".format(datapath))
     with open(cache_filename, "w") as fi:
@@ -533,7 +533,13 @@ def main(args):
     #Recreate dump of all filenames
     cache_filename = "{0}/datasets.json".format(args.out)
 
-    datapath = args.cachepath
+    if args.cachepath is None:
+        print("--cachepath not specified, will process unskimmed NanoAOD, which is somewhat slower!")
+        print("Please see the README.md on how to skim the NanoAOD")
+        datapath = args.datapath
+    else:
+        print("Processing skimmed NanoAOD")
+        datapath = args.cachepath
     check_and_recreate_filename_cache(cache_filename, datapath, datasets)
 
     #Create the jobfiles

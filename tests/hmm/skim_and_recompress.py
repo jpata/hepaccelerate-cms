@@ -6,6 +6,8 @@ import os
 import tempfile
 import argparse
 
+#Given one NanoAOD file, open the Events tree, select events that pass the skim_cut, drop unneeded branches
+#and recompress with LZ4 (~30% larger, but much faster to load)
 def skim_recompress_one_file(outfile, infile, skim_cut):
     print("skim_one_file", infile, outfile)
     tf = ROOT.TFile(infile)
@@ -83,8 +85,8 @@ def merge_no_recompression(args):
     hadd(outfile, infiles)
 
 def parse_args():
-    parser = argparse.ArgumentParser(description='skim and merge nanoaod files')
-    parser.add_argument('--infiles', '-i', action='store', help='list of input files', required=True)
+    parser = argparse.ArgumentParser(description='Skim, slim, recompress and merge nanoaod files')
+    parser.add_argument('--infiles', '-i', action='store', help='filename with list of input files', required=True)
     parser.add_argument('--out', '-o', action='store', help='output file', required=True)
     parser.add_argument('--skim', '-s', action='store', help='skim cut', default="1")
     parser.add_argument('--temppath', '-t', action='store', help='temporary file path', required=True)

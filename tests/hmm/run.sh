@@ -8,9 +8,6 @@ export NTHREADS=8
 #Set to -1 to run on all files, 1 for debugging/testing
 export MAXCHUNKS=1
 
-#This is where the intermediate analysis files will be saved and loaded from
-#As long as one person produces it, other people can run the analysis on this
-#Currently, use the cache provided by Joosep
 export SINGULARITY_IMAGE=/storage/user/jpata/gpuservers/singularity/images/cupy2.simg
 export PYTHONPATH=coffea:hepaccelerate:.
 export NUMBA_THREADING_LAYER=tbb
