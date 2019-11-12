@@ -43,7 +43,7 @@ def parse_args():
     parser.add_argument('--chunksize', '-c', action='store', help='Number of files to process simultaneously (larger is faster, but uses more memory)', default=1, type=int)
     parser.add_argument('--out', action='store', help='Output location', default='out', type=str)
     parser.add_argument('--datasets', action='append', help='Dataset names process', type=str, required=False)
-    parser.add_argument('--datasets-yaml', action='store', help='Dataset definition file', type=str, required=False, default="data/datasets_NanoAODv5.yml")
+    parser.add_argument('--datasets-yaml', action='store', help='Dataset definition file', type=str, required=True)
     parser.add_argument('--cachepath', action='store', help='Location of the skimmed NanoAOD files', type=str, required=False)
     parser.add_argument('--eras', action='append', help='Data eras to process', type=str, required=False)
     parser.add_argument('--pinned', action='store_true', help='Use CUDA pinned memory')
@@ -359,7 +359,7 @@ class AnalysisCorrections:
         self.puidreweighting = puid_extractor.make_evaluator()
 
 
-def check_and_recreate_filename_cache(cache_filename, datapath, datasets):
+def check_and_recreate_filename_cache(cache_filename, datapath, datasets, use_merged):
     if os.path.isfile(cache_filename):
         print("Cache file {0} already exists, we will not overwrite it to be safe.".format(cache_filename), file=sys.stderr)
         print("Delete it to rescan the filesystem for dataset files.", file=sys.stderr)
@@ -370,7 +370,10 @@ def check_and_recreate_filename_cache(cache_filename, datapath, datasets):
     for dataset in datasets:
         dataset_name = dataset["name"]
         dataset_era = dataset["era"]
-        dataset_globpattern = dataset["files_merged"]
+        if use_merged:
+            dataset_globpattern = dataset["files_merged"]
+        else:
+            dataset_globpattern = dataset["files_nano_in"]
         is_mc = dataset["is_mc"]
 
         filenames_all = glob.glob(datapath + dataset_globpattern, recursive=True)
@@ -533,6 +536,7 @@ def main(args):
     #Recreate dump of all filenames
     cache_filename = "{0}/datasets.json".format(args.out)
 
+    use_skim = False
     if args.cachepath is None:
         print("--cachepath not specified, will process unskimmed NanoAOD, which is somewhat slower!")
         print("Please see the README.md on how to skim the NanoAOD")
@@ -540,7 +544,8 @@ def main(args):
     else:
         print("Processing skimmed NanoAOD")
         datapath = args.cachepath
-    check_and_recreate_filename_cache(cache_filename, datapath, datasets)
+        use_skim = True
+    check_and_recreate_filename_cache(cache_filename, datapath, datasets, use_skim)
 
     #Create the jobfiles
     if args.jobfiles is None:

@@ -20,6 +20,7 @@ export KERAS_BACKEND=tensorflow
 
 #This is the location of the input NanoAOD and generally does not need to be changed
 export INPUTDATAPATH=/storage/group/allcit
+export CACHEPATH=/storage/user/jpata/skim_merged
 
 ## Step 2: Run the physics analysis
 singularity exec --nv -B /storage $SINGULARITY_IMAGE python3 tests/hmm/analysis_hmumu.py \
@@ -27,4 +28,6 @@ singularity exec --nv -B /storage $SINGULARITY_IMAGE python3 tests/hmm/analysis_
     --nthreads $NTHREADS \
     --out ./out \
     --datapath $INPUTDATAPATH \
+    --datasets-yaml data/datasets_NanoAODv5.yml \
+    --cachepath $CACHEPATH \
     --disable-tensorflow

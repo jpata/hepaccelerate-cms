@@ -42,6 +42,7 @@ python3 tests/hmm/analysis_hmumu.py \
     --cachepath $CACHE_PATH \
     --datapath /storage/group/allcit \
     --out $workdir/$OUTDIR \
+    --datasets-yaml data/datasets_NanoAODv5.yml \
     --jobfiles-load $workdir/args.txt
 
 cd $workdir
