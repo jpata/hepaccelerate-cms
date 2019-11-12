@@ -323,7 +323,7 @@ def analyze_data(
     #Now we throw away all the jets that didn't pass the ID to save time on computing JECs on them
     jets_passing_id = jets.select_objects(selected_jets_id)
 
-    if parameters["jet_puid"] is not "none":
+    if (parameters["jet_puid"] is not "none") and is_mc:
         puid_weights = get_puid_weights(jets_passing_id, passed_puid, puidreweighting, dataset_era, parameters["jet_puid"])
         weights_individual["jet_puid"] = {"nominal": puid_weights, "up": puid_weights, "down": puid_weights}
 
@@ -1365,7 +1365,7 @@ def nsoftjets_cpu(nsoft, softht, nevt, softjets_offsets, pt, eta, phi, etaj1, et
         for isoftjets in range(softjets_offsets[iev], softjets_offsets[iev + 1]):
             if (pt[isoftjets] > ptcut):
                 sj_sel = True
-                if ((eta[isoftjets]<etaj1[iev] and eta[isoftjets]>etaj2[iev]) or (eta[isoftjets]<etaj2[iev] and eta[isoftjets]>etaj1[iev])):
+                if ((eta[isoftjets]<etaj1[iev]) and (eta[isoftjets]>etaj2[iev]) and (etaj1[iev]>etaj2[iev])) or ((eta[isoftjets]<etaj2[iev]) and (eta[isoftjets]>etaj1[iev]) and (etaj1[iev]<etaj2[iev])):
                     nobj = len(phis)
                     for index in range(nobj):
                         dphi = deltaphi_cpu_devfunc(phi[isoftjets], phis[index][iev])
@@ -2114,16 +2114,14 @@ def dnn_variables(hrelresolution, leading_muon, subleading_muon, leading_jet, su
     #compute deletaEta between Higgs and jet
     EtaHQs = []
     for jet in [leading_jet, subleading_jet]:
-        EtaHQ = mm_sph["eta"] - jet["eta"] 
-        EtaHQs += [EtaHQ]
+        EtaHQs += [NUMPY_LIB.abs(mm_sph["eta"] - jet["eta"])]
     EtaHQ = NUMPY_LIB.vstack(EtaHQs)
     minEtaHQ = NUMPY_LIB.min(EtaHQ, axis=0)
 
     #compute deldPhi between Higgs and jet
     PhiHQs = []
     for jet in [leading_jet, subleading_jet]:
-        PhiHQ = mm_sph["phi"] - jet["phi"] 
-        PhiHQs += [PhiHQ]
+        PhiHQs += [NUMPY_LIB.abs(mm_sph["phi"] - jet["phi"])]
     PhiHQ = NUMPY_LIB.vstack(PhiHQs)
     minPhiHQ = NUMPY_LIB.min(PhiHQ, axis=0)
     #compute deltaR between all muons and jets
@@ -2190,9 +2188,9 @@ def dnn_variables(hrelresolution, leading_muon, subleading_muon, leading_jet, su
         "Higgs_mass": mm_sph["mass"], #fixm
         #DNN pisa variable
         "Mqq_log": NUMPY_LIB.log(jj_sph["mass"] ),
-        "Rpt": mmjj_sph["pt"]/(mm_sph["pt"]+jj_sph["pt"]),
+        "Rpt": mmjj_sph["pt"]/(mm_sph["pt"]+leading_jet["pt"]+subleading_jet["pt"]),
         "qqDeltaEta": NUMPY_LIB.abs(jj_deta),
-        "ll_zstar": NUMPY_LIB.abs(mm_sph["rapidity"] - 0.5*(leading_jet["rapidity"] + subleading_jet["rapidity"]))/(leading_jet["rapidity"]-subleading_jet["rapidity"]),
+        "log(ll_zstar)": NUMPY_LIB.log(NUMPY_LIB.abs((mm_sph["rapidity"] - 0.5*(leading_jet["rapidity"] + subleading_jet["rapidity"]))/(leading_jet["rapidity"]-subleading_jet["rapidity"]))),
         "NSoft5": n_sel_softjet,
         "HTSoft5": n_sel_HTsoftjet,
         "minEtaHQ": minEtaHQ,
@@ -2290,6 +2288,9 @@ def compute_fill_dnn(
     	dnn_vars["MET_pt"] = scalars["MET_pt"][dnn_presel]
     dnn_vars["num_jets"] = num_jets[dnn_presel]
     dnn_vars["num_jets_btag"] = num_jets_btag[dnn_presel]
+
+    year_var = float(dataset_era)*NUMPY_LIB.ones(nev_dnn_presel, dtype=NUMPY_LIB.float32)
+    dnn_vars["year"] = year_var
  
     if (not (dnn_model is None)) and nev_dnn_presel > 0:
         #print("dnn_model: ",dnn_model)
@@ -2315,23 +2316,21 @@ def compute_fill_dnn(
     dnnPisa_preds = []
     if parameters["do_dnn_pisa"]:
         for dnnPisa_model in dnnPisa_models:
-            if (not (dnnPisa_model is None)) and nev_dnn_presel > 0:    
+            if (not (dnnPisa_model is None)) and nev_dnn_presel > 0:
                 dnnPisa_vars1_arr = NUMPY_LIB.vstack([dnn_vars[k] for k in parameters["dnnPisa_varlist1_order"]]).T
                 dnnPisa_vars2_arr = NUMPY_LIB.vstack([dnn_vars[k] for k in parameters["dnnPisa_varlist2_order"]]).T
-                dnnPisa_vars1_arr += dnnPisa_normfactors1[0]
-                dnnPisa_vars1_arr *= dnnPisa_normfactors1[1]
-                dnnPisa_vars2_arr += dnnPisa_normfactors2[0] 
-                dnnPisa_vars2_arr *= dnnPisa_normfactors2[1]
-                dnnPisa_pred = NUMPY_LIB.array(dnnPisa_model.predict(
-                    [NUMPY_LIB.asnumpy(dnnPisa_vars1_arr),NUMPY_LIB.asnumpy(dnnPisa_vars2_arr)],
-                    batch_size=dnnPisa_vars1_arr.shape[0])[:, 0]
-                )
+                dnnPisa_vars1_arr -= dnnPisa_normfactors1[0]
+                dnnPisa_vars1_arr /= dnnPisa_normfactors1[1]
+                dnnPisa_vars2_arr -= dnnPisa_normfactors2[0]
+                dnnPisa_vars2_arr /= dnnPisa_normfactors2[1]
+                dnnPisa_pred = NUMPY_LIB.array(dnnPisa_model.predict([NUMPY_LIB.asnumpy(dnnPisa_vars1_arr),NUMPY_LIB.asnumpy(dnnPisa_vars2_arr)])[:, 0])
                 if len(dnnPisa_pred) > 0:
                     print("dnnPisa_pred", dnnPisa_pred.min(), dnnPisa_pred.max(), dnnPisa_pred.mean(), dnnPisa_pred.std())
                 dnnPisa_pred = NUMPY_LIB.array(dnnPisa_pred, dtype=NUMPY_LIB.float32)
             else:
                 dnnPisa_pred = NUMPY_LIB.zeros(nev_dnn_presel, dtype=NUMPY_LIB.float32)
             dnnPisa_preds += [dnnPisa_pred]
+
     if parameters["do_bdt_ucsd"]:
         hmmthetacs, hmmphics = miscvariables.csangles(
             NUMPY_LIB.asnumpy(leading_muon_s["pt"]),
@@ -2928,7 +2927,8 @@ def create_datastructure(dataset_name, is_mc, dataset_era, do_fsr=False):
                 ("LHEScaleWeight", "float32"),
             ]
         datastructures["Jet"] += [
-            ("Jet_genJetIdx", "int32")
+            ("Jet_genJetIdx", "int32"),
+            ("Jet_hadronFlavour", "int32")
         ]
         datastructures["GenJet"] = [
             ("GenJet_pt", "float32"), 
