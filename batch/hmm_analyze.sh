@@ -41,6 +41,7 @@ python3 tests/hmm/analysis_hmumu.py \
     --nthreads $NTHREADS \
     --cachepath $CACHE_PATH \
     --datapath /storage/group/allcit \
+    --cachepath /storage/user/jpata/skim_merged \
     --out $workdir/$OUTDIR \
     --datasets-yaml data/datasets_NanoAODv5.yml \
     --jobfiles-load $workdir/args.txt
