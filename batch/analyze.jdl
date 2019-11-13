@@ -21,7 +21,7 @@ transfer_input_files = jobfiles.tgz,../out/datasets.json
 
 Environment = USER=$ENV(USER);CONDORJOBID=$(Process);SUBMIT_DIR=$ENV(SUBMIT_DIR)
 
-Queue arguments from args_analyze_resubmit.txt
+Queue arguments from args_analyze.txt
 
 #prepare the resubmit file with `python prepare_resubmits.py logs/example_job.2134390.log > args_analyze_resubmit.txt`
 #Queue arguments from args_analyze_resubmit.txt
