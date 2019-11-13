@@ -366,7 +366,7 @@ def create_variated_histos(proc,
             else:
                 hret = hdict[sname]
             ret[sname2] = hret
-    if('LHEScaleWeight' in variations):
+    if(('DYLHEScaleWeight' in variations) or ('EWZLHEScaleWeight' in variations)):
         h_lhe =[]
         h_nom_up = copy.deepcopy(hbase)
         h_nom_down = copy.deepcopy(hbase)
@@ -379,6 +379,13 @@ def create_variated_histos(proc,
                     h_nom_up.contents[k]=h_lhe[i].contents[k]
                 if(h_lhe[i].contents[k]<h_nom_down.contents[k]):
                     h_nom_down.contents[k]=h_lhe[i].contents[k]
+        #remove the normalization aspect from QCD scale
+        sum_nom_up=np.sum(h_nom_up.contents)
+        sum_nom_down=np.sum(h_nom_down.contents)
+        for k in range(len(h_nom_up.contents)):
+            h_nom_up.contents[k]=h_nom_up.contents[k]*np.sum(hbase.contents)/sum_nom_up
+            h_nom_down.contents[k]=h_nom_down.contents[k]*np.sum(hbase.contents)/sum_nom_down
+
         if('dy' in proc):
             ret['DYLHEScaleWeightUp']=h_nom_up
             ret['DYLHEScaleWeightDown']=h_nom_down
@@ -728,9 +735,11 @@ def PrintDatacard(categories, event_counts, filenames, ofname):
         dcof.write("RZ rateParam {0} dy_0j 1 \n".format(cat.full_name))  
         dcof.write("RZ rateParam {0} dy_1j 1 \n".format(cat.full_name))  
         dcof.write("RZ rateParam {0} dy_2j 1 \n".format(cat.full_name)) 
+        dcof.write("REWZ rateParam {0} ewk_lljj_mll50_mjj120 1 \n".format(cat.full_name))
     elif ("h_peak" in cat.full_name) or ("h_sideband" in cat.full_name):
         dcof.write("R rateParam {0} dy_m105_160_amc 1 \n".format(cat.full_name))           
         dcof.write("R rateParam {0} dy_m105_160_vbf_amc 1 \n".format(cat.full_name))
+        dcof.write("REWZ rateParam {0} ewk_lljj_mll105_mjj160 1 \n".format(cat.full_name))
     dcof.write("{0} autoMCStats 0 0 1 \n".format(cat.full_name))
     dcof.write("\n")
     dcof.write("# Execute with:\n")

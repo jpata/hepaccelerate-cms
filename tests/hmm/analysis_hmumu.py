@@ -52,6 +52,7 @@ def parse_args():
     parser.add_argument('--do-factorized-jec', action='store_true', help='Enables factorized JEC, disables most validation plots')
     parser.add_argument('--do-profile', action='store_true', help='Profile the code with yappi')
     parser.add_argument('--disable-tensorflow', action='store_true', help='Disable loading and evaluating the tensorflow model')
+    parser.add_argument('--enable-cache', action='store_true', help='Enable loading the cache instead of loading directly from the ROOT file')
     parser.add_argument('--jobfiles', action='store', help='Jobfiles to process by the "cache" or "analyze" step', default=None, nargs='+', required=False)
     parser.add_argument('--jobfiles-load', action='store', help='Load the list of jobfiles to process from this file', default=None, required=False)
     
@@ -319,10 +320,7 @@ class AnalysisCorrections:
                 self.dnn_normfactors = cupy.array(self.dnn_normfactors[0]), cupy.array(self.dnn_normfactors[1])
             
             for imodel in range(4):
-                json_path = "data/PisaDNN/model_preparation/model_toexport_evt"+str(imodel)+".json"
-                with open(json_path, 'r') as file_handle:
-                    dnnPisa_model = keras.models.model_from_json(file_handle.read())
-                dnnPisa_model.load_weights("data/PisaDNN/model_preparation/model_toexport_evt"+str(imodel)+".h5")
+                dnnPisa_model = keras.models.load_model("data/PisaDNN/model_preparation/nn_evt"+str(imodel)+"_allYear_NoNorm.h5")
                 self.dnnPisa_models += [dnnPisa_model]
                 self.dnnPisa_normfactors1 = np.load("data/PisaDNN/model_preparation/helphelp_node1.npy")
                 self.dnnPisa_normfactors2 = np.load("data/PisaDNN/model_preparation/helphelp_node2.npy")
@@ -540,7 +538,7 @@ def main(args, datasets):
         yappi.set_clock_type('cpu')
         yappi.start(builtins=True)
 
-    if "cache" in args.action:
+    if "cache" in args.action and args.enable_cache:
         print("Running the 'cache' step of the analysis, ROOT files will be opened and branches will be uncompressed")
         run_cache(args, outpath_partial, jobfile_data, analysis_parameters)
    

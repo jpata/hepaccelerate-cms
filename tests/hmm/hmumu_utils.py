@@ -31,9 +31,6 @@ import hepaccelerate.backend_cpu as backend_cpu
 from coffea.lookup_tools import extractor
 from coffea.util import awkward
 
-from cmsutils.decisiontree import DecisionTreeNode, DecisionTreeLeaf, make_random_node, grow_randomly, make_random_tree, prune_randomly, generate_cut_trees
-from cmsutils.stats import likelihood, sig_q0_asimov, sig_naive
-
 from pars import runmap_numerical, runmap_numerical_r, data_runs, genweight_scalefactor
 
 #global variables need to be configured here for the hepaccelerate backend and numpy library
@@ -272,7 +269,22 @@ def analyze_data(
                 m1 = weights_individual[w]["nominal"].mean()
                 m2 = weights_individual[w]["up"].mean()
                 m3 = weights_individual[w]["down"].mean()
-                assert(m1 > m3 and m1 < m2) 
+                assert(m1 > m3 and m1 < m2)
+    else:
+        #set default weights to 1
+        def default_weight(n):
+            return {
+                "nominal": NUMPY_LIB.ones(n, dtype=NUMPY_LIB.float32),
+                "up": NUMPY_LIB.ones(n, dtype=NUMPY_LIB.float32),
+                "down": NUMPY_LIB.ones(n, dtype=NUMPY_LIB.float32)
+            }
+        weights_individual["trigger"] = default_weight(len(leading_muon["pt"])) 
+        weights_individual["id"] = default_weight(len(leading_muon["pt"])) 
+        weights_individual["iso"] = default_weight(len(leading_muon["pt"])) 
+        weights_individual["mu1_id"] = default_weight(len(leading_muon["pt"]))
+        weights_individual["mu1_iso"] = default_weight(len(leading_muon["pt"]))
+        weights_individual["mu2_id"] = default_weight(len(leading_muon["pt"]))
+        weights_individual["mu2_iso"] = default_weight(len(leading_muon["pt"]))
  
     # Get the selected electrons
     ret_el = get_selected_electrons(electrons, parameters["extra_electrons_pt"], parameters["extra_electrons_eta"], parameters["extra_electrons_id"])
@@ -311,7 +323,7 @@ def analyze_data(
     #Now we throw away all the jets that didn't pass the ID to save time on computing JECs on them
     jets_passing_id = jets.select_objects(selected_jets_id)
 
-    if parameters["jet_puid"] is not "none":
+    if (parameters["jet_puid"] is not "none") and is_mc:
         puid_weights = get_puid_weights(jets_passing_id, passed_puid, puidreweighting, dataset_era, parameters["jet_puid"])
         weights_individual["jet_puid"] = {"nominal": puid_weights, "up": puid_weights, "down": puid_weights}
 
@@ -377,7 +389,7 @@ def analyze_data(
     syst_to_consider = ["nominal"]
     if is_mc:
         syst_to_consider += ["Total"]
-        if parameters["do_jer"]:
+        if parameters["do_jer"][dataset_era]:
             syst_to_consider += ["jer"]
         if parameters["do_factorized_jec"]:
             syst_to_consider = syst_to_consider + jet_systematics.jet_uncertainty_names
@@ -387,7 +399,7 @@ def analyze_data(
     
     #Now actually call the JEC computation for each scenario
     jet_pt_startfrom = "pt_jec"
-    if is_mc and parameters["do_jer"]:
+    if is_mc and parameters["do_jer"][dataset_era]:
         jet_pt_startfrom = "pt_jec_jer"
     for uncertainty_name in syst_to_consider:
         #This will be the variated pt vector
@@ -1005,7 +1017,10 @@ def run_analysis(
         job_descriptions,
         cmdline_args.cache_location,
         cmdline_args.datapath,
-        cmdline_args.do_fsr)
+        cmdline_args.do_fsr,
+        nthreads=cmdline_args.nthreads,
+        use_cache=cmdline_args.enable_cache,
+        filter_hlt_bits=parameters["baseline"]["hlt_bits"])
 
     threadk = thread_killer()
     threadk.set_tokill(False)
@@ -1174,6 +1189,22 @@ def get_histogram(data, weights, bins, mask=None):
     """Given N-unit vectors of data and weights, returns the histogram in bins
     """
     return Histogram(*ha.histogram_from_vector(data, weights, bins, mask))
+ 
+#remove parallel running for safety - it's not clear if different loop iterations modify overlapping data, which is not allowed
+@numba.njit(parallel=False)
+def fix_muon_fsrphoton_index(offsets_fsrphotons, offsets_muons, fsrphotons_dROverEt2, fsrphotons_muonIdx, muons_fsrPhotonIdx, out_muons_fsrPhotonIdx):
+    for iev in range(len(offsets_fsrphotons)-1):
+        k=0
+        for i in range(offsets_fsrphotons[iev],offsets_fsrphotons[iev+1]):
+            midx=np.int64(offsets_muons[iev]+fsrphotons_muonIdx[i])
+            fidx = np.int64(offsets_fsrphotons[iev]+muons_fsrPhotonIdx[midx])
+            #print(scalars['event'][iev], k,fsrphotons.muonIdx[i],midx,fidx,muons.fsrPhotonIdx[midx],fsrphotons.dROverEt2[fidx],fsrphotons.dROverEt2[i])
+            if(k!=muons_fsrPhotonIdx[midx]):
+                if(fsrphotons_dROverEt2[i] < fsrphotons_dROverEt2[fidx]):
+                    out_muons_fsrPhotonIdx[midx]=k
+                    #print('changed')
+            k = k+1
+    #return out_muons_fsrPhotonIdx
 
 def get_selected_muons(
     scalars,
@@ -1199,53 +1230,11 @@ def get_selected_muons(
     """
 
     if fsrphotons:
-        size = muons.numevents()
-
-        # indices of all muons
-        mu_indices = NUMPY_LIB.arange(muons.offsets[0], muons.offsets[-1])
-
-        i_mu = 0
-        i_mu_idx = muons.offsets[0:-1]
-        first_fsr_idx = fsrphotons.offsets[0:-1]
-
-        while(mu_indices.size):
-            # only consider events where i-th muon has pT>20 and an FSR photon associated with it
-            event_mask = (muons.fsrPhotonIdx[i_mu_idx] >= 0) & (muons.pt[i_mu_idx] > 20.)
-            mu_idx = i_mu_idx[event_mask]
-            fsr_idx = (first_fsr_idx[event_mask] + muons.fsrPhotonIdx[mu_idx]).astype(int)
-
-            print("Found {0} events where muon #{1} exists, in {2} of them the muon has associated FSR photon and passes pT>20 cut".format(i_mu_idx.shape[0], i_mu+1, mu_idx.shape[0]))
-
-            mu_kin = {"pt": muons.pt[mu_idx], "eta": muons.eta[mu_idx], "phi": muons.phi[mu_idx], "mass": muons.mass[mu_idx]}
-            fsr_kin = {"pt": fsrphotons.pt[fsr_idx], "eta": fsrphotons.eta[fsr_idx], "phi": fsrphotons.phi[fsr_idx],"mass": 0}
-
-            # will update isolation if FSR photon is within muon isolation cone dR<0.4
-            _, _, deltar_mu_fsr = deltar(mu_kin, fsr_kin, use_cuda)
-            iso_idx_mu = mu_idx[deltar_mu_fsr < 0.4]
-            iso_idx_fsr = fsr_idx[deltar_mu_fsr < 0.4]
-            absIso = muons.pfRelIso04_all[iso_idx_mu]*muons.pt[iso_idx_mu] # relative isolation was calclulated using uncorrected muon pT
-
-            # add FSR photon to muon four-vector
-            size = fsr_idx.shape[0]
-            sum_ret = sum_four_vectors([mu_kin, fsr_kin], size)
-            muons.pt[mu_idx] = sum_ret["pt"]
-            muons.eta[mu_idx] = sum_ret["eta"]
-            muons.phi[mu_idx] = sum_ret["phi"]
-
-            # remove FSR photon from muon isolation cone dR<0.4
-            muons.pfRelIso04_all[iso_idx_mu] = (absIso - fsrphotons.pt[iso_idx_fsr]) / muons.pt[iso_idx_mu]
-
-            # delete the indices of i-th muon from every event
-            mu_indices = mu_indices[~NUMPY_LIB.in1d(mu_indices, i_mu_idx)]
-
-            # throw away the events where (i+1)-th muon is not in the same event as i-th muon
-            # (in those cases the index of (i+1)-th muon has already been deleted from mu_indices)
-            updated_event_mask = NUMPY_LIB.in1d(i_mu_idx+1, mu_indices)
-
-            # move to considering (i+1)-th muons
-            i_mu += 1
-            i_mu_idx = i_mu_idx[updated_event_mask]+1
-            first_fsr_idx = first_fsr_idx[updated_event_mask]
+        out_muons_fsrPhotonIdx = NUMPY_LIB.array(muons.fsrPhotonIdx)
+        fix_muon_fsrphoton_index(fsrphotons.offsets, muons.offsets, fsrphotons.dROverEt2, fsrphotons.muonIdx, muons.fsrPhotonIdx, out_muons_fsrPhotonIdx)
+        out_muons_pt = correct_muon_with_fsr(muons.offsets, fsrphotons.offsets,
+                              muons.pt, muons.eta, muons.phi, muons.mass, muons.pfRelIso04_all, out_muons_fsrPhotonIdx,
+                              fsrphotons.pt, fsrphotons.eta, fsrphotons.phi)
 
     passes_iso = muons.pfRelIso04_all < mu_iso_cut
     passes_iso_trig_matched = muons.pfRelIso04_all < mu_iso_trig_matched_cut
@@ -1263,17 +1252,16 @@ def get_selected_muons(
         raise Exception("unknown muon id: {0}".format(muon_id_type))
 
     #find muons that pass ID
-    passes_global = (muons.isGlobal == 1)
     passes_subleading_pt = muons.pt > mu_pt_cut_subleading
     passes_leading_pt = muons.pt > mu_pt_cut_leading
     passes_aeta = NUMPY_LIB.abs(muons.eta) < mu_aeta_cut
     muons_passing_id =  (
-        passes_global & passes_iso & passes_id &
+        passes_iso & passes_id &
         passes_subleading_pt & passes_aeta
     )
 
     muons_passing_id_trig_matched =  (
-        passes_global & passes_iso_trig_matched & passes_id_trig_matched &
+        passes_iso_trig_matched & passes_id_trig_matched &
         passes_subleading_pt & passes_aeta
     )
 
@@ -1345,6 +1333,64 @@ def get_selected_muons(
         "additional_muon_sel": additional_muon_sel,
     }
 
+#Corrects the muon momentum and isolation, if a matched FSR photon with dR<0.4 is found
+@numba.njit
+def correct_muon_with_fsr(
+        muons_offsets, fsr_offsets,
+        muons_pt, muons_eta, muons_phi, muons_mass, muons_iso, muons_fsrIndex,
+        fsr_pt, fsr_eta, fsr_phi
+    ):
+
+    for iev in numba.prange(len(muons_offsets) - 1):
+
+        #loop over muons in event
+        mu_first = muons_offsets[iev]
+        mu_last = muons_offsets[iev + 1]
+        for imu in range(mu_first, mu_last):
+            #relative FSR index in the event
+            fsr_idx_relative = muons_fsrIndex[imu]
+
+            if (fsr_idx_relative >= 0) and (muons_pt[imu]>20):
+                #absolute index in the full FSR vector for all events
+                ifsr = fsr_offsets[iev] + fsr_idx_relative
+                mu_kin = {"pt": muons_pt[imu], "eta": muons_eta[imu], "phi": muons_phi[imu], "mass": muons_mass[imu]}
+                fsr_kin = {"pt": fsr_pt[ifsr], "eta": fsr_eta[ifsr], "phi": fsr_phi[ifsr],"mass": 0}
+
+                # dR between muon and photon
+                deta = muons_eta[imu] - fsr_eta[ifsr]
+                dphi = deltaphi_cpu_devfunc(muons_phi[imu], fsr_phi[ifsr])
+                dr = NUMPY_LIB.sqrt(deta**2 + dphi**2)
+
+                update_iso = dr<0.4
+
+                if update_iso:
+                    muons_iso_abs = (muons_iso[imu]*muons_pt[imu] - fsr_pt[ifsr])
+
+                #compute and set corrected momentum
+                px_total = 0
+                py_total = 0
+                pz_total = 0
+                e_total = 0
+                for obj in [mu_kin, fsr_kin]:
+                    px = obj["pt"] * np.cos(obj["phi"])
+                    py = obj["pt"] * np.sin(obj["phi"])
+                    pz = obj["pt"] * np.sinh(obj["eta"])
+                    e = NUMPY_LIB.sqrt(px**2 + py**2 + pz**2 + obj["mass"]**2)
+                    px_total += px
+                    py_total += py
+                    pz_total += pz
+                    e_total += e
+                out_pt = NUMPY_LIB.sqrt(px_total**2 + py_total**2)
+                out_eta = NUMPY_LIB.arcsinh(pz_total / out_pt)
+                out_phi = NUMPY_LIB.arctan2(py_total, px_total)
+
+                muons_pt[imu] = out_pt
+                muons_eta[imu] = out_eta
+                muons_phi[imu] = out_phi
+                if update_iso:
+                    muons_iso[imu] = muons_iso_abs / out_pt
+
+
 def get_bit_values(array, bit_index):
     """
     Given an array of N binary values (e.g. jet IDs), return the bit value at bit_index in [0, N-1].
@@ -1369,7 +1415,7 @@ def nsoftjets_cpu(nsoft, softht, nevt, softjets_offsets, pt, eta, phi, etaj1, et
         for isoftjets in range(softjets_offsets[iev], softjets_offsets[iev + 1]):
             if (pt[isoftjets] > ptcut):
                 sj_sel = True
-                if ((eta[isoftjets]<etaj1[iev] and eta[isoftjets]>etaj2[iev]) or (eta[isoftjets]<etaj2[iev] and eta[isoftjets]>etaj1[iev])):
+                if ((eta[isoftjets]<etaj1[iev]) and (eta[isoftjets]>etaj2[iev]) and (etaj1[iev]>etaj2[iev])) or ((eta[isoftjets]<etaj2[iev]) and (eta[isoftjets]>etaj1[iev]) and (etaj1[iev]<etaj2[iev])):
                     nobj = len(phis)
                     for index in range(nobj):
                         dphi = deltaphi_cpu_devfunc(phi[isoftjets], phis[index][iev])
@@ -2022,7 +2068,7 @@ def to_spherical(arrs):
     return {"pt": pt, "eta": eta, "phi": phi, "mass": mass, "rapidity": rap}
 
 """
-Given two objects, computes the dr = sqrt(deta^2+dphi^2) between them.
+Given two arrays of objects with the same length, computes the dr = sqrt(deta^2+dphi^2) between them.
     obj1: array of spherical coordinates (pt, eta, phi, m) for the first object
     obj2: array of spherical coordinates for the second object
 
@@ -2075,6 +2121,7 @@ Fills the DNN input variables based on two muons and two jets.
     'Higgs_eta' - dimuon eta
 """
 def dnn_variables(hrelresolution, leading_muon, subleading_muon, leading_jet, subleading_jet, nsoft, n_sel_softjet, n_sel_HTsoftjet, use_cuda):
+    nev = len(leading_muon["pt"])
     #delta eta, phi and R between two muons
     mm_deta, mm_dphi, mm_dr = deltar(leading_muon, subleading_muon, use_cuda)
     
@@ -2097,8 +2144,11 @@ def dnn_variables(hrelresolution, leading_muon, subleading_muon, leading_jet, su
     mm = {k: m1[k] + m2[k] for k in ["px", "py", "pz", "e"]}
     mm_sph = to_spherical(mm)
 
-    #mass resolusion
-    Higgs_mrelreso = hrelresolution.compute(leading_muon["pt"],leading_muon["eta"],subleading_muon["pt"],subleading_muon["eta"])
+    #mass resolution
+    if not hrelresolution is None:
+        Higgs_mrelreso = hrelresolution.compute(leading_muon["pt"],leading_muon["eta"],subleading_muon["pt"],subleading_muon["eta"])
+    else:
+        Higgs_mrelreso = NUMPY_LIB.zeros(nev, dtype=NUMPY_LIB.float32)
 
     #jets in cartesian, create dijet system 
     j1 = to_cartesian(leading_jet)
@@ -2114,16 +2164,14 @@ def dnn_variables(hrelresolution, leading_muon, subleading_muon, leading_jet, su
     #compute deletaEta between Higgs and jet
     EtaHQs = []
     for jet in [leading_jet, subleading_jet]:
-        EtaHQ = mm_sph["eta"] - jet["eta"] 
-        EtaHQs += [EtaHQ]
+        EtaHQs += [NUMPY_LIB.abs(mm_sph["eta"] - jet["eta"])]
     EtaHQ = NUMPY_LIB.vstack(EtaHQs)
     minEtaHQ = NUMPY_LIB.min(EtaHQ, axis=0)
 
     #compute deldPhi between Higgs and jet
     PhiHQs = []
     for jet in [leading_jet, subleading_jet]:
-        PhiHQ = mm_sph["phi"] - jet["phi"] 
-        PhiHQs += [PhiHQ]
+        PhiHQs += [NUMPY_LIB.abs(mm_sph["phi"] - jet["phi"])]
     PhiHQ = NUMPY_LIB.vstack(PhiHQs)
     minPhiHQ = NUMPY_LIB.min(PhiHQ, axis=0)
     #compute deltaR between all muons and jets
@@ -2190,9 +2238,9 @@ def dnn_variables(hrelresolution, leading_muon, subleading_muon, leading_jet, su
         "Higgs_mass": mm_sph["mass"], #fixm
         #DNN pisa variable
         "Mqq_log": NUMPY_LIB.log(jj_sph["mass"] ),
-        "Rpt": mmjj_sph["pt"]/(mm_sph["pt"]+jj_sph["pt"]),
+        "Rpt": mmjj_sph["pt"]/(mm_sph["pt"]+leading_jet["pt"]+subleading_jet["pt"]),
         "qqDeltaEta": NUMPY_LIB.abs(jj_deta),
-        "ll_zstar": NUMPY_LIB.abs(mm_sph["rapidity"] - 0.5*(leading_jet["rapidity"] + subleading_jet["rapidity"]))/(leading_jet["rapidity"]-subleading_jet["rapidity"]),
+        "log(ll_zstar)": NUMPY_LIB.log(NUMPY_LIB.abs((mm_sph["rapidity"] - 0.5*(leading_jet["rapidity"] + subleading_jet["rapidity"]))/(leading_jet["rapidity"]-subleading_jet["rapidity"]))),
         "NSoft5": n_sel_softjet,
         "HTSoft5": n_sel_HTsoftjet,
         "minEtaHQ": minEtaHQ,
@@ -2290,6 +2338,9 @@ def compute_fill_dnn(
     	dnn_vars["MET_pt"] = scalars["MET_pt"][dnn_presel]
     dnn_vars["num_jets"] = num_jets[dnn_presel]
     dnn_vars["num_jets_btag"] = num_jets_btag[dnn_presel]
+
+    year_var = float(dataset_era)*NUMPY_LIB.ones(nev_dnn_presel, dtype=NUMPY_LIB.float32)
+    dnn_vars["year"] = year_var
  
     if (not (dnn_model is None)) and nev_dnn_presel > 0:
         #print("dnn_model: ",dnn_model)
@@ -2315,23 +2366,21 @@ def compute_fill_dnn(
     dnnPisa_preds = []
     if parameters["do_dnn_pisa"]:
         for dnnPisa_model in dnnPisa_models:
-            if (not (dnnPisa_model is None)) and nev_dnn_presel > 0:    
+            if (not (dnnPisa_model is None)) and nev_dnn_presel > 0:
                 dnnPisa_vars1_arr = NUMPY_LIB.vstack([dnn_vars[k] for k in parameters["dnnPisa_varlist1_order"]]).T
                 dnnPisa_vars2_arr = NUMPY_LIB.vstack([dnn_vars[k] for k in parameters["dnnPisa_varlist2_order"]]).T
-                dnnPisa_vars1_arr += dnnPisa_normfactors1[0]
-                dnnPisa_vars1_arr *= dnnPisa_normfactors1[1]
-                dnnPisa_vars2_arr += dnnPisa_normfactors2[0] 
-                dnnPisa_vars2_arr *= dnnPisa_normfactors2[1]
-                dnnPisa_pred = NUMPY_LIB.array(dnnPisa_model.predict(
-                    [NUMPY_LIB.asnumpy(dnnPisa_vars1_arr),NUMPY_LIB.asnumpy(dnnPisa_vars2_arr)],
-                    batch_size=dnnPisa_vars1_arr.shape[0])[:, 0]
-                )
+                dnnPisa_vars1_arr -= dnnPisa_normfactors1[0]
+                dnnPisa_vars1_arr /= dnnPisa_normfactors1[1]
+                dnnPisa_vars2_arr -= dnnPisa_normfactors2[0]
+                dnnPisa_vars2_arr /= dnnPisa_normfactors2[1]
+                dnnPisa_pred = NUMPY_LIB.array(dnnPisa_model.predict([NUMPY_LIB.asnumpy(dnnPisa_vars1_arr),NUMPY_LIB.asnumpy(dnnPisa_vars2_arr)])[:, 0])
                 if len(dnnPisa_pred) > 0:
                     print("dnnPisa_pred", dnnPisa_pred.min(), dnnPisa_pred.max(), dnnPisa_pred.mean(), dnnPisa_pred.std())
                 dnnPisa_pred = NUMPY_LIB.array(dnnPisa_pred, dtype=NUMPY_LIB.float32)
             else:
                 dnnPisa_pred = NUMPY_LIB.zeros(nev_dnn_presel, dtype=NUMPY_LIB.float32)
             dnnPisa_preds += [dnnPisa_pred]
+
     if parameters["do_bdt_ucsd"]:
         hmmthetacs, hmmphics = miscvariables.csangles(
             NUMPY_LIB.asnumpy(leading_muon_s["pt"]),
@@ -2455,13 +2504,13 @@ class JetTransformer:
 
         self.corr_jec = self.NUMPY_LIB.array(self.corr_jec)
         self.pt_jec = self.NUMPY_LIB.array(self.raw_pt) * self.corr_jec 
-
+        
         if self.is_mc:
             self.msk_no_genjet = (self.jets.genpt==0)
             self.jer_nominal, self.jer_up, self.jer_down = self.apply_jer()
             check_inf_nan(self.jer_nominal) 
             self.pt_jec_jer = self.pt_jec * self.jer_nominal
-
+        
     def apply_jer(self, startfrom="pt_jec"):
         ptvec = getattr(self, startfrom)
         
@@ -2841,7 +2890,9 @@ def create_dataset(name, filenames, datastructures, cache_location, datapath, is
 
 def cache_preselection(ds, hlt_bits):
     for ifile in range(len(ds.filenames)):
-
+        print("cache_preselection: applying preselection on {0} with OR of HLT bits: {1}".format(
+            ds.filenames[ifile], hlt_bits)
+        )
         #OR of the trigger bits by summing
         hlt_res = [ds.eventvars[ifile][hlt_bit]==1 for hlt_bit in hlt_bits]
         sel = NUMPY_LIB.stack(hlt_res).sum(axis=0) >= 1
@@ -2880,7 +2931,7 @@ def cache_data_multiproc_worker(args):
         print("Cache on file {0} is complete, skipping".format(filename))
         return 0, 0
 
-    ds.load_root()
+    ds.load_root(nthreads=1)
 
     #put any preselection here
     processed_size_mb = ds.memsize()/1024.0/1024.0
@@ -2924,12 +2975,7 @@ def create_datastructure(dataset_name, is_mc, dataset_era, do_fsr=False):
             ("Jet_area", "float32"),
             ("Jet_rawFactor", "float32")
         ],
-        #"FSRPhoton":[
-         #   ("FSRPhoton_pt", "float32"),
-         #   ("FSRPhoton_eta", "float32"),
-         #   ("FSRPhoton_phi", "float32"),
-         #   ("FSRPhoton_mass", "float32"),
-       # ],
+
      "SoftActivityJet": [
             ("SoftActivityJet_pt", "float32"),
             ("SoftActivityJet_eta", "float32"),
@@ -3010,7 +3056,8 @@ def create_datastructure(dataset_name, is_mc, dataset_era, do_fsr=False):
                 ("LHEScaleWeight", "float32"),
             ]
         datastructures["Jet"] += [
-            ("Jet_genJetIdx", "int32")
+            ("Jet_genJetIdx", "int32"),
+            ("Jet_hadronFlavour", "int32")
         ]
         datastructures["GenJet"] = [
             ("GenJet_pt", "float32"), 
@@ -3066,17 +3113,19 @@ class thread_killer(object):
             self.to_kill = tokill
 
 class InputGen:
-    def __init__(self, job_descriptions, cache_location, datapath, do_fsr):
-
+    def __init__(self, job_descriptions, cache_location, datapath, do_fsr, nthreads=1, use_cache=True, filter_hlt_bits=[]):
         self.job_descriptions = job_descriptions
         self.chunk_lock = threading.Lock()
         self.loaded_lock = threading.Lock()
         self.num_chunk = 0
         self.num_loaded = 0
+        self.use_cache = use_cache
+        self.nthreads = nthreads
 
         self.cache_location = cache_location
         self.datapath = datapath
         self.do_fsr = do_fsr
+        self.filter_hlt_bits = filter_hlt_bits
 
     def is_done(self):
         return (self.num_chunk == len(self)) and (self.num_loaded == len(self))
@@ -3112,7 +3161,12 @@ class InputGen:
         self.chunk_lock.release()
 
         # Load caches on multiple threads
-        ds.from_cache()
+        if self.use_cache:
+            ds.from_cache()
+        else:
+        # skip cache
+            ds.load_root(nthreads=self.nthreads)
+            cache_preselection(ds, self.filter_hlt_bits[ds.era])
 
         #Merge data arrays to one big array
         ds.merge_inplace()
