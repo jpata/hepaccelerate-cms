@@ -982,7 +982,7 @@ def run_analysis(
         cmdline_args.datapath,
         cmdline_args.do_fsr,
         nthreads=cmdline_args.nthreads,
-        filter_hlt_bits=parameters["baseline"]["hlt_bits"])
+    )
 
     threadk = thread_killer()
     threadk.set_tokill(False)
@@ -2984,7 +2984,7 @@ class thread_killer(object):
             self.to_kill = tokill
 
 class InputGen:
-    def __init__(self, job_descriptions, datapath, do_fsr, nthreads=1, filter_hlt_bits=[]):
+    def __init__(self, job_descriptions, datapath, do_fsr, nthreads=1):
         self.job_descriptions = job_descriptions
         self.chunk_lock = threading.Lock()
         self.loaded_lock = threading.Lock()
@@ -2994,7 +2994,6 @@ class InputGen:
 
         self.datapath = datapath
         self.do_fsr = do_fsr
-        self.filter_hlt_bits = filter_hlt_bits
 
     def is_done(self):
         return (self.num_chunk == len(self)) and (self.num_loaded == len(self))
