@@ -66,12 +66,12 @@ rm -Rf skim_merge
 condor_submit cache.jdl
 #Wait until done
 
-#Now run the analysis
+#Now run the analysis, this can be between 20 minutes and a few hours
 ./make_submit_jdl.sh
-condor_submit submit.jdl
+condor_submit analyze.jdl
 #Wait until done
 
-#submit merging and plotting
+#submit merging and plotting, this should be around 30 minutes
 condor_submit merge.jdl
 
 cd ..

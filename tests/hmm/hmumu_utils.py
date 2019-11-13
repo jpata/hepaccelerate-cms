@@ -3030,7 +3030,7 @@ class InputGen:
 
         ds.load_root(nthreads=self.nthreads)
         
-        #Merge data arrays to one big array
+        #Merge data arrays from multiple files (if specified) to one big array
         ds.merge_inplace()
 
         # Increment the counter for number of loaded datasets
