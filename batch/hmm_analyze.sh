@@ -10,7 +10,7 @@ env
 export OUTDIR=out
 
 #Set some default arguments
-export NTHREADS=4
+export NTHREADS=2
 export PYTHONPATH=coffea:hepaccelerate:. 
 export HEPACCELERATE_CUDA=0
 export KERAS_BACKEND=tensorflow
