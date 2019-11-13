@@ -323,9 +323,9 @@ def analyze_data(
     #Now we throw away all the jets that didn't pass the ID to save time on computing JECs on them
     jets_passing_id = jets.select_objects(selected_jets_id)
 
-    if (parameters["jet_puid"] is not "none") and is_mc:
-        puid_weights = get_puid_weights(jets_passing_id, passed_puid, puidreweighting, dataset_era, parameters["jet_puid"])
-        weights_individual["jet_puid"] = {"nominal": puid_weights, "up": puid_weights, "down": puid_weights}
+    #if (parameters["jet_puid"] is not "none") and is_mc:
+    #    puid_weights = get_puid_weights(jets_passing_id, passed_puid, puidreweighting, dataset_era, parameters["jet_puid"])
+    #    weights_individual["jet_puid"] = {"nominal": puid_weights, "up": puid_weights, "down": puid_weights}
 
     #compute variated weights here to ensure the nominal weight contains all possible other weights  
     compute_event_weights(parameters, weights_individual, scalars, genweight_scalefactor, gghnnlopsw, ZpTw, LHEScalew, pu_corrections, is_mc, dataset_era, dataset_name)
