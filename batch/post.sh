@@ -11,9 +11,8 @@ cd /storage/user/$USER/hmm
 #fi
 
 #Unpack archives
-#\ls -1 out_*.tgz | xargs -P $NTHREADS -n 1 tar --skip-old-files -xf
+\ls -1 out_*.tgz | xargs -P $NTHREADS -n 1 tar --skip-old-files -xf
 cd $SUBMIT_DIR
-#cd /storage/user/idutta/Hmm/Vectorized/my_fork/hepaccelerate-cms/
 
 export PYTHONPATH=coffea:hepaccelerate:.
 
