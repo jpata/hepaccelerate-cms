@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.com/jpata/hepaccelerate.svg?branch=master)](https://travis-ci.com/jpata/hepaccelerate-cms)
+[![Build Status](https://travis-ci.com/jpata/hepaccelerate-cms.svg?branch=master)](https://travis-ci.com/jpata/hepaccelerate-cms)
 
 # hepaccelerate-cms
 
