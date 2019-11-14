@@ -1,22 +1,30 @@
-[![Build Status](https://travis-ci.com/jpata/hepaccelerate.svg?branch=master)](https://travis-ci.com/jpata/hepaccelerate-cms)
-[![pipeline status](https://gitlab.cern.ch/jpata/hepaccelerate-cms/badges/master/pipeline.svg)](https://gitlab.cern.ch/jpata/hepaccelerate-cms/commits/master)
+[![Build Status](https://travis-ci.com/jpata/hepaccelerate-cms.svg?branch=master)](https://travis-ci.com/jpata/hepaccelerate-cms)
 
 # hepaccelerate-cms
 
-CMS-specific accelerated analysis code based on the [hepaccelerate](https://github.com/hepaccelerate/hepaccelerate) library.
+CMS-specific (optionally) GPU-accelerated analysis code based on the [hepaccelerate](https://github.com/hepaccelerate/hepaccelerate) backend library.
 
 Currently implemented analyses:
 - `tests/hmm/analysis_hmumu.py`: CMS-HIG-19-006, [internal](http://cms.cern.ch/iCMS/analysisadmin/cadilines?line=HIG-19-006&tp=an&id=2254&ancode=HIG-19-006)
 
 Variations of this code have been tested at:
 - T2_US_Caltech (jpata, nlu)
-- Caltech HPC (jpata)
-- T2 Purdue
-- T3 PSI
+- Caltech HPC, http://www.hpc.caltech.edu/ (jpata)
+- T2_US_Purdue
+- T3_CH_PSI
 
+This code relies on NanoAOD files being available on the local filesystem for the best performance. It is possible to use xrootd, but currently, this is not the primary focus in the interest of maximum throughput, and thus is not officially supported. The full NanoAOD for a Run 2 analysis is on the order of 5TB (1.5TB skimmed), which is generally feasible to store on local disk.
+
+## Installation on lxplus
+
+This code can be tested on lxplus, with the input files located on `/eos/cms/store`.
 ~~~
-#Installation (e.g. on your laptop)
-pip3 install awkward uproot numba tqdm lz4 cloudpickle scipy
+#Create the python environment
+python3 -m venv venv-hepaccelearate
+source venv-hepaccelerate/bin/activate
+pip3 install awkward uproot numba tqdm lz4 cloudpickle scipy pyyaml cffi six tensorflow psutil xxhash keras
+
+#Get the code
 git clone https://github.com/jpata/hepaccelerate-cms.git
 cd hepaccelerate-cms
 git submodule init
@@ -26,9 +34,10 @@ git submodule update
 cd tests/hmm/
 make
 cd ../..
-~~~
 
-Best results can be achieved if the CMS data is stored locally on a filesystem (few TB needed) and if you have a cache disk on the analysis machine of a few hundred GB.
+#Run the code on a few NanoAOD files from EOS
+./tests/hmm/run_lxplus.sh
+~~~
 
 ## Installation on Caltech T2 or GPU machine
 
