@@ -23,6 +23,7 @@ echo "Preparing job chunks"
 python chunk_submits.py $NCHUNK jobfiles.txt > jobfiles_merged.txt
 
 rm -f args_analyze.txt
+rm -f slurm_submit.sh
 
 #Split on line, not on space
 IFS=$'\n'

@@ -29,5 +29,4 @@ singularity exec --nv -B /storage $SINGULARITY_IMAGE python3 tests/hmm/analysis_
     --out ./out \
     --datapath $INPUTDATAPATH \
     --datasets-yaml data/datasets_NanoAODv5.yml \
-    --cachepath $CACHEPATH \
-    --disable-tensorflow
+    --cachepath $CACHEPATH
