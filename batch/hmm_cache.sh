@@ -1,40 +1,19 @@
 #!/bin/bash
-
-hostname
-
-set -e
-
-ls /storage
-
 env
 
-workdir=`pwd`
+cd $TMP
 
-#Set some default arguments
-export NTHREADS=24
-export PYTHONPATH=coffea:hepaccelerate:. 
-export HEPACCELERATE_CUDA=0
-export KERAS_BACKEND=tensorflow
-export NUMBA_NUM_THREADS=$NTHREADS
-export OMP_NUM_THREADS=$NTHREADS
+cp $SUBMIT_DIR/batch/skim_merge.tgz ./
 
-#This is where the skim files are loaded form
-export CACHE_PATH=/storage/user/$USER/hmm/cache
+tar xf skim_merge.tgz
+mv skim_merge/*.txt ./
 
-#Local output director in worker node tmp
-export OUTDIR=out
-
-#Go to code directory
-cd $SUBMIT_DIR
+ls -al
 
 #Run the code
-rm -f $CACHE_PATH/datasets.json
-python3 tests/hmm/analysis_hmumu.py \
-    --action cache \
-    --nthreads $NTHREADS \
-    --cache-location $CACHE_PATH \
-    --datapath /storage/user/jpata/ \
-    --maxchunks -1 --chunksize 1 \
-    --out $workdir/out
+python2 $SUBMIT_DIR/tests/hmm/skim_and_recompress.py -i $1 -o $2 -t ./ -s "$3"
+
+#This didn't use to be necessary??
+rm -Rf *.txt *.tgz
 
 echo "job done"

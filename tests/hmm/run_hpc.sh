@@ -13,7 +13,7 @@ export MAXCHUNKS=1
 #Currently, use the cache provided by Joosep
 export CACHE_PATH=/central/groups/smaria/jpata/hmm/cache
 
-export SINGULARITY_IMAGE=/central/groups/smaria/jpata/software/cupy2.simg
+export SINGULARITY_IMAGE=/central/groups/smaria/jpata/hmm/software/cupy2.simg
 export PYTHONPATH=coffea:hepaccelerate:.
 export NUMBA_THREADING_LAYER=tbb
 export NUMBA_ENABLE_AVX=1
@@ -23,19 +23,12 @@ export HEPACCELERATE_CUDA=0
 export KERAS_BACKEND=tensorflow
 
 #This is the location of the input NanoAOD and generally does not need to be changed
-export INPUTDATAPATH=/storage/user/jpata/
-
-## Step 1: cache ROOT data (need to repeat only when list of files or branches changes)
-## This can take a few hours currently for the whole run (using maxchunks -1 and --nthreads 24)
-#singularity exec --nv -B /storage -B /mnt/hadoop $SINGULARITY_IMAGE python3 tests/hmm/analysis_hmumu.py \
-#   --action cache --maxchunks -1 --chunksize 1 \
-#   --nthreads 24 --cache-location $CACHE_PATH \
-#   --datapath $INPUTDATAPATH --era 2016 --era 2017 --era 2018
-
+export CACHEPATH=/central/groups/smaria/jpata/hmm/skim_merged
 
 ## Step 2: Run the physics analysis
-singularity exec --nv -B /storage -B /central $SINGULARITY_IMAGE python3 tests/hmm/analysis_hmumu.py \
+singularity exec --nv -B /central $SINGULARITY_IMAGE python3 tests/hmm/analysis_hmumu.py \
     --action analyze --action merge --maxchunks $MAXCHUNKS \
-    --nthreads $NTHREADS --cache-location $CACHE_PATH \
+    --nthreads $NTHREADS \
     --out ./out \
-    --datapath $INPUTDATAPATH --era 2016 --era 2017 --era 2018
+    --datasets-yaml data/datasets_NanoAODv5.yml \
+    --cachepath $CACHEPATH

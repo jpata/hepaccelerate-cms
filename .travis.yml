@@ -21,6 +21,7 @@ install:
   - pip install scipy
   - pip install requests
   - pip install cffi
+  - pip install pyyaml
   - pip install lz4 cloudpickle tqdm six futures
 
 script:
