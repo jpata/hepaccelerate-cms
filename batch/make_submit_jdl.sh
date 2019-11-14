@@ -38,4 +38,5 @@ for f in `cat jobfiles_merged.txt`; do
     NJOB=$((NJOB + 1))
 done
 echo "Please run 'export SUBMIT_DIR=`pwd`/..'"
+echo "To submit the jobs, just run 'condor_submit analyze.jdl'" 
 
