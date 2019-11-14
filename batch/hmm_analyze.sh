@@ -6,13 +6,8 @@ ls /storage
 
 env
 
-workdir=`pwd`
-
-#Create argument list
-tar xf jobfiles.tgz
-for word in "$@"; do
-    echo $workdir/jobfiles/$word.json >> args.txt
-done
+#Local output director in worker node tmp
+export OUTDIR=out
 
 #Set some default arguments
 export NTHREADS=2
@@ -22,11 +17,20 @@ export KERAS_BACKEND=tensorflow
 export NUMBA_NUM_THREADS=$NTHREADS
 export OMP_NUM_THREADS=$NTHREADS
 
-#This is where the skim files are loaded form
-export CACHE_PATH=/storage/user/nlu/hmm/cache2
+#This is where the skim files are loaded from
+export CACHE_PATH=/storage/user/jpata/hmm/skim_merged
 
-#Local output director in worker node tmp
-export OUTDIR=out
+workdir=`pwd`
+
+#Create argument list
+tar xf jobfiles.tgz
+for word in "$@"; do
+    echo $workdir/$OUTDIR/jobfiles/$word.json >> args.txt
+done
+
+mkdir $OUTDIR
+mv datasets.json $OUTDIR/
+mv jobfiles $OUTDIR/
 
 #Go to code directory
 cd $SUBMIT_DIR
@@ -34,10 +38,12 @@ cd $SUBMIT_DIR
 #Run the code
 python3 tests/hmm/analysis_hmumu.py \
     --action analyze \
-    --nthreads $NTHREADS --cache-location $CACHE_PATH \
-    --datapath /storage/user/jpata/ --era 2016 --era 2017 --era 2018 \
-    --out $workdir/$OUTDIR \
+    --nthreads $NTHREADS \
     --do-factorized-jec \
+    --datapath /storage/group/allcit \
+    --cachepath $CACHE_PATH \
+    --out $workdir/$OUTDIR \
+    --datasets-yaml data/datasets_NanoAODv5.yml \
     --jobfiles-load $workdir/args.txt
 
 cd $workdir
@@ -47,4 +53,5 @@ tar -cvzf out.tgz $OUTDIR
 cp out.tgz /storage/user/$USER/hmm/out_$CONDORJOBID.tgz
 du /storage/user/$USER/hmm/out_$CONDORJOBID.tgz
 
+rm -Rf *.json out out.tgz args.txt
 echo "job done"

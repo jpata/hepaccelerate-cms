@@ -13,7 +13,6 @@ cd /storage/user/$USER/hmm
 #Unpack archives
 \ls -1 out_*.tgz | xargs -P $NTHREADS -n 1 tar --skip-old-files -xf
 cd $SUBMIT_DIR
-#cd /storage/user/idutta/Hmm/Vectorized/my_fork/hepaccelerate-cms/
 
 export PYTHONPATH=coffea:hepaccelerate:.
 
@@ -21,6 +20,7 @@ export PYTHONPATH=coffea:hepaccelerate:.
 python3 tests/hmm/analysis_hmumu.py \
     --action merge \
     --nthreads $NTHREADS \
+    --datasets-yaml data/datasets_NanoAODv5.yml \
     --out /storage/user/$USER/hmm/out
 
 #Run plots

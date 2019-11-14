@@ -9,7 +9,7 @@ import uproot
 import copy
 import multiprocessing
 
-from pars import catnames, varnames, analysis_names, shape_systematics, controlplots_shape, datasets, genweight_scalefactor
+from pars import catnames, varnames, analysis_names, shape_systematics, controlplots_shape, genweight_scalefactor
 from pars import process_groups, colors, extra_plot_kwargs,proc_grps,combined_signal_samples
 
 from scipy.stats import wasserstein_distance
@@ -22,6 +22,7 @@ import glob
 
 import cloudpickle
 import json
+import yaml
 
 def get_cross_section(cross_sections, mc_samp, dataset_era):
     d = cross_sections[mc_samp]
@@ -755,7 +756,8 @@ if __name__ == "__main__":
     from pars import signal_samples, shape_systematics, common_scale_uncertainties, scale_uncertainties
 
     #create a list of all the processes that need to be loaded from the result files
-    mc_samples_load = set([d[0] for d in datasets])
+    datasets = yaml.load(open("data/datasets_NanoAODv5.yml"), Loader=yaml.FullLoader)["datasets"]
+    mc_samples_load = set([d["name"] for d in datasets])
 
     data_results_glob = cmdline_args.input + "/results/data_*.pkl"
     print("looking for {0}".format(data_results_glob))
@@ -907,7 +909,7 @@ if __name__ == "__main__":
                                 plot_args_shape_syst += [(
                                     histos, hdata, mc_samp, analysis,
                                     var, "nominal", weight_xs, int_lumi, outdir, era, unc)]
-        #rets = list(pool.map(make_pdf_plot, plot_args))
+        rets = list(pool.map(make_pdf_plot, plot_args))
         #rets = list(pool.map(make_pdf_plot, plot_args_weights_off))
         rets = list(pool.map(create_datacard_combine_wrap, datacard_args))
         #rets = list(pool.map(plot_variations, plot_args_shape_syst))

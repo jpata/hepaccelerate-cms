@@ -49,7 +49,6 @@ class TestAnalysisMC(unittest.TestCase):
             "vbf_sync",
             ["data/myNanoProdMc2016_NANO.root"],
             self.datastructures,
-            cache_location=".",
             datapath="",
             treename="Events",
             is_mc=True)

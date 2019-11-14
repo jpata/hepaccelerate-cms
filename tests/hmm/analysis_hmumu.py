@@ -13,7 +13,7 @@ from hepaccelerate.utils import choose_backend, LumiData, LumiMask
 from hepaccelerate.utils import Dataset, Results
 
 import hmumu_utils
-from hmumu_utils import run_analysis, run_cache, create_dataset_jobfiles, load_puhist_target, seed_generator
+from hmumu_utils import run_analysis, create_dataset_jobfiles, load_puhist_target, seed_generator
 from hmumu_lib import LibHMuMu, RochesterCorrections, LeptonEfficiencyCorrections, GBREvaluator, MiscVariables, NNLOPSReweighting, hRelResolution, ZpTReweighting
 
 import os
@@ -22,6 +22,7 @@ import getpass
 import json
 import glob
 import sys
+import yaml
 
 from coffea.util import USE_CUPY
 from coffea.lookup_tools import extractor
@@ -32,19 +33,18 @@ from coffea.jetmet_tools import JetResolutionScaleFactor
 
 from concurrent.futures import ProcessPoolExecutor, wait, ALL_COMPLETED
 
-from pars import datasets, datasets_sync
-
 def parse_args():
     parser = argparse.ArgumentParser(description='Caltech HiggsMuMu analysis')
     parser.add_argument('--async-data', action='store_true', help='Load data on a separate thread, faster but disable for debugging')
-    parser.add_argument('--action', '-a', action='append', help='List of analysis steps to do', choices=['cache', 'analyze', 'merge'], required=False, default=None)
+    parser.add_argument('--action', '-a', action='append', help='List of analysis steps to do', choices=['analyze', 'merge'], required=False, default=None)
     parser.add_argument('--nthreads', '-t', action='store', help='Number of CPU threads or workers to use', type=int, default=4, required=False)
     parser.add_argument('--datapath', '-p', action='store', help='Input file path that contains the CMS /store/... folder, e.g. /mnt/hadoop', required=False, default="/storage/user/jpata")
     parser.add_argument('--maxchunks', '-m', action='store', help='Maximum number of files to process for each dataset', default=1, type=int)
     parser.add_argument('--chunksize', '-c', action='store', help='Number of files to process simultaneously (larger is faster, but uses more memory)', default=1, type=int)
-    parser.add_argument('--cache-location', action='store', help='Cache location', default='./mycache', type=str)
     parser.add_argument('--out', action='store', help='Output location', default='out', type=str)
     parser.add_argument('--datasets', action='append', help='Dataset names process', type=str, required=False)
+    parser.add_argument('--datasets-yaml', action='store', help='Dataset definition file', type=str, required=True)
+    parser.add_argument('--cachepath', action='store', help='Location of the skimmed NanoAOD files', type=str, required=False)
     parser.add_argument('--eras', action='append', help='Data eras to process', type=str, required=False)
     parser.add_argument('--pinned', action='store_true', help='Use CUDA pinned memory')
     parser.add_argument('--do-sync', action='store_true', help='run only synchronization datasets')
@@ -52,8 +52,7 @@ def parse_args():
     parser.add_argument('--do-factorized-jec', action='store_true', help='Enables factorized JEC, disables most validation plots')
     parser.add_argument('--do-profile', action='store_true', help='Profile the code with yappi')
     parser.add_argument('--disable-tensorflow', action='store_true', help='Disable loading and evaluating the tensorflow model')
-    parser.add_argument('--enable-cache', action='store_true', help='Enable loading the cache instead of loading directly from the ROOT file')
-    parser.add_argument('--jobfiles', action='store', help='Jobfiles to process by the "cache" or "analyze" step', default=None, nargs='+', required=False)
+    parser.add_argument('--jobfiles', action='store', help='Jobfiles to process', default=None, nargs='+', required=False)
     parser.add_argument('--jobfiles-load', action='store', help='Load the list of jobfiles to process from this file', default=None, required=False)
     
     args = parser.parse_args()
@@ -357,19 +356,23 @@ class AnalysisCorrections:
         self.puidreweighting = puid_extractor.make_evaluator()
 
 
-def check_and_recreate_filename_cache(cache_filename, cache_location, datapath, datasets):
+def check_and_recreate_filename_cache(cache_filename, datapath, datasets, use_merged):
     if os.path.isfile(cache_filename):
         print("Cache file {0} already exists, we will not overwrite it to be safe.".format(cache_filename), file=sys.stderr)
-        print("Delete it or change --cache-location and try again.", file=sys.stderr)
-        sys.exit(1)
-        print("--action cache and no jobfiles specified, creating datasets.json dump of all filenames")
-    
-    if not os.path.isdir(cache_location):
-        os.makedirs(cache_location)
+        print("Delete it to rescan the filesystem for dataset files.", file=sys.stderr)
+        return
+ 
     filenames_cache = {}
 
     for dataset in datasets:
-        dataset_name, dataset_era, dataset_globpattern, is_mc = dataset
+        dataset_name = dataset["name"]
+        dataset_era = dataset["era"]
+        if use_merged:
+            dataset_globpattern = dataset["files_merged"]
+        else:
+            dataset_globpattern = dataset["files_nano_in"]
+        is_mc = dataset["is_mc"]
+
         filenames_all = glob.glob(datapath + dataset_globpattern, recursive=True)
         filenames_all = [fn for fn in filenames_all if not "Friend" in fn]
         filenames_cache[dataset_name + "_" + dataset_era] = [
@@ -379,13 +382,19 @@ def check_and_recreate_filename_cache(cache_filename, cache_location, datapath, 
             raise Exception("Dataset {0} matched 0 files from glob pattern {1}, verify that the data files are located in {2}".format(
                 dataset_name, dataset_globpattern, datapath
             ))
-    
+
     #save all dataset filenames to a json file 
     print("Creating a json dump of all the dataset filenames based on data found in {0}".format(datapath))
     with open(cache_filename, "w") as fi:
         fi.write(json.dumps(filenames_cache, indent=2))
 
 def create_all_jobfiles(datasets, cache_filename, datapath, chunksize, outpath):
+    jobfile_path = outpath + "/jobfiles"
+    if os.path.isdir(jobfile_path):
+        print("Jobfiles directory {0} already exists, skipping jobfile creation".format(jobfile_path))
+        return
+    os.makedirs(jobfile_path)
+
     #Create a list of job files for processing
     jobfile_data = []
     print("Loading list of filenames from {0}".format(cache_filename))
@@ -395,8 +404,11 @@ def create_all_jobfiles(datasets, cache_filename, datapath, chunksize, outpath):
     filenames_cache = json.load(open(cache_filename, "r"))
 
     seed_gen = seed_generator()
-    for dataset in sorted(datasets):
-        dataset_name, dataset_era, dataset_globpattern, is_mc = dataset
+    for dataset in sorted(datasets, key=lambda x: (x["name"], x["era"])):
+        dataset_name = dataset["name"]
+        dataset_era = dataset["era"]
+        is_mc = dataset["is_mc"]
+        
         try:
             filenames_all = filenames_cache[dataset_name + "_" + dataset_era]
         except KeyError as e:
@@ -408,7 +420,7 @@ def create_all_jobfiles(datasets, cache_filename, datapath, chunksize, outpath):
         print("Saving dataset {0}_{1} with {2} files in {3} files per chunk to jobfiles".format(
             dataset_name, dataset_era, len(filenames_all_full), chunksize))
         jobfile_dataset = create_dataset_jobfiles(dataset_name, dataset_era,
-            filenames_all_full, is_mc, chunksize, outpath, seed_gen)
+            filenames_all_full, is_mc, chunksize, jobfile_path, seed_gen)
         jobfile_data += jobfile_dataset
         print("Dataset {0}_{1} consists of {2} chunks".format(
             dataset_name, dataset_era, len(jobfile_dataset)))
@@ -424,11 +436,15 @@ def load_jobfiles(datasets, jobfiles_load_from_file, jobfiles, maxchunks, outpat
 
     #Check for existing jobfiles
     if jobfiles is None:
-        print("You did not specify to process specific dataset chunks, assuming you want to process all chunks")
+        print("You did not specify to process specific jobfiles, assuming you want to process all")
         print("If this is not true, please specify e.g. --jobfiles data_2018_0.json data_2018_1.json ...")
         jobfiles = []
         for dataset in datasets:
-            dataset_name, dataset_era, dataset_globpattern, is_mc = dataset
+            dataset_name = dataset["name"]
+            dataset_era = dataset["era"]
+            dataset_globpattern = dataset["files_nano_in"]
+            is_mc = dataset["is_mc"]
+
             jobfile_pattern = outpath + "/jobfiles/{0}_{1}_*.json".format(dataset_name, dataset_era)
             jobfiles_dataset = glob.glob(jobfile_pattern)
             if len(jobfiles_dataset) == 0:
@@ -440,7 +456,7 @@ def load_jobfiles(datasets, jobfiles_load_from_file, jobfiles, maxchunks, outpat
     
     #Now actually load the jobfiles 
     assert(len(jobfiles) > 0)
-    print("You specified --jobfiles {0}, processing only these dataset chunks".format(" ".join(jobfiles))) 
+    print("You specified --jobfiles {0}, processing only these jobfiles".format(" ".join(jobfiles))) 
     jobfile_data = []
     for f in jobfiles:
         jobfile_data += [json.load(open(f))]
@@ -448,7 +464,7 @@ def load_jobfiles(datasets, jobfiles_load_from_file, jobfiles, maxchunks, outpat
     chunkstr = " ".join(["{0}_{1}_{2}".format(
         ch["dataset_name"], ch["dataset_era"], ch["dataset_num_chunk"])
         for ch in jobfile_data])
-    print("Will process {0} dataset chunks: {1}".format(len(jobfile_data), chunkstr))
+    print("Will process {0} jofiles: {1}".format(len(jobfile_data), chunkstr))
     assert(len(jobfile_data) > 0)
     return jobfile_data
 
@@ -470,7 +486,7 @@ def merge_partial_results(dataset_name, dataset_era, outpath, outpath_partial):
         pickle.dump(results, fi, protocol=pickle.HIGHEST_PROTOCOL) 
     return
 
-def main(args, datasets):
+def main(args):
     do_prof = args.do_profile
     do_tensorflow = not args.disable_tensorflow
 
@@ -484,18 +500,14 @@ def main(args, datasets):
             cupy.cuda.set_allocator(None)
             cupy.cuda.set_pinned_memory_allocator(None)
 
-    #Use sync-only datasets
-    if args.do_sync:
-        datasets = datasets_sync
-
+    datasets = yaml.load(open(args.datasets_yaml), Loader=yaml.FullLoader)["datasets"]
     #Filter datasets by era
     datasets_to_process = []
     for ds in datasets:
-        if args.datasets is None or ds[0] in args.datasets:
-            if args.eras is None or ds[1] in args.eras:
+        if args.datasets is None or ds["name"] in args.datasets:
+            if args.eras is None or ds["era"] in args.eras:
                 datasets_to_process += [ds]
-                print("Will consider dataset", ds)
-    if len(datasets) == 0:
+    if len(datasets_to_process) == 0:
         raise Exception("No datasets considered, please check the --datasets and --eras options")
     datasets = datasets_to_process
 
@@ -519,16 +531,25 @@ def main(args, datasets):
         pickle.dump(analysis_parameters, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
     #Recreate dump of all filenames
-    cache_filename = args.cache_location + "/datasets.json"
-    if ("cache" in args.action) and (args.jobfiles is None):
-        check_and_recreate_filename_cache(cache_filename, args.cache_location, args.datapath, datasets)
+    cache_filename = "{0}/datasets.json".format(args.out)
+
+    use_skim = False
+    if args.cachepath is None:
+        print("--cachepath not specified, will process unskimmed NanoAOD, which is somewhat slower!")
+        print("Please see the README.md on how to skim the NanoAOD")
+        datapath = args.datapath
+    else:
+        print("Processing skimmed NanoAOD")
+        datapath = args.cachepath
+        use_skim = True
+    check_and_recreate_filename_cache(cache_filename, datapath, datasets, use_skim)
 
     #Create the jobfiles
-    if ("cache" in args.action or "analyze" in args.action) and (args.jobfiles is None):
-        create_all_jobfiles(datasets, cache_filename, args.datapath, args.chunksize, args.out)
+    if args.jobfiles is None:
+        create_all_jobfiles(datasets, cache_filename, datapath, args.chunksize, args.out)
 
     #For each dataset, find out which chunks we want to process
-    if "cache" in args.action or "analyze" in args.action:
+    if "analyze" in args.action:
         jobfile_data = load_jobfiles(datasets, args.jobfiles_load, args.jobfiles, args.maxchunks, args.out)
 
     #Start the profiler only in the actual data processing
@@ -537,10 +558,6 @@ def main(args, datasets):
         yappi.set_clock_type('cpu')
         yappi.start(builtins=True)
 
-    if "cache" in args.action and args.enable_cache:
-        print("Running the 'cache' step of the analysis, ROOT files will be opened and branches will be uncompressed")
-        run_cache(args, outpath_partial, jobfile_data, analysis_parameters)
-   
     #Run the physics analysis on all specified jobfiles  
     if "analyze" in args.action:
         print("Running the 'analyze' step of the analysis, processing the events into histograms with all systematics")
@@ -555,7 +572,9 @@ def main(args, datasets):
     if "merge" in args.action:
         with ProcessPoolExecutor(max_workers=args.nthreads) as executor:
             for dataset in datasets:
-                dataset_name, dataset_era, dataset_globpattern, is_mc = dataset
+                dataset_name = dataset["name"]
+                dataset_era = dataset["era"]
+                is_mc = dataset["is_mc"]
                 fut = executor.submit(merge_partial_results, dataset_name, dataset_era, args.out, outpath_partial)
         print("done merging")
 
@@ -566,4 +585,4 @@ def main(args, datasets):
 
 if __name__ == "__main__":
     args = parse_args()
-    main(args, datasets)
+    main(args)

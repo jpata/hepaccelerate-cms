@@ -961,42 +961,6 @@ def vbf_genfilter(genjet_inv_mass, num_good_genjets, parameters, dataset_name):
  
     return mask_out
 
-def run_cache(
-    cmdline_args,
-    outpath,
-    job_descriptions,
-    parameters):
-
-    print("run_cache with job_descriptions=", len(job_descriptions))
-    nev_total = 0
-    nev_loaded = 0
-    t0 = time.time()
-            
-    processed_size_mb = 0
-
-    _nev_total, _processed_size_mb = cache_data(
-        job_descriptions,
-        parameters,
-        cmdline_args)
-
-    nev_total += _nev_total
-    processed_size_mb += _processed_size_mb
-
-    t1 = time.time()
-    dt = t1 - t0
-    print("In run_cache, processed {nev:.2E} events in total {size:.2f} GB, {dt:.1f} seconds, {evspeed:.2E} Hz, {sizespeed:.2f} MB/s".format(
-        nev=nev_total, dt=dt, size=processed_size_mb/1024.0, evspeed=nev_total/dt, sizespeed=processed_size_mb/dt)
-    )
-
-    bench_ret = {}
-    bench_ret.update(cmdline_args.__dict__)
-    bench_ret["hostname"] = os.uname()[1]
-    bench_ret["nev_total"] = nev_total
-    bench_ret["total_time"] = dt
-    bench_ret["evspeed"] = nev_total/dt/1000/1000
-    with open(cmdline_args.out + "/analysis_benchmarks.txt", "a") as of:
-        of.write(json.dumps(bench_ret) + '\n')
-
 #Main analysis entry point
 def run_analysis(
     cmdline_args,
@@ -1015,12 +979,10 @@ def run_analysis(
     #Create a thread that will load data in the background
     training_set_generator = InputGen(
         job_descriptions,
-        cmdline_args.cache_location,
         cmdline_args.datapath,
         cmdline_args.do_fsr,
         nthreads=cmdline_args.nthreads,
-        use_cache=cmdline_args.enable_cache,
-        filter_hlt_bits=parameters["baseline"]["hlt_bits"])
+    )
 
     threadk = thread_killer()
     threadk.set_tokill(False)
@@ -1037,8 +999,6 @@ def run_analysis(
     rets = []
     num_processed = 0
    
-    cache_metadata = []
-
     tprev = time.time()
     #loop over all data, call the analyze function
     while num_processed < len(training_set_generator):
@@ -1093,7 +1053,7 @@ def run_analysis(
             pickle.dump(ret, fi, protocol=pickle.HIGHEST_PROTOCOL)
 
         processed_size_mb += memsize
-        nev_total += sum([md["numevents"] for md in ret["cache_metadata"]])
+        nev_total += ret["num_events"]
         nev_loaded += nev
         num_processed += 1
     print()
@@ -1101,16 +1061,6 @@ def run_analysis(
     #clean up threads
     threadk.set_tokill(True)
     #metrics_thread.join() 
-
-    # #save output
-    # ret = sum(rets, Results({}))
-    # assert(ret["baseline"]["int_lumi"] == sum([r["baseline"]["int_lumi"] for r in rets]))
-    # print(ret["baseline"]["int_lumi"])
-    # if is_mc:
-    #     ret["genEventSumw"] = genweight_scalefactor * sum([md["precomputed_results"]["genEventSumw"] for md in ret["cache_metadata"]])
-    #     ret["genEventSumw2"] = genweight_scalefactor * sum([md["precomputed_results"]["genEventSumw2"] for md in ret["cache_metadata"]])
-    #     print(dataset_name, "sum genweights", ret["genEventSumw"])
-    # ret.save_json("{0}/{1}_{2}.json".format(outpath, dataset_name, dataset_era))
     
     t1 = time.time()
     dt = t1 - t0
@@ -1176,11 +1126,11 @@ def event_loop(train_batches_queue, use_cuda, **kwargs):
         pinned_mempool = cupy.get_default_pinned_memory_pool()
         mempool.free_all_blocks()
         pinned_mempool.free_all_blocks()
-     
-    ret["cache_metadata"] = ds.cache_metadata
+   
     if ds.is_mc:
+        ret["cache_metadata"] = [func_filename_precompute_mc(fn) for fn in ds.filenames]
         ret["genEventSumw"] = genweight_scalefactor * sum([
-            md["precomputed_results"]["genEventSumw"] for md in ret["cache_metadata"]
+            md["genEventSumw"] for md in ret["cache_metadata"]
         ])
     ret = Results(ret)
     return ret, ds, len(ds), ds.memsize()/1024.0/1024.0
@@ -2854,25 +2804,6 @@ def chunks(l, n):
     for i in range(0, len(l), n):
         yield l[i:i + n]
 
-def cache_data(job_descriptions, parameters, cmdline_args):
-    if cmdline_args.nthreads == 1:
-        tot_ev = 0
-        tot_mb = 0
-        for result in map(cache_data_multiproc_worker, [
-            (job_desc, parameters, cmdline_args) for job_desc in job_descriptions]):
-            tot_ev += result[0]
-            tot_mb += result[1]
-    else:
-        with concurrent.futures.ProcessPoolExecutor(max_workers=cmdline_args.nthreads) as executor:
-            tot_ev = 0
-            tot_mb = 0
-            for result in executor.map(cache_data_multiproc_worker, [
-                (job_desc, parameters, cmdline_args) for job_desc in job_descriptions]):
-                tot_ev += result[0]
-                tot_mb += result[1]
-            print("waiting for completion")
-    return tot_ev, tot_mb
-
 """Given a ROOT file, run any checks that can only be done
 on the original file. In our case, we need to access the number
 of generated events.
@@ -2882,68 +2813,9 @@ def func_filename_precompute_mc(filename):
     ret = {"genEventSumw": sumw, "genEventSumw2": sumw2}
     return ret
  
-def create_dataset(name, filenames, datastructures, cache_location, datapath, is_mc):
-    ds = Dataset(name, filenames, datastructures, cache_location=cache_location, datapath=datapath, treename="Events", is_mc=is_mc)
-    if is_mc:
-        ds.func_filename_precompute = func_filename_precompute_mc
+def create_dataset(name, filenames, datastructures, datapath, is_mc):
+    ds = Dataset(name, filenames, datastructures, datapath=datapath, treename="Events", is_mc=is_mc)
     return ds
-
-def cache_preselection(ds, hlt_bits):
-    for ifile in range(len(ds.filenames)):
-        print("cache_preselection: applying preselection on {0} with OR of HLT bits: {1}".format(
-            ds.filenames[ifile], hlt_bits)
-        )
-        #OR of the trigger bits by summing
-        hlt_res = [ds.eventvars[ifile][hlt_bit]==1 for hlt_bit in hlt_bits]
-        sel = NUMPY_LIB.stack(hlt_res).sum(axis=0) >= 1
-
-        #If we didn't have >=2 muons in NanoAOD, no need to keep this event 
-        sel = sel & (ds.eventvars[ifile]["nMuon"] >= 2)
-
-        for structname in ds.structs.keys():
-            struct_compact = ds.structs[structname][ifile].compact_struct(sel)
-            ds.structs[structname][ifile] = struct_compact
-        for evvar_name in ds.eventvars[ifile].keys():
-            ds.eventvars[ifile][evvar_name] = ds.eventvars[ifile][evvar_name][sel]
-
-def cache_data_multiproc_worker(args):
-    job_desc, parameters, cmdline_args = args
-    print("verifying cache for {0}".format(job_desc))
-    filenames_all = job_desc["filenames"]
-    assert(len(filenames_all)==1)
-    filename = filenames_all[0]
-
-    dataset_name = job_desc["dataset_name"]
-    dataset_era = job_desc["dataset_era"]
-    is_mc = job_desc["is_mc"]
-    do_fsr = cmdline_args.do_fsr
-
-    datastructure = create_datastructure(dataset_name, is_mc, dataset_era, do_fsr)
-
-    #Used for preselection in the cache
-    hlt_bits = parameters["baseline"]["hlt_bits"][dataset_era]
-    t0 = time.time()
-    ds = create_dataset(dataset_name, filenames_all, datastructure, cmdline_args.cache_location, cmdline_args.datapath, is_mc)
-    ds.numpy_lib = np
-
-    #Skip loading this file if cache already done
-    if ds.check_cache():
-        print("Cache on file {0} is complete, skipping".format(filename))
-        return 0, 0
-
-    ds.load_root(nthreads=1)
-
-    #put any preselection here
-    processed_size_mb = ds.memsize()/1024.0/1024.0
-    cache_preselection(ds, hlt_bits)
-    processed_size_mb_post = ds.memsize()/1024.0/1024.0
-
-    ds.to_cache()
-    t1 = time.time()
-    dt = t1 - t0
-    print("built cache for {0}, loaded {1:.2f} MB, cached {2:.2f} MB, {3:.2E} Hz, {4:.2f} MB/s".format(
-        filename, processed_size_mb, processed_size_mb_post, len(ds)/dt, processed_size_mb/dt))
-    return len(ds), processed_size_mb
 
 #Branches to load from the ROOT files
 def create_datastructure(dataset_name, is_mc, dataset_era, do_fsr=False):
@@ -3112,19 +2984,16 @@ class thread_killer(object):
             self.to_kill = tokill
 
 class InputGen:
-    def __init__(self, job_descriptions, cache_location, datapath, do_fsr, nthreads=1, use_cache=True, filter_hlt_bits=[]):
+    def __init__(self, job_descriptions, datapath, do_fsr, nthreads=1):
         self.job_descriptions = job_descriptions
         self.chunk_lock = threading.Lock()
         self.loaded_lock = threading.Lock()
         self.num_chunk = 0
         self.num_loaded = 0
-        self.use_cache = use_cache
         self.nthreads = nthreads
 
-        self.cache_location = cache_location
         self.datapath = datapath
         self.do_fsr = do_fsr
-        self.filter_hlt_bits = filter_hlt_bits
 
     def is_done(self):
         return (self.num_chunk == len(self)) and (self.num_loaded == len(self))
@@ -3148,7 +3017,6 @@ class InputGen:
             job_desc["dataset_name"],
             job_desc["filenames"],
             datastructures,
-            self.cache_location,
             self.datapath,
             job_desc["is_mc"])
 
@@ -3159,15 +3027,9 @@ class InputGen:
         self.num_chunk += 1
         self.chunk_lock.release()
 
-        # Load caches on multiple threads
-        if self.use_cache:
-            ds.from_cache()
-        else:
-        # skip cache
-            ds.load_root(nthreads=self.nthreads)
-            cache_preselection(ds, self.filter_hlt_bits[ds.era])
-
-        #Merge data arrays to one big array
+        ds.load_root(nthreads=self.nthreads)
+        
+        #Merge data arrays from multiple files (if specified) to one big array
         ds.merge_inplace()
 
         # Increment the counter for number of loaded datasets
@@ -3190,11 +3052,7 @@ def seed_generator(start=0):
 
 def create_dataset_jobfiles(
     dataset_name, dataset_era,
-    filenames, is_mc, chunksize, outpath, seed_generator):
-    try:
-        os.makedirs(outpath + "/jobfiles")
-    except Exception as e:
-        pass
+    filenames, is_mc, chunksize, jobfile_path, seed_generator):
 
     job_descriptions = []
     ijob = 0
@@ -3210,15 +3068,9 @@ def create_dataset_jobfiles(
         }
 
         job_descriptions += [job_description]
-        fn = outpath + "/jobfiles/{0}_{1}_{2}.json".format(dataset_name, dataset_era, ijob)
-        if os.path.isfile(fn):
-            if ijob == 0:
-                print("Jobfile {0} exists, not recreating this one or others for this dataset".format(fn))
-                print("Delete the folder {0}/jobfiles if you would like the files to be recreated".format(outpath))
-                print("You might want this when you changed the --chunksize option.")
-        else:
-            with open(fn, "w") as fi:
-                fi.write(json.dumps(job_description, indent=2))
+        fn = jobfile_path + "/{0}_{1}_{2}.json".format(dataset_name, dataset_era, ijob)
+        with open(fn, "w") as fi:
+            fi.write(json.dumps(job_description, indent=2))
 
         ijob += 1
     return job_descriptions
