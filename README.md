@@ -9,14 +9,16 @@ Currently implemented analyses:
 
 Variations of this code have been tested at:
 - T2_US_Caltech (jpata, nlu)
-- Caltech HPC (jpata)
-- T2 Purdue
-- T3 PSI
+- Caltech HPC, http://www.hpc.caltech.edu/ (jpata)
+- T2_US_Purdue
+- T3_CH_PSI
+
+This code relies on NanoAOD files being available on the local filesystem for the best performance. It is possible to use xrootd, but currently, this is not the primary focus in the interest of maximum throughput, and thus is not officially supported. The full NanoAOD for a Run 2 analysis is on the order of 5TB (1.5TB skimmed), which is generally feasible to store on local disk.
 
 ## Installation on lxplus
 
+This code can be tested on lxplus, with the input files located on `/eos/cms/store`.
 ~~~
-
 #Create the python environment
 python3 -m venv venv-hepaccelearate
 source venv-hepaccelerate/bin/activate
