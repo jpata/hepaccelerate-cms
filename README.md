@@ -45,7 +45,7 @@ singularity exec /storage/user/jpata/gpuservers/singularity/images/cupy.simg mak
 cd ../..
 
 #Run the code as a small test (small subset of the data by default, edit the file to change this)
-#This should take approximately 5 minutes and processes 1 file from each dataset for each year
+#This should take approximately 10 minutes and processes 1 file from each dataset for each year
 ./tests/hmm/run.sh
 ~~~
 
@@ -56,20 +56,23 @@ We use the condor batch queue on Caltech T2 to run the analysis. It ~20 minutes 
 #Submit batch jobs after this step is successful
 mkdir /storage/user/$USER/hmm
 export SUBMIT_DIR=`pwd`
+
+#Prepare the list of datasets (out/datasets.json) and the jobfiles (out/jobfiles/*.json) 
+./tests/hmm/run.sh
+
 cd batch
 
 #Run the NanoAOD skimming step (cache creation)
 #This is quite heavy (~6h total), so do this one time
 #When adding new samples
-rm -Rf skim_merge
 ./make_cache_jdl.sh
 condor_submit cache.jdl
-#Wait until done
+#...wait until done
 
 #Now run the analysis, this can be between 20 minutes and a few hours
 ./make_submit_jdl.sh
 condor_submit analyze.jdl
-#Wait until done
+#...wait until done
 
 #submit merging and plotting, this should be around 30 minutes
 condor_submit merge.jdl

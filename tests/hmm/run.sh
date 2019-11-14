@@ -22,7 +22,7 @@ export KERAS_BACKEND=tensorflow
 export INPUTDATAPATH=/storage/group/allcit
 export CACHEPATH=/storage/user/jpata/hmm/skim_merged
 
-## Step 2: Run the physics analysis
+## Step 2: Prepare the list of files to process and run the physics analysis
 singularity exec --nv -B /storage $SINGULARITY_IMAGE python3 tests/hmm/analysis_hmumu.py \
     --action analyze --action merge --maxchunks $MAXCHUNKS \
     --nthreads $NTHREADS \
