@@ -18,6 +18,5 @@ RequestCpus = 1
 RemoteIwd = /wntmp
 
 Environment = USER=$ENV(USER);CONDORJOBID=$(Process);SUBMIT_DIR=$ENV(SUBMIT_DIR)
-should_transfer_files = no
 
 Queue arguments from skim_merge/args_merge.txt

@@ -7,7 +7,7 @@ singularity exec -B /storage ~/gpuservers/singularity/images/cupy2.simg \
     python ../../tests/hmm/prepare_merge_argfile.py \
     -i ../../data/datasets_NanoAODv5.yml \
     --datapath /storage/group/allcit \
-    --outpath ~/hmm/skim_merged2
+    --outpath ~/hmm/skim_merged
 
 cd ..
 
