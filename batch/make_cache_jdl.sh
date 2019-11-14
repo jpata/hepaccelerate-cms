@@ -1,4 +1,9 @@
 #!/bin/bash
+set -e
+
+export SUBMIT_DIR=$(dirname `pwd`) 
+
+rm -Rf skim_merge
 mkdir skim_merge
 cd skim_merge
 
@@ -11,4 +16,8 @@ singularity exec -B /storage ~/gpuservers/singularity/images/cupy2.simg \
 
 cd ..
 
-tar -cvzf skim_merge.tgz skim_merge
+tar -czf skim_merge.tgz skim_merge
+NJOBS=`wc -l skim_merge/args_merge.txt`
+echo "Skim jobs prepared: $NJOBS"
+echo "Please run 'export SUBMIT_DIR=$SUBMIT_DIR'"
+echo "Run 'condor_submit cache.jdl' to submit them"
