@@ -2,7 +2,7 @@
 
 # hepaccelerate-cms
 
-CMS-specific accelerated analysis code based on the [hepaccelerate](https://github.com/hepaccelerate/hepaccelerate) library.
+CMS-specific (optionally) GPU-accelerated analysis code based on the [hepaccelerate](https://github.com/hepaccelerate/hepaccelerate) backend library.
 
 Currently implemented analyses:
 - `tests/hmm/analysis_hmumu.py`: CMS-HIG-19-006, [internal](http://cms.cern.ch/iCMS/analysisadmin/cadilines?line=HIG-19-006&tp=an&id=2254&ancode=HIG-19-006)
