@@ -50,7 +50,6 @@ if __name__ == "__main__":
         dataset_era = ds["era"] 
         path = ds["files_nano_in"]
         skim_cut = ds["skim_cut"] 
-        num_files_to_merge = ds["num_files_to_merge"]
  
         filenames = match_filenames(args.datapath + path, ds["files_merged"])
         nfiles = 0
