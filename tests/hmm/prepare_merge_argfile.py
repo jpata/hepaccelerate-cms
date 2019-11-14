@@ -14,8 +14,8 @@ def chunks(l, n):
     for i in range(0, len(l), n):
         yield l[i:i + n]
 
-#Merge input files such that they are approximately 1GB
-def chunks_filesize(files, maxsize=1e9):
+#Merge input files such that they are approximately 500MB
+def chunks_filesize(files, maxsize=500*1000*1000):
     size = 0
     current_files = []
     for fi in files:
@@ -33,9 +33,6 @@ def parse_args():
     parser.add_argument('--input', '-i', action='store', help='List of input files', required=True)
     parser.add_argument('--datapath', '-d', action='store', help='Data input path', required=True)
     parser.add_argument('--outpath', '-o', action='store', help='Data output path', required=True)
-    parser.add_argument('--cmd', '-c', action='store', help='Merge command',
-        required=False,
-        default="singularity exec -B /storage -B /data ~jpata/gpuservers/singularity/images/cupy2.simg python2 tests/hmm/skim_and_recompress.py")
     args = parser.parse_args()
     return args
 
@@ -65,6 +62,5 @@ if __name__ == "__main__":
                 print(fn, file=fi)
             
             outfile = args.outpath + ds["files_merged"].replace("*.root", "{0}.root".format(ich))
-            #print("{0} -i {1} -o {2} -t {3}".format(args.cmd, infiles_name, outfile, args.temppath), file=argfile)
             print(infiles_name, outfile, skim_cut.replace(" ", ""), file=argfile)
         assert(nfiles == len(filenames))
