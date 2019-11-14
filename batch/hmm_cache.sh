@@ -1,6 +1,10 @@
 #!/bin/bash
 env
 
+cd $TMP
+
+cp $SUBMIT_DIR/batch/skim_merge.tgz ./
+
 tar xf skim_merge.tgz
 mv skim_merge/*.txt ./
 

@@ -15,8 +15,9 @@ x509userproxy = $ENV(X509_USER_PROXY)
 RequestDisk = 4
 RequestMemory = 3000
 RequestCpus = 1
+RemoteIwd = /wntmp
 
 Environment = USER=$ENV(USER);CONDORJOBID=$(Process);SUBMIT_DIR=$ENV(SUBMIT_DIR)
-transfer_input_files = skim_merge.tgz
+should_transfer_files = no
 
 Queue arguments from skim_merge/args_merge.txt
