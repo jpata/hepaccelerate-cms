@@ -39,7 +39,7 @@ cd $SUBMIT_DIR
 python3 tests/hmm/analysis_hmumu.py \
     --action analyze \
     --nthreads $NTHREADS \
-    --cachepath $CACHE_PATH \
+    --do-factorized-jec \
     --datapath /storage/group/allcit \
     --cachepath $CACHE_PATH \
     --out $workdir/$OUTDIR \
