@@ -1,5 +1,4 @@
 [![Build Status](https://travis-ci.com/jpata/hepaccelerate.svg?branch=master)](https://travis-ci.com/jpata/hepaccelerate-cms)
-[![pipeline status](https://gitlab.cern.ch/jpata/hepaccelerate-cms/badges/master/pipeline.svg)](https://gitlab.cern.ch/jpata/hepaccelerate-cms/commits/master)
 
 # hepaccelerate-cms
 
@@ -14,9 +13,16 @@ Variations of this code have been tested at:
 - T2 Purdue
 - T3 PSI
 
+## Installation on lxplus
+
 ~~~
-#Installation (e.g. on your laptop)
-pip3 install awkward uproot numba tqdm lz4 cloudpickle scipy
+
+#Create the python environment
+python3 -m venv venv-hepaccelearate
+source venv-hepaccelerate/bin/activate
+pip3 install awkward uproot numba tqdm lz4 cloudpickle scipy pyyaml cffi six tensorflow psutil xxhash keras
+
+#Get the code
 git clone https://github.com/jpata/hepaccelerate-cms.git
 cd hepaccelerate-cms
 git submodule init
@@ -26,9 +32,10 @@ git submodule update
 cd tests/hmm/
 make
 cd ../..
-~~~
 
-Best results can be achieved if the CMS data is stored locally on a filesystem (few TB needed) and if you have a cache disk on the analysis machine of a few hundred GB.
+#Run the code on a few NanoAOD files from EOS
+./tests/hmm/run_lxplus.sh
+~~~
 
 ## Installation on Caltech T2 or GPU machine
 
