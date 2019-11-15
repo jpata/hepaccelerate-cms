@@ -108,7 +108,7 @@ def analyze_data(
     electrons = data["Electron"]
     trigobj = data["TrigObj"]
     scalars = data["eventvars"]
-    LHEScalew = {}
+    LHEScalew = None
     if "dy" in dataset_name or "ewk" in dataset_name:
         LHEScalew = data["LHEScaleWeight"]
     histo_bins = parameters["histo_bins"]
@@ -330,7 +330,9 @@ def analyze_data(
         weights_individual["jet_puid"] = {"nominal": puid_weights, "up": puid_weights, "down": puid_weights}
 
     #compute variated weights here to ensure the nominal weight contains all possible other weights  
-    compute_event_weights(parameters, weights_individual, scalars, genweight_scalefactor, gghnnlopsw, ZpTw, LHEScalew, pu_corrections, is_mc, dataset_era, dataset_name)
+    compute_event_weights(parameters, weights_individual, scalars,
+        genweight_scalefactor, gghnnlopsw, ZpTw,
+        LHEScalew, pu_corrections, is_mc, dataset_era, dataset_name, use_cuda)
 
     #actually multiply all the weights together with the appropriate up/down variations.
     #creates a 1-level dictionary with weights "nominal", "puweight__up", "puweight__down", ..." 
@@ -793,7 +795,7 @@ def finalize_weights(weights, all_weight_names=None):
         print("finalized weight", k, ret[k].mean())
     return ret
 
-def compute_event_weights(parameters, weights, scalars, genweight_scalefactor, gghw, zptw, LHEScalew, pu_corrections, is_mc, dataset_era, dataset_name):
+def compute_event_weights(parameters, weights, scalars, genweight_scalefactor, gghw, zptw, LHEScalew, pu_corrections, is_mc, dataset_era, dataset_name, use_cuda):
     if is_mc:
         if dataset_name in parameters["ggh_nnlops_reweight"]:
             weights["nominal"]["nominal"] = scalars["genWeight"] * genweight_scalefactor * gghw
@@ -843,8 +845,8 @@ def compute_event_weights(parameters, weights, scalars, genweight_scalefactor, g
         if ("dy" in dataset_name) or ("ewk" in dataset_name):
             nevt = len(weights["nominal"]["nominal"])
             for iScale in range(n_max_lheweights):
-                LHEScalew_all = NUMPY_LIB.zeros(nevt, dtype=NUMPY_LIB.float32);
-                get_theoryweights_cpu(LHEScalew.offsets, LHEScalew.LHEScaleWeight, iScale, LHEScalew_all)
+                LHEScalew_all = NUMPY_LIB.zeros(nevt, dtype=NUMPY_LIB.float32)
+                get_theoryweights(LHEScalew.offsets, LHEScalew.LHEScaleWeight, iScale, LHEScalew_all, use_cuda)
                 weights["LHEScaleWeight"][str(iScale)] = LHEScalew_all
 
 def evaluate_bdt_ucsd(dnn_vars, gbr_bdt):
@@ -2006,6 +2008,21 @@ def get_theoryweights_cpu(offsets, variations, index, out_var):
     #loop over events
     for iev in numba.prange(len(offsets) - 1):
         out_var[iev] = variations[offsets[iev]+index]
+
+@cuda.jit
+def get_theoryweights_cuda(offsets, variations, index, out_var):
+    xi = cuda.grid(1)
+    xstride = cuda.gridsize(1)
+    #loop over events
+    for iev in range(xi, len(offsets) - 1, xstride):
+        out_var[iev] = variations[offsets[iev]+index]
+
+def get_theoryweights(offsets, variations, index, out_var, use_cuda):
+    if use_cuda:
+        get_theoryweights_cuda[32,1014](offsets, variations, index, out_var)
+        cuda.synchronize()
+    else:
+        get_theoryweights_cpu(offsets, variations, index, out_var)
 
 # Custom kernels to get the pt of the genHiggs
 def genhpt(genpart, mask, use_cuda):

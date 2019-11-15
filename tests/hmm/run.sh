@@ -3,7 +3,7 @@
 set -e
 
 #Use this many threads, should be around 1-4
-export NTHREADS=2
+export NTHREADS=1
 
 #Set to -1 to run on all files, 1 for debugging/testing
 export MAXCHUNKS=1
@@ -11,13 +11,12 @@ export MAXCHUNKS=1
 export SINGULARITY_IMAGE=/storage/user/jpata/gpuservers/singularity/images/cupy2.simg
 export PYTHONPATH=coffea:hepaccelerate:.
 export NUMBA_THREADING_LAYER=omp
-export NUMBA_ENABLE_AVX=0
+export NUMBA_ENABLE_AVX=1
 export NUMBA_CPU_FEATURES=+sse,+sse2,+avx,+avx2
 export NUMBA_NUM_THREADS=$NTHREADS
 export OMP_NUM_THREADS=$NTHREADS
 export HEPACCELERATE_CUDA=0
 export KERAS_BACKEND=tensorflow
-export KMP_AFFINITY=granularity=fine,verbose,compact,1,0
 
 #This is the location of the input NanoAOD and generally does not need to be changed
 export INPUTDATAPATH=/storage/group/allcit
