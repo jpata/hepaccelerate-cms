@@ -19,4 +19,4 @@ RemoteIwd = /wntmp
 
 Environment = USER=$ENV(USER);CONDORJOBID=$(Process);SUBMIT_DIR=$ENV(SUBMIT_DIR)
 
-Queue arguments from skim_merge/args_merge.txt
+Queue arguments from skim_merge/args_merge_2018.txt
