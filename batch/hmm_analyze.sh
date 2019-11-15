@@ -10,11 +10,11 @@ env
 export OUTDIR=out
 
 #Set some default arguments
-export NTHREADS=1
+export NTHREADS=2
 export PYTHONPATH=coffea:hepaccelerate:. 
 export HEPACCELERATE_CUDA=0
 export KERAS_BACKEND=tensorflow
-export NUMBA_ENABLE_AVX=0
+export NUMBA_ENABLE_AVX=1
 export NUMBA_THREADING_BACKEND=omp
 export NUMBA_NUM_THREADS=$NTHREADS
 export OMP_NUM_THREADS=$NTHREADS
