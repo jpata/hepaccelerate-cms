@@ -294,8 +294,8 @@ class AnalysisCorrections:
             #disable GPU for tensorflow
             import tensorflow as tf
             config = tf.compat.v1.ConfigProto()
-            config.intra_op_parallelism_threads=args.nthreads
-            config.inter_op_parallelism_threads=args.nthreads
+            config.intra_op_parallelism_threads=1
+            config.inter_op_parallelism_threads=1
 
             if not args.use_cuda: 
                 os.environ["CUDA_VISIBLE_DEVICES"]="-1"
