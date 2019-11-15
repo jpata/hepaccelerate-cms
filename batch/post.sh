@@ -5,10 +5,10 @@ set -e
 export NTHREADS=8
 
 cd /storage/user/$USER/hmm
-#if [ -d /storage/user/$USER/hmm/out ]; then
-#    echo "Output directory /storage/user/$USER/hmm/out exists, please delete it"
-#    exit 1
-#fi
+if [ -d /storage/user/$USER/hmm/out ]; then
+    echo "Output directory /storage/user/$USER/hmm/out exists, please delete it"
+    exit 1
+fi
 
 #Unpack archives
 \ls -1 out_*.tgz | xargs -P $NTHREADS -n 1 tar --skip-old-files -xf

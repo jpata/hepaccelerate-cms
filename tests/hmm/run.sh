@@ -3,7 +3,7 @@
 set -e
 
 #Use this many threads, should be around 1-4
-export NTHREADS=1
+export NTHREADS=8
 
 #Set to -1 to run on all files, 1 for debugging/testing
 export MAXCHUNKS=1
@@ -28,5 +28,5 @@ singularity exec --nv -B /storage $SINGULARITY_IMAGE python3 tests/hmm/analysis_
     --nthreads $NTHREADS \
     --out ./out \
     --datapath $INPUTDATAPATH \
-    --datasets-yaml data/datasets_NanoAODv5.yml \
-    --cachepath $CACHEPATH
+    --cachepath $CACHEPATH \
+    --datasets-yaml data/datasets_NanoAODv5.yml --disable-tensorflow --era 2018
