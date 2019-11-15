@@ -797,7 +797,7 @@ if __name__ == "__main__":
             except Exception as e:
                 print("Could not find results file {0}, skipping process {1}".format(res_file_name, mc_samp))
 
-        analyses = [k for k in res["data"].keys() if not k in ["cache_metadata", "num_events"]]
+        analyses = [k for k in res["data"].keys() if not k in ["cache_metadata", "num_events", "int_lumi"]]
 
         for analysis in analyses:
             print("processing analysis {0}".format(analysis))
@@ -813,7 +813,7 @@ if __name__ == "__main__":
                 pass
 
             #in inverse picobarns
-            int_lumi = res["data"]["baseline"]["int_lumi"]
+            int_lumi = res["data"]["int_lumi"]
             for mc_samp in res.keys():
                 if mc_samp != "data":
                     genweights[mc_samp] = res[mc_samp]["genEventSumw"]

@@ -115,9 +115,6 @@ def analyze_data(
 
     #first mask of all events enabled
     mask_events = NUMPY_LIB.ones(muons.numevents(), dtype=NUMPY_LIB.bool)
-
-    #Compute integrated luminosity on data sample and apply golden JSON
-    int_lumi = compute_integrated_luminosity(scalars, lumimask, lumidata, dataset_era, mask_events, is_mc)
     
     check_and_fix_qgl(jets)
 
@@ -628,9 +625,7 @@ def analyze_data(
     #end of uncertainty_name loop
 
     # Collect results
-    ret = Results({
-        "int_lumi": int_lumi,
-    })
+    ret = Results({})
 
     for histname, r in hists.items():
         ret[histname] = Results(r)
@@ -699,11 +694,12 @@ def fill_histograms_several(hists, systematic_name, histname_prefix, variables, 
             target = {weight_name: target_histogram}
             update_histograms_systematic(hists, hist_name, systematic_name, target)
     
-def compute_integrated_luminosity(scalars, lumimask, lumidata, dataset_era, mask_events, is_mc):
+def compute_integrated_luminosity(analyzed_runs, analyzed_lumis, lumimask, lumidata, dataset_era, is_mc):
     int_lumi = 0
     if not is_mc:
-        runs = NUMPY_LIB.asnumpy(scalars["run"])
-        lumis = NUMPY_LIB.asnumpy(scalars["luminosityBlock"])
+        runs = NUMPY_LIB.asnumpy(analyzed_runs)
+        lumis = NUMPY_LIB.asnumpy(analyzed_lumis)
+        mask_events = NUMPY_LIB.ones(len(runs), dtype=NUMPY_LIB.bool)
         if not (lumimask is None):
            #keep events passing golden JSON
            mask_lumi_golden_json = lumimask[dataset_era](runs, lumis)
@@ -1142,6 +1138,11 @@ def event_loop(train_batches_queue, use_cuda, **kwargs):
         ret["genEventSumw"] = genweight_scalefactor * sum([
             md["genEventSumw"] for md in ret["cache_metadata"]
         ])
+    else:
+        #Compute integrated luminosity on data sample and apply golden JSON
+        analyzed_runs, analyzed_lumis = get_lumis(ds.filenames)  
+        int_lumi = compute_integrated_luminosity(analyzed_runs, analyzed_lumis, kwargs["lumimask"], kwargs["lumidata"], ds.era, ds.is_mc)
+        ret["int_lumi"] = int_lumi
     ret = Results(ret)
     return ret, ds, len(ds), ds.memsize()/1024.0/1024.0
 
@@ -1901,10 +1902,21 @@ def get_gen_sumweights(filenames):
         bl = ff.get("Runs")
         arr = bl.array("genEventSumw")
         arr2 = bl.array("genEventSumw2")
-        arr = arr
         sumw += arr.sum()
         sumw2 += arr2.sum()
     return sumw, sumw2
+
+def get_lumis(filenames):
+    runs = []
+    luminosityBlock = []
+    for fi in filenames:
+        ff = uproot.open(fi)
+        bl = ff.get("LuminosityBlocks")
+        arr = bl.array("run")
+        arr2 = bl.array("luminosityBlock")
+        runs += [arr]
+        luminosityBlock += [arr2]
+    return np.hstack(runs), np.hstack(luminosityBlock)
 
 """
 Applies Rochester corrections on leading and subleading muons, returns the corrected pt
