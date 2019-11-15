@@ -41,7 +41,7 @@ cd $SUBMIT_DIR
 python3 tests/hmm/analysis_hmumu.py \
     --action analyze \
     --nthreads $NTHREADS \
-    --do-factorized-jec \
+    --disable-tensorflow \
     --datapath /storage/group/allcit \
     --cachepath $CACHE_PATH \
     --out $workdir/$OUTDIR \
