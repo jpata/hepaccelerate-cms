@@ -66,8 +66,6 @@ def analyze_data(
     use_cuda=False,
     is_mc=True,
     pu_corrections=None,
-    lumimask=None,
-    lumidata=None,
     rochester_corrections=None,
     lepsf_iso=None,
     lepsf_id=None,
@@ -803,6 +801,8 @@ def compute_event_weights(parameters, weights, scalars, genweight_scalefactor, g
         if debug:
             print("mean genWeight=", scalars["genWeight"].mean())
             print("sum genWeight=", scalars["genWeight"].sum())
+
+        #NB: PU weights are currently done on the basis of the events received (subset of a file), therefore the MC distribution may vary
         pu_weights, pu_weights_up, pu_weights_down = compute_pu_weights(
             pu_corrections[dataset_era],
             weights["nominal"]["nominal"],
@@ -1023,8 +1023,6 @@ def run_analysis(
             train_batches_queue,
             cmdline_args.use_cuda,
             verbose=False,
-            lumimask=analysis_corrections.lumimask,
-            lumidata=analysis_corrections.lumidata,
             pu_corrections=analysis_corrections.pu_corrections,
             rochester_corrections=analysis_corrections.rochester_corrections,
             lepsf_iso=analysis_corrections.lepsf_iso,
@@ -1062,6 +1060,32 @@ def run_analysis(
         num_processed += 1
     print()
 
+    #Here we get the metadata (runs, genweights etc) from the files
+    for jd in job_descriptions:
+        dataset_name = jd["dataset_name"]
+        dataset_era = jd["dataset_era"]
+        dataset_num_chunk = jd["dataset_num_chunk"]
+        partial_results = glob.glob("{0}/{1}_{2}_{3}_*.pkl".format(outpath, dataset_name, dataset_era, dataset_num_chunk))
+        res = Results({})
+        for res_file in partial_results:
+            res += pickle.load(open(res_file, "rb"))
+
+        if jd["is_mc"]:
+            res["cache_metadata"] = [func_filename_precompute_mc(fn) for fn in jd["filenames"]]
+            res["genEventSumw"] = genweight_scalefactor * sum([
+                md["genEventSumw"] for md in res["cache_metadata"]
+            ])
+        else:
+            #Compute integrated luminosity on data sample and apply golden JSON
+            analyzed_runs, analyzed_lumis = get_lumis(jd["filenames"])  
+            int_lumi = compute_integrated_luminosity(analyzed_runs, analyzed_lumis, analysis_corrections.lumimask, analysis_corrections.lumidata, dataset_era, jd["is_mc"])
+            res["int_lumi"] = int_lumi
+
+        with open("{0}/{1}_{2}_{3}.pkl".format(outpath, dataset_name, dataset_era, dataset_num_chunk), "wb") as fi:
+            pickle.dump(res, fi, protocol=pickle.HIGHEST_PROTOCOL)
+        for res_file in partial_results:
+            os.remove(res_file)
+    
     #clean up threads
     threadk.set_tokill(True)
     #metrics_thread.join() 
@@ -1133,16 +1157,6 @@ def event_loop(train_batches_queue, use_cuda, **kwargs):
         mempool.free_all_blocks()
         pinned_mempool.free_all_blocks()
    
-    if ds.is_mc:
-        ret["cache_metadata"] = [func_filename_precompute_mc(fn) for fn in ds.filenames]
-        ret["genEventSumw"] = genweight_scalefactor * sum([
-            md["genEventSumw"] for md in ret["cache_metadata"]
-        ])
-    else:
-        #Compute integrated luminosity on data sample and apply golden JSON
-        analyzed_runs, analyzed_lumis = get_lumis(ds.filenames)  
-        int_lumi = compute_integrated_luminosity(analyzed_runs, analyzed_lumis, kwargs["lumimask"], kwargs["lumidata"], ds.era, ds.is_mc)
-        ret["int_lumi"] = int_lumi
     ret = Results(ret)
     return ret, ds, len(ds), ds.memsize()/1024.0/1024.0
 
@@ -3131,30 +3145,37 @@ class thread_killer(object):
             self.to_kill = tokill
 
 class InputGen:
-    def __init__(self, job_descriptions, datapath, do_fsr, nthreads=1):
+    def __init__(self, job_descriptions, datapath, do_fsr, nthreads=1, events_per_file=100000):
         self.job_descriptions = job_descriptions
         self.chunk_lock = threading.Lock()
         self.loaded_lock = threading.Lock()
         self.num_chunk = 0
         self.num_loaded = 0
+        self.events_per_file = events_per_file
         self.nthreads = nthreads
 
         self.datapath = datapath
         self.do_fsr = do_fsr
 
+        #For each provided file, find the number of events
+        #Split the processing of large files into smaller parts using entrystart and entrysop
         self.nev = []
         self.new_jds = []
         for jd in self.job_descriptions:
             self.nev += [self.get_num_events(jd)]
         for jd, nev in zip(self.job_descriptions, self.nev):
             ichunk = 0
-            for evs_chunk in chunks(range(nev), 100000): 
+            for evs_chunk in chunks(range(nev), self.events_per_file): 
                 new_jd = copy.deepcopy(jd)
+
+                #need a unique identifier for each file_eventchunk
                 new_jd["dataset_num_chunk"] = str(new_jd["dataset_num_chunk"]) + "_" + str(ichunk)
+
                 new_jd["entrystart"] = evs_chunk[0]  
                 new_jd["entrystop"] = evs_chunk[-1] + 1
                 self.new_jds += [new_jd]
-                ichunk += 1  
+                ichunk += 1
+        #overwrite the previous job descriptions
         self.job_descriptions = self.new_jds 
 
     @staticmethod

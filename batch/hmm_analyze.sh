@@ -1,16 +1,20 @@
 #!/bin/bash
 
 set -e
+set -x
 
 ls /storage
 
 env
 
+OUTFILE=$1
+INFILE=$2
+
 #Local output director in worker node tmp
 export OUTDIR=out
 
 #Set some default arguments
-export NTHREADS=4
+export NTHREADS=2
 export PYTHONPATH=coffea:hepaccelerate:. 
 export HEPACCELERATE_CUDA=0
 export KERAS_BACKEND=tensorflow
@@ -22,17 +26,20 @@ export OMP_NUM_THREADS=$NTHREADS
 #This is where the skim files are loaded from
 export CACHE_PATH=/storage/user/jpata/hmm/skim_merged
 
-workdir=`pwd`
+WORKDIR=`pwd`
 
 #Create argument list
-tar xf jobfiles.tgz
-for word in "$@"; do
-    echo $workdir/$OUTDIR/jobfiles/$word.json >> args.txt
-done
+tar xf jobfiles.tgz 
 
 mkdir $OUTDIR
-mv datasets.json $OUTDIR/
+mv jobfiles/datasets.json $OUTDIR/
 mv jobfiles $OUTDIR/
+
+#replace with absolute path in work dir, hack
+awk '{print "/srv/out/"$0}' $WORKDIR/$OUTDIR/$INFILE > $WORKDIR/$OUTDIR/$INFILE.tmp
+mv $WORKDIR/$OUTDIR/$INFILE.tmp $WORKDIR/$OUTDIR/$INFILE
+
+cat $WORKDIR/$OUTDIR/$INFILE
 
 #Go to code directory
 cd $SUBMIT_DIR
@@ -43,16 +50,16 @@ python3 tests/hmm/analysis_hmumu.py \
     --nthreads $NTHREADS \
     --disable-tensorflow \
     --datapath /storage/group/allcit \
-    --out $workdir/$OUTDIR \
+    --out $WORKDIR/$OUTDIR \
     --datasets-yaml data/datasets_NanoAODv5.yml \
-    --jobfiles-load $workdir/args.txt
+    --jobfiles-load $WORKDIR/$OUTDIR/$INFILE
 
-cd $workdir
+cd $WORKDIR
 
 #copy the output as a tar archive
 tar -cvzf out.tgz $OUTDIR
-cp out.tgz /storage/user/$USER/hmm/out_$CONDORJOBID.tgz
-du /storage/user/$USER/hmm/out_$CONDORJOBID.tgz
+cp out.tgz $OUTFILE
+du $OUTFILE
 
 rm -Rf *.json out out.tgz args.txt
 echo "job done"
