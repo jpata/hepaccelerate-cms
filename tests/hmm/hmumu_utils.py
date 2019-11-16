@@ -3142,6 +3142,29 @@ class InputGen:
         self.datapath = datapath
         self.do_fsr = do_fsr
 
+        self.nev = []
+        self.new_jds = []
+        for jd in self.job_descriptions:
+            self.nev += [self.get_num_events(jd)]
+        for jd, nev in zip(self.job_descriptions, self.nev):
+            ichunk = 0
+            for evs_chunk in chunks(range(nev), 100000): 
+                new_jd = copy.deepcopy(jd)
+                new_jd["dataset_num_chunk"] = str(new_jd["dataset_num_chunk"]) + "_" + str(ichunk)
+                new_jd["entrystart"] = evs_chunk[0]  
+                new_jd["entrystop"] = evs_chunk[-1] + 1
+                self.new_jds += [new_jd]
+                ichunk += 1  
+        self.job_descriptions = self.new_jds 
+
+    @staticmethod
+    def get_num_events(job_desc):
+        nev = 0
+        for fn in job_desc["filenames"]:
+            print("get_num_events", fn)
+            nev += len(uproot.open(fn).get("Events"))
+        return nev
+ 
     def is_done(self):
         return (self.num_chunk == len(self)) and (self.num_loaded == len(self))
 
@@ -3155,8 +3178,8 @@ class InputGen:
             return None
 
         job_desc = self.job_descriptions[self.num_chunk]
-        print("Loading dataset {0} job desc {1}/{2}, {3}".format(
-            job_desc["dataset_name"], self.num_chunk, len(self.job_descriptions), job_desc["filenames"]))
+        print("Loading dataset {0} job desc {1}/{2}, {3}, entrystart={4}, entrystop={5}".format(
+            job_desc["dataset_name"], self.num_chunk, len(self.job_descriptions), job_desc["filenames"], job_desc["entrystart"], job_desc["entrystop"]))
 
         datastructures = create_datastructure(job_desc["dataset_name"], job_desc["is_mc"], job_desc["dataset_era"], self.do_fsr)
 
@@ -3174,7 +3197,7 @@ class InputGen:
         self.num_chunk += 1
         self.chunk_lock.release()
 
-        ds.load_root(nthreads=self.nthreads)
+        ds.load_root(nthreads=self.nthreads, entrystart=job_desc["entrystart"], entrystop=job_desc["entrystop"])
         
         #Merge data arrays from multiple files (if specified) to one big array
         ds.merge_inplace()

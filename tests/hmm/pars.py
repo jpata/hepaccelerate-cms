@@ -4,7 +4,7 @@ categories = {
     "dimuon": {
         "datacard_processes" : [
             "ggh_amcPS",
-            "vbf",
+            "vbf_amcPS",
             "wmh",
             "wph",
             "zh",
@@ -26,7 +26,7 @@ categories = {
     "z_peak": {
         "datacard_processes" : [
             "ggh_amcPS",
-            "vbf",
+            "vbf_amcPS",
             "wmh",
             "wph",
             "zh",
@@ -48,7 +48,7 @@ categories = {
     "h_sideband": {
         "datacard_processes" : [
             "ggh_amcPS",
-            "vbf",
+            "vbf_amcPS",
             "wmh",
             "wph",
             "zh",
@@ -70,7 +70,7 @@ categories = {
     "h_peak": {
         "datacard_processes" : [
             "ggh_amcPS",
-            "vbf",
+            "vbf_amcPS",
             "wmh",
             "wph",
             "zh",
@@ -97,12 +97,12 @@ proc_grps = [
         ("stop", ["st_tw_top", "st_tw_antitop"]),
         ("tt", ["ttjets_sl", "ttjets_dl",]),
     ]
-combined_signal_samples= ["ggh_amcPS", "vbf", "vh", "tth"]
+combined_signal_samples= ["ggh_amcPS", "vbf_amcPS", "vh", "tth"]
 combined_categories = {
     "dimuon": {
         "datacard_processes" : [
             "ggh_amcPS",
-            "vbf",
+            "vbf_amcPS",
             "vh",
             "tth",
             #"wz_1l1nu2q",
@@ -120,7 +120,7 @@ combined_categories = {
     "z_peak": {
         "datacard_processes" : [
             "ggh_amcPS",
-            "vbf",
+            "vbf_amcPS",
             "vh",
             "tth",
             #"wz_1l1nu2q",
@@ -138,7 +138,7 @@ combined_categories = {
     "h_sideband": {
         "datacard_processes" : [
             "ggh_amcPS",
-            "vbf",
+            "vbf_amcPS",
             "vh",
             "tth",
             #"wz_1l1nu2q",
@@ -156,7 +156,7 @@ combined_categories = {
     "h_peak": {
         "datacard_processes" : [
             "ggh_amcPS",
-            "vbf",
+            "vbf_amcPS",
             "vh",
             "tth",
             #"wz_1l1nu2q",
@@ -184,7 +184,7 @@ colors = {
 }
 
 process_groups = [
-    ("higgs", ["ggh_amcPS", "vbf", "wmh", "wph", "zh", "tth"]),
+    ("higgs", ["ggh_amcPS", "vbf_amcPS", "wmh", "wph", "zh", "tth"]),
     ("vv", ["wz_3lnu", "ww_2l2nu", "wz_2l2q", "zz"]),
     ("vvv", ["www","wwz","wzz","zzz"]),
     ("ewk", ["ewk_lljj_mll50_mjj120", "ewk_lljj_mll105_160"]),

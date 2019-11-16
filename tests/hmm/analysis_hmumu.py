@@ -460,7 +460,7 @@ def load_jobfiles(datasets, jobfiles_load_from_file, jobfiles, maxchunks, outpat
     chunkstr = " ".join(["{0}_{1}_{2}".format(
         ch["dataset_name"], ch["dataset_era"], ch["dataset_num_chunk"])
         for ch in jobfile_data])
-    print("Will process {0} jofiles: {1}".format(len(jobfile_data), chunkstr))
+    print("Will process {0} jobfiles: {1}".format(len(jobfile_data), chunkstr))
     assert(len(jobfile_data) > 0)
     return jobfile_data
 

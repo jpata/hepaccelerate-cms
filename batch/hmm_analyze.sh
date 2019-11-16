@@ -43,7 +43,6 @@ python3 tests/hmm/analysis_hmumu.py \
     --nthreads $NTHREADS \
     --disable-tensorflow \
     --datapath /storage/group/allcit \
-    --cachepath $CACHE_PATH \
     --out $workdir/$OUTDIR \
     --datasets-yaml data/datasets_NanoAODv5.yml \
     --jobfiles-load $workdir/args.txt
