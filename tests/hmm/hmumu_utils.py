@@ -92,8 +92,12 @@ def analyze_data(
     hrelresolution = None,
     zptreweighting = None,
     puidreweighting = None,
-    random_seed = 0 
+    random_seed = 0,
+    lumimask = None 
     ):
+
+    # Collect results into this dictionary
+    ret = Results({})
 
     #set the random seed to the predefined value
     NUMPY_LIB.random.seed(random_seed)
@@ -113,7 +117,9 @@ def analyze_data(
 
     #first mask of all events enabled
     mask_events = NUMPY_LIB.ones(muons.numevents(), dtype=NUMPY_LIB.bool)
-    
+    if not is_mc:
+        mask_events = mask_events & lumimask[dataset_era](scalars["run"], scalars["luminosityBlock"])
+ 
     check_and_fix_qgl(jets)
 
     #output histograms 
@@ -320,9 +326,9 @@ def analyze_data(
     #Now we throw away all the jets that didn't pass the ID to save time on computing JECs on them
     jets_passing_id = jets.select_objects(selected_jets_id)
 
-    if (parameters["jet_puid"] is not "none") and is_mc:
-        puid_weights = get_puid_weights(jets_passing_id, passed_puid, puidreweighting, dataset_era, parameters["jet_puid"], use_cuda)
-        weights_individual["jet_puid"] = {"nominal": puid_weights, "up": puid_weights, "down": puid_weights}
+    #if (parameters["jet_puid"] is not "none") and is_mc:
+    #    puid_weights = get_puid_weights(jets_passing_id, passed_puid, puidreweighting, dataset_era, parameters["jet_puid"], use_cuda)
+    #    weights_individual["jet_puid"] = {"nominal": puid_weights, "up": puid_weights, "down": puid_weights}
 
     #compute variated weights here to ensure the nominal weight contains all possible other weights  
     compute_event_weights(parameters, weights_individual, scalars,
@@ -331,7 +337,7 @@ def analyze_data(
 
     #actually multiply all the weights together with the appropriate up/down variations.
     #creates a 1-level dictionary with weights "nominal", "puweight__up", "puweight__down", ..." 
-    weights_final = finalize_weights(weights_individual)
+    weights_final = finalize_weights(weights_individual, genweight_scalefactor)
     '''
     if parameters["do_lepton_sf"] and is_mc:
         lepton_sf_values = compute_lepton_sf(leading_muon, subleading_muon,
@@ -364,7 +370,8 @@ def analyze_data(
         weights_final,
         use_cuda
     )
-
+    ret["selected_events_dimuon"] = NUMPY_LIB.sum(ret_mu["selected_events"])
+ 
     masswindow_z_peak = ((higgs_inv_mass >= parameters["masswindow_z_peak"][0]) & (higgs_inv_mass < parameters["masswindow_z_peak"][1]))
     masswindow_h_region = ((higgs_inv_mass >= parameters["masswindow_h_sideband"][0]) & (higgs_inv_mass < parameters["masswindow_h_sideband"][1]))
     masswindow_h_peak = ((higgs_inv_mass >= parameters["masswindow_h_peak"][0]) & (higgs_inv_mass < parameters["masswindow_h_peak"][1]))
@@ -618,21 +625,11 @@ def analyze_data(
                         weights_in_dnn_presel,
                         use_cuda
                     )
-        
          #end of isyst loop
     #end of uncertainty_name loop
 
-    # Collect results
-    ret = Results({})
-
     for histname, r in hists.items():
         ret[histname] = Results(r)
-
-    ret["numev_passed"] = get_numev_passed(
-        muons.numevents(), {
-        "trigger": mask_events,
-        "muon": ret_mu["selected_events"]
-    })
 
     if use_cuda:
         from numba import cuda
@@ -743,11 +740,14 @@ def assign_data_run_id(scalars, data_runs, dataset_era, is_mc, runmap_numerical)
             scalars["run_index"][msk] = runmap_numerical[run_name]
         assert(NUMPY_LIB.sum(scalars["run_index"]==-1)==0)
 
-def finalize_weights(weights, all_weight_names=None):
+def finalize_weights(weights, genweight_scalefactor, all_weight_names=None):
     if all_weight_names is None:
         all_weight_names = weights.keys()
     
     ret = {}
+    ret["noweight"] = NUMPY_LIB.ones_like(weights["nominal"]["nominal"])*genweight_scalefactor
+    ret["only_genweight"] = NUMPY_LIB.copy(weights["nominal"]["nominal"])
+    #This one will be changed to include all other weights
     ret["nominal"] = NUMPY_LIB.copy(weights["nominal"]["nominal"])
 
     #multitply up all the nominal weights
@@ -797,6 +797,7 @@ def compute_event_weights(parameters, weights, scalars, genweight_scalefactor, g
             weights["nominal"]["nominal"] = scalars["genWeight"] * genweight_scalefactor * zptw
         else:
             weights["nominal"]["nominal"] = scalars["genWeight"] * genweight_scalefactor
+        weights["nominal"]["nominal"] = scalars["genWeight"] * genweight_scalefactor
  
         if debug:
             print("mean genWeight=", scalars["genWeight"].mean())
@@ -971,7 +972,8 @@ def run_analysis(
     outpath,
     job_descriptions,
     parameters,
-    analysis_corrections):
+    analysis_corrections,
+    numev_per_chunk=100000):
 
     #Keep track of number of events
     nev_total = 0
@@ -986,6 +988,7 @@ def run_analysis(
         cmdline_args.datapath,
         cmdline_args.do_fsr,
         nthreads=cmdline_args.nthreads,
+        events_per_file = numev_per_chunk
     )
 
     threadk = thread_killer()
@@ -1044,7 +1047,8 @@ def run_analysis(
             nnlopsreweighting = analysis_corrections.nnlopsreweighting,
             hrelresolution = analysis_corrections.hrelresolution,
             zptreweighting = analysis_corrections.zptreweighting,
-            puidreweighting = analysis_corrections.puidreweighting)
+            puidreweighting = analysis_corrections.puidreweighting,
+            lumimask = analysis_corrections.lumimask)
 
         tnext = time.time()
         print("processed {0:.2E} ev/s".format(nev/float(tnext-tprev)))
@@ -1065,10 +1069,13 @@ def run_analysis(
         dataset_name = jd["dataset_name"]
         dataset_era = jd["dataset_era"]
         dataset_num_chunk = jd["dataset_num_chunk"]
+        
+        #Merge the split results
         partial_results = glob.glob("{0}/{1}_{2}_{3}_*.pkl".format(outpath, dataset_name, dataset_era, dataset_num_chunk))
         res = Results({})
         for res_file in partial_results:
             res += pickle.load(open(res_file, "rb"))
+            os.remove(res_file)
 
         if jd["is_mc"]:
             res["cache_metadata"] = [func_filename_precompute_mc(fn) for fn in jd["filenames"]]
@@ -1083,8 +1090,6 @@ def run_analysis(
 
         with open("{0}/{1}_{2}_{3}.pkl".format(outpath, dataset_name, dataset_era, dataset_num_chunk), "wb") as fi:
             pickle.dump(res, fi, protocol=pickle.HIGHEST_PROTOCOL)
-        for res_file in partial_results:
-            os.remove(res_file)
     
     #clean up threads
     threadk.set_tokill(True)

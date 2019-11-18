@@ -11,7 +11,7 @@ export KERAS_BACKEND=tensorflow
 export SINGULARITY_IMAGE=/storage/user/jpata/gpuservers/singularity/images/cupy2.simg
 export CACHEPATH=/storage/user/jpata/hmm/skim_merged
 
-export OUTDIR=out_nocache
+export OUTDIR=out
 \ls -1 $OUTDIR/jobfiles/* | sort -R | parallel --gnu -j20 -n5 \
     singularity exec -B /storage $SINGULARITY_IMAGE \
     python3 tests/hmm/analysis_hmumu.py \

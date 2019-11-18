@@ -225,7 +225,6 @@ def make_pdf_plot(args):
         if k in colors.keys():
             v.color = colors[k][0]/255.0, colors[k][1]/255.0, colors[k][2]/255.0
     hmc = [hmc_g[k[0]] for k in groups]
-
         
     htot_nominal = sum(hmc, hist_template)
     htot_variated = {}

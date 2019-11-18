@@ -28,4 +28,5 @@ singularity exec --nv -B /storage $SINGULARITY_IMAGE python3 tests/hmm/analysis_
     --nthreads $NTHREADS \
     --out ./out \
     --datapath $INPUTDATAPATH \
+    --cachepath $CACHEPATH \
     --datasets-yaml data/datasets_NanoAODv5.yml --disable-tensorflow --era 2018
