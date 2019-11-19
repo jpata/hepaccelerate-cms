@@ -49,6 +49,7 @@ python3 tests/hmm/analysis_hmumu.py \
     --action analyze \
     --nthreads $NTHREADS \
     --datapath /storage/group/allcit \
+    --do-factorized-jec \
     --out $WORKDIR/$OUTDIR \
     --datasets-yaml data/datasets_NanoAODv5.yml \
     --jobfiles-load $WORKDIR/$OUTDIR/$INFILE
