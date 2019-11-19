@@ -1,3 +1,18 @@
+import os, requests
+import numpy as np
+import unittest
+import pickle
+import shutil
+import copy
+import sys
+
+from hepaccelerate.utils import choose_backend, Dataset
+from hmumu_utils import create_datastructure
+from coffea.util import USE_CUPY
+
+if USE_CUPY:
+    from numba import cuda
+
 class TestAnalysis(unittest.TestCase):
     @classmethod
     def setUpClass(self):
