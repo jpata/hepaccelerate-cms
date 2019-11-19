@@ -88,11 +88,11 @@ class TestAnalysis(unittest.TestCase):
         from argparse import Namespace
         self.cmdline_args = Namespace(use_cuda=USE_CUPY, datapath=".", do_fsr=False, nthreads=1, async_data=False, do_sync=False, out="test_out")
         
-        try:
+        if os.path.isfile("tests/hmm/libhmm.so"):
             from analysis_hmumu import AnalysisCorrections
             self.analysis_corrections = AnalysisCorrections(self.cmdline_args, True)
-        except Exception as e:
-            print("Could not load analysis corrections with ROOT, skipping in further tests")
+        else:
+            print("Could not load analysis corrections with ROOT, skipping this in further tests")
             self.analysis_corrections = None
 
     def setUp(self):
