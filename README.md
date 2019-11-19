@@ -77,11 +77,13 @@ cd batch
 ./make_cache_jdl.sh
 condor_submit cache.jdl
 #...wait until done
+python verify_cache.py
 
 #Now run the analysis, this can be between 20 minutes and a few hours
 ./make_submit_jdl.sh
 condor_submit analyze.jdl
 #...wait until done
+python verify_analyze.py
 
 #submit merging and plotting, this should be around 30 minutes
 condor_submit merge.jdl
