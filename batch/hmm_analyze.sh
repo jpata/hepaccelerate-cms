@@ -48,7 +48,6 @@ cd $SUBMIT_DIR
 python3 tests/hmm/analysis_hmumu.py \
     --action analyze \
     --nthreads $NTHREADS \
-    --disable-tensorflow \
     --datapath /storage/group/allcit \
     --out $WORKDIR/$OUTDIR \
     --datasets-yaml data/datasets_NanoAODv5.yml \

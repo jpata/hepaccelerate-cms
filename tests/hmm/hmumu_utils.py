@@ -117,8 +117,12 @@ def analyze_data(
 
     #first mask of all events enabled
     mask_events = NUMPY_LIB.ones(muons.numevents(), dtype=NUMPY_LIB.bool)
+
+    #Golden JSON filtering (CPU-only)
     if not is_mc:
-        mask_events = mask_events & lumimask[dataset_era](scalars["run"], scalars["luminosityBlock"])
+        mask_events = mask_events & NUMPY_LIB.array(lumimask[dataset_era](
+            NUMPY_LIB.asnumpy(scalars["run"]),
+            NUMPY_LIB.asnumpy(scalars["luminosityBlock"])))
  
     check_and_fix_qgl(jets)
 
@@ -326,6 +330,9 @@ def analyze_data(
     #Now we throw away all the jets that didn't pass the ID to save time on computing JECs on them
     jets_passing_id = jets.select_objects(selected_jets_id)
 
+    #Note: this was disabled in PR#57 (https://github.com/jpata/hepaccelerate-cms/pull/57),
+    #commit 0790d40e7146175d6fda5925753a2611e5e19265), as it seems this creates a bad data/MC mismatch in 2018!
+    #Please re-enable it after validating PUID weights for all years!
     #if (parameters["jet_puid"] is not "none") and is_mc:
     #    puid_weights = get_puid_weights(jets_passing_id, passed_puid, puidreweighting, dataset_era, parameters["jet_puid"], use_cuda)
     #    weights_individual["jet_puid"] = {"nominal": puid_weights, "up": puid_weights, "down": puid_weights}
@@ -337,7 +344,7 @@ def analyze_data(
 
     #actually multiply all the weights together with the appropriate up/down variations.
     #creates a 1-level dictionary with weights "nominal", "puweight__up", "puweight__down", ..." 
-    weights_final = finalize_weights(weights_individual, genweight_scalefactor)
+    weights_final = finalize_weights(weights_individual)
     '''
     if parameters["do_lepton_sf"] and is_mc:
         lepton_sf_values = compute_lepton_sf(leading_muon, subleading_muon,
@@ -740,12 +747,11 @@ def assign_data_run_id(scalars, data_runs, dataset_era, is_mc, runmap_numerical)
             scalars["run_index"][msk] = runmap_numerical[run_name]
         assert(NUMPY_LIB.sum(scalars["run_index"]==-1)==0)
 
-def finalize_weights(weights, genweight_scalefactor, all_weight_names=None):
+def finalize_weights(weights, all_weight_names=None):
     if all_weight_names is None:
         all_weight_names = weights.keys()
     
     ret = {}
-    ret["noweight"] = NUMPY_LIB.ones_like(weights["nominal"]["nominal"])*genweight_scalefactor
     ret["only_genweight"] = NUMPY_LIB.copy(weights["nominal"]["nominal"])
     #This one will be changed to include all other weights
     ret["nominal"] = NUMPY_LIB.copy(weights["nominal"]["nominal"])

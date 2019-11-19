@@ -13,7 +13,7 @@ Variations of this code have been tested at:
 - T2_US_Purdue
 - T3_CH_PSI
 
-This code relies on NanoAOD files being available on the local filesystem for the best performance. It is possible to use xrootd, but currently, this is not the primary focus in the interest of maximum throughput, and thus is not officially supported. The full NanoAOD for a Run 2 analysis is on the order of 5TB (1.5TB skimmed), which is generally feasible to store on local disk.
+This code relies on NanoAOD files being available on the local filesystem for the best performance. It is possible to use xrootd, but currently, this is not the primary focus in the interest of maximum throughput, and thus is not officially supported. The full NanoAOD for a Run 2 analysis is on the order of 5TB (1.6TB skimmed), which is generally feasible to store on local disk.
 
 ## Installation on lxplus
 
@@ -59,7 +59,7 @@ cd ../..
 ~~~
 
 ## Running on full dataset using batch queue
-We use the condor batch queue on Caltech T2 to run the analysis. It ~20 minutes for all 3 years using just the Total JEC & JER (2-3h using factorized JEC).
+We use the condor batch queue on Caltech T2 to run the analysis. It takes ~20 minutes for all 3 years using just the Total JEC & JER (2-3h using factorized JEC) using about 200 job slots.
 
 ~~~
 #Submit batch jobs after this step is successful
@@ -84,6 +84,7 @@ python verify_cache.py
 condor_submit analyze.jdl
 #...wait until done
 python verify_analyze.py
+du -csh ~/hmm/skim_merged
 
 #submit merging and plotting, this should be around 30 minutes
 condor_submit merge.jdl
