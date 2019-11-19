@@ -305,11 +305,11 @@ def analyze_data(
     higgs_pt[NUMPY_LIB.isinf(higgs_pt)] = -1
     higgs_pt[higgs_pt==0] = -1
    
-    #Z pT reweighting for DY bkg
+    #Z pT reweighting for DY bkg (CPU only)
     ZpTw = NUMPY_LIB.ones(muons.numevents(), dtype=NUMPY_LIB.float32)
     if is_mc and (dataset_name in parameters["ZpT_reweight"][dataset_era]):
-       ZpTw = zptreweighting.compute(higgs_pt, parameters["ZpT_reweight"][dataset_era][dataset_name])
-
+       ZpTw = NUMPY_LIB.array(zptreweighting.compute(
+           NUMPY_LIB.asnumpy(higgs_pt), parameters["ZpT_reweight"][dataset_era][dataset_name]))
 
     #Do the jet ID selection and lepton cleaning just once for the nominal jet systematic
     #as that does not depend on jet pt
@@ -2493,7 +2493,8 @@ def compute_fill_dnn(
                 dnnPisa_vars1_arr /= dnnPisa_normfactors1[1]
                 dnnPisa_vars2_arr -= dnnPisa_normfactors2[0]
                 dnnPisa_vars2_arr /= dnnPisa_normfactors2[1]
-                dnnPisa_pred = NUMPY_LIB.array(dnnPisa_model.predict([NUMPY_LIB.asnumpy(dnnPisa_vars1_arr),NUMPY_LIB.asnumpy(dnnPisa_vars2_arr)])[:, 0])
+                dnnPisa_pred = NUMPY_LIB.array(dnnPisa_model.predict([
+                    NUMPY_LIB.asnumpy(dnnPisa_vars1_arr), NUMPY_LIB.asnumpy(dnnPisa_vars2_arr)], batch_size=len(dnnPisa_vars1_arr))[:, 0])
                 if len(dnnPisa_pred) > 0:
                     print("dnnPisa_pred", dnnPisa_pred.min(), dnnPisa_pred.max(), dnnPisa_pred.mean(), dnnPisa_pred.std())
                 dnnPisa_pred = NUMPY_LIB.array(dnnPisa_pred, dtype=NUMPY_LIB.float32)
