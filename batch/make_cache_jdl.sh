@@ -21,3 +21,4 @@ NJOBS=`wc -l skim_merge/args_merge.txt`
 echo "Skim jobs prepared: $NJOBS"
 echo "Please run 'export SUBMIT_DIR=$SUBMIT_DIR'"
 echo "Run 'condor_submit cache.jdl' to submit them"
+echo "Use 'python verify_cache.py' to check that the output is fine"
