@@ -1076,7 +1076,6 @@ def run_analysis(
         tprev = tnext
 
         with open("{0}/{1}_{2}_{3}.pkl".format(outpath, ds.name, ds.era, ds.num_chunk), "wb") as fi:
-            import pdb; pdb.set_trace();
             pickle.dump(ret, fi, protocol=pickle.HIGHEST_PROTOCOL)
             
         processed_size_mb += memsize
