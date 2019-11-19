@@ -71,23 +71,25 @@ export SUBMIT_DIR=`pwd`
 
 cd batch
 
-#Run the NanoAOD skimming step (cache creation)
-#This is quite heavy (~6h total), so do this one time
-#When adding new samples
+#Run the NanoAOD skimming step (cache creation).
+#This is quite heavy (~6h total), so do this only
+#when adding new samples
 ./make_cache_jdl.sh
 condor_submit cache.jdl
-#...wait until done
+#...wait until done, create resubmit file if needed
 python verify_cache.py
+du -csh ~/hmm/skim_merged
 
 #Now run the analysis, this can be between 20 minutes and a few hours
 ./make_submit_jdl.sh
 condor_submit analyze.jdl
-#...wait until done
+#...wait until done, create resubmit file if needed
 python verify_analyze.py
-du -csh ~/hmm/skim_merged
+du -csh ~/hmm/out_*.tgz
 
 #submit merging and plotting, this should be around 30 minutes
 condor_submit merge.jdl
+du -csh ~/hmm/out
 
 cd ..
 
