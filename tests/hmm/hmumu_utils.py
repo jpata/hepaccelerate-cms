@@ -39,10 +39,10 @@ ha = None
 NUMPY_LIB = None
 
 #Use these to turn on debugging
-#debug = True
-debug = False
+debug = True
+#debug = False
 #event IDs for which to print out detailed information
-debug_event_ids = [99088]
+debug_event_ids = [37410,37416,37463,37464]
 
 #list to collect performance data in
 global_metrics = []
@@ -328,8 +328,10 @@ def analyze_data(
         puid_weights = get_puid_weights(jets_passing_id, passed_puid, puidreweighting, dataset_era, parameters["jet_puid"])
         weights_individual["jet_puid"] = {"nominal": puid_weights, "up": puid_weights, "down": puid_weights}
 
+    selected_jets_pt_id = ( jets.pt > parameters["jet_pt_subleading"][dataset_era]) & (selected_jets_id)
+    jets_passing_pt_id = jets.select_objects(selected_jets_pt_id)
     if is_mc:
-        btagWeights, btagWeights_up, btagWeights_down = get_btag_weights_shape(jets_passing_id, btag_weights, dataset_era)
+        btagWeights, btagWeights_up, btagWeights_down = get_btag_weights_shape(jets_passing_pt_id, btag_weights, dataset_era, scalars)
         weights_individual["btag_weight"] = {"nominal": btagWeights, "up": btagWeights, "down": btagWeights}
         weights_individual["btag_weight_bFl"] = {"nominal": btagWeights, "up": btagWeights_up[0], "down": btagWeights_down[0]}
         weights_individual["btag_weight_cFl"] = {"nominal": btagWeights, "up": btagWeights_up[1], "down": btagWeights_down[1]}
@@ -1102,8 +1104,9 @@ def run_analysis(
         tprev = tnext
 
         with open("{0}/{1}_{2}_{3}.pkl".format(outpath, ds.name, ds.era, ds.num_chunk), "wb") as fi:
+            import pdb; pdb.set_trace();
             pickle.dump(ret, fi, protocol=pickle.HIGHEST_PROTOCOL)
-
+            
         processed_size_mb += memsize
         nev_total += sum([md["numevents"] for md in ret["cache_metadata"]])
         nev_loaded += nev
@@ -1615,12 +1618,18 @@ def compute_event_btag_weight_shape(offsets, eta_mask, jets_sf, out_weight):
                 p_tot *= jets_sf[ij]
         out_weight[iev] = p_tot
 
-def get_btag_weights_shape(jets, evaluator, era):
+def get_btag_weights_shape(jets, evaluator, era, scalars):
     tag_name = 'DeepCSV_'+era
     nev = jets.numevents()
-    eta_mask = NUMPY_LIB.abs(jets.eta<2.5)
+    eta_mask = NUMPY_LIB.abs(jets.eta<2.4)
     p_jetWt = NUMPY_LIB.ones(len(jets.pt))
     eventweight_btag = NUMPY_LIB.ones(nev)
+    if debug:
+        for evtid in debug_event_ids:
+            idx = np.where(scalars["event"] == evtid)[0][0]
+            print("muons")
+            jaggedstruct_print(jets, idx,
+                               ["pt", "eta", "phi", "jetId","puId","hadronFlavour"])
     # Code help from https://github.com/chreissel/hepaccelerate/blob/mass_fit/lib_analysis.py#L118
     # Code help from https://gitlab.cern.ch/uhh-cmssw/CAST/blob/master/BTaggingWeight/plugins/BTaggingReShapeProducer.cc
     for tag in ["DeepCSV_3_iterativefit_central_0", "DeepCSV_3_iterativefit_central_1", "DeepCSV_3_iterativefit_central_2"]:
@@ -1633,6 +1642,7 @@ def get_btag_weights_shape(jets, evaluator, era):
             SF_btag[jets.hadronFlavour != 0] = 1.
         p_jetWt*=SF_btag
     compute_event_btag_weight_shape(jets.offsets, eta_mask, p_jetWt, eventweight_btag)
+   
     #not all syst are for all flavours
     # bFlav - jes, lf, hfstats1, hfstats2
     # cFlav - cferr1, cferr2
