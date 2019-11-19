@@ -495,7 +495,6 @@ analysis_names = {
     "jer": {"2018": "JER enabled", "2017": "JER enabled", "2016": "JER enabled"},
 }
 
-
 #All analysis definitions (cut values etc) should go here
 analysis_parameters = {
     "baseline": {
