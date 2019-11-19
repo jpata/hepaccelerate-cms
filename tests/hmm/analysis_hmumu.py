@@ -293,21 +293,17 @@ class AnalysisCorrections:
             print("Loading tensorflow model")
             #disable GPU for tensorflow
             import tensorflow as tf
-            config = tf.ConfigProto()
-            config.intra_op_parallelism_threads=args.nthreads
-            config.inter_op_parallelism_threads=args.nthreads
+            config = tf.compat.v1.ConfigProto()
+            config.intra_op_parallelism_threads=1
+            config.inter_op_parallelism_threads=1
 
             if not args.use_cuda: 
                 os.environ["CUDA_VISIBLE_DEVICES"]="-1"
             else:
-                from keras.backend.tensorflow_backend import set_session
-                import tensorflow as tf
-                config = tf.ConfigProto()
                 config.gpu_options.allow_growth = False
                 config.gpu_options.per_process_gpu_memory_fraction = gpu_memory_fraction
 
-            from keras.backend.tensorflow_backend import set_session
-            set_session(tf.Session(config=config))
+            tf.compat.v1.keras.backend.set_session(tf.compat.v1.Session(config=config))
 
             #load DNN model
             import keras
@@ -464,7 +460,7 @@ def load_jobfiles(datasets, jobfiles_load_from_file, jobfiles, maxchunks, outpat
     chunkstr = " ".join(["{0}_{1}_{2}".format(
         ch["dataset_name"], ch["dataset_era"], ch["dataset_num_chunk"])
         for ch in jobfile_data])
-    print("Will process {0} jofiles: {1}".format(len(jobfile_data), chunkstr))
+    print("Will process {0} jobfiles: {1}".format(len(jobfile_data), chunkstr))
     assert(len(jobfile_data) > 0)
     return jobfile_data
 

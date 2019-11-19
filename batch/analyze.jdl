@@ -9,15 +9,15 @@ Requirements=(TARGET.OpSysAndVer=="CentOS7" && regexp("blade.*", TARGET.Machine)
 +SingularityImage = "/storage/user/jpata/gpuservers/singularity/images/cupy2.simg"
 +SingularityBindCVMFS = True
 +RequestWalltime = 6*3600
-+PeriodicRemove = ((JobStatus =?= 2) && ((MemoryUsage =!= UNDEFINED && MemoryUsage > 4*RequestMemory)))
++PeriodicRemove = ((JobStatus =?= 2) && ((MemoryUsage =!= UNDEFINED && MemoryUsage > 2*RequestMemory)))
 
 run_as_owner = True
 x509userproxy = $ENV(X509_USER_PROXY)
 RequestDisk = 4
 RequestCpus = 2
-RequestMemory = 2*3000
+RequestMemory = 2*2500
 
-transfer_input_files = jobfiles.tgz,../out/datasets.json
+transfer_input_files = jobfiles.tgz
 
 Environment = USER=$ENV(USER);CONDORJOBID=$(Process);SUBMIT_DIR=$ENV(SUBMIT_DIR)
 

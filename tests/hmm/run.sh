@@ -10,12 +10,12 @@ export MAXCHUNKS=1
 
 export SINGULARITY_IMAGE=/storage/user/jpata/gpuservers/singularity/images/cupy2.simg
 export PYTHONPATH=coffea:hepaccelerate:.
-export NUMBA_THREADING_LAYER=tbb
+export NUMBA_THREADING_LAYER=omp
 export NUMBA_ENABLE_AVX=1
 export NUMBA_CPU_FEATURES=+sse,+sse2,+avx,+avx2
 export NUMBA_NUM_THREADS=$NTHREADS
 export OMP_NUM_THREADS=$NTHREADS
-export HEPACCELERATE_CUDA=0
+export HEPACCELERATE_CUDA=1
 export KERAS_BACKEND=tensorflow
 
 #This is the location of the input NanoAOD and generally does not need to be changed
@@ -28,5 +28,5 @@ singularity exec --nv -B /storage $SINGULARITY_IMAGE python3 tests/hmm/analysis_
     --nthreads $NTHREADS \
     --out ./out \
     --datapath $INPUTDATAPATH \
-    --datasets-yaml data/datasets_NanoAODv5.yml \
-    --cachepath $CACHEPATH
+    --cachepath $CACHEPATH \
+    --datasets-yaml data/datasets_NanoAODv5.yml --disable-tensorflow
