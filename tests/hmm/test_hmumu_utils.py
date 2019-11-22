@@ -87,13 +87,6 @@ class TestAnalysisSmall(unittest.TestCase):
         
         from argparse import Namespace
         self.cmdline_args = Namespace(use_cuda=USE_CUPY, datapath=".", do_fsr=False, nthreads=1, async_data=False, do_sync=False, out="test_out")
-        
-        if os.path.isfile("tests/hmm/libhmm.so"):
-            from analysis_hmumu import AnalysisCorrections
-            self.analysis_corrections = AnalysisCorrections(self.cmdline_args, True)
-        else:
-            print("Could not load analysis corrections with ROOT, skipping this in further tests")
-            self.analysis_corrections = None
 
     def setUp(self):
         pass
@@ -103,6 +96,21 @@ class TestAnalysisSmall(unittest.TestCase):
         print("Loaded dataset from {0} with {1} events".format(self.dataset.filenames[0], nev))
         assert(nev>0)
 
+    def test_btag_weight(self):
+        from analysis_hmumu import BTagWeights
+        evaluator = {
+            "DeepCSV_2016": BTagWeights( tag_name = "DeepCSV_2016LegacySF_V1")
+        }
+        from hmumu_utils import get_btag_weights_shape
+
+        jets = self.dataset.structs["Jet"][0]
+        scalars = self.dataset.eventvars[0]
+        pt_cut = 25.0
+
+        ws = get_btag_weights_shape(jets, evaluator, "2016", scalars, pt_cut)
+        print(ws)
+        pass
+ 
     def test_get_genpt(self):
         from hmumu_utils import get_genpt_cpu, get_genpt_cuda
         NUMPY_LIB = self.NUMPY_LIB
@@ -203,7 +211,11 @@ class TestAnalysisSmall(unittest.TestCase):
         self.assertTrue("jer__down" in h.keys())
 
 if __name__ == "__main__":
-    if "--debug" in sys.argv:
-        unittest.findTestCases(sys.modules[__name__]).debug()
-    else:
-        unittest.main()
+    #if "--debug" in sys.argv:
+    #    unittest.findTestCases(sys.modules[__name__]).debug()
+    #else:
+    #    unittest.main()
+
+    ts = TestAnalysisSmall()
+    ts.setUpClass()
+    ts.test_btag_weight()

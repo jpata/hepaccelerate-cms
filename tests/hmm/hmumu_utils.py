@@ -1690,10 +1690,12 @@ def compute_event_btag_weight_shape(offsets, pt_eta_mask, jets_sf, out_weight):
         p_tot = 1.0
         #loop over jets in event
         for ij in range(offsets[iev], offsets[iev+1]):
+            if iev == 34:#,   100,   119
+                print(iev, ij, pt_eta_mask[ij], jets_sf[ij])
             if pt_eta_mask[ij]:
-                if iev == 34:#,   100,   119
-                    print(ij, jets_sf[ij])
                 p_tot *= jets_sf[ij]
+        if iev == 34:#,   100,   119
+            print(iev, p_tot)
         out_weight[iev] = p_tot
 
 def get_btag_weights_shape(jets, evaluator, era, scalars, pt_cut):
@@ -1723,8 +1725,7 @@ def get_btag_weights_shape(jets, evaluator, era, scalars, pt_cut):
     p_jetWt[(jets.pt < pt_cut)] = 1.
     print("p_JetWt after", p_jetWt, p_jetWt.mean(), p_jetWt.std())
     compute_event_btag_weight_shape(jets.offsets, pt_eta_mask, p_jetWt, eventweight_btag)
-    print("eventweight_btag", eventweight_btag, eventweight_btag.mean(), eventweight_btag.std())
-    import pdb;pdb.set_trace()
+    print("eventweight_btag", eventweight_btag, eventweight_btag.mean(), eventweight_btag.std()) 
     if debug:
         for evtid in debug_event_ids:
             idx = np.where(scalars["event"] == evtid)[0][0]
