@@ -93,7 +93,7 @@ def analyze_data(
     zptreweighting = None,
     puidreweighting = None,
     btag_weights = None,
-    random_seed = 0 
+    random_seed = 0, 
     lumimask = None 
     ):
 
@@ -338,10 +338,10 @@ def analyze_data(
     #    puid_weights = get_puid_weights(jets_passing_id, passed_puid, puidreweighting, dataset_era, parameters["jet_puid"], use_cuda)
     #    weights_individual["jet_puid"] = {"nominal": puid_weights, "up": puid_weights, "down": puid_weights}
 
-    selected_jets_pt_id = ( jets.pt > parameters["jet_pt_subleading"][dataset_era]) & (selected_jets_id)
-    jets_passing_pt_id = jets.select_objects(selected_jets_pt_id)
+    #selected_jets_pt_id = ( jets.pt > parameters["jet_pt_subleading"][dataset_era]) & (selected_jets_id)
+    #jets_passing_pt_id = jets.select_objects(selected_jets_pt_id)
     if is_mc:
-        btagWeights, btagWeights_up, btagWeights_down = get_btag_weights_shape(jets_passing_pt_id, btag_weights, dataset_era, scalars)
+        btagWeights, btagWeights_up, btagWeights_down = get_btag_weights_shape(jets_passing_id, btag_weights, dataset_era, scalars, parameters["jet_pt_subleading"][dataset_era])
         weights_individual["btag_weight"] = {"nominal": btagWeights, "up": btagWeights, "down": btagWeights}
         weights_individual["btag_weight_bFl"] = {"nominal": btagWeights, "up": btagWeights_up[0], "down": btagWeights_down[0]}
         weights_individual["btag_weight_cFl"] = {"nominal": btagWeights, "up": btagWeights_up[1], "down": btagWeights_down[1]}
@@ -568,7 +568,8 @@ def analyze_data(
                     dnn_vars["m1_iso"] = weights_individual['mu1_iso']['nominal'][dnn_presel]
                     dnn_vars["m2_id"] = weights_individual['mu2_id']['nominal'][dnn_presel]
                     dnn_vars["m2_iso"] = weights_individual['mu2_iso']['nominal'][dnn_presel]
-                    
+                    dnn_vars["btag_weight"] = weights_individual['btag_weight']['nominal'][dnn_presel]
+
                 dnn_vars["j1_jetId"] = leading_jet["jetId"][dnn_presel]
                 dnn_vars["j1_puId"] = leading_jet["puId"][dnn_presel]
                 dnn_vars["j2_jetId"] =subleading_jet["jetId"][dnn_presel]
@@ -1683,41 +1684,48 @@ def compute_eff_product(offsets, jets_mask_passes_id, jets_eff, use_cuda):
 
 
 @numba.njit(parallel=True)
-def compute_event_btag_weight_shape(offsets, eta_mask, jets_sf, out_weight):
+def compute_event_btag_weight_shape(offsets, pt_eta_mask, jets_sf, out_weight):
     #import pdb;pdb.set_trace();
     for iev in numba.prange(len(offsets)-1):
         p_tot = 1.0
         #loop over jets in event
         for ij in range(offsets[iev], offsets[iev+1]):
-            if eta_mask[ij]:
+            if pt_eta_mask[ij]:
                 p_tot *= jets_sf[ij]
         out_weight[iev] = p_tot
 
-def get_btag_weights_shape(jets, evaluator, era, scalars):
+def get_btag_weights_shape(jets, evaluator, era, scalars, pt_cut):
     tag_name = 'DeepCSV_'+era
     nev = jets.numevents()
-    eta_mask = NUMPY_LIB.abs(jets.eta<2.4)
+    pt_eta_mask = (NUMPY_LIB.abs(jets.eta<2.4)) & (jets.pt > pt_cut)
     p_jetWt = NUMPY_LIB.ones(len(jets.pt))
     eventweight_btag = NUMPY_LIB.ones(nev)
-    if debug:
-        for evtid in debug_event_ids:
-            idx = np.where(scalars["event"] == evtid)[0][0]
-            print("muons")
-            jaggedstruct_print(jets, idx,
-                               ["pt", "eta", "phi", "jetId","puId","hadronFlavour"])
+    
     # Code help from https://github.com/chreissel/hepaccelerate/blob/mass_fit/lib_analysis.py#L118
     # Code help from https://gitlab.cern.ch/uhh-cmssw/CAST/blob/master/BTaggingWeight/plugins/BTaggingReShapeProducer.cc
     for tag in ["DeepCSV_3_iterativefit_central_0", "DeepCSV_3_iterativefit_central_1", "DeepCSV_3_iterativefit_central_2"]:
         SF_btag = evaluator[tag_name].evaluator[tag](jets.eta, jets.pt, jets.btagDeepB)
         if tag.endswith("0"):
-            SF_btag[jets.hadronFlavour != 5] = 1.
+            SF_btag[(jets.hadronFlavour != 5)] = 1.
         if tag.endswith("1"):
             SF_btag[jets.hadronFlavour != 4] = 1.
         if tag.endswith("2"):
             SF_btag[jets.hadronFlavour != 0] = 1.
+        
         p_jetWt*=SF_btag
-    compute_event_btag_weight_shape(jets.offsets, eta_mask, p_jetWt, eventweight_btag)
-   
+        #p_jetWt[NUMPY_LIB.invert(pt_eta_mask)] = 1.
+    #import pdb;pdb.set_trace();
+    p_jetWt[np.abs(jets.eta>2.4)] = 1.
+    p_jetWt[(jets.pt < pt_cut)] = 1.
+    compute_event_btag_weight_shape(jets.offsets, pt_eta_mask, p_jetWt, eventweight_btag)
+    if debug:
+        for evtid in debug_event_ids:
+            idx = np.where(scalars["event"] == evtid)[0][0]
+            print("jets for b tag")
+            jaggedstruct_print(jets, idx,
+                               ["pt", "eta", "phi","hadronFlavour", "btagDeepB"])
+            print(eventweight_btag[idx])
+            
     #not all syst are for all flavours
     # bFlav - jes, lf, hfstats1, hfstats2
     # cFlav - cferr1, cferr2
@@ -1754,9 +1762,9 @@ def get_btag_weights_shape(jets, evaluator, era, scalars):
                 else:
                     p_jetWt_down[i]*=SF_btag
             if sdir == 'up':
-                compute_event_btag_weight_shape(jets.offsets, eta_mask, p_jetWt_up[i], eventweight_btag_up[i])
+                compute_event_btag_weight_shape(jets.offsets, pt_eta_mask, p_jetWt_up[i], eventweight_btag_up[i])
             else:
-                compute_event_btag_weight_shape(jets.offsets, eta_mask, p_jetWt_down[i], eventweight_btag_down[i])
+                compute_event_btag_weight_shape(jets.offsets, pt_eta_mask, p_jetWt_down[i], eventweight_btag_down[i])
     return eventweight_btag , eventweight_btag_up, eventweight_btag_down
 
 @numba.njit(parallel=True)
