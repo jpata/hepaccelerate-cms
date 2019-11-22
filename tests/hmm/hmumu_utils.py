@@ -1691,6 +1691,8 @@ def compute_event_btag_weight_shape(offsets, pt_eta_mask, jets_sf, out_weight):
         #loop over jets in event
         for ij in range(offsets[iev], offsets[iev+1]):
             if pt_eta_mask[ij]:
+                if iev == 34:#,   100,   119
+                    print(ij, jets_sf[ij])
                 p_tot *= jets_sf[ij]
         out_weight[iev] = p_tot
 
