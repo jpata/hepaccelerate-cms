@@ -1731,7 +1731,12 @@ def get_btag_weights_shape(jets, evaluator, era, scalars, pt_cut):
         if w > 1.5 or w < 0.5:
             print(iev, w)
             for ij in range(jets.offsets[iev], jets.offsets[iev+1]):
-                print(iev, ij, jets.pt[ij], jets.eta[ij], jets.hadronFlavour[ij], jets.btagDeepB[ij], p_jetWt[ij])
+                print(iev, ij,
+                    "pt=", jets.pt[ij],
+                    "eta=", jets.eta[ij],
+                    "hadronFlavour=", jets.hadronFlavour[ij],
+                    "btagDeepB=", jets.btagDeepB[ij],
+                    "jetWt=", p_jetWt[ij])
     if debug:
         for evtid in debug_event_ids:
             idx = np.where(scalars["event"] == evtid)[0][0]
