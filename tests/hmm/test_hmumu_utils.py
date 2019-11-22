@@ -107,8 +107,7 @@ class TestAnalysisSmall(unittest.TestCase):
         scalars = self.dataset.eventvars[0]
         pt_cut = 25.0
 
-        ws = get_btag_weights_shape(jets, evaluator, "2016", scalars, pt_cut)
-        print(ws)
+        ws, _, _ = get_btag_weights_shape(jets, evaluator, "2016", scalars, pt_cut)
         pass
  
     def test_get_genpt(self):
