@@ -1713,7 +1713,7 @@ def get_btag_weights_shape(jets, evaluator, era, scalars, pt_cut):
             SF_btag[jets.hadronFlavour != 0] = 1.
         
         p_jetWt*=SF_btag
-        print("p_JetWt", tag, p_jetWt, p_jetWt.mean(), p_jetWt.std()
+        print("p_JetWt", tag, p_jetWt, p_jetWt.mean(), p_jetWt.std())
         #p_jetWt[NUMPY_LIB.invert(pt_eta_mask)] = 1.
     #import pdb;pdb.set_trace();
     print("p_JetWt before", p_jetWt, p_jetWt.mean(), p_jetWt.std())
