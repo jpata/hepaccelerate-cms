@@ -1713,11 +1713,16 @@ def get_btag_weights_shape(jets, evaluator, era, scalars, pt_cut):
             SF_btag[jets.hadronFlavour != 0] = 1.
         
         p_jetWt*=SF_btag
+        print("p_JetWt", tag, p_jetWt, p_jetWt.mean(), p_jetWt.std()
         #p_jetWt[NUMPY_LIB.invert(pt_eta_mask)] = 1.
     #import pdb;pdb.set_trace();
+    print("p_JetWt before", p_jetWt, p_jetWt.mean(), p_jetWt.std())
     p_jetWt[np.abs(jets.eta>2.4)] = 1.
     p_jetWt[(jets.pt < pt_cut)] = 1.
+    print("p_JetWt after", p_jetWt, p_jetWt.mean(), p_jetWt.std())
     compute_event_btag_weight_shape(jets.offsets, pt_eta_mask, p_jetWt, eventweight_btag)
+    print("eventweight_btag", eventweight_btag, eventweight_btag.mean(), eventweight_btag.std())
+    import pdb;pdb.set_trace()
     if debug:
         for evtid in debug_event_ids:
             idx = np.where(scalars["event"] == evtid)[0][0]
