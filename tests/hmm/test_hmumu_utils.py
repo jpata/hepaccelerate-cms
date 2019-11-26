@@ -191,8 +191,9 @@ class TestAnalysisSmall(unittest.TestCase):
         h = ret["hist__dimuon_invmass_z_peak_cat5__M_mmjj"]
         
         nev_zpeak_nominal = np.sum(h["nominal"].contents)
+
         if not USE_CUPY:
-            self.assertAlmostEqual(nev_zpeak_nominal, 0.0124329645, places=4)
+            self.assertAlmostEqual(nev_zpeak_nominal, 0.012636297, places=4)
         
         self.assertTrue("Total__up" in h.keys())
         self.assertTrue("Total__down" in h.keys())

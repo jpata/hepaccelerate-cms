@@ -531,6 +531,7 @@ analysis_parameters = {
         "jet_eta": 4.7,
         "jet_id": {"2016":"loose", "2017":"tight", "2018":"tight"},
         "jet_puid": "loose",
+        "jet_puid_pt_max": 50,
         "jet_veto_eta": [2.65, 3.139],
         "jet_veto_raw_pt": 50.0,  
         "jet_btag_medium": {"2016": 0.6321, "2017": 0.4941, "2018": 0.4184},
