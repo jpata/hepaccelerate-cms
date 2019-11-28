@@ -27,6 +27,7 @@ from hepaccelerate.utils import Results
 from hepaccelerate.utils import Dataset
 from hepaccelerate.utils import Histogram
 import hepaccelerate.backend_cpu as backend_cpu
+import hepaccelerate.backend_cpu as backend_cuda
 
 from coffea.lookup_tools import extractor
 from coffea.util import awkward
@@ -1376,7 +1377,7 @@ def correct_muon_with_fsr(
 
                 # dR between muon and photon
                 deta = muons_eta[imu] - fsr_eta[ifsr]
-                dphi = deltaphi_cpu_devfunc(muons_phi[imu], fsr_phi[ifsr])
+                dphi = backend_cpu.deltaphi(muons_phi[imu], fsr_phi[ifsr])
                 dr = np.sqrt(deta**2 + dphi**2)
 
                 update_iso = dr<0.4
@@ -1446,7 +1447,7 @@ def nsoftjets_cpu(nsoft, softht, nevt, softjets_offsets, pt, eta, phi, etaj1, et
                 if ((eta[isoftjets]<etaj1[iev]) and (eta[isoftjets]>etaj2[iev]) and (etaj1[iev]>etaj2[iev])) or ((eta[isoftjets]<etaj2[iev]) and (eta[isoftjets]>etaj1[iev]) and (etaj1[iev]<etaj2[iev])):
                     nobj = len(phis)
                     for index in range(nobj):
-                        dphi = deltaphi_cpu_devfunc(phi[isoftjets], phis[index][iev])
+                        dphi = backend_cpu.deltaphi(phi[isoftjets], phis[index][iev])
                         deta = eta[isoftjets] - etas[index][iev]
                         dr = dphi**2 + deta**2
                         if dr < dr2cut:
@@ -2008,38 +2009,10 @@ def rochester_correction_muon_qterm(
 
     return NUMPY_LIB.array(qterm)
 
-@numba.njit(fastmath=True)
-def deltaphi_cpu_devfunc(phi1, phi2):
-    dphi = phi1 - phi2
-    out_dphi = 0 
-    if dphi > math.pi:
-        dphi = dphi - 2*math.pi
-        out_dphi = dphi
-    elif (dphi + math.pi) < 0:
-        dphi = dphi + 2*math.pi
-        out_dphi = dphi
-    else:
-        out_dphi = dphi
-    return out_dphi
-
-@cuda.jit(device=True)
-def deltaphi_cuda_devfunc(phi1, phi2):
-    dphi = phi1 - phi2
-    out_dphi = 0 
-    if dphi > math.pi:
-        dphi = dphi - 2*math.pi
-        out_dphi = dphi
-    elif (dphi + math.pi) < 0:
-        dphi = dphi + 2*math.pi
-        out_dphi = dphi
-    else:
-        out_dphi = dphi
-    return out_dphi
-
 @numba.njit('float32[:], float32[:], float32[:]', parallel=True, fastmath=True)
 def deltaphi_cpu(phi1, phi2, out_dphi):
     for iev in numba.prange(len(phi1)):
-        out_dphi[iev] = deltaphi_cpu_devfunc(phi1[iev], phi2[iev])
+        out_dphi[iev] = backend_cpu.deltaphi(phi1[iev], phi2[iev])
 
 @cuda.jit
 def deltaphi_cudakernel(phi1, phi2, out_dphi):
@@ -2047,7 +2020,7 @@ def deltaphi_cudakernel(phi1, phi2, out_dphi):
     xstride = cuda.gridsize(1)
     
     for iev in range(xi, len(phi1), xstride):
-        out_dphi[iev] = deltaphi_cuda_devfunc(phi1[iev], phi2[iev]) 
+        out_dphi[iev] = backend_cuda.deltaphi_devfunc(phi1[iev], phi2[iev]) 
 
 @numba.njit(parallel=True, fastmath=True)
 def get_theoryweights_cpu(offsets, variations, index, out_var):
