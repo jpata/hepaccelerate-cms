@@ -34,6 +34,8 @@ from coffea.util import awkward
 
 from pars import runmap_numerical, runmap_numerical_r, data_runs, genweight_scalefactor
 
+from numba.typed import List
+
 #global variables need to be configured here for the hepaccelerate backend and numpy library
 #they will be overwritten later
 ha = None
@@ -505,7 +507,7 @@ def analyze_data(
 
             #Compute the DNN inputs, the DNN output, fill the DNN input and output variable histograms
             dnn_prediction = None
-            dnn_vars, dnn_prediction, dnnPisa_predictions = compute_fill_dnn(hrelresolution,
+            dnn_vars, dnn_prediction, dnnPisa_predictions, dnnPisaComb_pred = compute_fill_dnn(hrelresolution,
                miscvariables, parameters, use_cuda, dnn_presel, dnn_model, dnn_normfactors, dnnPisa_models, dnnPisa_normfactors1, dnnPisa_normfactors2,
                scalars, leading_muon, subleading_muon, leading_jet, subleading_jet,
                ret_jet["num_jets"],ret_jet["num_jets_btag_medium"], n_sel_softjet, n_sel_HTsoftjet, dataset_era, is_mc
@@ -568,6 +570,7 @@ def analyze_data(
                 dnn_vars["Nbjet_loose"] = ret_jet["num_jets_btag_loose"][dnn_presel]
                 dnn_vars["Njet_loose"] = ret_jet["num_jets"][dnn_presel]
                 if not (len(dnnPisa_predictions)==0):
+                    dnn_vars["dnnPisa_pred"] = dnnPisaComb_pred
                     for imodel in range(len(dnnPisa_predictions)):
                         dnn_vars["dnnPisa_pred"+str(imodel)] = dnnPisa_predictions[imodel]
                 #Save the DNN training ntuples as npy files
@@ -1665,6 +1668,24 @@ def jet_puid_evaluate(evaluator, era, wp, jet_pt, jet_eta):
     puid_sf = evaluator[h_sf_name](jet_pt, jet_eta)
     return NUMPY_LIB.array(puid_eff), NUMPY_LIB.array(puid_sf)
 
+@numba.njit(parallel=True)
+def compute_dnnPisaComb(dnnPisaComb_pred, dnnPisa_preds, event_array):
+    for i in numba.prange(len(dnnPisaComb_pred)):
+            if event_array[i]%4 == 0:
+                dnnPisaComb_pred[i] = dnnPisa_preds[0][i]
+            elif event_array[i]%4 == 1:
+                dnnPisaComb_pred[i] = dnnPisa_preds[1][i]
+            elif event_array[i]%4 == 2:
+                dnnPisaComb_pred[i] = dnnPisa_preds[2][i]
+            else:
+                dnnPisaComb_pred[i] = dnnPisa_preds[3][i]
+
+@numba.njit(parallel=True)
+def mhfordnn(fixedmH, mH):
+    for i in numba.prange(len(mH)):
+        if (mH[i]>115) & (mH[i]<135):
+            fixedmH[i] = mH[i]
+
 def compute_eff_product(offsets, jet_pt_mask, jets_mask_passes_id, jets_eff, use_cuda):
     nev = len(offsets) - 1
     p_puid = NUMPY_LIB.zeros(nev, dtype=NUMPY_LIB.float32)
@@ -2303,6 +2324,7 @@ def dnn_variables(hrelresolution, leading_muon, subleading_muon, leading_jet, su
 
     nw = len(leading_jet["eta"])
     fixm = NUMPY_LIB.full(nw, 125.0, dtype=NUMPY_LIB.float32)
+    mhfordnn(fixm, mm_sph["mass"])
     ret = {
         "leading_muon_pt": leading_muon["pt"],
         "leading_muon_eta": leading_muon["eta"],
@@ -2357,9 +2379,9 @@ def dnn_variables(hrelresolution, leading_muon, subleading_muon, leading_jet, su
         "QJet1_phi": subleading_jet["phi"],
         "QJet0_qgl": leading_jet["qgl"],
         "QJet1_qgl": subleading_jet["qgl"],
-        "Higgs_m": mm_sph["mass"],
+        "Higgs_m": fixm,
         "Higgs_mRelReso": Higgs_mrelreso,
-        "Higgs_mReso": mm_sph["mass"]*Higgs_mrelreso,
+        "Higgs_mReso": fixm*Higgs_mrelreso,
         "HTSoft5": n_sel_HTsoftjet,
     }
 
@@ -2466,6 +2488,7 @@ def compute_fill_dnn(
 
     #Pisa DNN
     dnnPisa_preds = []
+    dnnPisaComb_pred = NUMPY_LIB.zeros(nev_dnn_presel, dtype=NUMPY_LIB.float32)
     if parameters["do_dnn_pisa"]:
         for dnnPisa_model in dnnPisa_models:
             if (not (dnnPisa_model is None)) and nev_dnn_presel > 0:
@@ -2483,6 +2506,10 @@ def compute_fill_dnn(
             else:
                 dnnPisa_pred = NUMPY_LIB.zeros(nev_dnn_presel, dtype=NUMPY_LIB.float32)
             dnnPisa_preds += [dnnPisa_pred]
+        list_dnnPisa_preds = List()
+        [list_dnnPisa_preds.append(x) for x in dnnPisa_preds]
+        compute_dnnPisaComb(dnnPisaComb_pred, list_dnnPisa_preds, scalars["event"][dnn_presel])
+        print("dnnPisaComb_pred: ",dnnPisaComb_pred)
 
     if parameters["do_bdt_ucsd"]:
         hmmthetacs, hmmphics = miscvariables.csangles(
@@ -2505,7 +2532,7 @@ def compute_fill_dnn(
     dnn_vars["m2eta"] = NUMPY_LIB.array(subleading_muon_s["eta"])
     dnn_vars["m1ptOverMass"] = NUMPY_LIB.divide(leading_muon_s["pt"],dnn_vars["Higgs_mass"])
     dnn_vars["m2ptOverMass"] = NUMPY_LIB.divide(subleading_muon_s["pt"],dnn_vars["Higgs_mass"])
-    return dnn_vars, dnn_pred, dnnPisa_preds
+    return dnn_vars, dnn_pred, dnnPisa_preds, dnnPisaComb_pred
 
 def get_massErr_calib_factors(pt1, abs_eta1, abs_eta2, era, is_mc):
     mode = "MC" if is_mc else "Data"
