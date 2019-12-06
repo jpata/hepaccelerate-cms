@@ -34,8 +34,6 @@ from coffea.util import awkward
 
 from pars import runmap_numerical, runmap_numerical_r, data_runs, genweight_scalefactor
 
-from numba.typed import List
-
 #global variables need to be configured here for the hepaccelerate backend and numpy library
 #they will be overwritten later
 ha = None
