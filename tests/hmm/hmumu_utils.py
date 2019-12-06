@@ -1680,12 +1680,6 @@ def compute_dnnPisaComb(dnnPisaComb_pred, dnnPisa_preds, event_array):
             else:
                 dnnPisaComb_pred[i] = dnnPisa_preds[3][i]
 
-@numba.njit(parallel=True)
-def mhfordnn(fixedmH, mH):
-    for i in numba.prange(len(mH)):
-        if (mH[i]>115) & (mH[i]<135):
-            fixedmH[i] = mH[i]
-
 def compute_eff_product(offsets, jet_pt_mask, jets_mask_passes_id, jets_eff, use_cuda):
     nev = len(offsets) - 1
     p_puid = NUMPY_LIB.zeros(nev, dtype=NUMPY_LIB.float32)
@@ -2323,8 +2317,10 @@ def dnn_variables(hrelresolution, leading_muon, subleading_muon, leading_jet, su
     cthetaCS = 2*(m1["pz"] * m2["e"] - m1["e"]*m2["pz"]) / (mm_sph["mass"] * NUMPY_LIB.sqrt(NUMPY_LIB.power(mm_sph["mass"], 2) + NUMPY_LIB.power(mm_sph["pt"], 2)))
 
     nw = len(leading_jet["eta"])
-    fixm = NUMPY_LIB.full(nw, 125.0, dtype=NUMPY_LIB.float32)
-    mhfordnn(fixm, mm_sph["mass"])
+    fixm = mm_sph["mass"].copy()
+    fixm[(fixm > 135)] = 125
+    fixm[(fixm < 115)] = 125
+
     ret = {
         "leading_muon_pt": leading_muon["pt"],
         "leading_muon_eta": leading_muon["eta"],
@@ -2467,8 +2463,6 @@ def compute_fill_dnn(
     dnn_vars["year"] = year_var
  
     if (not (dnn_model is None)) and nev_dnn_presel > 0:
-        #print("dnn_model: ",dnn_model)
-        #print("dnn_normfactors[0][1]: ", dnn_normfactors[0], dnn_normfactors[1])
         dnn_vars_arr = NUMPY_LIB.vstack([dnn_vars[k] for k in parameters["dnn_varlist_order"]]).T
         
         #Normalize the DNN with the normalization factors from preprocessing in training 
@@ -2487,9 +2481,10 @@ def compute_fill_dnn(
         dnn_pred = NUMPY_LIB.zeros(nev_dnn_presel, dtype=NUMPY_LIB.float32)
 
     #Pisa DNN
-    dnnPisa_preds = []
     dnnPisaComb_pred = NUMPY_LIB.zeros(nev_dnn_presel, dtype=NUMPY_LIB.float32)
+    dnnPisa_preds = NUMPY_LIB.zeros((len(dnnPisa_models), nev_dnn_presel), dtype=NUMPY_LIB.float32)
     if parameters["do_dnn_pisa"]:
+        imodel = 0
         for dnnPisa_model in dnnPisa_models:
             if (not (dnnPisa_model is None)) and nev_dnn_presel > 0:
                 dnnPisa_vars1_arr = NUMPY_LIB.vstack([dnn_vars[k] for k in parameters["dnnPisa_varlist1_order"]]).T
@@ -2498,18 +2493,10 @@ def compute_fill_dnn(
                 dnnPisa_vars1_arr /= dnnPisa_normfactors1[1]
                 dnnPisa_vars2_arr -= dnnPisa_normfactors2[0]
                 dnnPisa_vars2_arr /= dnnPisa_normfactors2[1]
-                dnnPisa_pred = NUMPY_LIB.array(dnnPisa_model.predict([
+                dnnPisa_preds[imodel, :] = NUMPY_LIB.array(dnnPisa_model.predict([
                     NUMPY_LIB.asnumpy(dnnPisa_vars1_arr), NUMPY_LIB.asnumpy(dnnPisa_vars2_arr)], batch_size=len(dnnPisa_vars1_arr))[:, 0])
-                if len(dnnPisa_pred) > 0:
-                    print("dnnPisa_pred", dnnPisa_pred.min(), dnnPisa_pred.max(), dnnPisa_pred.mean(), dnnPisa_pred.std())
-                dnnPisa_pred = NUMPY_LIB.array(dnnPisa_pred, dtype=NUMPY_LIB.float32)
-            else:
-                dnnPisa_pred = NUMPY_LIB.zeros(nev_dnn_presel, dtype=NUMPY_LIB.float32)
-            dnnPisa_preds += [dnnPisa_pred]
-        list_dnnPisa_preds = List()
-        [list_dnnPisa_preds.append(x) for x in dnnPisa_preds]
-        compute_dnnPisaComb(dnnPisaComb_pred, list_dnnPisa_preds, scalars["event"][dnn_presel])
-        print("dnnPisaComb_pred: ",dnnPisaComb_pred)
+            imodel += 1
+        compute_dnnPisaComb(dnnPisaComb_pred, dnnPisa_preds, scalars["event"][dnn_presel])
 
     if parameters["do_bdt_ucsd"]:
         hmmthetacs, hmmphics = miscvariables.csangles(
