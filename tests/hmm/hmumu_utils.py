@@ -505,7 +505,7 @@ def analyze_data(
 
             #Compute the DNN inputs, the DNN output, fill the DNN input and output variable histograms
             dnn_prediction = None
-            dnn_vars, dnn_prediction, dnnPisa_predictions = compute_fill_dnn(hrelresolution,
+            dnn_vars, dnn_prediction, dnnPisa_predictions, dnnPisaComb_pred = compute_fill_dnn(hrelresolution,
                miscvariables, parameters, use_cuda, dnn_presel, dnn_model, dnn_normfactors, dnnPisa_models, dnnPisa_normfactors1, dnnPisa_normfactors2,
                scalars, leading_muon, subleading_muon, leading_jet, subleading_jet,
                ret_jet["num_jets"],ret_jet["num_jets_btag_medium"], n_sel_softjet, n_sel_HTsoftjet, dataset_era, is_mc
@@ -568,6 +568,7 @@ def analyze_data(
                 dnn_vars["Nbjet_loose"] = ret_jet["num_jets_btag_loose"][dnn_presel]
                 dnn_vars["Njet_loose"] = ret_jet["num_jets"][dnn_presel]
                 if not (len(dnnPisa_predictions)==0):
+                    dnn_vars["dnnPisa_pred"] = dnnPisaComb_pred
                     for imodel in range(len(dnnPisa_predictions)):
                         dnn_vars["dnnPisa_pred"+str(imodel)] = dnnPisa_predictions[imodel]
                 #Save the DNN training ntuples as npy files
@@ -1665,6 +1666,18 @@ def jet_puid_evaluate(evaluator, era, wp, jet_pt, jet_eta):
     puid_sf = evaluator[h_sf_name](jet_pt, jet_eta)
     return NUMPY_LIB.array(puid_eff), NUMPY_LIB.array(puid_sf)
 
+@numba.njit(parallel=True)
+def compute_dnnPisaComb(dnnPisaComb_pred, dnnPisa_preds, event_array):
+    for i in numba.prange(len(dnnPisaComb_pred)):
+            if event_array[i]%4 == 0:
+                dnnPisaComb_pred[i] = dnnPisa_preds[0][i]
+            elif event_array[i]%4 == 1:
+                dnnPisaComb_pred[i] = dnnPisa_preds[1][i]
+            elif event_array[i]%4 == 2:
+                dnnPisaComb_pred[i] = dnnPisa_preds[2][i]
+            else:
+                dnnPisaComb_pred[i] = dnnPisa_preds[3][i]
+
 def compute_eff_product(offsets, jet_pt_mask, jets_mask_passes_id, jets_eff, use_cuda):
     nev = len(offsets) - 1
     p_puid = NUMPY_LIB.zeros(nev, dtype=NUMPY_LIB.float32)
@@ -2302,7 +2315,10 @@ def dnn_variables(hrelresolution, leading_muon, subleading_muon, leading_jet, su
     cthetaCS = 2*(m1["pz"] * m2["e"] - m1["e"]*m2["pz"]) / (mm_sph["mass"] * NUMPY_LIB.sqrt(NUMPY_LIB.power(mm_sph["mass"], 2) + NUMPY_LIB.power(mm_sph["pt"], 2)))
 
     nw = len(leading_jet["eta"])
-    fixm = NUMPY_LIB.full(nw, 125.0, dtype=NUMPY_LIB.float32)
+    fixm = mm_sph["mass"].copy()
+    fixm[(fixm > 135)] = 125
+    fixm[(fixm < 115)] = 125
+
     ret = {
         "leading_muon_pt": leading_muon["pt"],
         "leading_muon_eta": leading_muon["eta"],
@@ -2357,9 +2373,9 @@ def dnn_variables(hrelresolution, leading_muon, subleading_muon, leading_jet, su
         "QJet1_phi": subleading_jet["phi"],
         "QJet0_qgl": leading_jet["qgl"],
         "QJet1_qgl": subleading_jet["qgl"],
-        "Higgs_m": mm_sph["mass"],
+        "Higgs_m": fixm,
         "Higgs_mRelReso": Higgs_mrelreso,
-        "Higgs_mReso": mm_sph["mass"]*Higgs_mrelreso,
+        "Higgs_mReso": fixm*Higgs_mrelreso,
         "HTSoft5": n_sel_HTsoftjet,
     }
 
@@ -2445,8 +2461,6 @@ def compute_fill_dnn(
     dnn_vars["year"] = year_var
  
     if (not (dnn_model is None)) and nev_dnn_presel > 0:
-        #print("dnn_model: ",dnn_model)
-        #print("dnn_normfactors[0][1]: ", dnn_normfactors[0], dnn_normfactors[1])
         dnn_vars_arr = NUMPY_LIB.vstack([dnn_vars[k] for k in parameters["dnn_varlist_order"]]).T
         
         #Normalize the DNN with the normalization factors from preprocessing in training 
@@ -2465,8 +2479,10 @@ def compute_fill_dnn(
         dnn_pred = NUMPY_LIB.zeros(nev_dnn_presel, dtype=NUMPY_LIB.float32)
 
     #Pisa DNN
-    dnnPisa_preds = []
+    dnnPisaComb_pred = NUMPY_LIB.zeros(nev_dnn_presel, dtype=NUMPY_LIB.float32)
+    dnnPisa_preds = NUMPY_LIB.zeros((len(dnnPisa_models), nev_dnn_presel), dtype=NUMPY_LIB.float32)
     if parameters["do_dnn_pisa"]:
+        imodel = 0
         for dnnPisa_model in dnnPisa_models:
             if (not (dnnPisa_model is None)) and nev_dnn_presel > 0:
                 dnnPisa_vars1_arr = NUMPY_LIB.vstack([dnn_vars[k] for k in parameters["dnnPisa_varlist1_order"]]).T
@@ -2475,14 +2491,10 @@ def compute_fill_dnn(
                 dnnPisa_vars1_arr /= dnnPisa_normfactors1[1]
                 dnnPisa_vars2_arr -= dnnPisa_normfactors2[0]
                 dnnPisa_vars2_arr /= dnnPisa_normfactors2[1]
-                dnnPisa_pred = NUMPY_LIB.array(dnnPisa_model.predict([
+                dnnPisa_preds[imodel, :] = NUMPY_LIB.array(dnnPisa_model.predict([
                     NUMPY_LIB.asnumpy(dnnPisa_vars1_arr), NUMPY_LIB.asnumpy(dnnPisa_vars2_arr)], batch_size=len(dnnPisa_vars1_arr))[:, 0])
-                if len(dnnPisa_pred) > 0:
-                    print("dnnPisa_pred", dnnPisa_pred.min(), dnnPisa_pred.max(), dnnPisa_pred.mean(), dnnPisa_pred.std())
-                dnnPisa_pred = NUMPY_LIB.array(dnnPisa_pred, dtype=NUMPY_LIB.float32)
-            else:
-                dnnPisa_pred = NUMPY_LIB.zeros(nev_dnn_presel, dtype=NUMPY_LIB.float32)
-            dnnPisa_preds += [dnnPisa_pred]
+            imodel += 1
+        compute_dnnPisaComb(dnnPisaComb_pred, dnnPisa_preds, scalars["event"][dnn_presel])
 
     if parameters["do_bdt_ucsd"]:
         hmmthetacs, hmmphics = miscvariables.csangles(
@@ -2505,7 +2517,7 @@ def compute_fill_dnn(
     dnn_vars["m2eta"] = NUMPY_LIB.array(subleading_muon_s["eta"])
     dnn_vars["m1ptOverMass"] = NUMPY_LIB.divide(leading_muon_s["pt"],dnn_vars["Higgs_mass"])
     dnn_vars["m2ptOverMass"] = NUMPY_LIB.divide(subleading_muon_s["pt"],dnn_vars["Higgs_mass"])
-    return dnn_vars, dnn_pred, dnnPisa_preds
+    return dnn_vars, dnn_pred, dnnPisa_preds, dnnPisaComb_pred
 
 def get_massErr_calib_factors(pt1, abs_eta1, abs_eta2, era, is_mc):
     mode = "MC" if is_mc else "Data"
