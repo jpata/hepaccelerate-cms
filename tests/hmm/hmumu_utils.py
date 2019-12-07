@@ -1646,10 +1646,6 @@ def get_selected_jets(
 def get_puid_weights(jets, passed_puid, evaluator, era, wp, jet_pt_min, jet_pt_max, use_cuda):
     nev = jets.numevents()
 
-    # PU ID weights haven't been validated for 2017 yet
-    if era=="2017":
-        return NUMPY_LIB.ones(nev, dtype=NUMPY_LIB.float32)
-
     wp_dict = {"loose": "L", "medium": "M", "tight": "T"}
     jets_pu_eff, jets_pu_sf = jet_puid_evaluate(evaluator, era, wp_dict[wp], NUMPY_LIB.asnumpy(jets.pt), NUMPY_LIB.asnumpy(jets.eta))
     jet_pt_mask = ((NUMPY_LIB.asnumpy(jets.pt)>jet_pt_min) & (NUMPY_LIB.asnumpy(jets.pt)<jet_pt_max))
