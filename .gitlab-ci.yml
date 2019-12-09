@@ -5,7 +5,7 @@ stages:
 
 #image used to compile and run code
 variables:
-  singularity_image: /storage/user/jpata/cupy2.simg
+  singularity_image: /storage/user/jpata/gpuservers/singularity/images/cupy.simg
 
 libhmm:
   stage: build
@@ -21,7 +21,7 @@ libhmm:
 run-analyze:
   stage: analyze
   script:
-    - PYTHONPATH=hepaccelerate:coffea:. NUMBA_NUM_THREADS=1 OMP_NUM_THREADS=1 singularity exec --nv -B /storage ${singularity_image} python3 tests/hmm/analysis_hmumu.py --datapath /storage/user/jpata/ -a analyze -a merge --maxchunks 1 --cache-location /storage/user/jpata/hmm/cache --nthreads 1
+    - PYTHONPATH=hepaccelerate:coffea:. NUMBA_NUM_THREADS=1 OMP_NUM_THREADS=1 singularity exec --nv -B /storage ${singularity_image} python3 tests/hmm/analysis_hmumu.py --datapath /storage/user/jpata/ -a analyze -a merge --maxchunks 1 --cachepath /storage/user/jpata/hmm/skim_merge --nthreads 1
   artifacts:
     paths:
       - out
