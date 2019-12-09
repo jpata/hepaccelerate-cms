@@ -15,7 +15,7 @@ export NUMBA_ENABLE_AVX=1
 export NUMBA_CPU_FEATURES=+sse,+sse2,+avx,+avx2
 export NUMBA_NUM_THREADS=$NTHREADS
 export OMP_NUM_THREADS=$NTHREADS
-export HEPACCELERATE_CUDA=1
+export HEPACCELERATE_CUDA=0
 export KERAS_BACKEND=tensorflow
 
 #This is the location of the input NanoAOD and generally does not need to be changed
