@@ -8,7 +8,7 @@ export NTHREADS=8
 #Set to -1 to run on all files, 1 for debugging/testing
 export MAXCHUNKS=1
 
-export SINGULARITY_IMAGE=/storage/user/jpata/gpuservers/singularity/images/cupy-tf-gpu-v2.simg
+export SINGULARITY_IMAGE=/storage/user/jpata/gpuservers/singularity/images/cupy.simg
 export PYTHONPATH=coffea:hepaccelerate:.
 export NUMBA_THREADING_LAYER=omp
 export NUMBA_ENABLE_AVX=1

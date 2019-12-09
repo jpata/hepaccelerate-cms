@@ -9,18 +9,16 @@
 export PYTHONPATH=coffea:hepaccelerate:.
 export WORKDIR=/central/groups/smaria/jpata/hmm/hepaccelerate-cms
 export OUTDIR=/central/groups/smaria/jpata/hmm/out
-export SINGULARITY_IMAGE=/central/groups/smaria/jpata/software/cupy2.simg
-module load singularity/3.2.0
 
 set -e
 
 cd $WORKDIR
 
 #Run merge
-singularity exec -B /central $SINGULARITY_IMAGE python3 tests/hmm/analysis_hmumu.py \
+python3 tests/hmm/analysis_hmumu.py \
     --action merge \
     --nthreads 16 \
     --out $OUTDIR
 
 #Run plots
-singularity exec -B /central $SINGULARITY_IMAGE python3 tests/hmm/plotting.py --input $OUTDIR --nthreads 16
+python3 tests/hmm/plotting.py --input $OUTDIR --nthreads 16
