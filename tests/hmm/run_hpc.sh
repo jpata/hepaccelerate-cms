@@ -11,11 +11,10 @@ export MAXCHUNKS=1
 #This is where the intermediate analysis files will be saved and loaded from
 #As long as one person produces it, other people can run the analysis on this
 #Currently, use the cache provided by Joosep
-export CACHE_PATH=/central/groups/smaria/jpata/hmm/cache
+export CACHE_PATH=/central/groups/smaria/jpata/hmm/skim_merged
 
-export SINGULARITY_IMAGE=/central/groups/smaria/jpata/hmm/software/cupy2.simg
 export PYTHONPATH=coffea:hepaccelerate:.
-export NUMBA_THREADING_LAYER=tbb
+export NUMBA_THREADING_LAYER=workqueue
 export NUMBA_ENABLE_AVX=1
 export NUMBA_NUM_THREADS=$NTHREADS
 export OMP_NUM_THREADS=$NTHREADS
@@ -26,9 +25,9 @@ export KERAS_BACKEND=tensorflow
 export CACHEPATH=/central/groups/smaria/jpata/hmm/skim_merged
 
 ## Step 2: Run the physics analysis
-singularity exec --nv -B /central $SINGULARITY_IMAGE python3 tests/hmm/analysis_hmumu.py \
+python3 tests/hmm/analysis_hmumu.py \
     --action analyze --action merge --maxchunks $MAXCHUNKS \
     --nthreads $NTHREADS \
     --out ./out \
     --datasets-yaml data/datasets_NanoAODv5.yml \
-    --cachepath $CACHEPATH
+    --cachepath $CACHEPATH --do-factorized-jec
