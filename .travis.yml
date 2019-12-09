@@ -23,6 +23,7 @@ install:
   - pip install cffi
   - pip install pyyaml
   - pip install lz4 cloudpickle tqdm six futures
+  - pip install keras tensorflow==1.15
 
 script:
     - PYTHONPATH=coffea:hepaccelerate:. python tests/hmm/hmumu_utils.py
