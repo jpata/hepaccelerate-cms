@@ -20,8 +20,10 @@ install:
   - conda config --set always_yes yes --set changeps1 no
   - conda update -q conda
   - conda info -a
-  - conda create -n myenv --file singularity/conda_packages.txt
+  - conda config --add channels conda-forge
+  - conda create -n myenv
   - conda activate myenv
+  - conda install awkward cffi cloudpickle lz4 numba numpy psutil python-xxhash pyyaml requests root scipy six tbb tqdm uproot xxhash
   - pip install tensorflow keras
 
 
