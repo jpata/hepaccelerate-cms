@@ -32,9 +32,11 @@ install:
 
 script:
     - PYTHONPATH=coffea:hepaccelerate:. python tests/hmm/hmumu_utils.py
+    - wget https://jpata.web.cern.ch/jpata/hmm/test_files/myNanoProdMc2016_NANO.root -O data/myNanoProdMc2016_NANO.root
     - PYTHONPATH=coffea:hepaccelerate:. python tests/hmm/test_hmumu_utils.py --debug
+    - wget https://jpata.web.cern.ch/jpata/hmm/test_files/nano_2016_data.root -O data/nano_2016_data.root
+    - echo data/myNanoProdMc2016_NANO.root > skim.txt
+    - python tests/hmm/skim_and_recompress.py -i ./skim.txt -o ./data/myNanoProdMc2016_NANO_skim.root -s "(HLT_IsoMu24 || HLT_IsoTkMu24) && nMuon>=2" -t ./
     - echo data/nano_2016_data.root > skim.txt
     - python tests/hmm/skim_and_recompress.py -i ./skim.txt -o ./data/nano_2016_data_skim.root -s "(HLT_IsoMu24 || HLT_IsoTkMu24) && nMuon>=2" -t ./
-    - echo data/myNanoProdMc2016_NANO.root > skim.txt
-    - echo python tests/hmm/skim_and_recompress.py -i ./skim.txt -o ./data/myNanoProdMc2016_NANO_skim.root -s "(HLT_IsoMu24 || HLT_IsoTkMu24) && nMuon>=2" -t ./
     - PYTHONPATH=coffea:hepaccelerate:. python tests/hmm/test_analysis_full.py --debug
