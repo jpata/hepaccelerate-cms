@@ -27,7 +27,6 @@ from hepaccelerate.utils import Results
 from hepaccelerate.utils import Dataset
 from hepaccelerate.utils import Histogram
 import hepaccelerate.backend_cpu as backend_cpu
-import hepaccelerate.backend_cuda as backend_cuda
 
 from coffea.lookup_tools import extractor
 from coffea.util import awkward
@@ -96,6 +95,9 @@ def analyze_data(
     random_seed = 0,
     lumimask = None 
     ):
+
+    if use_cuda:
+        import hepaccelerate.backend_cuda as backend_cuda
 
     # Collect results into this dictionary
     ret = Results({})
