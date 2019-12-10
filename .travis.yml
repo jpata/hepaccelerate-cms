@@ -12,19 +12,20 @@ addons:
     - python-setuptools
 
 install:
-  - pip install awkward
-  - pip install uproot
-  - pip install numpy --upgrade
-  - pip install numba
-  - pip install psutil
-  - pip install matplotlib
-  - pip install scipy
-  - pip install requests
-  - pip install cffi
-  - pip install pyyaml
-  - pip install lz4 cloudpickle tqdm six futures
-  - pip install keras tensorflow==1.15
+  - sudo apt-get update
+  - wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
+  - bash miniconda.sh -b -p $HOME/miniconda
+  - source "$HOME/miniconda/etc/profile.d/conda.sh"
+  - hash -r
+  - conda config --set always_yes yes --set changeps1 no
+  - conda update -q conda
+  - conda info -a
+  - conda create -n myenv --file singularity/conda_packages.txt
+  - conda activate myenv
+  - pip install tensorflow keras
+
 
 script:
     - PYTHONPATH=coffea:hepaccelerate:. python tests/hmm/hmumu_utils.py
     - PYTHONPATH=coffea:hepaccelerate:. python tests/hmm/test_hmumu_utils.py
+    - PYTHONPATH=coffea:hepaccelerate:. python tests/hmm/test_analysis_full.py
