@@ -9,6 +9,7 @@ import sys
 from hepaccelerate.utils import choose_backend, Dataset
 from hmumu_utils import create_datastructure
 from coffea.util import USE_CUPY
+from test_hmumu_utils import download_if_not_exists
 
 if USE_CUPY:
     from numba import cuda
@@ -39,6 +40,14 @@ class TestAnalysis(unittest.TestCase):
         
         from analysis_hmumu import AnalysisCorrections
         self.analysis_corrections = AnalysisCorrections(self.cmdline_args, True)
+        download_if_not_exists(
+            "data/myNanoProdMc2016_NANO.root",
+            "https://jpata.web.cern.ch/jpata/hmm/test_files/myNanoProdMc2016_NANO.root"
+        )
+        download_if_not_exists(
+            "data/nano_2016_data.root",
+            "https://jpata.web.cern.ch/jpata/hmm/test_files/nano_2016_data.root"
+        )
 
     #Run the analysis on a raw NanoAOD MC sample
     def test_run_analysis_mc(self):

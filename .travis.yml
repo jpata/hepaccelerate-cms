@@ -25,9 +25,16 @@ install:
   - conda activate myenv
   - conda install awkward cffi cloudpickle lz4 numba numpy psutil python-xxhash pyyaml requests root scipy six tbb tqdm uproot xxhash
   - pip install tensorflow keras
+  - cd tests/hmm
+  - make
+  - cd ../..
 
 
 script:
     - PYTHONPATH=coffea:hepaccelerate:. python tests/hmm/hmumu_utils.py
-    - PYTHONPATH=coffea:hepaccelerate:. python tests/hmm/test_hmumu_utils.py
-    - PYTHONPATH=coffea:hepaccelerate:. python tests/hmm/test_analysis_full.py
+    - PYTHONPATH=coffea:hepaccelerate:. python tests/hmm/test_hmumu_utils.py --debug
+    - echo data/nano_2016_data.root > skim.txt
+    - python tests/hmm/skim_and_recompress.py -i ./skim.txt -o ./data/nano_2016_data_skim.root -s "(HLT_IsoMu24 || HLT_IsoTkMu24) && nMuon>=2" -t ./
+    - echo data/myNanoProdMc2016_NANO.root > skim.txt
+    - echo python tests/hmm/skim_and_recompress.py -i ./skim.txt -o ./data/myNanoProdMc2016_NANO_skim.root -s "(HLT_IsoMu24 || HLT_IsoTkMu24) && nMuon>=2" -t ./
+    - PYTHONPATH=coffea:hepaccelerate:. python tests/hmm/test_analysis_full.py --debug
