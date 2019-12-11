@@ -3,11 +3,11 @@ Executable = post.sh
 Log = logs/example_job.$(Cluster).log
 Output = logs/example_job.out.$(Cluster).$(Process)
 Error = logs/example_job.err.$(Cluster).$(Process)
-Requirements=(TARGET.OpSysAndVer=="CentOS7" && regexp("blade-.*", TARGET.Machine))
+Requirements=(TARGET.OpSysAndVer=="CentOS7" && regexp("blade.*", TARGET.Machine))
 #Requirements=(TARGET.OpSysAndVer=="CentOS7")
 +RunAsOwner = True
 +InteractiveUser = true
-+SingularityImage = "/storage/user/jpata/gpuservers/singularity/images/cupy2.simg"
++SingularityImage = "/storage/user/jpata/gpuservers/singularity/images/cupy.simg"
 +SingularityBindCVMFS = True
 +RequestWalltime = 10*3600
 

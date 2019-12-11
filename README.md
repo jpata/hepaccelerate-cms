@@ -20,7 +20,7 @@ This code relies on NanoAOD files being available on the local filesystem for th
 This code can be tested on lxplus, with the input files located on `/eos/cms/store`.
 ~~~
 #Create the python environment
-python3 -m venv venv-hepaccelearate
+python3 -m venv venv-hepaccelerate
 source venv-hepaccelerate/bin/activate
 pip3 install awkward uproot numba tqdm lz4 cloudpickle scipy pyyaml cffi six tensorflow psutil xxhash keras
 

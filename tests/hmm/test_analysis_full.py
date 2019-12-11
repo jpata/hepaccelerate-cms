@@ -9,6 +9,7 @@ import sys
 from hepaccelerate.utils import choose_backend, Dataset
 from hmumu_utils import create_datastructure
 from coffea.util import USE_CUPY
+from test_hmumu_utils import download_if_not_exists
 
 if USE_CUPY:
     from numba import cuda
@@ -25,9 +26,9 @@ class TestAnalysis(unittest.TestCase):
         #disable everything that requires ROOT which is not easily available on travis tests
         from pars import analysis_parameters
         self.analysis_parameters = analysis_parameters
-        self.analysis_parameters["baseline"]["do_rochester_corrections"] = False
-        self.analysis_parameters["baseline"]["do_lepton_sf"] = False
-        self.analysis_parameters["baseline"]["save_dnn_vars"] = False
+        self.analysis_parameters["baseline"]["do_rochester_corrections"] = True
+        self.analysis_parameters["baseline"]["do_lepton_sf"] = True
+        self.analysis_parameters["baseline"]["save_dnn_vars"] = True
         self.analysis_parameters["baseline"]["do_bdt_ucsd"] = False
         self.analysis_parameters["baseline"]["do_bdt_pisa"] = False
         self.analysis_parameters["baseline"]["do_factorized_jec"] = False
@@ -39,6 +40,14 @@ class TestAnalysis(unittest.TestCase):
         
         from analysis_hmumu import AnalysisCorrections
         self.analysis_corrections = AnalysisCorrections(self.cmdline_args, True)
+        download_if_not_exists(
+            "data/myNanoProdMc2016_NANO.root",
+            "https://jpata.web.cern.ch/jpata/hmm/test_files/myNanoProdMc2016_NANO.root"
+        )
+        download_if_not_exists(
+            "data/nano_2016_data.root",
+            "https://jpata.web.cern.ch/jpata/hmm/test_files/nano_2016_data.root"
+        )
 
     #Run the analysis on a raw NanoAOD MC sample
     def test_run_analysis_mc(self):
@@ -74,7 +83,7 @@ class TestAnalysis(unittest.TestCase):
  
         self.assertAlmostEqual(ret2["num_events"], 97200)
         self.assertAlmostEqual(ret2["genEventSumw"], 3.7593771153623963)
-        self.assertAlmostEqual(ret2["baseline"]["selected_events_dimuon"], 62172.0)
+        self.assertAlmostEqual(ret2["baseline"]["selected_events_dimuon"], 62176)
     
     #Run the analysis on a skimmed MC sample
     def test_run_analysis_mc_skim(self):
@@ -111,7 +120,7 @@ class TestAnalysis(unittest.TestCase):
  
         self.assertAlmostEqual(ret2["num_events"], 73903)
         self.assertAlmostEqual(ret2["genEventSumw"], 3.7593771153623963)
-        self.assertAlmostEqual(ret2["baseline"]["selected_events_dimuon"], 62172)
+        self.assertAlmostEqual(ret2["baseline"]["selected_events_dimuon"], 62176)
     
     #Run the analysis on a raw NanoAOD data sample 
     def test_run_analysis_data(self):
@@ -147,7 +156,7 @@ class TestAnalysis(unittest.TestCase):
         ret2 = pickle.load(open("test_out/data_2016_0.pkl", "rb"))
         self.assertAlmostEqual(ret2["num_events"], 142491)
         self.assertAlmostEqual(ret2["int_lumi"], 5.633297364)
-        self.assertAlmostEqual(ret2["baseline"]["selected_events_dimuon"], 4024.0)
+        self.assertAlmostEqual(ret2["baseline"]["selected_events_dimuon"], 4031.0)
    
     #Run the analysis on a skimmed data sample 
     def test_run_analysis_data_skim(self):
@@ -183,7 +192,7 @@ class TestAnalysis(unittest.TestCase):
         ret2 = pickle.load(open("test_out/data_skim_2016_0.pkl", "rb"))
         self.assertAlmostEqual(ret2["num_events"], 12307)
         self.assertAlmostEqual(ret2["int_lumi"], 5.633297364)
-        self.assertAlmostEqual(ret2["baseline"]["selected_events_dimuon"], 4025)
+        self.assertAlmostEqual(ret2["baseline"]["selected_events_dimuon"], 4032.0)
 
         #Not sure why this is different on the skimmed sample... floating point precision in changing the file encoding?
         #self.assertAlmostEqual(ret2["baseline"]["numev_passed"]["muon"], 4024.0)
@@ -191,11 +200,11 @@ class TestAnalysis(unittest.TestCase):
     #Test the analysis on one bkg MC and data file, making sure the data/mc plot looks OK
     def test_run_analysis_mc_and_data(self):
         fn_mc = "/storage/group/allcit/store/mc/RunIISummer16NanoAODv5/DYJetsToLL_M-50_TuneCUETP8M1_13TeV-amcatnloFXFX-pythia8/NANOAODSIM/PUMoriond17_Nano1June2019_102X_mcRun2_asymptotic_v7_ext2-v1/120000/CBCAE1AB-4AFD-D840-BE00-9E5ABD2E4A20.root"
-        fn_data = "data/nano_2016_data.root"
 
-        if not (os.path.isfile(fn_mc) and os.path.isfile(fn_data)):
-            print("file {0} or {1} not found, returning".format(fn_mc, fn_data))
-            return
+        if not os.path.isfile(fn_mc):
+            fn_mc = "data/CBCAE1AB-4AFD-D840-BE00-9E5ABD2E4A20.root"
+
+        fn_data = "data/nano_2016_data.root"
 
         from hmumu_utils import run_analysis
 

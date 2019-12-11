@@ -6,7 +6,7 @@ Error = logs/cache.err.$(Cluster).$(Process)
 Requirements=(TARGET.OpSysAndVer=="CentOS7" && regexp("blade.*", TARGET.Machine))
 +RunAsOwner = True
 +InteractiveUser = true
-+SingularityImage = "/storage/user/jpata/gpuservers/singularity/images/cupy2.simg"
++SingularityImage = "/storage/user/jpata/gpuservers/singularity/images/cupy.simg"
 +SingularityBindCVMFS = True
 +RequestWalltime = 2*3600
 

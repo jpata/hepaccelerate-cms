@@ -9,18 +9,22 @@
 export PYTHONPATH=coffea:hepaccelerate:.
 export WORKDIR=/central/groups/smaria/jpata/hmm/hepaccelerate-cms
 export OUTDIR=/central/groups/smaria/jpata/hmm/out
-export SINGULARITY_IMAGE=/central/groups/smaria/jpata/software/cupy2.simg
-module load singularity/3.2.0
+export NTHREADS=16
 
 set -e
+
+cd /central/groups/smaria/jpata/hmm
+
+\ls -1 out_*.tgz | xargs -P $NTHREADS -n 1 tar --skip-old-files -xf
 
 cd $WORKDIR
 
 #Run merge
-singularity exec -B /central $SINGULARITY_IMAGE python3 tests/hmm/analysis_hmumu.py \
+python3 tests/hmm/analysis_hmumu.py \
     --action merge \
-    --nthreads 16 \
+    --nthreads $NTHREADS \
+    --datasets-yaml data/datasets_NanoAODv5.yml \
     --out $OUTDIR
 
 #Run plots
-singularity exec -B /central $SINGULARITY_IMAGE python3 tests/hmm/plotting.py --input $OUTDIR --nthreads 16
+python3 tests/hmm/plotting.py --input $OUTDIR --nthreads $NTHREADS

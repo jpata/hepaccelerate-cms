@@ -8,7 +8,7 @@ mkdir skim_merge
 cd skim_merge
 
 #Prepare list of input files
-singularity exec -B /storage ~jpata/gpuservers/singularity/images/cupy2.simg \
+singularity exec -B /storage ~jpata/gpuservers/singularity/images/cupy.simg \
     python ../../tests/hmm/prepare_merge_argfile.py \
     -i ../../data/datasets_NanoAODv5.yml \
     --datapath /storage/group/allcit \

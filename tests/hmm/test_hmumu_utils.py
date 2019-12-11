@@ -98,6 +98,13 @@ class TestAnalysisSmall(unittest.TestCase):
     def setUp(self):
         pass
 
+    def test_dnn(self):
+        import keras
+        dnn_model = keras.models.load_model("data/DNN27vars_sig_vbf_ggh_bkg_dyvbf_dy105To160_ewk105To160_split_60_40_mod10_191008.h5")
+        inp = np.zeros((1000,26), dtype=np.float32)
+        out = dnn_model.predict(inp) 
+        print(np.mean(out))
+
     def testDataset(self):
         nev = self.dataset.numevents()
         print("Loaded dataset from {0} with {1} events".format(self.dataset.filenames[0], nev))
@@ -205,3 +212,8 @@ if __name__ == "__main__":
         unittest.findTestCases(sys.modules[__name__]).debug()
     else:
         unittest.main()
+
+    #example on how to test just one thing
+    #t = TestAnalysisSmall()
+    #t.setUpClass()
+    #t.test_dnn()

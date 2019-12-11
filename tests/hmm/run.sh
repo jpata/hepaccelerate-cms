@@ -8,7 +8,7 @@ export NTHREADS=8
 #Set to -1 to run on all files, 1 for debugging/testing
 export MAXCHUNKS=1
 
-export SINGULARITY_IMAGE=/storage/user/jpata/gpuservers/singularity/images/cupy2.simg
+export SINGULARITY_IMAGE=/storage/user/jpata/gpuservers/singularity/images/cupy.simg
 export PYTHONPATH=coffea:hepaccelerate:.
 export NUMBA_THREADING_LAYER=omp
 export NUMBA_ENABLE_AVX=1
@@ -29,4 +29,4 @@ singularity exec --nv -B /storage $SINGULARITY_IMAGE python3 tests/hmm/analysis_
     --out ./out \
     --datapath $INPUTDATAPATH \
     --cachepath $CACHEPATH \
-    --datasets-yaml data/datasets_NanoAODv5.yml --disable-tensorflow
+    --datasets-yaml data/datasets_NanoAODv5.yml

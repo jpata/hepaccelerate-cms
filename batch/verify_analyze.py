@@ -1,7 +1,7 @@
 from __future__ import print_function
 import sys, os
 
-resubmits = open("args_analyze_resubmit.txt", "wb")
+resubmits = open("args_analyze_resubmit.txt", "w")
 is_fine = True
 num_outputs_found = 0
 num_outputs_missing = 0

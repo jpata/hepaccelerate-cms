@@ -15,11 +15,11 @@ def parse_log(fn):
     return time, maxrss, spd
 
 if __name__ == "__main__":
-    logdir = sys.argv[1]
+    logpattern = sys.argv[1]
     maxrss = []
     speeds = []
     times = []
-    for fn in glob.glob("{0}/example_job.out.*".format(logdir)):
+    for fn in glob.glob(logpattern):
         time, m_rss, spd = parse_log(fn)
         if m_rss is None or spd is None:
             print("Could not parse log {0}".format(fn))
@@ -29,6 +29,6 @@ if __name__ == "__main__":
         speeds += [spd]
 
     print("number of jobs: {0}".format(len(times))) 
-    print("runtime = {0:.2f} +- {1:.2f} s".format(np.mean(times), np.std(times)))
-    print("maxrss = {0:.2f} +- {1:.2f} MB".format(np.mean(maxrss), np.std(maxrss)))
-    print("speeds = {0:.2f} +- {1:.2f} Hz".format(np.mean(speeds), np.std(speeds)))
+    print("runtime: {0:.2f} +- {1:.2f} s".format(np.mean(times), np.std(times)))
+    print("maxrss: {0:.2f} +- {1:.2f} MB".format(np.mean(maxrss), np.std(maxrss)))
+    print("speeds: {0:.2f} +- {1:.2f} Hz".format(np.mean(speeds), np.std(speeds)))

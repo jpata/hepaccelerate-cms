@@ -12,18 +12,32 @@ addons:
     - python-setuptools
 
 install:
-  - pip install awkward
-  - pip install uproot
-  - pip install numpy --upgrade
-  - pip install numba
-  - pip install psutil
-  - pip install matplotlib
-  - pip install scipy
-  - pip install requests
-  - pip install cffi
-  - pip install pyyaml
-  - pip install lz4 cloudpickle tqdm six futures
+  - sudo apt-get update
+  - wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
+  - bash miniconda.sh -b -p $HOME/miniconda
+  - source "$HOME/miniconda/etc/profile.d/conda.sh"
+  - hash -r
+  - conda config --set always_yes yes --set changeps1 no
+  - conda update -q conda
+  - conda info -a
+  - conda config --add channels conda-forge
+  - conda create -n myenv
+  - conda activate myenv
+  - conda install awkward cffi cloudpickle lz4 numba numpy psutil python-xxhash pyyaml requests root scipy six tbb tqdm uproot xxhash boost matplotlib
+  - pip install tensorflow keras
+  - cd tests/hmm
+  - make
+  - cd ../..
+
 
 script:
     - PYTHONPATH=coffea:hepaccelerate:. python tests/hmm/hmumu_utils.py
-    - PYTHONPATH=coffea:hepaccelerate:. python tests/hmm/test_hmumu_utils.py
+    - wget https://jpata.web.cern.ch/jpata/hmm/test_files/myNanoProdMc2016_NANO.root -O data/myNanoProdMc2016_NANO.root
+    - PYTHONPATH=coffea:hepaccelerate:. python tests/hmm/test_hmumu_utils.py --debug
+    - wget https://jpata.web.cern.ch/jpata/hmm/test_files/nano_2016_data.root -O data/nano_2016_data.root
+    - echo data/myNanoProdMc2016_NANO.root > skim.txt
+    - python tests/hmm/skim_and_recompress.py -i ./skim.txt -o ./data/myNanoProdMc2016_NANO_skim.root -s "(HLT_IsoMu24 || HLT_IsoTkMu24) && nMuon>=2" -t ./
+    - echo data/nano_2016_data.root > skim.txt
+    - python tests/hmm/skim_and_recompress.py -i ./skim.txt -o ./data/nano_2016_data_skim.root -s "(HLT_IsoMu24 || HLT_IsoTkMu24) && nMuon>=2" -t ./
+    - wget https://jpata.web.cern.ch/jpata/hmm/test_files/CBCAE1AB-4AFD-D840-BE00-9E5ABD2E4A20.root -O data/CBCAE1AB-4AFD-D840-BE00-9E5ABD2E4A20.root
+    - PYTHONPATH=coffea:hepaccelerate:. python tests/hmm/test_analysis_full.py --debug
