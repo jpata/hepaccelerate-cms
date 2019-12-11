@@ -8,6 +8,8 @@
 #SBATCH --mem-per-cpu=2G   # memory per CPU core
 #SBATCH -J "hmm"   # job name
 
+set -e
+
 export NTHREADS=2
 
 export NUMBA_NUM_THREADS=$NTHREADS
@@ -18,8 +20,10 @@ export CACHEPATH=/central/groups/smaria/jpata/hmm/skim_merged
 export JOB_TMPDIR=$TMPDIR/$SLURM_JOB_ID
 export OUTDIR=out
 
-OUTFILE=$1
-INFILE=$2
+export OUTFILE=$1
+export INFILE=$2
+
+env
 
 mkdir $JOB_TMPDIR
 cd $JOB_TMPDIR
@@ -41,11 +45,11 @@ PYTHONPATH=hepaccelerate:coffea:. python3 tests/hmm/analysis_hmumu.py \
     --nthreads $NTHREADS \
     --datasets-yaml data/datasets_NanoAODv5.yml \
     --jobfiles-load $JOB_TMPDIR/$OUTDIR/$INFILE \
-    --out $JOB_TMPDIR/out --do-factorized-jec
+    --out $JOB_TMPDIR/$OUTDIR --do-factorized-jec
 
-cd $WORKDIR
-tar -cvzf out.tgz $OUTDIR
-cp -R out.tgz /central/groups/smaria/$USER/hmm/$OUTFILE
+cd $JOB_TMPDIR
+tar -czf out.tgz $OUTDIR
+rsync out.tgz $OUTFILE
 
 cd $SUBMIT_DIR
 
