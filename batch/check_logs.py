@@ -19,7 +19,7 @@ if __name__ == "__main__":
     maxrss = []
     speeds = []
     times = []
-    for fn in glob.glob("{0}/example_job.out.*".format(logdir)):
+    for fn in glob.glob("{0}/*".format(logdir)):
         time, m_rss, spd = parse_log(fn)
         if m_rss is None or spd is None:
             print("Could not parse log {0}".format(fn))
