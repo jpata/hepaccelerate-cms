@@ -30,3 +30,14 @@
   maxrss: 2279.59 +- 203.95 MB
   speeds: 3414.49 +- 1973.39 Hz
   comments: CEPH was in recovery mode, peak throughput at 1.4 GB/s
+
+- date: 2019-12-11
+  site: Caltech Tier2
+  code version: 3db770225c3d308f8f47455dbf37b056166e6378
+  configuration:
+    do_factorized_jec: True
+  number of jobs: 709
+  runtime: 1037.90 +- 595.55 s
+  maxrss: 2326.35 +- 213.88 MB
+  speeds: 1453.62 +- 648.74 Hz
+  comments: CEPH was in recovery mode, peak throughput at 650 MB/s

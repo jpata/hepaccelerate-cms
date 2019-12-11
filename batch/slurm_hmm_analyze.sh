@@ -43,9 +43,10 @@ PYTHONPATH=hepaccelerate:coffea:. python3 tests/hmm/analysis_hmumu.py \
     --action analyze \
     --cachepath $CACHEPATH \
     --nthreads $NTHREADS \
+    --do-factorized-jec \
     --datasets-yaml data/datasets_NanoAODv5.yml \
     --jobfiles-load $JOB_TMPDIR/$OUTDIR/$INFILE \
-    --out $JOB_TMPDIR/$OUTDIR --do-factorized-jec
+    --out $JOB_TMPDIR/$OUTDIR
 
 cd $JOB_TMPDIR
 tar -czf out.tgz $OUTDIR
