@@ -23,6 +23,7 @@ cd ../..
 aws s3 cp s3://hepaccelerate-hmm-skim-merged/jobfiles.tgz ./
 tar xf jobfiles.tgz
 
+df -h
 mkdir out
 PYTHONPATH=coffea:hepaccelerate:. python tests/hmm/run_jd.py jobfiles/jobs.txt $AWS_BATCH_JOB_ARRAY_INDEX out 
 ls -al out

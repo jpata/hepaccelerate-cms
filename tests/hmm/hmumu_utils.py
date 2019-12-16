@@ -392,9 +392,9 @@ def analyze_data(
     n_additional_leptons = n_additional_muons + n_additional_electrons
 
     #This computes the JEC, JER and associated systematics
-    print("event selection eff based on 2 muons", ret_mu["selected_events"].sum() / float(len(mask_events)))
-
-    print("Doing nominal jec on {0} jets".format(jets_passing_id.numobjects()))
+    #print("event selection eff based on 2 muons", ret_mu["selected_events"].sum() / float(len(mask_events)))
+    #print("Doing nominal jec on {0} jets".format(jets_passing_id.numobjects()))
+    
     jet_systematics = JetTransformer(
         jets_passing_id, scalars,
         parameters,
@@ -409,7 +409,7 @@ def analyze_data(
         if parameters["do_factorized_jec"]:
             syst_to_consider = syst_to_consider + jet_systematics.jet_uncertainty_names
 
-    print("entering jec loop with {0}".format(syst_to_consider))
+    #print("entering jec loop with {0}".format(syst_to_consider))
     ret_jet_nominal = None
     
     #Now actually call the JEC computation for each scenario
@@ -439,9 +439,9 @@ def analyze_data(
                 parameters["jet_btag_loose"][dataset_era],
                 is_mc, use_cuda
             )
-            print("jet analysis syst={0} sdir={1} mean_pt_change={2:.4f} num_passing_jets={3} ".format(
-                jet_syst_name[0], jet_syst_name[1], float(jet_pt_change), int(ret_jet["selected_jets"].sum()))
-            )
+            #print("jet analysis syst={0} sdir={1} mean_pt_change={2:.4f} num_passing_jets={3} ".format(
+            #    jet_syst_name[0], jet_syst_name[1], float(jet_pt_change), int(ret_jet["selected_jets"].sum()))
+            #)
             fill_histograms_several(
                 hists, "nominal", "hist__dimuon__",
                 [
@@ -796,8 +796,6 @@ def finalize_weights(weights, all_weight_names=None):
                     wtot *= weights[other_syst]["nominal"] 
                 ret["{0}__{1}".format(this_syst, sdir)] = wtot
     
-    for k in ret.keys():
-        print("finalized weight", k, ret[k].mean())
     return ret
 
 def compute_event_weights(parameters, weights, scalars, genweight_scalefactor, gghw, zptw, LHEScalew, pu_corrections, is_mc, dataset_era, dataset_name, use_cuda):
