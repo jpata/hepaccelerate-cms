@@ -3,6 +3,7 @@ import sys
 import hepaccelerate
 import hmumu_utils
 import boto3
+import tempfile
 
 if __name__ == "__main__":
 
@@ -26,18 +27,21 @@ if __name__ == "__main__":
     analysis_corrections = AnalysisCorrections(cmdline_args, True)
     
     from hmumu_utils import run_analysis
-    infile_list = open("jobfiles/jobs.txt").readlines()[iline].strip()
+    infile_list = open(inp).readlines()[iline].strip()
     job_descriptions = []
     for line in open(infile_list).readlines():
-        job_descriptions += json.load(open(line.strip()))
-    s3 = boto3.resource('s3')
+        job_descriptions += [json.load(open(line.strip()))]
     
+    s3 = boto3.resource('s3')
+    input_file_idx = 0
     for jd in job_descriptions:
         newfns = []
         for fn in jd["filenames"]:
-            newfn = tempfile.mktemp()
-            s3.download_file("hepaccelerate-hmm-skim-merged", fn, newfn)
+            newfn = "input_{0}.root".format(input_file_idx)
+            print(fn, newfn)
+            #s3.download_file("hepaccelerate-hmm-skim-merged", fn, newfn)
             newfns += [newfn]
+            input_file_idx += 1
         jd["filenames"] = newfns
 
     ret = hmumu_utils.run_analysis(
