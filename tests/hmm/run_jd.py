@@ -39,7 +39,7 @@ if __name__ == "__main__":
         for fn in jd["filenames"]:
             newfn = "input_{0}.root".format(input_file_idx)
             print(fn, newfn)
-            #s3.download_file("hepaccelerate-hmm-skim-merged", fn, newfn)
+            s3.download_file("hepaccelerate-hmm-skim-merged", fn, newfn)
             newfns += [newfn]
             input_file_idx += 1
         jd["filenames"] = newfns
