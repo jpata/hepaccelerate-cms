@@ -26,7 +26,7 @@ if __name__ == "__main__":
     analysis_corrections = AnalysisCorrections(cmdline_args, True)
     
     from hmumu_utils import run_analysis
-    infile_list = open("jobfiles/jobs.txt").readlines()[iline]
+    infile_list = open("jobfiles/jobs.txt").readlines()[iline].strip()
     job_descriptions = []
     for line in open(infile_list).readlines():
         job_descriptions += json.load(open(line.strip()))
