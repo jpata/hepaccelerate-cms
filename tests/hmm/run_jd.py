@@ -33,6 +33,7 @@ if __name__ == "__main__":
         job_descriptions += [json.load(open(line.strip()))]
 
     s3_client = boto3.client('s3')
+
     input_file_idx = 0
     for jd in job_descriptions:
         newfns = []
@@ -43,11 +44,14 @@ if __name__ == "__main__":
             newfns += [newfn]
             input_file_idx += 1
         jd["filenames"] = newfns
+        
+        ret = hmumu_utils.run_analysis(
+            cmdline_args,
+            out,
+            [jd],
+            analysis_parameters,
+            analysis_corrections,
+            numev_per_chunk=10000)
 
-    ret = hmumu_utils.run_analysis(
-        cmdline_args,
-        out,
-        job_descriptions,
-        analysis_parameters,
-        analysis_corrections,
-        numev_per_chunk=10000)
+        for fn in newfns:
+            os.remove(fn)
