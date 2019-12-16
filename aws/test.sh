@@ -2,6 +2,8 @@
 set -e
 set -o xtrace
 
+export AWS_BATCH_JOB_ARRAY_INDEX=0
+
 env
 df -h
 python --version
@@ -11,6 +13,7 @@ cat files.txt
 aws s3 cp s3://hepaccelerate-hmm-skim-merged/sandbox.tgz ./
 tar xf sandbox.tgz
 cd hepaccelerate-cms
+git checkout aws
 git pull
 git submodule update
 
@@ -19,23 +22,13 @@ make
 
 cd ../..
 
-aws s3 cp s3://hepaccelerate-hmm-skim-merged/store/mc/RunIISummer16NanoAODv5/DYToLL_0J_13TeV-amcatnloFXFX-pythia8/merged_55.root ./input.root
-cat > desc.json <<EOF
-{
-  "dataset_name": "dy_0j",
-  "dataset_era": "2016",
-  "filenames": [
-    "input.root"
-  ],
-  "is_mc": true,
-  "dataset_num_chunk": 0,
-  "random_seed": 1752
-}
-EOF
+aws s3 cp s3://hepaccelerate-hmm-skim-merged/jobfiles.tgz ./
+tar xf jobfiles.tgz
 
 mkdir out
 aws s3 cp s3://hepaccelerate-hmm-skim-merged/datasets.json ./out/
 
-PYTHONPATH=coffea:hepaccelerate:. python tests/hmm/analysis_hmumu.py --jobfiles desc.json --datasets-yaml ./data/datasets_NanoAODv5.yml
+PYTHONPATH=coffea:hepaccelerate:. python tests/hmm/run_jd.py jobfiles/jobs.txt $AWS_BATCH_JOB_ARRAY_INDEX out 
+ls -al out
 
-aws s3 cp ./out/partial_results/dy_0j_2016_0.pkl s3://hepaccelerate-hmm-skim-merged/out/dy_0j_2016_0.pkl
+aws s3 cp ./out/*.pkl s3://hepaccelerate-hmm-skim-merged/out/

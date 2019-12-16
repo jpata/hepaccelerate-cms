@@ -2,11 +2,13 @@ import json
 import sys
 import hepaccelerate
 import hmumu_utils
+import boto3
 
 if __name__ == "__main__":
 
     inp = sys.argv[1]
-    out = sys.argv[2]
+    iline = int(sys.argv[2])
+    out = sys.argv[3]
 
     USE_CUPY = False
     NUMPY_LIB, ha = hepaccelerate.choose_backend(use_cuda=USE_CUPY)
@@ -24,8 +26,20 @@ if __name__ == "__main__":
     analysis_corrections = AnalysisCorrections(cmdline_args, True)
     
     from hmumu_utils import run_analysis
-    job_descriptions = json.load(open(inp))
+    infile_list = open("jobfiles/jobs.txt").readlines()[iline]
+    job_descriptions = []
+    for line in open(infile_list).readlines():
+        job_descriptions += json.load(open(line.strip()))
+    s3 = boto3.resource('s3')
     
+    for jd in job_descriptions:
+        newfns = []
+        for fn in jd["filenames"]:
+            newfn = tempfile.mktemp()
+            s3.download_file("hepaccelerate-hmm-skim-merged", fn, newfn)
+            newfns += [newfn]
+        jd["filenames"] = newfns
+
     ret = hmumu_utils.run_analysis(
         cmdline_args,
         out,
@@ -33,4 +47,3 @@ if __name__ == "__main__":
         analysis_parameters,
         analysis_corrections,
         numev_per_chunk=10000)
-    print(ret)
