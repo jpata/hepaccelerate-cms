@@ -39,9 +39,10 @@ if __name__ == "__main__":
     for jd in job_descriptions:
         newfns = []
         for fn in jd["filenames"]:
-            newfn = "input_{0}.root".format(input_file_idx)
-            print(fn, newfn)
-            s3_client.download_file("hepaccelerate-hmm-skim-merged", fn, newfn)
+            newfn = "https://hepaccelerate-hmm-skim-merged.s3-us-west-2.amazonaws.com/" + fn
+            #newfn = "input_{0}.root".format(input_file_idx)
+            #print(fn, newfn)
+            #s3_client.download_file("hepaccelerate-hmm-skim-merged", fn, newfn)
             newfns += [newfn]
             input_file_idx += 1
         jd["filenames"] = newfns
@@ -54,5 +55,5 @@ if __name__ == "__main__":
             analysis_corrections,
             numev_per_chunk=10000)
 
-        for fn in newfns:
-            os.remove(fn)
+        #for fn in newfns:
+        #    os.remove(fn)
