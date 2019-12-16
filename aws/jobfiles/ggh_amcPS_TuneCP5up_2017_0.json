@@ -1,0 +1,10 @@
+{
+  "dataset_name": "ggh_amcPS_TuneCP5up",
+  "dataset_era": "2017",
+  "filenames": [
+    "store/mc/RunIIFall17NanoAODv5/GluGluHToMuMu_M125_TuneCP5up_PSweights_13TeV_amcatnloFXFX_pythia8/merged_0.root"
+  ],
+  "is_mc": true,
+  "dataset_num_chunk": 0,
+  "random_seed": 2740
+}

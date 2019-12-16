@@ -1,0 +1,10 @@
+{
+  "dataset_name": "data",
+  "dataset_era": "2017",
+  "filenames": [
+    "store/data/Run2017/SingleMuon/NANOAOD/Nano1June2019-v1/merged_2.root"
+  ],
+  "is_mc": false,
+  "dataset_num_chunk": 458,
+  "random_seed": 876
+}

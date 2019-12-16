@@ -1,0 +1,10 @@
+{
+  "dataset_name": "wz_2l2q",
+  "dataset_era": "2016",
+  "filenames": [
+    "store/mc/RunIISummer16NanoAODv5/WZTo2L2Q_13TeV_amcatnloFXFX_madspin_pythia8/merged_17.root"
+  ],
+  "is_mc": true,
+  "dataset_num_chunk": 13,
+  "random_seed": 3447
+}

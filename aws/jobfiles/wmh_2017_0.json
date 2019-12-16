@@ -1,0 +1,10 @@
+{
+  "dataset_name": "wmh",
+  "dataset_era": "2017",
+  "filenames": [
+    "store/mc/RunIIFall17NanoAODv5/WminusH_HToMuMu_WToAll_M125_13TeV_powheg_pythia8/merged_0.root"
+  ],
+  "is_mc": true,
+  "dataset_num_chunk": 0,
+  "random_seed": 3371
+}

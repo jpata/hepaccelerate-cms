@@ -1,0 +1,10 @@
+{
+  "dataset_name": "dy",
+  "dataset_era": "2017",
+  "filenames": [
+    "store/mc/RunIIFall17NanoAODv5/DYJetsToLL_M-50_TuneCP5_13TeV-amcatnloFXFX-pythia8/merged_58.root"
+  ],
+  "is_mc": true,
+  "dataset_num_chunk": 1,
+  "random_seed": 1481
+}

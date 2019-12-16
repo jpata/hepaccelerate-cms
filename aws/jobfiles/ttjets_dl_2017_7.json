@@ -1,0 +1,10 @@
+{
+  "dataset_name": "ttjets_dl",
+  "dataset_era": "2017",
+  "filenames": [
+    "store/mc/RunIIFall17NanoAODv5/TTTo2L2Nu_TuneCP5_PSweights_13TeV-powheg-pythia8/merged_41.root"
+  ],
+  "is_mc": true,
+  "dataset_num_chunk": 7,
+  "random_seed": 2888
+}

@@ -1,0 +1,5 @@
+jobfiles/ttjets_sl_2018_23.json
+jobfiles/data_2018_371.json
+jobfiles/st_tw_antitop_2016_3.json
+jobfiles/wz_3lnu_2016_7.json
+jobfiles/ttz_2018_0.json

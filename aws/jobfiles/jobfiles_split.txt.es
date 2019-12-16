@@ -1,0 +1,5 @@
+jobfiles/data_2018_57.json
+jobfiles/vbf_amc_herwig_2016_0.json
+jobfiles/ttjets_sl_2018_24.json
+jobfiles/dy_1j_2016_6.json
+jobfiles/dy_0j_2018_54.json

@@ -1,0 +1,10 @@
+{
+  "dataset_name": "ww_2l2nu",
+  "dataset_era": "2017",
+  "filenames": [
+    "store/mc/RunIIFall17NanoAODv5/WWTo2L2Nu_NNPDF31_TuneCP5_13TeV-powheg-pythia8/merged_1.root"
+  ],
+  "is_mc": true,
+  "dataset_num_chunk": 1,
+  "random_seed": 3380
+}

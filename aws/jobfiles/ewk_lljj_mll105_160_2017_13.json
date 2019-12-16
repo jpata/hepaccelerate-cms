@@ -1,0 +1,10 @@
+{
+  "dataset_name": "ewk_lljj_mll105_160",
+  "dataset_era": "2017",
+  "filenames": [
+    "store/mc/RunIIFall17NanoAODv5/EWK_LLJJ_MLL_105-160_SM_5f_LO_TuneCH3_13TeV-madgraph-herwig7/merged_4.root"
+  ],
+  "is_mc": true,
+  "dataset_num_chunk": 13,
+  "random_seed": 2689
+}

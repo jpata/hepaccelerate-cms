@@ -1,0 +1,5 @@
+jobfiles/data_2018_412.json
+jobfiles/wz_1l1nu2q_2016_2.json
+jobfiles/data_2018_251.json
+jobfiles/data_2018_154.json
+jobfiles/vbf_powhegPS_2016_0.json

@@ -1,0 +1,10 @@
+{
+  "dataset_name": "ttjets_sl",
+  "dataset_era": "2016",
+  "filenames": [
+    "store/mc/RunIISummer16NanoAODv5/TTToSemiLeptonic_TuneCP5_PSweights_13TeV-powheg-pythia8/merged_33.root"
+  ],
+  "is_mc": true,
+  "dataset_num_chunk": 23,
+  "random_seed": 3024
+}

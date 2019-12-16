@@ -1,0 +1,10 @@
+{
+  "dataset_name": "vbf_amcPS",
+  "dataset_era": "2017",
+  "filenames": [
+    "store/mc/RunIIFall17NanoAODv5/VBFHToMuMu_M125_TuneCP5_PSweights_13TeV_amcatnlo_pythia8/merged_0.root"
+  ],
+  "is_mc": true,
+  "dataset_num_chunk": 0,
+  "random_seed": 3346
+}

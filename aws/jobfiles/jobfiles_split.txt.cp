@@ -1,0 +1,5 @@
+jobfiles/ttjets_sl_2017_100.json
+jobfiles/data_2017_332.json
+jobfiles/dy_m105_160_mg_2017_30.json
+jobfiles/data_2016_363.json
+jobfiles/vbf_amcPS_TuneCP5down_2017_0.json

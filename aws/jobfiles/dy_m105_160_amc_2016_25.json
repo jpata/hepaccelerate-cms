@@ -1,0 +1,10 @@
+{
+  "dataset_name": "dy_m105_160_amc",
+  "dataset_era": "2016",
+  "filenames": [
+    "store/mc/RunIISummer16NanoAODv5/DYJetsToLL_M-105To160_TuneCP5_PSweights_13TeV-amcatnloFXFX-pythia8/merged_22.root"
+  ],
+  "is_mc": true,
+  "dataset_num_chunk": 25,
+  "random_seed": 2344
+}

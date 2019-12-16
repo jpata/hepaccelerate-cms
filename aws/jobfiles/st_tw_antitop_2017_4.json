@@ -1,0 +1,10 @@
+{
+  "dataset_name": "st_tw_antitop",
+  "dataset_era": "2017",
+  "filenames": [
+    "store/mc/RunIIFall17NanoAODv5/ST_tW_antitop_5f_inclusiveDecays_TuneCP5_13TeV-powheg-pythia8/merged_4.root"
+  ],
+  "is_mc": true,
+  "dataset_num_chunk": 4,
+  "random_seed": 2795
+}

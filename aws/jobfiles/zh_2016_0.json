@@ -1,0 +1,10 @@
+{
+  "dataset_name": "zh",
+  "dataset_era": "2016",
+  "filenames": [
+    "store/mc/RunIISummer16NanoAODv5/ZH_HToMuMu_ZToAll_M125_TuneCP5_PSweights_13TeV_powheg_pythia8/merged_0.root"
+  ],
+  "is_mc": true,
+  "dataset_num_chunk": 0,
+  "random_seed": 3531
+}

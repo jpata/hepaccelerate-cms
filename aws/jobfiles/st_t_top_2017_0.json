@@ -1,0 +1,10 @@
+{
+  "dataset_name": "st_t_top",
+  "dataset_era": "2017",
+  "filenames": [
+    "store/mc/RunIIFall17NanoAODv5/ST_t-channel_top_5f_TuneCP5_13TeV-powheg-pythia8/merged_0.root"
+  ],
+  "is_mc": true,
+  "dataset_num_chunk": 0,
+  "random_seed": 2767
+}

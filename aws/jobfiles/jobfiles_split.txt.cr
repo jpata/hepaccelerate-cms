@@ -1,0 +1,5 @@
+jobfiles/dy_0j_2017_4.json
+jobfiles/dy_1j_2017_45.json
+jobfiles/wz_1l1nu2q_2017_6.json
+jobfiles/ggh_amcPS_TuneCP5down_2017_0.json
+jobfiles/dy_m105_160_vbf_mg_2018_3.json

@@ -1,0 +1,5 @@
+jobfiles/data_2018_269.json
+jobfiles/ttjets_sl_2018_66.json
+jobfiles/ttz_2017_2.json
+jobfiles/dy_m105_160_amc_2017_39.json
+jobfiles/data_2016_41.json

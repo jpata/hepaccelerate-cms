@@ -1,0 +1,10 @@
+{
+  "dataset_name": "zz",
+  "dataset_era": "2017",
+  "filenames": [
+    "store/mc/RunIIFall17NanoAODv5/ZZ_TuneCP5_13TeV-pythia8/merged_1.root"
+  ],
+  "is_mc": true,
+  "dataset_num_chunk": 1,
+  "random_seed": 3538
+}

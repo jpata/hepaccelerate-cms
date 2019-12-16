@@ -1,0 +1,10 @@
+{
+  "dataset_name": "ewk_lljj_mll50_mjj120",
+  "dataset_era": "2016",
+  "filenames": [
+    "store/mc/RunIISummer16NanoAODv5/EWK_LLJJ_MLL-50_MJJ-120_13TeV-madgraph-herwigpp/merged_0.root"
+  ],
+  "is_mc": true,
+  "dataset_num_chunk": 0,
+  "random_seed": 2714
+}

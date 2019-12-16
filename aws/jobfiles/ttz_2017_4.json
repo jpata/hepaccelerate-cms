@@ -1,0 +1,10 @@
+{
+  "dataset_name": "ttz",
+  "dataset_era": "2017",
+  "filenames": [
+    "store/mc/RunIIFall17NanoAODv5/TTZToLLNuNu_M-10_TuneCP5_PSweights_13TeV-amcatnlo-pythia8/merged_7.root"
+  ],
+  "is_mc": true,
+  "dataset_num_chunk": 4,
+  "random_seed": 3317
+}
