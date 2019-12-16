@@ -27,4 +27,6 @@ mkdir out
 PYTHONPATH=coffea:hepaccelerate:. python tests/hmm/run_jd.py jobfiles/jobs.txt $AWS_BATCH_JOB_ARRAY_INDEX out 
 ls -al out
 
-aws s3 cp ./out/*.pkl s3://hepaccelerate-hmm-skim-merged/out/
+for f in ./out/*.pkl; do
+    aws s3 cp $f s3://hepaccelerate-hmm-skim-merged/out/`basename $f`
+done
