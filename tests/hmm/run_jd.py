@@ -4,6 +4,7 @@ import hepaccelerate
 import hmumu_utils
 import boto3
 import tempfile
+import os
 
 if __name__ == "__main__":
 
