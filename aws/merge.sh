@@ -8,6 +8,18 @@ env
 df -h
 python --version
 
+#Download sandbox and set up the code
+aws s3 cp s3://$BUCKET/sandbox.tgz ./
+tar xf sandbox.tgz
+cd hepaccelerate-cms
+git checkout aws
+git pull
+git submodule update
+cd tests/hmm
+make
+
+cd ../..
+
 #Get the input
 aws s3 cp --recursive s3://$BUCKET/out /tmp/out
 
