@@ -16,10 +16,9 @@ cd $WORKDIR
 aws s3 cp s3://$BUCKET/sandbox.tgz ./
 tar xf sandbox.tgz
 cd hepaccelerate-cms
-git init
-git remote add origin https://github.com/jpata/hepaccelerate-cms.git
 git pull
-git checkout aws
+git aws
+git submodule init
 git submodule update
 cd tests/hmm
 make
