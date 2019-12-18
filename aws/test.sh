@@ -3,17 +3,23 @@ set -e
 set -o xtrace
 
 BUCKET=hepaccelerate-hmm-skim-merged
+WORKDIR=/scratch/map-${AWS_BATCH_JOB_ID}
 
 env
 df -h
 python --version
 
+mkdir -p $WORKDIR
+cd $WORKDIR
+
 #Download sandbox and set up the code
 aws s3 cp s3://$BUCKET/sandbox.tgz ./
 tar xf sandbox.tgz
 cd hepaccelerate-cms
-git checkout aws
+git init
+git remote add origin https://github.com/jpata/hepaccelerate-cms.git
 git pull
+git checkout aws
 git submodule update
 cd tests/hmm
 make
@@ -32,3 +38,6 @@ PYTHONPATH=coffea:hepaccelerate:. python tests/hmm/run_jd.py jobfiles/jobs.txt $
 for f in ./out/*.pkl; do
     aws s3 cp $f s3://$BUCKET/out/`basename $f`
 done
+
+cd /
+rm -Rf $WORKDIR
