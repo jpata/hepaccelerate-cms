@@ -3,6 +3,7 @@ set -e
 set -o xtrace
 
 BUCKET=hepaccelerate-hmm-skim-merged
+WORKDIR=/efs/merge-${AWS_BATCH_JOB_ID}
 
 env
 df -h
@@ -21,11 +22,19 @@ make
 cd ../..
 
 #Get the input
-aws s3 cp --recursive s3://$BUCKET/out /tmp/out
+mkdir -p $WORKDIR
+aws s3 cp --recursive s3://$BUCKET/out $WORKDIR
 
-PYTHONPATH=hepaccelerate:coffea:. python3 tests/hmm/merge.py data/datasets_NanoAODv5.yml /tmp/out
+PYTHONPATH=hepaccelerate:coffea:. python3 tests/hmm/merge.py data/datasets_NanoAODv5.yml /efs/out
+PYTHONPATH=coffea:hepaccelerate:. python3 tests/hmm/plotting.py --input out_merged --nthreads 4
 
+tar czf results.tgz out_merged
 #Copy the output
-for f in ./out_merged/results/*.pkl; do
-    aws s3 cp $f s3://$BUCKET/out_merged/`basename $f`
-done
+aws s3 cp results.tgz s3://$BUCKET/results.tgz
+
+#cleanup
+rm -Rf $WORKDIR
+rm results.tgz
+rm -Rf out_merged
+cd ..
+rm -Rf hepaccelerate-cms sandbox.tgz

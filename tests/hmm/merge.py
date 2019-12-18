@@ -6,7 +6,7 @@ from analysis_hmumu import merge_partial_results
 if __name__ == "__main__":
     datasets = yaml.load(open(sys.argv[1]), Loader=yaml.FullLoader)["datasets"]
 
-    with ProcessPoolExecutor(max_workers=2) as executor:
+    with ProcessPoolExecutor(max_workers=4) as executor:
         for dataset in datasets:
             dataset_name = dataset["name"]
             dataset_era = dataset["era"]
