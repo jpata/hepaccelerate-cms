@@ -1964,12 +1964,7 @@ def get_gen_sumweights(filenames, attempts):
     sumw = 0
     sumw2 = 0
     for fi in filenames:
-        try:
-            ff = uproot_open_attempts(fi)
-        except requests.exceptions.ConnectionError as e:
-            print("get_gen_sumweights: Error loading file {0} over HTTP, attempt {1}/{2}".format(fn, nfailed, nattempts), file=sys.stderr)
-            nfailed += 1
-            if nfailed >= nattempts:
+        ff = uproot_open_attempts(fi)
         bl = ff.get("Runs")
         arr = bl.array("genEventSumw")
         arr2 = bl.array("genEventSumw2")
