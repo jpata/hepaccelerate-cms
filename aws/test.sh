@@ -17,7 +17,7 @@ aws s3 cp s3://$BUCKET/sandbox.tgz ./
 tar xf sandbox.tgz
 cd hepaccelerate-cms
 git pull
-git aws
+git checkout aws
 git submodule init
 git submodule update
 cd tests/hmm

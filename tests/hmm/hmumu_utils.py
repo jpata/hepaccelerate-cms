@@ -26,6 +26,7 @@ import hepaccelerate.utils
 from hepaccelerate.utils import Results
 from hepaccelerate.utils import Dataset
 from hepaccelerate.utils import Histogram
+from hepaccelerate.utils import uproot_open_attempts
 import hepaccelerate.backend_cpu as backend_cpu
 
 from coffea.lookup_tools import extractor
@@ -1959,11 +1960,16 @@ def get_int_lumi(runs, lumis, mask_events, lumidata):
     lumi_proc = lumidata.get_lumi(runs_lumis)
     return lumi_proc
 
-def get_gen_sumweights(filenames):
+def get_gen_sumweights(filenames, attempts):
     sumw = 0
     sumw2 = 0
     for fi in filenames:
-        ff = uproot.open(fi)
+        try:
+            ff = uproot_open_attempts(fi)
+        except requests.exceptions.ConnectionError as e:
+            print("get_gen_sumweights: Error loading file {0} over HTTP, attempt {1}/{2}".format(fn, nfailed, nattempts), file=sys.stderr)
+            nfailed += 1
+            if nfailed >= nattempts:
         bl = ff.get("Runs")
         arr = bl.array("genEventSumw")
         arr2 = bl.array("genEventSumw2")
@@ -1975,7 +1981,7 @@ def get_lumis(filenames):
     runs = []
     luminosityBlock = []
     for fi in filenames:
-        ff = uproot.open(fi)
+        ff = uproot_open_attempts(fi)
         bl = ff.get("LuminosityBlocks")
         arr = bl.array("run")
         arr2 = bl.array("luminosityBlock")
@@ -3206,7 +3212,7 @@ class InputGen:
         nev = 0
         for fn in job_desc["filenames"]:
             print("get_num_events", fn)
-            nev += len(uproot.open(fn).get("Events"))
+            nev += len(uproot_open_attempts(fn).get("Events"))
         return nev
  
     def is_done(self):
