@@ -3,7 +3,7 @@ set -e
 set -o xtrace
 
 BUCKET=hepaccelerate-hmm-skim-merged
-WORKDIR=/scratch/merge-${AWS_BATCH_JOB_ID}
+WORKDIR=/scratch/merge-${AWS_BATCH_JOB_ID}-${AWS_BATCH_JOB_ATTEMPT}
 
 env
 df -h
