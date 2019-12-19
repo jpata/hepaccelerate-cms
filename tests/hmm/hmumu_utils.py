@@ -1960,7 +1960,7 @@ def get_int_lumi(runs, lumis, mask_events, lumidata):
     lumi_proc = lumidata.get_lumi(runs_lumis)
     return lumi_proc
 
-def get_gen_sumweights(filenames, attempts):
+def get_gen_sumweights(filenames):
     sumw = 0
     sumw2 = 0
     for fi in filenames:
