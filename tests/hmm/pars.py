@@ -536,7 +536,7 @@ analysis_parameters = {
         "jet_veto_raw_pt": 50.0,  
         "jet_btag_medium": {"2016": 0.6321, "2017": 0.4941, "2018": 0.4184},
         "jet_btag_loose": {"2016": 0.2217, "2017": 0.1522, "2018": 0.1241},
-        "do_factorized_jec": True,
+        "do_factorized_jec": False,
 
         "softjet_pt": 5.0,
         "softjet_evt_dr2": 0.16, 
