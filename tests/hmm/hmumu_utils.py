@@ -1568,23 +1568,23 @@ def get_selected_jets_id(
     elif jet_puid == "none":
         pass_jet_puid = NUMPY_LIB.ones(jets.numobjects(), dtype=NUMPY_LIB.bool)
 
+    abs_eta = NUMPY_LIB.abs(jets.eta)
+    jet_eta_pass_veto = NUMPY_LIB.ones(jets.numobjects(), dtype=NUMPY_LIB.bool)
+    if dataset_era == "2017":
+        jet_eta_pass_veto = NUMPY_LIB.logical_or(NUMPY_LIB.logical_and(jets.puId >= 7, NUMPY_LIB.logical_and(abs_eta < jet_veto_eta_upper_cut, abs_eta > jet_veto_eta_lower_cut)), NUMPY_LIB.logical_or(
+                (abs_eta > jet_veto_eta_upper_cut),
+                (abs_eta < jet_veto_eta_lower_cut)
+            ))
+
     pass_qgl = jets.qgl > -2 
 
-    abs_eta = NUMPY_LIB.abs(jets.eta)
-    raw_pt = compute_jet_raw_pt(jets)
+    #raw_pt = compute_jet_raw_pt(jets)
     selected_jets = (
     	(abs_eta < jet_eta_cut) &
             pass_jetid & pass_jet_puid & pass_qgl
-    )
-    if dataset_era == "2017":
-        jet_eta_pass_veto = NUMPY_LIB.logical_or(
-            (jet_puid == "tight"), #(raw_pt > jet_veto_raw_pt),
-            NUMPY_LIB.logical_or(
-                (abs_eta > jet_veto_eta_upper_cut),
-                (abs_eta < jet_veto_eta_lower_cut)
-            )
-        )
-        selected_jets = selected_jets & jet_eta_pass_veto
+    ) & jet_eta_pass_veto
+
+    #selected_jets = selected_jets & jet_eta_pass_veto
     
     jets_pass_dr = ha.mask_deltar_first(
         {"eta": jets.eta, "phi": jets.phi, "offsets": jets.offsets},

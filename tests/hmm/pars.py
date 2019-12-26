@@ -387,7 +387,7 @@ scale_uncertainties = {
     "tt" : {"TTxsec": 1.05},
     #"dy_m105_160_amc": {"DYxsec": 1.10},
     #"dy_m105_160__vbf_amc": {"DYxsec": 1.10},
-    #"ewk_lljj_mll105_160": {"EWZxsec": 1.20},
+    "ewk_lljj_mll105_160": {"EWZxsec": 1.20},
     #"ewk_lljj_mll50_mjj120": {"EWZxsec": 1.20},
     "ttjets_sl": {"TTxsec": 1.05},
     "ttjets_dl": {"TTxsec": 1.05},
@@ -532,7 +532,7 @@ analysis_parameters = {
         "jet_id": {"2016":"loose", "2017":"tight", "2018":"tight"},
         "jet_puid": "loose",
         "jet_puid_pt_max": 50,
-        "jet_veto_eta": [2.65, 3.139],
+        "jet_veto_eta": [2.6, 3.0],
         "jet_veto_raw_pt": 50.0,  
         "jet_btag_medium": {"2016": 0.6321, "2017": 0.4941, "2018": 0.4184},
         "jet_btag_loose": {"2016": 0.2217, "2017": 0.1522, "2018": 0.1241},
@@ -555,7 +555,7 @@ analysis_parameters = {
         "extra_electrons_iso": 0.4, #Check if we want to apply this
         "extra_electrons_id": "mvaFall17V1Iso_WP90",
 
-        "save_dnn_vars": False,
+        "save_dnn_vars": True,
         "dnn_vars_path": "out/dnn_vars",
 
         #If true, apply mjj > cut, otherwise inverse
