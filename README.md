@@ -70,6 +70,7 @@ export SUBMIT_DIR=`pwd`
 ./tests/hmm/run.sh
 
 cd batch
+mkdir logs
 
 #Run the NanoAOD skimming step (cache creation).
 #This is quite heavy (~6h total), so do this only

@@ -371,7 +371,7 @@ jec_unc = [
 
 #Uncomment to use just the total JEC for quick tests
 #jec_unc = ["Total"]
-shape_systematics = jec_unc + ["jer", "trigger", "id", "iso", "puWeight", "L1PreFiringWeight","DYLHEScaleWeight","EWZLHEScaleWeight"]
+shape_systematics = jec_unc + ["jer", "trigger", "id", "iso", "puWeight", "L1PreFiringWeight","DYLHEScaleWeight","EWZLHEScaleWeight"]#,"btag_weight_bcFl","btag_weight_lFl"]
 common_scale_uncertainties = {
     "lumi": 1.025,
 }
@@ -537,7 +537,7 @@ analysis_parameters = {
         "jet_btag_medium": {"2016": 0.6321, "2017": 0.4941, "2018": 0.4184},
         "jet_btag_loose": {"2016": 0.2217, "2017": 0.1522, "2018": 0.1241},
         "do_factorized_jec": True,
-
+        "apply_btag": True,
         "softjet_pt": 5.0,
         "softjet_evt_dr2": 0.16, 
 
@@ -659,7 +659,10 @@ histo_bins = {
     "numjets": np.linspace(0, 10, 11, dtype=np.float32),
     "jet_qgl": np.linspace(0, 1, 11, dtype=np.float32),
     "massErr": np.linspace(0, 10, 101, dtype=np.float32),
-    "massErr_rel": np.linspace(0, 0.05, 101, dtype=np.float32)
+    "massErr_rel": np.linspace(0, 0.05, 101, dtype=np.float32),
+    "DeepCSV": np.linspace(0, 1, 11, dtype=np.float32),
+    "dnnPisa_pred" : np.linspace(0,1,1001, dtype=np.float32),
+
 }
 for hname, bins in analysis_parameters["baseline"]["dnn_input_histogram_bins"].items():
     histo_bins[hname] = np.linspace(bins[0], bins[1], bins[2], dtype=np.float32)

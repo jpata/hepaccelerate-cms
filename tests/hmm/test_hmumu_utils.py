@@ -146,7 +146,7 @@ class TestAnalysisSmall(unittest.TestCase):
     def test_analyze_function(self):
         import hmumu_utils
         from hmumu_utils import analyze_data, load_puhist_target
-        from analysis_hmumu import JetMetCorrections
+        from analysis_hmumu import JetMetCorrections, BTagWeights
         from coffea.lookup_tools import extractor
         NUMPY_LIB = self.NUMPY_LIB
         hmumu_utils.NUMPY_LIB = self.NUMPY_LIB
@@ -161,6 +161,9 @@ class TestAnalysisSmall(unittest.TestCase):
         
         kwargs = {
             "pu_corrections": {"2016": load_puhist_target("data/pileup/RunII_2016_data.root")},
+            "btag_weights": {
+                "DeepCSV_2016": BTagWeights( tag_name = "DeepCSV_2016LegacySF_V1")
+            },
             "puidreweighting": puid_extractor.make_evaluator(),
             "jetmet_corrections": {
                 "2016": {
@@ -200,7 +203,7 @@ class TestAnalysisSmall(unittest.TestCase):
         nev_zpeak_nominal = np.sum(h["nominal"].contents)
 
         if not USE_CUPY:
-            self.assertAlmostEqual(nev_zpeak_nominal, 0.012528435, places=4)
+            self.assertAlmostEqual(nev_zpeak_nominal, 0.012890133, places=4)
         
         self.assertTrue("Total__up" in h.keys())
         self.assertTrue("Total__down" in h.keys())
