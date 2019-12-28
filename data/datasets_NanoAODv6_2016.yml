@@ -1,0 +1,86 @@
+#All the datasets for the analysis are described here.
+#Each dataset has the following parameters
+# - name: simple string
+# - era: string for the year
+# - files_nano_in: pattern for the raw input NanoAOD
+# - files_merged: pattern for the skimmed and merged NanoAOD
+
+datasets:
+- era: "2016"
+  files_merged: /store/mc/RunIISummer16NanoAODv6/GluGluHToMuMu_M125_TuneCP5_PSweights_13TeV_amcatnloFXFX_pythia8/merged_*.root
+  files_nano_in: /store/mc/RunIISummer16NanoAODv6/GluGluHToMuMu_M125_TuneCP5_PSweights_13TeV_amcatnloFXFX_pythia8/**/*.root
+  is_mc: true
+  name: ggh_amcPS
+  skim_cut: "(HLT_IsoMu24 || HLT_IsoTkMu24) && nMuon>=2"
+- era: "2016"
+  files_merged: /store/mc/RunIISummer16NanoAODv6/GluGluHToMuMu_M125_TuneCP5down_PSweights_13TeV_amcatnloFXFX_pythia8/merged_*.root
+  files_nano_in: /store/mc/RunIISummer16NanoAODv6/GluGluHToMuMu_M125_TuneCP5down_PSweights_13TeV_amcatnloFXFX_pythia8/**/*.root
+  is_mc: true
+  name: ggh_amcPS_TuneCP5down
+  skim_cut: "(HLT_IsoMu24 || HLT_IsoTkMu24) && nMuon>=2"
+- era: "2016"
+  files_merged: /store/mc/RunIISummer16NanoAODv6/GluGluHToMuMu_M125_TuneCP5up_PSweights_13TeV_amcatnloFXFX_pythia8/merged_*.root
+  files_nano_in: /store/mc/RunIISummer16NanoAODv6/GluGluHToMuMu_M125_TuneCP5up_PSweights_13TeV_amcatnloFXFX_pythia8/**/*.root
+  is_mc: true
+  name: ggh_amcPS_TuneCP5up
+  skim_cut: "(HLT_IsoMu24 || HLT_IsoTkMu24) && nMuon>=2"
+- era: "2016"
+  files_merged: /store/mc/RunIISummer16NanoAODv6/GluGlu_HToMuMu_M125_13TeV_powheg_pythia8/merged_*.root
+  files_nano_in: /store/mc/RunIISummer16NanoAODv6/GluGlu_HToMuMu_M125_13TeV_powheg_pythia8/**/*.root
+  is_mc: true
+  name: ggh_powheg
+  skim_cut: "(HLT_IsoMu24 || HLT_IsoTkMu24) && nMuon>=2"
+- era: "2016"
+  files_merged: /store/mc/RunIISummer16NanoAODv6/GluGluHToMuMu_M-125_TuneCP5_PSweights_13TeV_powheg_pythia8/merged_*.root
+  files_nano_in: /store/mc/RunIISummer16NanoAODv6/GluGluHToMuMu_M-125_TuneCP5_PSweights_13TeV_powheg_pythia8/**/*.root
+  is_mc: true
+  name: ggh_powhegPS
+  skim_cut: "(HLT_IsoMu24 || HLT_IsoTkMu24) && nMuon>=2"
+#- era: "2016"
+#  files_merged: /store/mc/RunIISummer16NanoAODv5/VBFHToMuMu_M-125_TuneEEC5_13TeV-powheg-herwigpp/merged_*.root
+#  files_nano_in: /store/mc/RunIISummer16NanoAODv5/VBFHToMuMu_M-125_TuneEEC5_13TeV-powheg-herwigpp/**/*.root
+#  is_mc: true
+#  name: vbf
+#  skim_cut: "(HLT_IsoMu24 || HLT_IsoTkMu24) && nMuon>=2"
+- era: "2016"
+  files_merged: /store/mc/RunIISummer16NanoAODv6/VBFHToMuMu_M125_TuneCP5_PSweights_13TeV_amcatnlo_pythia8/merged_*.root
+  files_nano_in: /store/mc/RunIISummer16NanoAODv6/VBFHToMuMu_M125_TuneCP5_PSweights_13TeV_amcatnlo_pythia8/**/*.root
+  is_mc: true
+  name: vbf_amcPS
+  skim_cut: "(HLT_IsoMu24 || HLT_IsoTkMu24) && nMuon>=2"
+- era: "2016"
+  files_merged: /store/mc/RunIISummer16NanoAODv6/VBFHToMuMu_M125_TuneCP5up_PSweights_13TeV_amcatnlo_pythia8/merged_*.root
+  files_nano_in: /store/mc/RunIISummer16NanoAODv6/VBFHToMuMu_M125_TuneCP5up_PSweights_13TeV_amcatnlo_pythia8/**/*.root
+  is_mc: true
+  name: vbf_amcPS_TuneCP5up
+  skim_cut: "(HLT_IsoMu24 || HLT_IsoTkMu24) && nMuon>=2"
+- era: "2016"
+  files_merged: /store/mc/RunIISummer16NanoAODv6/VBFHToMuMu_M125_TuneCP5down_PSweights_13TeV_amcatnlo_pythia8/merged_*.root
+  files_nano_in: /store/mc/RunIISummer16NanoAODv6/VBFHToMuMu_M125_TuneCP5down_PSweights_13TeV_amcatnlo_pythia8/**/*.root
+  is_mc: true
+  name: vbf_amcPS_TuneCP5down
+  skim_cut: "(HLT_IsoMu24 || HLT_IsoTkMu24) && nMuon>=2"
+- era: "2016"
+  files_merged: /store/mc/RunIISummer16NanoAODv6/VBFHToMuMu_M-125_TuneCP5_PSweights_13TeV_powheg_pythia8/merged_*.root
+  files_nano_in: /store/mc/RunIISummer16NanoAODv6/VBFHToMuMu_M-125_TuneCP5_PSweights_13TeV_powheg_pythia8/**/*.root
+  is_mc: true
+  name: vbf_powhegPS
+  skim_cut: "(HLT_IsoMu24 || HLT_IsoTkMu24) && nMuon>=2"
+- era: "2016"
+  files_merged: /store/mc/RunIISummer16NanoAODv6/VBF_HToMuMu_M125_13TeV_powheg_pythia8/merged_*.root
+  files_nano_in: /store/mc/RunIISummer16NanoAODv6/VBF_HToMuMu_M125_13TeV_powheg_pythia8/**/*.root
+  is_mc: true
+  name: vbf_powheg
+  skim_cut: "(HLT_IsoMu24 || HLT_IsoTkMu24) && nMuon>=2"
+- era: "2016"
+  files_merged: /store/mc/RunIISummer16NanoAODv6/VBFHToMuMu_M-125_TuneEEC5_13TeV-amcatnlo-herwigpp/merged_*.root
+  files_nano_in: /store/mc/RunIISummer16NanoAODv6/VBFHToMuMu_M-125_TuneEEC5_13TeV-amcatnlo-herwigpp/**/*.root
+  is_mc: true
+  name: vbf_amc_herwig
+  skim_cut: "(HLT_IsoMu24 || HLT_IsoTkMu24) && nMuon>=2"
+- era: "2016"
+  files_merged: /store/mc/RunIISummer16NanoAODv6/VBFHToMuMu_M-125_TuneEEC5_13TeV-powheg-herwigpp/merged_*.root
+  files_nano_in: /store/mc/RunIISummer16NanoAODv6/VBFHToMuMu_M-125_TuneEEC5_13TeV-powheg-herwigpp/**/*.root
+  is_mc: true
+  name: vbf_powheg_herwig
+  skim_cut: "(HLT_IsoMu24 || HLT_IsoTkMu24) && nMuon>=2"

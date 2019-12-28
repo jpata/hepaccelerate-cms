@@ -482,12 +482,20 @@ def analyze_data(
                    # n_additional_muons, n_additional_electrons,
                     #ret_jet, leading_jet, subleading_jet)
           
-            #compute Nsoft jet variable by removing event footprints
-            n_sel_softjet, n_sel_HTsoftjet = nsoftjets(
+            #compute Nsoft jet variable 5 by removing event footprints
+            n_sel_softjet, n_sel_HTsoftjet = nsoftjets(False,
                 scalars["SoftActivityJetNjets5"], scalars["SoftActivityJetHT5"],
                 muons.numevents(), softjets, leading_muon, subleading_muon,
-                leading_jet, subleading_jet, parameters["softjet_pt"],
+                leading_jet, subleading_jet, parameters["softjet_pt5"],
                 parameters["softjet_evt_dr2"], use_cuda)
+
+            #compute Nsoft jet variable 2 by removing event footprints
+            n_sel_softjet2, n_sel_HTsoftjet2 = nsoftjets(True,
+                scalars["SoftActivityJetNjets2"], scalars["SoftActivityJetHT2"],
+                muons.numevents(), softjets, leading_muon, subleading_muon,
+                leading_jet, subleading_jet, parameters["softjet_pt2"],
+                parameters["softjet_evt_dr2"], use_cuda)
+
             #compute DNN input variables in 2 muon, >=2jet region
             dnn_presel = (
                 (ret_mu["selected_events"]) & (ret_jet["num_jets"] >= 2) &
@@ -522,7 +530,7 @@ def analyze_data(
             dnn_vars, dnn_prediction, dnnPisa_predictions, dnnPisaComb_pred = compute_fill_dnn(hrelresolution,
                miscvariables, parameters, use_cuda, dnn_presel, dnn_model, dnn_normfactors, dnnPisa_models, dnnPisa_normfactors1, dnnPisa_normfactors2,
                scalars, leading_muon, subleading_muon, leading_jet, subleading_jet,
-               ret_jet["num_jets"],ret_jet["num_jets_btag_medium"], n_sel_softjet, n_sel_HTsoftjet, dataset_era, is_mc
+               ret_jet["num_jets"],ret_jet["num_jets_btag_medium"], n_sel_softjet, n_sel_HTsoftjet, n_sel_HTsoftjet2, dataset_era, is_mc
             )
             weights_in_dnn_presel = apply_mask(weights_selected, dnn_presel)
           
@@ -1447,7 +1455,7 @@ def get_bit_values(array, bit_index):
     return (array & 2**(bit_index)) >> 1
 
 # Custom kernels to get the number of softJets with pT>5 GEV
-def nsoftjets(nsoft, softht, nevt,softjets, leading_muon, subleading_muon, leading_jet, subleading_jet, ptcut, dr2cut, use_cuda):
+def nsoftjets(doEta, nsoft, softht, nevt,softjets, leading_muon, subleading_muon, leading_jet, subleading_jet, ptcut, dr2cut, use_cuda):
     nsjet_out = NUMPY_LIB.zeros(nevt, dtype=NUMPY_LIB.int32)
     HTsjet_out = NUMPY_LIB.zeros(nevt, dtype=NUMPY_LIB.float32)
     if use_cuda:
@@ -1460,11 +1468,11 @@ def nsoftjets(nsoft, softht, nevt,softjets, leading_muon, subleading_muon, leadi
             nsjet_out, HTsjet_out)
         cuda.synchronize() 
     else:
-        nsoftjets_cpu(nsoft, softht, nevt, softjets.offsets, softjets.pt, softjets.eta, softjets.phi, leading_jet["eta"], subleading_jet["eta"], leading_jet["phi"], subleading_jet["phi"], leading_muon["eta"], subleading_muon["eta"], leading_muon["phi"], subleading_muon["phi"], ptcut, dr2cut, nsjet_out, HTsjet_out)
+        nsoftjets_cpu(doEta, nsoft, softht, nevt, softjets.offsets, softjets.pt, softjets.eta, softjets.phi, leading_jet["eta"], subleading_jet["eta"], leading_jet["phi"], subleading_jet["phi"], leading_muon["eta"], subleading_muon["eta"], leading_muon["phi"], subleading_muon["phi"], ptcut, dr2cut, nsjet_out, HTsjet_out)
     return nsjet_out, HTsjet_out
 
 @numba.njit(parallel=True, fastmath=True)
-def nsoftjets_cpu(nsoft, softht, nevt, softjets_offsets, pt, eta, phi, etaj1, etaj2, phij1, phij2, etam1, etam2, phim1, phim2, ptcut, dr2cut, nsjet_out, HTsjet_out):
+def nsoftjets_cpu(doEta, nsoft, softht, nevt, softjets_offsets, pt, eta, phi, etaj1, etaj2, phij1, phij2, etam1, etam2, phim1, phim2, ptcut, dr2cut, nsjet_out, HTsjet_out):
     phis = [phij1, phij2, phim1, phim2]
     etas = [etaj1, etaj2, etam1, etam2]
     #process events in parallel
@@ -1472,19 +1480,22 @@ def nsoftjets_cpu(nsoft, softht, nevt, softjets_offsets, pt, eta, phi, etaj1, et
         nbadsjet = 0
         htsjet = 0
         for isoftjets in range(softjets_offsets[iev], softjets_offsets[iev + 1]):
-            if (pt[isoftjets] > ptcut):
+            sel = pt[isoftjets] > ptcut
+            if(doEta):
+                sel = sel | ((((eta[isoftjets]>etaj1[iev]) or (eta[isoftjets]<etaj2[iev])) and (etaj1[iev]>etaj2[iev])) or (((eta[isoftjets]>etaj2[iev]) or (eta[isoftjets]<etaj1[iev])) and (etaj1[iev]<etaj2[iev])))
+            if (sel):
                 sj_sel = True
-                if ((eta[isoftjets]<etaj1[iev]) and (eta[isoftjets]>etaj2[iev]) and (etaj1[iev]>etaj2[iev])) or ((eta[isoftjets]<etaj2[iev]) and (eta[isoftjets]>etaj1[iev]) and (etaj1[iev]<etaj2[iev])):
-                    nobj = len(phis)
-                    for index in range(nobj):
-                        dphi = backend_cpu.deltaphi(phi[isoftjets], phis[index][iev])
-                        deta = eta[isoftjets] - etas[index][iev]
-                        dr = dphi**2 + deta**2
-                        if dr < dr2cut:
-                            sj_sel = False
-                            break
-                else:
-                    sj_sel = False
+                #if ((eta[isoftjets]<etaj1[iev]) and (eta[isoftjets]>etaj2[iev]) and (etaj1[iev]>etaj2[iev])) or ((eta[isoftjets]<etaj2[iev]) and (eta[isoftjets]>etaj1[iev]) and (etaj1[iev]<etaj2[iev])):
+                nobj = len(phis)
+                for index in range(nobj):
+                    dphi = backend_cpu.deltaphi(phi[isoftjets], phis[index][iev])
+                    deta = eta[isoftjets] - etas[index][iev]
+                    dr = dphi**2 + deta**2
+                    if dr < dr2cut:
+                        sj_sel = False
+                        break
+                #else:
+                #    sj_sel = False
 
                 if not sj_sel: 
                     htsjet += pt[isoftjets]
@@ -1514,17 +1525,17 @@ def nsoftjets_cudakernel(nsoft, softht, nevt, softjets_offsets, pt, eta, phi, et
         for isoftjets in range(softjets_offsets[iev], softjets_offsets[iev + 1]):
             if (pt[isoftjets] > ptcut):
                 sj_sel = True
-                if ((eta[isoftjets]<etaj1[iev] and eta[isoftjets]>etaj2[iev]) or (eta[isoftjets]<etaj2[iev] and eta[isoftjets]>etaj1[iev])):
-                    nobj = len(phis)
-                    for index in range(nobj):
-                        dphi = backend_cuda.deltaphi_devfunc(phi[isoftjets], phis[index])
-                        deta = eta[isoftjets] - etas[index]
-                        dr = dphi**2 + deta**2
-                        if dr < dr2cut:
-                            sj_sel = False
-                            break
-                else:
-                    sj_sel = False
+                #if ((eta[isoftjets]<etaj1[iev] and eta[isoftjets]>etaj2[iev]) or (eta[isoftjets]<etaj2[iev] and eta[isoftjets]>etaj1[iev])):
+                nobj = len(phis)
+                for index in range(nobj):
+                    dphi = backend_cuda.deltaphi_devfunc(phi[isoftjets], phis[index])
+                    deta = eta[isoftjets] - etas[index]
+                    dr = dphi**2 + deta**2
+                    if dr < dr2cut:
+                        sj_sel = False
+                        break
+                #else:
+                #    sj_sel = False
 
                 if not sj_sel: 
                     htsjet += pt[isoftjets]
@@ -2090,8 +2101,8 @@ def get_gen_sumweights(filenames):
     for fi in filenames:
         ff = uproot.open(fi)
         bl = ff.get("Runs")
-        arr = bl.array("genEventSumw")
-        arr2 = bl.array("genEventSumw2")
+        arr = bl.array("genEventSumw_")
+        arr2 = bl.array("genEventSumw2_")
         sumw += arr.sum()
         sumw2 += arr2.sum()
     return sumw, sumw2
@@ -2373,7 +2384,7 @@ Fills the DNN input variables based on two muons and two jets.
     'Higgs_pt' - dimuon pt
     'Higgs_eta' - dimuon eta
 """
-def dnn_variables(hrelresolution, leading_muon, subleading_muon, leading_jet, subleading_jet, nsoft, n_sel_softjet, n_sel_HTsoftjet, use_cuda):
+def dnn_variables(hrelresolution, miscvariables, leading_muon, subleading_muon, leading_jet, subleading_jet, nsoft, n_sel_softjet, n_sel_HTsoftjet, n_sel_HTsoftjet2, use_cuda):
     nev = len(leading_muon["pt"])
     #delta eta, phi and R between two muons
     mm_deta, mm_dphi, mm_dr = deltar(leading_muon, subleading_muon, use_cuda)
@@ -2456,6 +2467,19 @@ def dnn_variables(hrelresolution, leading_muon, subleading_muon, leading_jet, su
     #Collin-Soper frame variable
     cthetaCS = 2*(m1["pz"] * m2["e"] - m1["e"]*m2["pz"]) / (mm_sph["mass"] * NUMPY_LIB.sqrt(NUMPY_LIB.power(mm_sph["mass"], 2) + NUMPY_LIB.power(mm_sph["pt"], 2)))
 
+    #Collin-Soper frame variable Pisa definition
+    CS_theta, CS_phi = miscvariables.csanglesPisa(
+            NUMPY_LIB.asnumpy(leading_muon["pt"]),
+            NUMPY_LIB.asnumpy(leading_muon["eta"]),
+            NUMPY_LIB.asnumpy(leading_muon["phi"]),
+            NUMPY_LIB.asnumpy(leading_muon["mass"]),
+            NUMPY_LIB.asnumpy(subleading_muon["pt"]),
+            NUMPY_LIB.asnumpy(subleading_muon["eta"]),
+            NUMPY_LIB.asnumpy(subleading_muon["phi"]),
+            NUMPY_LIB.asnumpy(subleading_muon["mass"]),
+            NUMPY_LIB.asnumpy(subleading_muon["charge"]),
+            )
+
     nw = len(leading_jet["eta"])
     fixm = mm_sph["mass"].copy()
     fixm[(fixm > 135)] = 125
@@ -2490,6 +2514,8 @@ def dnn_variables(hrelresolution, leading_muon, subleading_muon, leading_jet, su
         "Zep_rapidity": Zep_rapidity,
         "leadingJet_qgl": leading_jet["qgl"],
         "subleadingJet_qgl": subleading_jet["qgl"], 
+        "CS_phi": CS_phi,
+        "CS_theta": CS_theta,
         "cthetaCS": cthetaCS,
         "softJet5": nsoft,
         "Higgs_pt": mm_sph["pt"],
@@ -2502,7 +2528,7 @@ def dnn_variables(hrelresolution, leading_muon, subleading_muon, leading_jet, su
         "qqDeltaEta": NUMPY_LIB.abs(jj_deta),
         "log(ll_zstar)": NUMPY_LIB.log(NUMPY_LIB.abs((mm_sph["rapidity"] - 0.5*(leading_jet["rapidity"] + subleading_jet["rapidity"]))/(leading_jet["rapidity"]-subleading_jet["rapidity"]))),
         "NSoft5": n_sel_softjet,
-        "HTSoft5": n_sel_HTsoftjet,
+        "HTSoft2": n_sel_HTsoftjet2,
         "minEtaHQ": minEtaHQ,
         "minPhiHQ": minPhiHQ,
         "log(Higgs_pt)": NUMPY_LIB.log(mm_sph["pt"]),
@@ -2566,6 +2592,7 @@ def compute_fill_dnn(
     num_jets_btag,
     n_sel_softjet,
     n_sel_HTsoftjet,
+    n_sel_HTsoftjet2,
     dataset_era,
     is_mc):
 
@@ -2582,8 +2609,8 @@ def compute_fill_dnn(
     nsoft = scalars["SoftActivityJetNjets5"][dnn_presel]
     nsoftNew = n_sel_softjet[dnn_presel]
     HTsoft = n_sel_HTsoftjet[dnn_presel]
-
-    dnn_vars = dnn_variables(hrelresolution, leading_muon_s, subleading_muon_s, leading_jet_s, subleading_jet_s, nsoft, nsoftNew, HTsoft, use_cuda)
+    HTsoft2 = n_sel_HTsoftjet2[dnn_presel]
+    dnn_vars = dnn_variables(hrelresolution, miscvariables, leading_muon_s, subleading_muon_s, leading_jet_s, subleading_jet_s, nsoft, nsoftNew, HTsoft, HTsoft2, use_cuda)
     # event-by-event mass resolution
     dpt1 = (leading_muon_s["ptErr"]*dnn_vars["Higgs_mass"]) / (2*leading_muon_s["pt"])
     dpt2 = (subleading_muon_s["ptErr"]*dnn_vars["Higgs_mass"]) / (2*subleading_muon_s["pt"])
@@ -2602,7 +2629,7 @@ def compute_fill_dnn(
     year_var = float(dataset_era)*NUMPY_LIB.ones(nev_dnn_presel, dtype=NUMPY_LIB.float32)
     dnn_vars["year"] = year_var
  
-    if (not (dnn_model is None)) and nev_dnn_presel > 0:
+    if (not (dnn_model is None)) and (nev_dnn_presel > 0)  and parameters["do_dnn_cit"]:
         dnn_vars_arr = NUMPY_LIB.vstack([dnn_vars[k] for k in parameters["dnn_varlist_order"]]).T
         
         #Normalize the DNN with the normalization factors from preprocessing in training 
@@ -2652,8 +2679,6 @@ def compute_fill_dnn(
             )
         dnn_vars["hmmthetacs"] = NUMPY_LIB.array(hmmthetacs)
         dnn_vars["hmmphics"] = NUMPY_LIB.array(hmmphics)
-    
-    
 
     dnn_vars["m1eta"] = NUMPY_LIB.array(leading_muon_s["eta"])
     dnn_vars["m2eta"] = NUMPY_LIB.array(subleading_muon_s["eta"])
@@ -3184,7 +3209,9 @@ def create_datastructure(dataset_name, is_mc, dataset_era, do_fsr=False):
             ("luminosityBlock", "uint32"),
             ("event", "uint64"),
             ("SoftActivityJetNjets5", "int32"),
+            ("SoftActivityJetNjets2", "int32"),
             ("SoftActivityJetHT5", "float32"),
+            ("SoftActivityJetHT2", "float32"),
             ("fixedGridRhoFastjetAll", "float32"),
         ],
     }

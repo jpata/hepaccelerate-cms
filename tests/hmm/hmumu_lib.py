@@ -24,6 +24,8 @@ class LibHMuMu:
 
             void csangles_eval(float* out_theta, float* out_phi, int nev, float* pt1, float* eta1, float* phi1, float* mass1, float* pt2, float* eta2, float* phi2, float* mass2, int* charges);
 
+            void csanglesPisa_eval(float* out_theta, float* out_phi, int nev, float* pt1, float* eta1, float* phi1, float* mass1, float* pt2, float* eta2, float* phi2, float* mass2, int* charges);
+
             void* new_NNLOPSReweighting(const char* path);
             void NNLOPSReweighting_eval(void* c, int igen, float* out_nnlow, int nev, int* genNjets, float* genHiggs_pt);
 
@@ -47,7 +49,8 @@ class LibHMuMu:
         self.gbr_eval = self.libhmm.gbr_eval
 
         self.csangles_eval = self.libhmm.csangles_eval
-
+        self.csanglesPisa_eval = self.libhmm.csanglesPisa_eval
+        
         self.new_NNLOPSReweighting = self.libhmm.new_NNLOPSReweighting
         self.NNLOPSReweighting_eval = self.libhmm.NNLOPSReweighting_eval
 
@@ -226,6 +229,27 @@ class MiscVariables:
         out_phi = numpy_lib.zeros(nev, dtype=numpy_lib.float32)
 
         self.libhmm.csangles_eval(
+            self.libhmm.cast_as("float *", out_theta),
+            self.libhmm.cast_as("float *", out_phi),
+            nev,
+            self.libhmm.cast_as("float *", pt1),
+            self.libhmm.cast_as("float *", eta1),
+            self.libhmm.cast_as("float *", phi1),
+            self.libhmm.cast_as("float *", mass1),
+            self.libhmm.cast_as("float *", pt2),
+            self.libhmm.cast_as("float *", eta2),
+            self.libhmm.cast_as("float *", phi2),
+            self.libhmm.cast_as("float *", mass2),
+            self.libhmm.cast_as("int *", charges),
+        )
+        return out_theta, out_phi
+
+    def csanglesPisa(self, pt1, eta1, phi1, mass1, pt2, eta2, phi2, mass2, charges):
+        nev = len(pt1)
+        out_theta = numpy_lib.zeros(nev, dtype=numpy_lib.float32)
+        out_phi = numpy_lib.zeros(nev, dtype=numpy_lib.float32)
+
+        self.libhmm.csanglesPisa_eval(
             self.libhmm.cast_as("float *", out_theta),
             self.libhmm.cast_as("float *", out_phi),
             nev,
