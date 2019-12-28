@@ -1460,7 +1460,7 @@ def nsoftjets(doEta, nsoft, softht, nevt,softjets, leading_muon, subleading_muon
     HTsjet_out = NUMPY_LIB.zeros(nevt, dtype=NUMPY_LIB.float32)
     if use_cuda:
         nsoftjets_cudakernel[32, 1024](
-            nsoft, softht, nevt,
+            doEta, nsoft, softht, nevt,
             softjets.offsets, softjets.pt, softjets.eta, softjets.phi,
             leading_jet["eta"], subleading_jet["eta"], leading_jet["phi"],
             subleading_jet["phi"], leading_muon["eta"], subleading_muon["eta"],
@@ -1485,7 +1485,6 @@ def nsoftjets_cpu(doEta, nsoft, softht, nevt, softjets_offsets, pt, eta, phi, et
                 sel = sel | ((((eta[isoftjets]>etaj1[iev]) or (eta[isoftjets]<etaj2[iev])) and (etaj1[iev]>etaj2[iev])) or (((eta[isoftjets]>etaj2[iev]) or (eta[isoftjets]<etaj1[iev])) and (etaj1[iev]<etaj2[iev])))
             if (sel):
                 sj_sel = True
-                #if ((eta[isoftjets]<etaj1[iev]) and (eta[isoftjets]>etaj2[iev]) and (etaj1[iev]>etaj2[iev])) or ((eta[isoftjets]<etaj2[iev]) and (eta[isoftjets]>etaj1[iev]) and (etaj1[iev]<etaj2[iev])):
                 nobj = len(phis)
                 for index in range(nobj):
                     dphi = backend_cpu.deltaphi(phi[isoftjets], phis[index][iev])
@@ -1494,8 +1493,6 @@ def nsoftjets_cpu(doEta, nsoft, softht, nevt, softjets_offsets, pt, eta, phi, et
                     if dr < dr2cut:
                         sj_sel = False
                         break
-                #else:
-                #    sj_sel = False
 
                 if not sj_sel: 
                     htsjet += pt[isoftjets]
@@ -1505,7 +1502,7 @@ def nsoftjets_cpu(doEta, nsoft, softht, nevt, softjets_offsets, pt, eta, phi, et
         HTsjet_out[iev] = softht[iev] - htsjet
 
 @cuda.jit
-def nsoftjets_cudakernel(nsoft, softht, nevt, softjets_offsets, pt, eta, phi, etaj1, etaj2, phij1, phij2, etam1, etam2, phim1, phim2, ptcut, dr2cut, nsjet_out, HTsjet_out):
+def nsoftjets_cudakernel(doEta, nsoft, softht, nevt, softjets_offsets, pt, eta, phi, etaj1, etaj2, phij1, phij2, etam1, etam2, phim1, phim2, ptcut, dr2cut, nsjet_out, HTsjet_out):
     #process events in parallel
     xi = cuda.grid(1)
     xstride = cuda.gridsize(1)
@@ -1523,9 +1520,11 @@ def nsoftjets_cudakernel(nsoft, softht, nevt, softjets_offsets, pt, eta, phi, et
         etas[2] = etam1[iev]
         etas[3] = etam2[iev]
         for isoftjets in range(softjets_offsets[iev], softjets_offsets[iev + 1]):
-            if (pt[isoftjets] > ptcut):
+            sel = pt[isoftjets] > ptcut
+            if(doEta):
+                sel = sel | ((((eta[isoftjets]>etaj1[iev]) or (eta[isoftjets]<etaj2[iev])) and (etaj1[iev]>etaj2[iev])) or (((eta[isoftjets]>etaj2[iev]) or (eta[isoftjets]<etaj1[iev])) and (etaj1[iev]<etaj2[iev])))
+            if (sel):
                 sj_sel = True
-                #if ((eta[isoftjets]<etaj1[iev] and eta[isoftjets]>etaj2[iev]) or (eta[isoftjets]<etaj2[iev] and eta[isoftjets]>etaj1[iev])):
                 nobj = len(phis)
                 for index in range(nobj):
                     dphi = backend_cuda.deltaphi_devfunc(phi[isoftjets], phis[index])
@@ -1534,8 +1533,6 @@ def nsoftjets_cudakernel(nsoft, softht, nevt, softjets_offsets, pt, eta, phi, et
                     if dr < dr2cut:
                         sj_sel = False
                         break
-                #else:
-                #    sj_sel = False
 
                 if not sj_sel: 
                     htsjet += pt[isoftjets]

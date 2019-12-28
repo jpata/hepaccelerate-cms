@@ -32,4 +32,4 @@ singularity exec --nv -B /storage $SINGULARITY_IMAGE python3 tests/hmm/analysis_
     --out ./out \
     --datapath $INPUTDATAPATH \
     --cachepath $CACHEPATH \
-    --datasets-yaml data/datasets_NanoAODv6.yml
+    --datasets-yaml data/datasets_NanoAODv6_2016.yml
