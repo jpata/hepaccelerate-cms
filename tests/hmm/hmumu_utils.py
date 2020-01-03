@@ -69,7 +69,8 @@ def analyze_data(
     rochester_corrections=None,
     lepsf_iso=None,
     lepsf_id=None,
-    lepsf_trig=None,
+    lepeff_trig_data=None,
+    lepeff_trig_mc=None,
     dnn_model=None,
     dnn_normfactors=None,
     dnnPisa_models=[],
@@ -246,8 +247,8 @@ def analyze_data(
     #Compute lepton scale factors
     if parameters["do_lepton_sf"] and is_mc:
         lepton_sf_values = compute_lepton_sf(leading_muon, subleading_muon,
-            lepsf_iso[dataset_era], lepsf_id[dataset_era], lepsf_trig[dataset_era],
-            use_cuda, dataset_era, NUMPY_LIB, debug)
+            lepsf_iso[dataset_era], lepsf_id[dataset_era], lepeff_trig_data[dataset_era],
+            lepeff_trig_mc[dataset_era], use_cuda, dataset_era, NUMPY_LIB, debug)
         weights_individual["trigger"] = {
             "nominal": lepton_sf_values["trigger"],
             "up": lepton_sf_values["trigger__up"], 
@@ -357,8 +358,8 @@ def analyze_data(
     '''
     if parameters["do_lepton_sf"] and is_mc:
         lepton_sf_values = compute_lepton_sf(leading_muon, subleading_muon,
-            lepsf_iso[dataset_era], lepsf_id[dataset_era], lepsf_trig[dataset_era],
-            use_cuda, dataset_era, NUMPY_LIB, debug)
+            lepsf_iso[dataset_era], lepsf_id[dataset_era], lepeff_trig_data[dataset_era],
+            lepeff_trig_mc[dataset_era], use_cuda, dataset_era, NUMPY_LIB, debug)
         weights_individual["mu1_id"] = {
             "nominal": lepton_sf_values["mu1_id"]
         }
@@ -1075,7 +1076,8 @@ def run_analysis(
             rochester_corrections=analysis_corrections.rochester_corrections,
             lepsf_iso=analysis_corrections.lepsf_iso,
             lepsf_id=analysis_corrections.lepsf_id,
-            lepsf_trig=analysis_corrections.lepsf_trig,
+            lepeff_trig_data=analysis_corrections.lepeff_trig_data,
+            lepeff_trig_mc=analysis_corrections.lepeff_trig_mc,
             parameters=parameters,
             dnn_model=analysis_corrections.dnn_model,
             dnn_normfactors=analysis_corrections.dnn_normfactors,
@@ -1420,9 +1422,10 @@ def correct_muon_with_fsr(
 
                 update_iso = dr<0.4
 
+                #reference: https://gitlab.cern.ch/uhh-cmssw/fsr-photon-recovery/tree/master
                 if update_iso:
-                    muons_iso_abs = (muons_iso[imu]*muons_pt[imu] - fsr_pt[ifsr])
-
+                    muons_iso[imu] = (muons_iso[imu]*muons_pt[imu] - fsr_pt[ifsr])/muons_pt[imu]
+                    
                 #compute and set corrected momentum
                 px_total = 0
                 py_total = 0
@@ -1444,8 +1447,6 @@ def correct_muon_with_fsr(
                 muons_pt[imu] = out_pt
                 muons_eta[imu] = out_eta
                 muons_phi[imu] = out_phi
-                if update_iso:
-                    muons_iso[imu] = muons_iso_abs / out_pt
 
 
 def get_bit_values(array, bit_index):
@@ -2486,10 +2487,12 @@ def dnn_variables(hrelresolution, miscvariables, leading_muon, subleading_muon, 
         "leading_muon_pt": leading_muon["pt"],
         "leading_muon_eta": leading_muon["eta"],
         "leading_muon_phi": leading_muon["phi"],
+        "leading_muon_charge": leading_muon["charge"],
         #"leading_muon_mass": leading_muon["mass"],
         "subleading_muon_pt": subleading_muon["pt"],
         "subleading_muon_eta": subleading_muon["eta"],
         "subleading_muon_phi": subleading_muon["phi"],
+        "subleading_muon_charge": subleading_muon["charge"],
         #"subleading_muon_mass": subleading_muon["mass"],
         "dEtamm": mm_deta, "dPhimm": mm_dphi, "dRmm": mm_dr,
         "M_jj": jj_sph["mass"], "pt_jj": jj_sph["pt"], "eta_jj": jj_sph["eta"], "phi_jj": jj_sph["phi"],
@@ -2626,7 +2629,7 @@ def compute_fill_dnn(
     year_var = float(dataset_era)*NUMPY_LIB.ones(nev_dnn_presel, dtype=NUMPY_LIB.float32)
     dnn_vars["year"] = year_var
  
-    if (not (dnn_model is None)) and (nev_dnn_presel > 0)  and parameters["do_dnn_cit"]:
+    if (not (dnn_model is None)) and (nev_dnn_presel > 0) and parameters["do_dnn_cit"]:
         dnn_vars_arr = NUMPY_LIB.vstack([dnn_vars[k] for k in parameters["dnn_varlist_order"]]).T
         
         #Normalize the DNN with the normalization factors from preprocessing in training 
@@ -2896,16 +2899,27 @@ def multiply_all(weight_list):
         ret *= w
     return ret
 
-def compute_lepton_sf(leading_muon, subleading_muon, lepsf_iso, lepsf_id, lepsf_trig, use_cuda, dataset_era, NUMPY_LIB, debug):
+def multiply_all_trig(weight_list):
+    ones_array = NUMPY_LIB.ones_like(weight_list[0])
+    ret_tmp = ones_array - NUMPY_LIB.copy(weight_list[0])
+    for w in weight_list[1:]:
+        ret_tmp *= ones_array - w
+    ret = ones_array - ret_tmp
+    return ret
+
+def compute_lepton_sf(leading_muon, subleading_muon, lepsf_iso, lepsf_id, lepeff_trig_data, lepeff_trig_mc, use_cuda, dataset_era, NUMPY_LIB, debug):
     sfs_id = []
     sfs_iso = []
-    sfs_trig = []
+    effs_trig_data = []
+    effs_trig_mc = []
     sfs_id_up = []
     sfs_id_down = []
     sfs_iso_up = []
     sfs_iso_down = []
-    sfs_trig_up = []
-    sfs_trig_down = []
+    effs_trig_data_up = []
+    effs_trig_data_down = []
+    effs_trig_mc_up = []
+    effs_trig_mc_down = []
 
     #compute weight for both leading and subleading muon
     for mu in [leading_muon, subleading_muon]:
@@ -2924,19 +2938,19 @@ def compute_lepton_sf(leading_muon, subleading_muon, lepsf_iso, lepsf_id, lepsf_
         sf_id = NUMPY_LIB.array(lepsf_id.compute(pdgid, mu["pt"], mu["eta"]))
         sf_id_err = NUMPY_LIB.array(lepsf_id.compute_error(pdgid, mu["pt"], mu["eta"]))
 
-        if dataset_era == "2016":
-            sf_trig = NUMPY_LIB.array(lepsf_trig.compute(pdgid, mu["pt"], np.abs(mu["eta"])))
-            sf_trig_err = NUMPY_LIB.array(lepsf_trig.compute_error(pdgid, mu["pt"], np.abs(mu["eta"])))
-        else:
-            sf_trig = NUMPY_LIB.array(lepsf_trig.compute(pdgid, mu["pt"], mu["eta"]))
-            sf_trig_err = NUMPY_LIB.array(lepsf_trig.compute_error(pdgid, mu["pt"], mu["eta"]))
+        eff_trig_data = lepeff_trig_data.compute(pdgid, mu["pt"], NUMPY_LIB.abs(mu["eta"]))
+        eff_trig_data_err = lepeff_trig_data.compute_error(pdgid, mu["pt"], NUMPY_LIB.abs(mu["eta"]))
+        eff_trig_mc = lepeff_trig_mc.compute(pdgid, mu["pt"], NUMPY_LIB.abs(mu["eta"]))
+        eff_trig_mc_err = lepeff_trig_mc.compute_error(pdgid, mu["pt"], NUMPY_LIB.abs(mu["eta"]))
 
         sf_id_up = (sf_id + sf_id_err)
         sf_id_down = (sf_id - sf_id_err)
         sf_iso_up = (sf_iso + sf_iso_err)
         sf_iso_down = (sf_iso - sf_iso_err)
-        sf_trig_up = (sf_trig + sf_trig_err)
-        sf_trig_down = (sf_trig - sf_trig_err)
+        eff_trig_data_up = eff_trig_data + eff_trig_data_err
+        eff_trig_data_down = eff_trig_data - eff_trig_data_err
+        eff_trig_mc_up = eff_trig_mc + eff_trig_mc_err
+        eff_trig_mc_down = eff_trig_mc - eff_trig_mc_err
 
         if debug:
             print("sf_iso: ", sf_iso.mean(), "+-", sf_iso.std())
@@ -2951,25 +2965,29 @@ def compute_lepton_sf(leading_muon, subleading_muon, lepsf_iso, lepsf_id, lepsf_
 
         sfs_id += [sf_id]
         sfs_iso += [sf_iso]
-        sfs_trig += [sf_trig]
+        effs_trig_data += [eff_trig_data]
+        effs_trig_mc += [eff_trig_mc]
 
         sfs_id_up += [sf_id_up]
         sfs_id_down += [sf_id_down]
         sfs_iso_up += [sf_iso_up]
         sfs_iso_down += [sf_iso_down]
-        sfs_trig_up += [sf_trig_up]
-        sfs_trig_down += [sf_trig_down]
+        effs_trig_data_up += [eff_trig_data_up]
+        effs_trig_data_down += [eff_trig_data_down]
+        effs_trig_mc_up += [eff_trig_mc_up]
+        effs_trig_mc_down += [eff_trig_mc_down]
     
     #multiply all ID, iso, trigger weights for leading and subleading muons
     sf_id = multiply_all(sfs_id)
     sf_iso = multiply_all(sfs_iso)
-    sf_trig = multiply_all(sfs_trig)
+    sf_trig = multiply_all_trig(effs_trig_data)/multiply_all_trig(effs_trig_mc)
+    
     sf_id_up = multiply_all(sfs_id_up)
     sf_id_down = multiply_all(sfs_id_down)
     sf_iso_up = multiply_all(sfs_iso_up)
     sf_iso_down = multiply_all(sfs_iso_down)
-    sf_trig_up = multiply_all(sfs_trig_up)
-    sf_trig_down = multiply_all(sfs_trig_down)
+    sf_trig_up = multiply_all_trig(effs_trig_data_up)/multiply_all_trig(effs_trig_mc_up)
+    sf_trig_down = multiply_all_trig(effs_trig_data_down)/multiply_all_trig(effs_trig_mc_down)
 
     ret = {
         "mu1_id" : sfs_id[0],

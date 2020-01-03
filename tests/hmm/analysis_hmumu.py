@@ -216,23 +216,39 @@ class AnalysisCorrections:
                 ["data/leptonSF/2018/RunABCD_SF_ID.root"],
                 ["NUM_MediumID_DEN_TrackerMuons_pt_abseta"], [1.0])
         }
-        self.lepsf_trig = {
+        self.lepeff_trig_data = {
             "2016": LeptonEfficiencyCorrections(self.libhmm,
                 ["data/leptonSF/2016/EfficienciesAndSF_RunBtoF.root", "data/leptonSF/2016/EfficienciesAndSF_RunGtoH.root"],
-                ["IsoMu24_OR_IsoTkMu24_PtEtaBins/abseta_pt_ratio", "IsoMu24_OR_IsoTkMu24_PtEtaBins/abseta_pt_ratio"],
+                ["IsoMu24_OR_IsoTkMu24_PtEtaBins/efficienciesDATA/abseta_pt_DATA", "IsoMu24_OR_IsoTkMu24_PtEtaBins/efficienciesDATA/abseta_pt_DATA"],
                 self.ratios_dataera["2016"]),
             "2017": LeptonEfficiencyCorrections(self.libhmm,
                 ["data/leptonSF/2017/EfficienciesAndSF_RunBtoF_Nov17Nov2017.root"],
-                ["IsoMu27_PtEtaBins/pt_abseta_ratio"],
+                ["IsoMu27_PtEtaBins/efficienciesDATA/pt_abseta_DATA"],
                 [1.0]
             ),
             "2018": LeptonEfficiencyCorrections(self.libhmm,
                 ["data/leptonSF/2018/EfficienciesAndSF_2018Data_AfterMuonHLTUpdate.root"],
-                ["IsoMu24_PtEtaBins/pt_abseta_ratio"],
+                ["IsoMu24_PtEtaBins/efficienciesDATA/pt_abseta_DATA"],
                 [1.0]
             ),
         }
 
+        self.lepeff_trig_mc = {
+            "2016": LeptonEfficiencyCorrections(self.libhmm,
+                ["data/leptonSF/2016/EfficienciesAndSF_RunBtoF.root", "data/leptonSF/2016/EfficienciesAndSF_RunGtoH.root"],
+                ["IsoMu24_OR_IsoTkMu24_PtEtaBins/efficienciesMC/abseta_pt_MC", "IsoMu24_OR_IsoTkMu24_PtEtaBins/efficienciesMC/abseta_pt_MC"],
+                self.ratios_dataera["2016"]),
+            "2017": LeptonEfficiencyCorrections(self.libhmm,
+                ["data/leptonSF/2017/EfficienciesAndSF_RunBtoF_Nov17Nov2017.root"],
+                ["IsoMu27_PtEtaBins/efficienciesMC/pt_abseta_MC"],
+                [1.0]
+            ),
+            "2018": LeptonEfficiencyCorrections(self.libhmm,
+                ["data/leptonSF/2018/EfficienciesAndSF_2018Data_AfterMuonHLTUpdate.root"],
+                ["IsoMu24_PtEtaBins/efficienciesMC/pt_abseta_MC"],
+                [1.0]
+            ),
+        }
         print("Loading JEC...")
         #JEC files copied from
         #https://github.com/cms-jet/JECDatabase/tree/master/textFiles
