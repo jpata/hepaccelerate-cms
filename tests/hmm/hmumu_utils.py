@@ -1862,8 +1862,8 @@ def compute_eff_product_cudakernel(offsets, jet_pt_mask, jets_mask_passes_id, je
         out_proba[iev] = p_tot
 
 def get_selected_electrons(electrons, pt_cut, eta_cut, id_type):
-    if id_type == "mvaFall17V1Iso_WP90":
-        passes_id = electrons.mvaFall17V1Iso_WP90 == 1
+    if id_type == "mvaFall17V2Iso_WP90":
+        passes_id = electrons.mvaFall17V2Iso_WP90 == 1
     elif id_type == "none":
         passes_id = NUMPY_LIB.ones(electrons.num_objects, dtype=NUMPY_LIB.bool)
     else:
@@ -3142,7 +3142,7 @@ def create_datastructure(dataset_name, is_mc, dataset_era, do_fsr=False):
             ("Electron_pt", "float32"), ("Electron_eta", "float32"),
             ("Electron_phi", "float32"), ("Electron_mass", "float32"),
             ("Electron_pfRelIso03_all", "float32"),
-            ("Electron_mvaFall17V1Iso_WP90", "bool"),
+            ("Electron_mvaFall17V2Iso_WP90", "bool"),
         ],
         "Jet": [
             ("Jet_pt", "float32"),

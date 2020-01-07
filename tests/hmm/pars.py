@@ -553,7 +553,7 @@ analysis_parameters = {
         "extra_electrons_pt": 20,
         "extra_electrons_eta": 2.5,
         "extra_electrons_iso": 0.4, #Check if we want to apply this
-        "extra_electrons_id": "mvaFall17V1Iso_WP90",
+        "extra_electrons_id": "mvaFall17V2Iso_WP90",
 
         "save_dnn_vars": False,
         "dnn_vars_path": "out/dnn_vars",
