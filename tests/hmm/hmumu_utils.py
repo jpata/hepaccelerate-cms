@@ -2099,8 +2099,8 @@ def get_gen_sumweights(filenames):
     for fi in filenames:
         ff = uproot.open(fi)
         bl = ff.get("Runs")
-        arr = bl.array("genEventSumw_")
-        arr2 = bl.array("genEventSumw2_")
+        arr = bl.array("genEventSumw")
+        arr2 = bl.array("genEventSumw2")
         sumw += arr.sum()
         sumw2 += arr2.sum()
     return sumw, sumw2
