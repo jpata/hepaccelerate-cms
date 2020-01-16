@@ -21,7 +21,7 @@ install:
   - conda update -q conda
   - conda info -a
   - conda config --add channels conda-forge
-  - conda create -n myenv
+  - conda create -n myenv python=3.7
   - conda activate myenv
   - conda install awkward cffi cloudpickle lz4 numba numpy psutil python-xxhash pyyaml requests root scipy six tbb tqdm uproot xxhash boost matplotlib
   - pip install tensorflow keras
@@ -31,13 +31,13 @@ install:
 
 
 script:
-    - PYTHONPATH=coffea:hepaccelerate:. python tests/hmm/hmumu_utils.py
-    - wget https://jpata.web.cern.ch/jpata/hmm/test_files/myNanoProdMc2016_NANO.root -O data/myNanoProdMc2016_NANO.root
-    - PYTHONPATH=coffea:hepaccelerate:. python tests/hmm/test_hmumu_utils.py --debug
-    - wget https://jpata.web.cern.ch/jpata/hmm/test_files/nano_2016_data.root -O data/nano_2016_data.root
+    - PYTHONPATH=coffea:hepaccelerate:. python tests/hmm/hmumu_utils.py || travis_terminate 1
+    - wget https://jpata.web.cern.ch/jpata/hmm/test_files/myNanoProdMc2016_NANO.root -O data/myNanoProdMc2016_NANO.root || travis_terminate 1
+    - PYTHONPATH=coffea:hepaccelerate:. python tests/hmm/test_hmumu_utils.py --debug || travis_terminate 1
+    - wget https://jpata.web.cern.ch/jpata/hmm/test_files/nano_2016_data.root -O data/nano_2016_data.root || travis_terminate 1
     - echo data/myNanoProdMc2016_NANO.root > skim.txt
-    - python tests/hmm/skim_and_recompress.py -i ./skim.txt -o ./data/myNanoProdMc2016_NANO_skim.root -s "(HLT_IsoMu24 || HLT_IsoTkMu24) && nMuon>=2" -t ./
+    - python tests/hmm/skim_and_recompress.py -i ./skim.txt -o ./data/myNanoProdMc2016_NANO_skim.root -s "(HLT_IsoMu24 || HLT_IsoTkMu24) && nMuon>=2" -t ./ -b batch/branches.txt || travis_terminate 1
     - echo data/nano_2016_data.root > skim.txt
-    - python tests/hmm/skim_and_recompress.py -i ./skim.txt -o ./data/nano_2016_data_skim.root -s "(HLT_IsoMu24 || HLT_IsoTkMu24) && nMuon>=2" -t ./
-    - wget https://jpata.web.cern.ch/jpata/hmm/test_files/CBCAE1AB-4AFD-D840-BE00-9E5ABD2E4A20.root -O data/CBCAE1AB-4AFD-D840-BE00-9E5ABD2E4A20.root
-    - PYTHONPATH=coffea:hepaccelerate:. python tests/hmm/test_analysis_full.py --debug
+    - python tests/hmm/skim_and_recompress.py -i ./skim.txt -o ./data/nano_2016_data_skim.root -s "(HLT_IsoMu24 || HLT_IsoTkMu24) && nMuon>=2" -t ./ -b batch/branches.txt || travis_terminate 1
+    - wget https://jpata.web.cern.ch/jpata/hmm/test_files/CBCAE1AB-4AFD-D840-BE00-9E5ABD2E4A20.root -O data/CBCAE1AB-4AFD-D840-BE00-9E5ABD2E4A20.root || travis_terminate 1
+    - PYTHONPATH=coffea:hepaccelerate:. python tests/hmm/test_analysis_full.py --debug || travis_terminate 1

@@ -36,9 +36,6 @@ def parse_args():
     args = parser.parse_args()
     return args
 
-shellscript_template = """
-"""
-
 if __name__ == "__main__":
     args = parse_args()
     datasets = yaml.load(open(args.input), Loader=yaml.FullLoader)
@@ -46,10 +43,10 @@ if __name__ == "__main__":
     argfile = open("args_merge.txt", "w")
     for ds in datasets["datasets"]:
         print(ds) 
-        dataset_name = ds["name"] 
-        dataset_era = ds["era"] 
+        dataset_name = ds["name"]
+        dataset_era = ds["era"]
         path = ds["files_nano_in"]
-        skim_cut = ds["skim_cut"] 
+        skim_cut = ds["skim_cut"]
  
         filenames = match_filenames(args.datapath + path, ds["files_merged"])
         nfiles = 0
@@ -61,5 +58,6 @@ if __name__ == "__main__":
                 print(fn, file=fi)
             
             outfile = args.outpath + ds["files_merged"].replace("*.root", "{0}.root".format(ich))
+            #output command
             print(infiles_name, outfile, skim_cut.replace(" ", ""), file=argfile)
         assert(nfiles == len(filenames))

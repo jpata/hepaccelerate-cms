@@ -1,0 +1,5 @@
+drop FatJet*
+drop GenVisTau*
+drop Tau*
+drop IsoTrack*
+drop SubJet*
