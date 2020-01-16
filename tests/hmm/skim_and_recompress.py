@@ -35,8 +35,8 @@ def skim_recompress_one_file(outfile, infile, skim_cut, drop_branches):
 
 def get_file_entries(fn):
     nev = 0
-    of = ROOT.TFile.Open(fn)
-    tt = of.Get("Events")
+    tf = ROOT.TFile.Open(fn)
+    tt = tf.Get("Events")
     nev = tt.GetEntries()
     return nev
 
@@ -136,6 +136,8 @@ if __name__ == "__main__":
     print(sys.argv)
     args = parse_args()
     infiles = map(lambda x: x.strip(), open(args.infiles).readlines())
+    if len(infiles) == 0:
+        raise Exception("No input files specified, please check {}".format(args.infiles))
 
     keep_drop_commands = []
 
