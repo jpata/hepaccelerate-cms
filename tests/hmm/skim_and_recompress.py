@@ -135,7 +135,7 @@ def parse_keep_drop(fn):
 if __name__ == "__main__":
     print(sys.argv)
     args = parse_args()
-    infiles = map(lambda x: x.strip(), open(args.infiles).readlines())
+    infiles = list(map(lambda x: x.strip(), open(args.infiles).readlines()))
     if len(infiles) == 0:
         raise Exception("No input files specified, please check {}".format(args.infiles))
 
