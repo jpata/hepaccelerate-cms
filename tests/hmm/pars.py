@@ -556,7 +556,7 @@ analysis_parameters = {
         "extra_electrons_iso": 0.4, #Check if we want to apply this
         "extra_electrons_id": "mvaFall17V1Iso_WP90",
 
-        "save_dnn_vars": True,
+        "save_dnn_vars": False,
         "dnn_vars_path": "out/dnn_vars",
 
         #If true, apply mjj > cut, otherwise inverse
