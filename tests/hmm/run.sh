@@ -22,8 +22,9 @@ export KERAS_BACKEND=tensorflow
 export INPUTDATAPATH=/storage/group/allcit
 
 #nanoAODv5
-#export CACHEPATH=/storage/user/jpata/hmm/skim_merged
-export CACHEPATH=/storage/user/nlu/hmm/skim_merged
+export CACHEPATH=/storage/user/jpata/hmm/skim_merged
+#nanoAODv6
+#export CACHEPATH=/storage/user/nlu/hmm/skim_merged
 
 ## Step 2: Prepare the list of files to process and run the physics analysis
 singularity exec --nv -B /storage $SINGULARITY_IMAGE python3 tests/hmm/analysis_hmumu.py \
@@ -32,4 +33,4 @@ singularity exec --nv -B /storage $SINGULARITY_IMAGE python3 tests/hmm/analysis_
     --out ./out \
     --datapath $INPUTDATAPATH \
     --cachepath $CACHEPATH \
-    --datasets-yaml data/datasets_NanoAODv6_2016.yml
+    --datasets-yaml data/datasets_NanoAODv5.yml
