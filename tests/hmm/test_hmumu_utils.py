@@ -88,12 +88,8 @@ class TestAnalysisSmall(unittest.TestCase):
         from argparse import Namespace
         self.cmdline_args = Namespace(use_cuda=USE_CUPY, datapath=".", do_fsr=False, nthreads=1, async_data=False, do_sync=False, out="test_out")
         
-        if os.path.isfile("tests/hmm/libhmm.so"):
-            from analysis_hmumu import AnalysisCorrections
-            self.analysis_corrections = AnalysisCorrections(self.cmdline_args, True)
-        else:
-            print("Could not load analysis corrections with ROOT, skipping this in further tests")
-            self.analysis_corrections = None
+        from analysis_hmumu import AnalysisCorrections
+        self.analysis_corrections = AnalysisCorrections(self.cmdline_args, True)
 
     def setUp(self):
         pass
@@ -184,7 +180,8 @@ class TestAnalysisSmall(unittest.TestCase):
                         do_factorized_jec=True),
                 },
             },
-            "do_fsr": True
+            "do_fsr": True,
+            "miscvariables": self.analysis_corrections.miscvariables 
         }
 
         ret = self.dataset.analyze(
@@ -203,7 +200,7 @@ class TestAnalysisSmall(unittest.TestCase):
         nev_zpeak_nominal = np.sum(h["nominal"].contents)
 
         if not USE_CUPY:
-            self.assertAlmostEqual(nev_zpeak_nominal, 0.012890133, places=4)
+            self.assertAlmostEqual(nev_zpeak_nominal, 0.012526871, places=4)
         
         self.assertTrue("Total__up" in h.keys())
         self.assertTrue("Total__down" in h.keys())
