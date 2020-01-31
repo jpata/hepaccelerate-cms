@@ -644,7 +644,7 @@ analysis_parameters = {
         "categorization_trees": {},
         "do_bdt_ucsd": False,
         "do_dnn_pisa": True,
-        "do_dnn_cit": False,
+        "do_dnn_cit": True,
     },
 }
 #define the histogram binning
