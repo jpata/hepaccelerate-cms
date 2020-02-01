@@ -499,6 +499,8 @@ analysis_names = {
 analysis_parameters = {
     "baseline": {
 
+        "do_fsr": True,
+
         "nPV": 0,
         "NdfPV": 4,
         "zPV": 24,
