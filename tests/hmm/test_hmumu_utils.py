@@ -185,7 +185,9 @@ class TestAnalysisSmall(unittest.TestCase):
         #    "miscvariables": self.analysis_corrections.miscvariables 
         #}
 
-        ret = analyze_data(self.dataset, self.analysis_corrections, analysis_parameters["baseline"], "baseline", random_seed)
+        ret = analyze_data(
+            self.dataset, self.analysis_corrections,
+            analysis_parameters["baseline"], "baseline", random_seed, do_fsr=True, use_cuda=False)
         h = ret["hist__dimuon_invmass_z_peak_cat5__M_mmjj"]
         
         nev_zpeak_nominal = np.sum(h["nominal"].contents)

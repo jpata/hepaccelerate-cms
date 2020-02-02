@@ -84,7 +84,7 @@ def analyze_data(data, analysis_corrections, parameters, parameter_set_name, ran
     muons = data.structs["Muon"][0] 
     fsrphotons = None
     if do_fsr:
-        fstphotons = data.structs["FsrPhoton"][0]
+        fsrphotons = data.structs["FsrPhoton"][0]
     jets = data.structs["Jet"][0]
     softjets = data.structs["SoftActivityJet"][0]
     electrons = data.structs["Electron"][0]
