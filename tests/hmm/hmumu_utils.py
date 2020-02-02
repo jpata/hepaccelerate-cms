@@ -43,10 +43,8 @@ debug = False
 #event IDs for which to print out detailed information
 debug_event_ids = [37410,37416,37463,37464]
 
+#Run additional checks on the analyzed data to ensure consistency - for debugging
 doverify = False
-
-#list to collect performance data in
-global_metrics = []
 
 #raise an error if there is any inf or nan
 def check_inf_nan(data):
@@ -61,10 +59,24 @@ def fix_inf_nan(data, default=0):
     data[m] = default
 
 
-#This is the actual data analysis function
-def analyze_data(data, analysis_corrections, parameters, parameter_set_name, random_seed, do_fsr=False, use_cuda=False):
+def analyze_data(
+    data, analysis_corrections,
+    parameters, parameter_set_name,
+    random_seed,
+    do_fsr=False, use_cuda=False):
+    """Analyzes the dataset with a parameter set
+    
+        Args:
+            data (hepaccelerate.Dataset): The dataset to analyze
+            analysis_corrections (analysis_hmumu.AnalysisCorrections): The calibration data for the analysis
+            parameters (dict): dictionary with all the cuts and other numerical parameters of the analysis
+            parameter_set_name (str): the name of the parameter set that is being analyzed
+            random_seed (int): the random seed used in smearing algorithms
+        Returns:
+            dict: a hepaccelerate.Results dictionary with all the results, primarily name-histogram pairs 
+    """
 
-    #old parameters
+    #old arguments
     dataset_name = data.name
     dataset_era = data.era
     is_mc = data.is_mc
@@ -78,8 +90,9 @@ def analyze_data(data, analysis_corrections, parameters, parameter_set_name, ran
     #set the random seed to the predefined value
     NUMPY_LIB.random.seed(random_seed)
 
-    assert(data.numfiles == 1)
-    
+    if data.numfiles != 1:
+        raise Exception("Currently support only 1 file per job descripton")
+
     #create variables for muons, jets etc
     muons = data.structs["Muon"][0] 
     fsrphotons = None
@@ -1085,16 +1098,6 @@ def run_analysis(
         size=processed_size_mb/1024.0, evspeed=nev_total/dt, sizespeed=processed_size_mb/dt,
         )
     )
-   
-    if len(global_metrics) > 0:
-        metrics_results = {}
-        for k in global_metrics[0]: 
-            metrics_results[k] = []
-        for gm in global_metrics:
-            for k in gm.keys():
-                metrics_results[k] += [gm[k]]
-        for k in metrics_results.keys():
-            print("metric {0} avg={1:.2f} max={2:.2f}".format(k, np.mean(metrics_results[k]), np.max(metrics_results[k])))
 
     bench_ret = {}
     bench_ret.update(cmdline_args.__dict__)
@@ -1108,6 +1111,7 @@ def run_analysis(
         of.write(json.dumps(bench_ret) + '\n')
     return bench_ret
 
+#Analyze the loaded data with multiple parameter sets
 def event_loop(ds, analysis_corrections, parameter_sets, do_fsr=False, use_cuda=False):
 
     #copy dataset to GPU and make sure future operations are done on it
@@ -1116,10 +1120,14 @@ def event_loop(ds, analysis_corrections, parameter_sets, do_fsr=False, use_cuda=
         ds.numpy_lib = cupy
         ds.move_to_device(cupy)
 
+    #Analyze one parameter set
     ret = {}
     for parameter_set_name, parameter_set in parameter_sets.items():
         print("doing analysis on parameter set", parameter_set_name)
-        ret[parameter_set_name] = analyze_data(ds, analysis_corrections, parameter_set, parameter_set_name, ds.random_seed, do_fsr=do_fsr, use_cuda=use_cuda) 
+        ret[parameter_set_name] = analyze_data(
+            ds, analysis_corrections, parameter_set,
+            parameter_set_name, ds.random_seed,
+            do_fsr=do_fsr, use_cuda=use_cuda) 
     ret["num_events"] = len(ds)
 
     #clean up CUDA memory
@@ -3377,48 +3385,3 @@ def create_dataset_jobfiles(
 
         ijob += 1
     return job_descriptions
-
-def parse_nvidia_smi():
-    """Returns the GPU symmetric multiprocessor and memory usage in %
-    """
-    try:
-        import nvidia_smi
-        nvidia_smi.nvmlInit()
-        handle = nvidia_smi.nvmlDeviceGetHandleByIndex(0)
-        res = nvidia_smi.nvmlDeviceGetUtilizationRates(handle)
-        return {"gpu": res.gpu, "mem": res.memory}
-    except Exception as e:
-        return {"gpu": 0, "mem": 0}
-
-def threaded_metrics(tokill, train_batches_queue):
-    global global_metrics
-    c = psutil.disk_io_counters()
-    bytes_read_start = c.read_bytes
-    thisproc = psutil.Process()
-
-    while not tokill(): 
-        dt = 1.0
-        
-        c = psutil.disk_io_counters()
-
-        bytes_read_speed = (c.read_bytes - bytes_read_start)/dt/1024.0/1024.0
-        bytes_read_start = c.read_bytes
-
-        cpu_pct = thisproc.cpu_percent()
-        cpu_times = thisproc.cpu_times()
-        memory_info = thisproc.memory_info()
-        d = parse_nvidia_smi()
-
-        metrics_dict = {
-            "disk_io": bytes_read_speed,
-            "cpu_percent": cpu_pct,
-            #"cpu_iowait=": cpu_times.iowait,
-            "rss": memory_info.rss/1024.0/1024.0,
-            "gpu_util": d["gpu"],
-            "gpu_mem": d["mem"],
-            "queue_size": train_batches_queue.qsize(),
-        }
-        global_metrics += [metrics_dict]
-        time.sleep(dt)
-    print("threaded_metrics done")
-    return
