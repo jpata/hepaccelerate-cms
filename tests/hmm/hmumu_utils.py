@@ -62,10 +62,9 @@ def fix_inf_nan(data, default=0):
 
 
 #This is the actual data analysis function
-def analyze_data(data, analysis_corrections, parameters, parameter_set_name, random_seed, use_cuda=False):
+def analyze_data(data, analysis_corrections, parameters, parameter_set_name, random_seed, do_fsr=False, use_cuda=False):
 
     #old parameters
-    do_fsr = parameters["do_fsr"]
     dataset_name = data.name
     dataset_era = data.era
     is_mc = data.is_mc
@@ -83,7 +82,9 @@ def analyze_data(data, analysis_corrections, parameters, parameter_set_name, ran
     
     #create variables for muons, jets etc
     muons = data.structs["Muon"][0] 
-    fsrphotons = data.structs["FsrPhoton"][0] if do_fsr else None
+    fsrphotons = None
+    if do_fsr:
+        fstphotons = data.structs["FsrPhoton"][0]
     jets = data.structs["Jet"][0]
     softjets = data.structs["SoftActivityJet"][0]
     electrons = data.structs["Electron"][0]
@@ -100,7 +101,7 @@ def analyze_data(data, analysis_corrections, parameters, parameter_set_name, ran
 
     #Golden JSON filtering (CPU-only)
     if not is_mc:
-        mask_events = mask_events & NUMPY_LIB.array(lumimask[dataset_era](
+        mask_events = mask_events & NUMPY_LIB.array(analysis_corrections.lumimask[dataset_era](
             NUMPY_LIB.asnumpy(scalars["run"]),
             NUMPY_LIB.asnumpy(scalars["luminosityBlock"])))
  
@@ -181,7 +182,7 @@ def analyze_data(data, analysis_corrections, parameters, parameter_set_name, ran
             print("Before applying Rochester corrections: muons.pt={0:.2f} +- {1:.2f}".format(muons.pt.mean(), muons.pt.std()))
         do_rochester_corrections(
             is_mc,
-            rochester_corrections[dataset_era],
+            analysis_corrections.rochester_corrections[dataset_era],
             muons)
         if debug:
             print("After applying Rochester corrections muons.pt={0:.2f} +- {1:.2f}".format(muons.pt.mean(), muons.pt.std()))
@@ -222,8 +223,8 @@ def analyze_data(data, analysis_corrections, parameters, parameter_set_name, ran
     #Compute lepton scale factors
     if parameters["do_lepton_sf"] and is_mc:
         lepton_sf_values = compute_lepton_sf(leading_muon, subleading_muon,
-            lepsf_iso[dataset_era], lepsf_id[dataset_era], lepeff_trig_data[dataset_era],
-            lepeff_trig_mc[dataset_era], use_cuda, dataset_era, NUMPY_LIB, debug)
+            analysis_corrections.lepsf_iso[dataset_era], analysis_corrections.lepsf_id[dataset_era], analysis_corrections.lepeff_trig_data[dataset_era],
+            analysis_corrections.lepeff_trig_mc[dataset_era], use_cuda, dataset_era, NUMPY_LIB, debug)
         weights_individual["trigger"] = {
             "nominal": lepton_sf_values["trigger"],
             "up": lepton_sf_values["trigger__up"], 
@@ -504,7 +505,9 @@ def analyze_data(data, analysis_corrections, parameters, parameter_set_name, ran
             #Compute the DNN inputs, the DNN output, fill the DNN input and output variable histograms
             dnn_prediction = None
             dnn_vars, dnn_prediction, dnnPisa_predictions, dnnPisaComb_pred = compute_fill_dnn(analysis_corrections.hrelresolution,
-               miscvariables, parameters, use_cuda, dnn_presel, analysis_corrections.dnn_model, analysis_corrections.dnn_normfactors, analysis_corrections.dnnPisa_models, analysis_corrections.dnnPisa_normfactors1, analysis_corrections.dnnPisa_normfactors2,
+               analysis_corrections.miscvariables, parameters, use_cuda, dnn_presel,
+               analysis_corrections.dnn_model, analysis_corrections.dnn_normfactors,
+               analysis_corrections.dnnPisa_models, analysis_corrections.dnnPisa_normfactors1, analysis_corrections.dnnPisa_normfactors2,
                scalars, leading_muon, subleading_muon, leading_jet, subleading_jet,
                ret_jet["num_jets"],ret_jet["num_jets_btag_medium"], n_sel_softjet, n_sel_HTsoftjet, n_sel_HTsoftjet2, dataset_era, is_mc
             )
@@ -590,7 +593,7 @@ def analyze_data(data, analysis_corrections, parameters, parameter_set_name, ran
                     outpath = "{0}/{1}".format(parameters["dnn_vars_path"], dataset_era) 
                     if not os.path.isdir(outpath):
                         os.makedirs(outpath)
-                    np.save("{0}/{1}_{2}.npy".format(outpath, dataset_name, dataset_num_chunk), arrdata, allow_pickle=False)
+                    np.save("{0}/{1}_{2}.npy".format(outpath, dataset_name, data.num_chunk), arrdata, allow_pickle=False)
 
             #Save histograms for numerical categories (cat5 only right now) and all mass bins
             for massbin_name, massbin_msk, mass_edges in [
@@ -1027,7 +1030,10 @@ def run_analysis(
 
         #Process the dataset
         ret, ds, nev, memsize = event_loop(
-            ds, analysis_corrections, parameter_sets, 
+            ds,
+            analysis_corrections,
+            parameter_sets, 
+            cmdline_args.do_fsr,
             cmdline_args.use_cuda,
         )
 
@@ -1072,10 +1078,6 @@ def run_analysis(
         with open("{0}/{1}_{2}_{3}.pkl".format(outpath, dataset_name, dataset_era, dataset_num_chunk), "wb") as fi:
             pickle.dump(res, fi, protocol=pickle.HIGHEST_PROTOCOL)
     
-    #clean up threads
-    threadk.set_tokill(True)
-    #metrics_thread.join() 
-    
     t1 = time.time()
     dt = t1 - t0
     print("In run_analysis, processed {nev_loaded:.2E} ({nev:.2E} raw NanoAOD equivalent) events in total {size:.2f} GB, {dt:.1f} seconds, {evspeed:.2E} Hz, {sizespeed:.2f} MB/s".format(
@@ -1106,7 +1108,7 @@ def run_analysis(
         of.write(json.dumps(bench_ret) + '\n')
     return bench_ret
 
-def event_loop(ds, analysis_corrections, parameter_sets):
+def event_loop(ds, analysis_corrections, parameter_sets, do_fsr=False, use_cuda=False):
 
     #copy dataset to GPU and make sure future operations are done on it
     if use_cuda:
@@ -1114,12 +1116,10 @@ def event_loop(ds, analysis_corrections, parameter_sets):
         ds.numpy_lib = cupy
         ds.move_to_device(cupy)
 
-    parameters = kwargs.pop("parameters")
-
     ret = {}
-    for parameter_set_name, parameter_set in parameters.items():
+    for parameter_set_name, parameter_set in parameter_sets.items():
         print("doing analysis on parameter set", parameter_set_name)
-        ret[parameter_set_name] = analyze_data(ds, analysis_corrections, parameter_set, parameter_set_name, ds.random_seed) 
+        ret[parameter_set_name] = analyze_data(ds, analysis_corrections, parameter_set, parameter_set_name, ds.random_seed, do_fsr=do_fsr, use_cuda=use_cuda) 
     ret["num_events"] = len(ds)
 
     #clean up CUDA memory
