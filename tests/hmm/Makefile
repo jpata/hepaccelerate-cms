@@ -1,6 +1,6 @@
 all: libhmm.so
 
-CXX      = g++ -fPIC -O3
+CXX      = g++ -fPIC -fopenmp -O3
 
 CXXFLAGS= $(shell root-config --cflags)
 LIBS    = $(shell root-config --libs)
