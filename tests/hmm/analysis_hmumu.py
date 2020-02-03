@@ -292,14 +292,14 @@ class AnalysisCorrections:
                     do_factorized_jec=True),
             },
             "2018": {
-                "Autumn18_V16":
+                "Autumn18_V19":
                     JetMetCorrections(
-                    jec_tag="Autumn18_V16_MC",
+                    jec_tag="Autumn18_V19_MC",
                     jec_tag_data={
-                        "RunA": "Autumn18_RunA_V16_DATA",
-                        "RunB": "Autumn18_RunB_V16_DATA",
-                        "RunC": "Autumn18_RunC_V16_DATA",
-                        "RunD": "Autumn18_RunD_V16_DATA",
+                        "RunA": "Autumn18_RunA_V19_DATA",
+                        "RunB": "Autumn18_RunB_V19_DATA",
+                        "RunC": "Autumn18_RunC_V19_DATA",
+                        "RunD": "Autumn18_RunD_V19_DATA",
                     },
                     jer_tag="Autumn18_V7_MC",
                     jmr_vals=[1.0, 1.2, 0.8],
