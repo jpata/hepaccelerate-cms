@@ -302,7 +302,7 @@ def analyze_data(
     #Z pT reweighting for DY bkg (CPU only)
     ZpTw = NUMPY_LIB.ones(muons.numevents(), dtype=NUMPY_LIB.float32)
     if is_mc and (dataset_name in parameters["ZpT_reweight"][dataset_era]):
-       ZpTw = NUMPY_LIB.array(zptreweighting.compute(
+       ZpTw = NUMPY_LIB.array(analysis_corrections.zptreweighting.compute(
            NUMPY_LIB.asnumpy(higgs_pt), parameters["ZpT_reweight"][dataset_era][dataset_name]))
 
     #Do the jet ID selection and lepton cleaning just once for the nominal jet systematic
