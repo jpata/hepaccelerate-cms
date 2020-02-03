@@ -38,14 +38,13 @@ from pars import runmap_numerical, runmap_numerical_r, data_runs, genweight_scal
 ha = None
 NUMPY_LIB = None
 
-#Use these to turn on debugging
-#debug = True
+#Use this to turn on debugging
 debug = False
 #event IDs for which to print out detailed information
 debug_event_ids = [37410,37416,37463,37464]
 
-#list to collect performance data in
-global_metrics = []
+#Run additional checks on the analyzed data to ensure consistency - for debugging
+doverify = False
 
 #raise an error if there is any inf or nan
 def check_inf_nan(data):
@@ -60,43 +59,27 @@ def fix_inf_nan(data, default=0):
     data[m] = default
 
 
-#This is the actual data analysis function
 def analyze_data(
-    data,
-    use_cuda=False,
-    is_mc=True,
-    pu_corrections=None,
-    rochester_corrections=None,
-    lepsf_iso=None,
-    lepsf_id=None,
-    lepeff_trig_data=None,
-    lepeff_trig_mc=None,
-    dnn_model=None,
-    dnn_normfactors=None,
-    dnnPisa_models=[],
-    dnnPisa_normfactors1=None,
-    dnnPisa_normfactors2=None,
-    jetmet_corrections=None,
-    parameters={},
-    parameter_set_name="",
-    doverify=False,
-    do_sync = False,
-    do_fsr = False,
-    dataset_era = "",
-    dataset_name = "",
-    dataset_num_chunk = "",
-    bdt_ucsd = None,
-    bdt2j_ucsd = None,
-    bdt01j_ucsd = None,
-    miscvariables = None,
-    nnlopsreweighting = None,
-    hrelresolution = None,
-    zptreweighting = None,
-    puidreweighting = None,
-    btag_weights = None,
-    random_seed = 0, 
-    lumimask = None 
-    ):
+    data, analysis_corrections,
+    parameters, parameter_set_name,
+    random_seed,
+    do_fsr=False, use_cuda=False):
+    """Analyzes the dataset with a parameter set
+    
+        Args:
+            data (hepaccelerate.Dataset): The dataset to analyze
+            analysis_corrections (analysis_hmumu.AnalysisCorrections): The calibration data for the analysis
+            parameters (dict): dictionary with all the cuts and other numerical parameters of the analysis
+            parameter_set_name (str): the name of the parameter set that is being analyzed
+            random_seed (int): the random seed used in smearing algorithms
+        Returns:
+            dict: a hepaccelerate.Results dictionary with all the results, primarily name-histogram pairs 
+    """
+
+    #old arguments
+    dataset_name = data.name
+    dataset_era = data.era
+    is_mc = data.is_mc
 
     if use_cuda:
         import hepaccelerate.backend_cuda as backend_cuda
@@ -107,17 +90,23 @@ def analyze_data(
     #set the random seed to the predefined value
     NUMPY_LIB.random.seed(random_seed)
 
+    if data.numfiles != 1:
+        raise Exception("Currently support only 1 file per job descripton")
+
     #create variables for muons, jets etc
-    muons = data["Muon"]
-    fsrphotons = data["FsrPhoton"] if do_fsr else None
-    jets = data["Jet"]
-    softjets = data["SoftActivityJet"]
-    electrons = data["Electron"]
-    trigobj = data["TrigObj"]
-    scalars = data["eventvars"]
+    muons = data.structs["Muon"][0] 
+    fsrphotons = None
+    if do_fsr:
+        fsrphotons = data.structs["FsrPhoton"][0]
+    jets = data.structs["Jet"][0]
+    softjets = data.structs["SoftActivityJet"][0]
+    electrons = data.structs["Electron"][0]
+    trigobj = data.structs["TrigObj"][0]
+    scalars = data.eventvars[0]
+
     LHEScalew = None
     if "dy" in dataset_name or "ewk" in dataset_name:
-        LHEScalew = data["LHEScaleWeight"]
+        LHEScalew = data.structs["LHEScaleWeight"][0]
     histo_bins = parameters["histo_bins"]
 
     #first mask of all events enabled
@@ -125,7 +114,7 @@ def analyze_data(
 
     #Golden JSON filtering (CPU-only)
     if not is_mc:
-        mask_events = mask_events & NUMPY_LIB.array(lumimask[dataset_era](
+        mask_events = mask_events & NUMPY_LIB.array(analysis_corrections.lumimask[dataset_era](
             NUMPY_LIB.asnumpy(scalars["run"]),
             NUMPY_LIB.asnumpy(scalars["luminosityBlock"])))
  
@@ -153,7 +142,7 @@ def analyze_data(
         genHiggs_pt = genhpt(genpart, genHiggs_mask, use_cuda)
         selected_genJet_mask = genJet.pt>30
         genNjets = ha.sum_in_offsets(genJet.offsets, selected_genJet_mask, mask_events,genJet.masks["all"], NUMPY_LIB.int8)
-        gghnnlopsw = nnlopsreweighting.compute(NUMPY_LIB.asnumpy(genNjets), NUMPY_LIB.asnumpy(genHiggs_pt), parameters["ggh_nnlops_reweight"][dataset_name])
+        gghnnlopsw = analysis_corrections.nnlopsreweighting.compute(NUMPY_LIB.asnumpy(genNjets), NUMPY_LIB.asnumpy(genHiggs_pt), parameters["ggh_nnlops_reweight"][dataset_name])
         if use_cuda:
             gghnnlopsw = NUMPY_LIB.array(gghnnlopsw)
 
@@ -206,7 +195,7 @@ def analyze_data(
             print("Before applying Rochester corrections: muons.pt={0:.2f} +- {1:.2f}".format(muons.pt.mean(), muons.pt.std()))
         do_rochester_corrections(
             is_mc,
-            rochester_corrections[dataset_era],
+            analysis_corrections.rochester_corrections[dataset_era],
             muons)
         if debug:
             print("After applying Rochester corrections muons.pt={0:.2f} +- {1:.2f}".format(muons.pt.mean(), muons.pt.std()))
@@ -220,8 +209,9 @@ def analyze_data(
         parameters["muon_id"][dataset_era], parameters["muon_trigger_match_dr"],
         parameters["muon_iso_trigger_matched"], parameters["muon_id_trigger_matched"][dataset_era], use_cuda
     )
-    print("muon selection eff", ret_mu["selected_muons"].sum() / float(muons.numobjects()))
-   
+    if debug:
+        print("muon selection eff", ret_mu["selected_muons"].sum() / float(muons.numobjects()))
+
     #Just a check to verify that there are exactly 2 muons per event
     if doverify:
         z = ha.sum_in_offsets(
@@ -239,7 +229,7 @@ def analyze_data(
         mu_attrs += ["genpt"]
     leading_muon = muons.select_nth(0, ret_mu["selected_events"], ret_mu["selected_muons"], attributes=mu_attrs)
     subleading_muon = muons.select_nth(1, ret_mu["selected_events"], ret_mu["selected_muons"], attributes=mu_attrs)
-    
+
     if doverify:
         assert(NUMPY_LIB.all(leading_muon["pt"][leading_muon["pt"]>0] > parameters["muon_pt_leading"][dataset_era]))
         assert(NUMPY_LIB.all(subleading_muon["pt"][subleading_muon["pt"]>0] > parameters["muon_pt"]))
@@ -247,8 +237,8 @@ def analyze_data(
     #Compute lepton scale factors
     if parameters["do_lepton_sf"] and is_mc:
         lepton_sf_values = compute_lepton_sf(leading_muon, subleading_muon,
-            lepsf_iso[dataset_era], lepsf_id[dataset_era], lepeff_trig_data[dataset_era],
-            lepeff_trig_mc[dataset_era], use_cuda, dataset_era, NUMPY_LIB, debug)
+            analysis_corrections.lepsf_iso[dataset_era], analysis_corrections.lepsf_id[dataset_era], analysis_corrections.lepeff_trig_data[dataset_era],
+            analysis_corrections.lepeff_trig_mc[dataset_era], use_cuda, dataset_era, NUMPY_LIB, debug)
         weights_individual["trigger"] = {
             "nominal": lepton_sf_values["trigger"],
             "up": lepton_sf_values["trigger__up"], 
@@ -313,7 +303,7 @@ def analyze_data(
     #Z pT reweighting for DY bkg (CPU only)
     ZpTw = NUMPY_LIB.ones(muons.numevents(), dtype=NUMPY_LIB.float32)
     if is_mc and (dataset_name in parameters["ZpT_reweight"][dataset_era]):
-       ZpTw = NUMPY_LIB.array(zptreweighting.compute(
+       ZpTw = NUMPY_LIB.array(analysis_corrections.zptreweighting.compute(
            NUMPY_LIB.asnumpy(higgs_pt), parameters["ZpT_reweight"][dataset_era][dataset_name]))
 
     #Do the jet ID selection and lepton cleaning just once for the nominal jet systematic
@@ -330,7 +320,8 @@ def analyze_data(
         parameters["jet_veto_eta"][1],
         parameters["jet_veto_raw_pt"],
         dataset_era)
-    print("jet selection eff based on id", selected_jets_id.sum() / float(len(selected_jets_id)))
+    if debug:
+        print("jet selection eff based on id", selected_jets_id.sum() / float(len(selected_jets_id)))
 
     #Now we throw away all the jets that didn't pass the ID to save time on computing JECs on them
     jets_passing_id = jets.select_objects(selected_jets_id)
@@ -338,11 +329,11 @@ def analyze_data(
     # PU ID weights are only applied to 2016 and 2018 so far, as they haven't been validated for 2017
     # https://github.com/jpata/hepaccelerate-cms/pull/66
     if (parameters["jet_puid"] is not "none") and is_mc:
-        puid_weights = get_puid_weights(jets_passing_id, passed_puid, puidreweighting, dataset_era, parameters["jet_puid"], parameters["jet_pt_subleading"][dataset_era], parameters["jet_puid_pt_max"], use_cuda)
+        puid_weights = get_puid_weights(jets_passing_id, passed_puid, analysis_corrections.puidreweighting, dataset_era, parameters["jet_puid"], parameters["jet_pt_subleading"][dataset_era], parameters["jet_puid_pt_max"], use_cuda)
         weights_individual["jet_puid"] = {"nominal": puid_weights, "up": puid_weights, "down": puid_weights}
 
     if is_mc and parameters["apply_btag"]:
-        btagWeights, btagWeights_up, btagWeights_down = get_btag_weights_shape(jets_passing_id, btag_weights, dataset_era, scalars, parameters["jet_pt_subleading"][dataset_era])
+        btagWeights, btagWeights_up, btagWeights_down = get_btag_weights_shape(jets_passing_id, analysis_corrections.btag_weights, dataset_era, scalars, parameters["jet_pt_subleading"][dataset_era])
         
         weights_individual["btag_weight"] = {"nominal": btagWeights, "up": NUMPY_LIB.ones_like(btagWeights), "down": NUMPY_LIB.ones_like(btagWeights)}
         #weights_individual["btag_weight_bcFl"] = {"nominal": NUMPY_LIB.ones_like(btagWeights), "up": btagWeights_up[0]*btagWeights_up[1], "down": btagWeights_down[0]*btagWeights_down[1]}
@@ -350,7 +341,7 @@ def analyze_data(
     #compute variated weights here to ensure the nominal weight contains all possible other weights  
     compute_event_weights(parameters, weights_individual, scalars,
         genweight_scalefactor, gghnnlopsw, ZpTw,
-        LHEScalew, pu_corrections, is_mc, dataset_era, dataset_name, use_cuda)
+        LHEScalew, analysis_corrections.pu_corrections, is_mc, dataset_era, dataset_name, use_cuda)
 
     #actually multiply all the weights together with the appropriate up/down variations.
     #creates a 1-level dictionary with weights "nominal", "puweight__up", "puweight__down", ..." 
@@ -400,13 +391,13 @@ def analyze_data(
     n_additional_leptons = n_additional_muons + n_additional_electrons
 
     #This computes the JEC, JER and associated systematics
-    print("event selection eff based on 2 muons", ret_mu["selected_events"].sum() / float(len(mask_events)))
-
-    print("Doing nominal jec on {0} jets".format(jets_passing_id.numobjects()))
+    if debug:
+        print("event selection eff based on 2 muons", ret_mu["selected_events"].sum() / float(len(mask_events)))
+        print("Doing nominal jec on {0} jets".format(jets_passing_id.numobjects()))
     jet_systematics = JetTransformer(
         jets_passing_id, scalars,
         parameters,
-        jetmet_corrections[dataset_era][parameters["jec_tag"][dataset_era]],
+        analysis_corrections.jetmet_corrections[dataset_era][parameters["jec_tag"][dataset_era]],
         NUMPY_LIB, ha, use_cuda, is_mc)
 
     syst_to_consider = ["nominal"]
@@ -417,9 +408,10 @@ def analyze_data(
         if parameters["do_factorized_jec"]:
             syst_to_consider = syst_to_consider + jet_systematics.jet_uncertainty_names
 
-    print("entering jec loop with {0}".format(syst_to_consider))
+    if debug:
+        print("entering jec loop with {0}".format(syst_to_consider))
     ret_jet_nominal = None
-    
+
     #Now actually call the JEC computation for each scenario
     jet_pt_startfrom = "pt_jec"
     if is_mc and parameters["do_jer"][dataset_era]:
@@ -447,9 +439,10 @@ def analyze_data(
                 parameters["jet_btag_loose"][dataset_era],
                 is_mc, use_cuda
             )
-            print("jet analysis syst={0} sdir={1} mean_pt_change={2:.4f} num_passing_jets={3} ".format(
-                jet_syst_name[0], jet_syst_name[1], float(jet_pt_change), int(ret_jet["selected_jets"].sum()))
-            )
+            if debug:
+                print("jet analysis syst={0} sdir={1} mean_pt_change={2:.4f} num_passing_jets={3} ".format(
+                    jet_syst_name[0], jet_syst_name[1], float(jet_pt_change), int(ret_jet["selected_jets"].sum()))
+                )
             fill_histograms_several(
                 hists, "nominal", "hist__dimuon__",
                 [
@@ -528,8 +521,10 @@ def analyze_data(
 
             #Compute the DNN inputs, the DNN output, fill the DNN input and output variable histograms
             dnn_prediction = None
-            dnn_vars, dnn_prediction, dnnPisa_predictions, dnnPisaComb_pred = compute_fill_dnn(hrelresolution,
-               miscvariables, parameters, use_cuda, dnn_presel, dnn_model, dnn_normfactors, dnnPisa_models, dnnPisa_normfactors1, dnnPisa_normfactors2,
+            dnn_vars, dnn_prediction, dnnPisa_predictions, dnnPisaComb_pred = compute_fill_dnn(analysis_corrections.hrelresolution,
+               analysis_corrections.miscvariables, parameters, use_cuda, dnn_presel,
+               analysis_corrections.dnn_model, analysis_corrections.dnn_normfactors,
+               analysis_corrections.dnnPisa_models, analysis_corrections.dnnPisa_normfactors1, analysis_corrections.dnnPisa_normfactors2,
                scalars, leading_muon, subleading_muon, leading_jet, subleading_jet,
                ret_jet["num_jets"],ret_jet["num_jets_btag_medium"], n_sel_softjet, n_sel_HTsoftjet, n_sel_HTsoftjet2, dataset_era, is_mc
             )
@@ -615,7 +610,7 @@ def analyze_data(
                     outpath = "{0}/{1}".format(parameters["dnn_vars_path"], dataset_era) 
                     if not os.path.isdir(outpath):
                         os.makedirs(outpath)
-                    np.save("{0}/{1}_{2}.npy".format(outpath, dataset_name, dataset_num_chunk), arrdata, allow_pickle=False)
+                    np.save("{0}/{1}_{2}.npy".format(outpath, dataset_name, data.num_chunk), arrdata, allow_pickle=False)
 
             #Save histograms for numerical categories (cat5 only right now) and all mass bins
             for massbin_name, massbin_msk, mass_edges in [
@@ -753,8 +748,8 @@ def get_genparticles(data, muons, jets, is_mc, use_cuda):
     genpart = None
 
     if is_mc:
-        genJet = data["GenJet"]
-        genpart = data["GenPart"]
+        genJet = data.structs["GenJet"][0]
+        genpart = data.structs["GenPart"][0]
         muons_genpt = NUMPY_LIB.zeros(muons.numobjects(), dtype=NUMPY_LIB.float32)
         jets_genpt = NUMPY_LIB.zeros(jets.numobjects(), dtype=NUMPY_LIB.float32)
         jets_genmass = NUMPY_LIB.zeros(jets.numobjects(), dtype=NUMPY_LIB.float32)
@@ -828,11 +823,12 @@ def finalize_weights(weights, all_weight_names=None):
                         continue
                     #print("Applying ",other_syst, " to variation of ",this_syst) 
                     wtot *= weights[other_syst]["nominal"] 
-                 
+
                 ret["{0}__{1}".format(this_syst, sdir)] = wtot
-    
-    for k in ret.keys():
-        print("finalized weight", k, ret[k].mean())
+
+    if debug:
+        for k in ret.keys():
+            print("finalized weight", k, ret[k].mean())
     return ret
 
 def compute_event_weights(parameters, weights, scalars, genweight_scalefactor, gghw, zptw, LHEScalew, pu_corrections, is_mc, dataset_era, dataset_name, use_cuda):
@@ -1017,7 +1013,7 @@ def run_analysis(
     cmdline_args,
     outpath,
     job_descriptions,
-    parameters,
+    parameter_sets,
     analysis_corrections,
     numev_per_chunk=100000):
 
@@ -1028,7 +1024,7 @@ def run_analysis(
             
     processed_size_mb = 0
 
-    #Create a thread that will load data in the background
+    #This will load the data
     training_set_generator = InputGen(
         job_descriptions,
         cmdline_args.datapath,
@@ -1037,18 +1033,6 @@ def run_analysis(
         events_per_file = numev_per_chunk
     )
 
-    threadk = thread_killer()
-    threadk.set_tokill(False)
-    train_batches_queue = Queue(maxsize=10)
-    
-    #Start the thread if using a multithreaded approach
-    if cmdline_args.async_data:
-        input_thread = Thread(target=threaded_batches_feeder, args=(threadk, train_batches_queue, training_set_generator))
-        input_thread.start()
-
-    # metrics_thread = Thread(target=threaded_metrics, args=(threadk, train_batches_queue))
-    # metrics_thread.start()
-
     rets = []
     num_processed = 0
    
@@ -1056,47 +1040,20 @@ def run_analysis(
     #loop over all data, call the analyze function
     while num_processed < len(training_set_generator):
 
-        # In case we are processing data synchronously, just load the dataset here
-        # and put to queue.
-        if not cmdline_args.async_data:
-            ds = training_set_generator.nextone()
-            if ds is None:
-                break
-            train_batches_queue.put(ds)
-
-        # #Progress indicator for each chunk of files
-        # sys.stdout.write(".");sys.stdout.flush()
+        ds = training_set_generator.nextone()
+        
+        #All data has been processed
+        if ds is None:
+            break
 
         #Process the dataset
         ret, ds, nev, memsize = event_loop(
-            train_batches_queue,
+            ds,
+            analysis_corrections,
+            parameter_sets, 
+            cmdline_args.do_fsr,
             cmdline_args.use_cuda,
-            verbose=False,
-            pu_corrections=analysis_corrections.pu_corrections,
-            rochester_corrections=analysis_corrections.rochester_corrections,
-            lepsf_iso=analysis_corrections.lepsf_iso,
-            lepsf_id=analysis_corrections.lepsf_id,
-            lepeff_trig_data=analysis_corrections.lepeff_trig_data,
-            lepeff_trig_mc=analysis_corrections.lepeff_trig_mc,
-            parameters=parameters,
-            dnn_model=analysis_corrections.dnn_model,
-            dnn_normfactors=analysis_corrections.dnn_normfactors,
-            dnnPisa_models=analysis_corrections.dnnPisa_models,
-            dnnPisa_normfactors1=analysis_corrections.dnnPisa_normfactors1,
-            dnnPisa_normfactors2=analysis_corrections.dnnPisa_normfactors2,
-            jetmet_corrections=analysis_corrections.jetmet_corrections,
-            do_sync = cmdline_args.do_sync,
-            do_fsr = cmdline_args.do_fsr,
-            bdt_ucsd  = analysis_corrections.bdt_ucsd,
-            bdt2j_ucsd  = analysis_corrections.bdt2j_ucsd,
-            bdt01j_ucsd  = analysis_corrections.bdt01j_ucsd,
-            miscvariables = analysis_corrections.miscvariables,
-            nnlopsreweighting = analysis_corrections.nnlopsreweighting,
-            hrelresolution = analysis_corrections.hrelresolution,
-            zptreweighting = analysis_corrections.zptreweighting,
-            puidreweighting = analysis_corrections.puidreweighting,
-            btag_weights = analysis_corrections.btag_weights,
-            lumimask = analysis_corrections.lumimask)
+        )
 
         tnext = time.time()
         print("processed {0:.2E} ev/s".format(nev/float(tnext-tprev)))
@@ -1139,10 +1096,6 @@ def run_analysis(
         with open("{0}/{1}_{2}_{3}.pkl".format(outpath, dataset_name, dataset_era, dataset_num_chunk), "wb") as fi:
             pickle.dump(res, fi, protocol=pickle.HIGHEST_PROTOCOL)
     
-    #clean up threads
-    threadk.set_tokill(True)
-    #metrics_thread.join() 
-    
     t1 = time.time()
     dt = t1 - t0
     print("In run_analysis, processed {nev_loaded:.2E} ({nev:.2E} raw NanoAOD equivalent) events in total {size:.2f} GB, {dt:.1f} seconds, {evspeed:.2E} Hz, {sizespeed:.2f} MB/s".format(
@@ -1150,16 +1103,6 @@ def run_analysis(
         size=processed_size_mb/1024.0, evspeed=nev_total/dt, sizespeed=processed_size_mb/dt,
         )
     )
-   
-    if len(global_metrics) > 0:
-        metrics_results = {}
-        for k in global_metrics[0]: 
-            metrics_results[k] = []
-        for gm in global_metrics:
-            for k in gm.keys():
-                metrics_results[k] += [gm[k]]
-        for k in metrics_results.keys():
-            print("metric {0} avg={1:.2f} max={2:.2f}".format(k, np.mean(metrics_results[k]), np.max(metrics_results[k])))
 
     bench_ret = {}
     bench_ret.update(cmdline_args.__dict__)
@@ -1173,9 +1116,8 @@ def run_analysis(
         of.write(json.dumps(bench_ret) + '\n')
     return bench_ret
 
-def event_loop(train_batches_queue, use_cuda, **kwargs):
-    ds = train_batches_queue.get(block=True)
-    #print("event_loop nev={0}, queued={1}".format(len(ds), train_batches_queue.qsize()))
+#Analyze the loaded data with multiple parameter sets
+def event_loop(ds, analysis_corrections, parameter_sets, do_fsr=False, use_cuda=False):
 
     #copy dataset to GPU and make sure future operations are done on it
     if use_cuda:
@@ -1183,25 +1125,15 @@ def event_loop(train_batches_queue, use_cuda, **kwargs):
         ds.numpy_lib = cupy
         ds.move_to_device(cupy)
 
-    parameters = kwargs.pop("parameters")
-
+    #Analyze one parameter set
     ret = {}
-    for parameter_set_name, parameter_set in parameters.items():
+    for parameter_set_name, parameter_set in parameter_sets.items():
         print("doing analysis on parameter set", parameter_set_name)
-        ret[parameter_set_name] = ds.analyze(
-            analyze_data,
-            use_cuda = use_cuda,
-            parameter_set_name = parameter_set_name,
-            parameters = parameter_set,
-            dataset_era = ds.era,
-            dataset_name = ds.name,
-            dataset_num_chunk = ds.num_chunk,
-            is_mc = ds.is_mc,
-            random_seed = ds.random_seed,
-            **kwargs)
+        ret[parameter_set_name] = analyze_data(
+            ds, analysis_corrections, parameter_set,
+            parameter_set_name, ds.random_seed,
+            do_fsr=do_fsr, use_cuda=use_cuda) 
     ret["num_events"] = len(ds)
-
-    train_batches_queue.task_done()
 
     #clean up CUDA memory
     if use_cuda:
@@ -3459,48 +3391,3 @@ def create_dataset_jobfiles(
 
         ijob += 1
     return job_descriptions
-
-def parse_nvidia_smi():
-    """Returns the GPU symmetric multiprocessor and memory usage in %
-    """
-    try:
-        import nvidia_smi
-        nvidia_smi.nvmlInit()
-        handle = nvidia_smi.nvmlDeviceGetHandleByIndex(0)
-        res = nvidia_smi.nvmlDeviceGetUtilizationRates(handle)
-        return {"gpu": res.gpu, "mem": res.memory}
-    except Exception as e:
-        return {"gpu": 0, "mem": 0}
-
-def threaded_metrics(tokill, train_batches_queue):
-    global global_metrics
-    c = psutil.disk_io_counters()
-    bytes_read_start = c.read_bytes
-    thisproc = psutil.Process()
-
-    while not tokill(): 
-        dt = 1.0
-        
-        c = psutil.disk_io_counters()
-
-        bytes_read_speed = (c.read_bytes - bytes_read_start)/dt/1024.0/1024.0
-        bytes_read_start = c.read_bytes
-
-        cpu_pct = thisproc.cpu_percent()
-        cpu_times = thisproc.cpu_times()
-        memory_info = thisproc.memory_info()
-        d = parse_nvidia_smi()
-
-        metrics_dict = {
-            "disk_io": bytes_read_speed,
-            "cpu_percent": cpu_pct,
-            #"cpu_iowait=": cpu_times.iowait,
-            "rss": memory_info.rss/1024.0/1024.0,
-            "gpu_util": d["gpu"],
-            "gpu_mem": d["mem"],
-            "queue_size": train_batches_queue.qsize(),
-        }
-        global_metrics += [metrics_dict]
-        time.sleep(dt)
-    print("threaded_metrics done")
-    return

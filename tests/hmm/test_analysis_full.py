@@ -36,7 +36,7 @@ class TestAnalysis(unittest.TestCase):
         self.analysis_parameters["baseline"]["do_jer"] = {"2016": True}
         
         from argparse import Namespace
-        self.cmdline_args = Namespace(use_cuda=USE_CUPY, datapath=".", do_fsr=False, nthreads=1, async_data=False, do_sync=False, out="test_out")
+        self.cmdline_args = Namespace(use_cuda=USE_CUPY, datapath=".", nthreads=1, do_fsr=False, async_data=False, do_sync=False, out="test_out")
         
         from analysis_hmumu import AnalysisCorrections
         self.analysis_corrections = AnalysisCorrections(self.cmdline_args, True)
@@ -52,7 +52,7 @@ class TestAnalysis(unittest.TestCase):
     #Run the analysis on a raw NanoAOD MC sample
     def test_run_analysis_mc(self):
         import hmumu_utils
-        from hmumu_utils import analyze_data, load_puhist_target, run_analysis
+        from hmumu_utils import load_puhist_target, run_analysis
         from coffea.lookup_tools import extractor
         NUMPY_LIB = self.NUMPY_LIB
         hmumu_utils.NUMPY_LIB = self.NUMPY_LIB

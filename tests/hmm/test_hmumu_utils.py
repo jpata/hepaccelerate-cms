@@ -154,47 +154,12 @@ class TestAnalysisSmall(unittest.TestCase):
         puid_extractor = extractor()
         puid_extractor.add_weight_sets(["* * {0}".format(puid_maps)])
         puid_extractor.finalize()
-        
-        kwargs = {
-            "pu_corrections": {"2016": load_puhist_target("data/pileup/RunII_2016_data.root")},
-            "btag_weights": {
-                "DeepCSV_2016": BTagWeights( tag_name = "DeepCSV_2016LegacySF_V1")
-            },
-            "puidreweighting": puid_extractor.make_evaluator(),
-            "jetmet_corrections": {
-                "2016": {
-                    "Summer16_07Aug2017_V11":
-                        JetMetCorrections(
-                        jec_tag="Summer16_07Aug2017_V11_MC",
-                        jec_tag_data={
-                            "RunB": "Summer16_07Aug2017BCD_V11_DATA",
-                            "RunC": "Summer16_07Aug2017BCD_V11_DATA",
-                            "RunD": "Summer16_07Aug2017BCD_V11_DATA",
-                            "RunE": "Summer16_07Aug2017EF_V11_DATA",
-                            "RunF": "Summer16_07Aug2017EF_V11_DATA",
-                            "RunG": "Summer16_07Aug2017GH_V11_DATA",
-                            "RunH": "Summer16_07Aug2017GH_V11_DATA",
-                        },
-                        jer_tag="Summer16_25nsV1_MC",
-                        jmr_vals=[1.0, 1.2, 0.8],
-                        do_factorized_jec=True),
-                },
-            },
-            "do_fsr": True,
-            "miscvariables": self.analysis_corrections.miscvariables 
-        }
+       
+        random_seed = 0 
 
-        ret = self.dataset.analyze(
-            analyze_data,
-            use_cuda = USE_CUPY,
-            parameter_set_name = "baseline",
-            parameters = analysis_parameters["baseline"],
-            dataset_era = self.dataset.era,
-            dataset_name = self.dataset.name,
-            dataset_num_chunk = self.dataset.num_chunk,
-            is_mc = self.dataset.is_mc,
-            **kwargs
-        )
+        ret = analyze_data(
+            self.dataset, self.analysis_corrections,
+            analysis_parameters["baseline"], "baseline", random_seed, do_fsr=True, use_cuda=False)
         h = ret["hist__dimuon_invmass_z_peak_cat5__M_mmjj"]
         
         nev_zpeak_nominal = np.sum(h["nominal"].contents)
