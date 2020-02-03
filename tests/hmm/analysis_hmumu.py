@@ -1,3 +1,6 @@
+"""Main entry point for the Caltech HiggsMuMu accelerated analysis code.
+Process multiple years from NanoAOD to final results with on-the-fly systematics in a few hours!
+"""
 import os
 import numba
 
@@ -8,12 +11,14 @@ import pickle
 import shutil
 import resource
 
+#Load the acceleration backend
 import hepaccelerate.backend_cpu as backend_cpu
 from hepaccelerate.utils import choose_backend, LumiData, LumiMask
 from hepaccelerate.utils import Dataset, Results
 
 import hmumu_utils
 from hmumu_utils import run_analysis, create_dataset_jobfiles, load_puhist_target, seed_generator
+#Load legacy ROOT-based C++ corrections that are not yet available in coffea 
 from hmumu_lib import LibHMuMu, RochesterCorrections, LeptonEfficiencyCorrections, GBREvaluator, MiscVariables, NNLOPSReweighting, hRelResolution, ZpTReweighting
 
 import os
@@ -24,6 +29,7 @@ import glob
 import sys
 import yaml
 
+#We use coffea for jetmet and btag corrections
 from coffea.util import USE_CUPY
 from coffea.lookup_tools import extractor
 from coffea.jetmet_tools import FactorizedJetCorrector
@@ -34,6 +40,11 @@ from coffea.jetmet_tools import JetResolutionScaleFactor
 from concurrent.futures import ProcessPoolExecutor, wait, ALL_COMPLETED
 
 def parse_args():
+    """Parses the command-line arguments.
+    
+    Returns:
+        Namespace: The parsed arguments for the HiggsMuMu analysis
+    """
     parser = argparse.ArgumentParser(description='Caltech HiggsMuMu analysis')
     parser.add_argument('--async-data', action='store_true', help='Load data on a separate thread, faster but disable for debugging')
     parser.add_argument('--action', '-a', action='append', help='List of analysis steps to do', choices=['analyze', 'merge'], required=False, default=None)
@@ -63,22 +74,55 @@ def parse_args():
     if args.eras is None:
         args.eras = ["2016", "2017", "2018"]
     return args
+
 class BTagWeights:
+
+    """Loads and computes b-tagging weights.
+    More documentation is available in https://twiki.cern.ch/twiki/bin/viewauth/CMS/BtagRecommendation102X
+    
+    Attributes:
+        evaluator (coffea.lookup_tools.evaluator): The b-tagging weights loaded to memory and ready for evaluation 
+    """
+    
     def __init__(self,
         tag_name):
+        """Loads the b-tagging weights and creates the evaluator
+        
+        Args:
+            tag_name (str): The filename to load
+        """
         btag_extractor = extractor()
         btag_extractor.add_weight_sets(['* * data/btagSF/{0}.csv'.format(tag_name)])
         btag_extractor.finalize()
         self.evaluator = btag_extractor.make_evaluator() 
 
 class JetMetCorrections:
-    def __init__(self,
-        jec_tag,
-        jec_tag_data,
-        jer_tag,
-        jmr_vals,
-        do_factorized_jec=True):
 
+    """Loads and computes JEC and JER corrections.
+    
+    Attributes:
+        jec_data (dict of str->coffea.jetmet_tools.FactorizedJetCorrector): per-run jet energy corrections for real data
+        jec_mc (coffea.jetmet_tools.FactorizedJetCorrector): jet energy corrections for MC
+        jer (coffea.jetmet_tools.JetResolution): the jet energy resolution correction object
+        jersf (coffea.jetmet_tools.JetResolutionScaleFactor): the data-to-mc scale factor for jet energy resolution
+        jesunc (coffea.jetmet_tools.JetCorrectionUncertainty): data-to-MC scale factor for jet energy scale uncertainties
+    """
+    
+    def __init__(
+        self,
+        jec_tag: str,
+        jec_tag_data: dict,
+        jer_tag: str,
+        do_factorized_jec=True):
+        """Summary
+        
+        Args:
+            jec_tag (str): Tag for the jet energy corrections for MC simulation
+            jec_tag_data (dict): per-run JEC tags for real data
+            jer_tag (str): tag for the jet energy resolution
+            do_factorized_jec (bool, optional): If True, loads and enables the factorized jet
+                energy corrections instead of the total
+        """
         extract = extractor()
         
         #For MC
@@ -146,7 +190,45 @@ class JetMetCorrections:
         self.jesunc = JetCorrectionUncertainty(**{name: evaluator[name] for name in junc_names})
 
 class AnalysisCorrections:
+
+    """Stores the various external calibrations, corrections and MVA models for the analysis.
+    
+    Attributes:
+        bdt01j_ucsd (dict of str->GBREvaluator): UCSD BDT for the 0 and 1-jet bins for different years
+        bdt2j_ucsd (dict of str->GBREvaluator): UCSD BDT for the 2-jet bin for different years
+        bdt_ucsd (GBREvaluator): Baseline UCSD BDT
+        btag_weights (dict of str->BTagWeights): b-tagging corrections for different years
+        dnn_model (keras.Model): Caltech baseline DNN model
+        dnn_normfactors (numpy.array): normalization factors for the Caltech DNN
+        dnnPisa_models (list of keras.Model): The set of Pisa DNN models
+        dnnPisa_normfactors1 (numpy.array): Normalization factors for node1 of the Pisa DNN
+        dnnPisa_normfactors2 (numpy.array): Normalization factors for node2 of the Pisa DNN
+        hrelresolution (hmumu_lib.hRelResolution): The Higgs resolution corrections
+        jetmet_corrections (analysis_hmumu.JetMetCorrections): The jet energy scale (JES) and resolution (JER) corrections and uncertainties/scale-factors
+        lepeff_trig_data (TYPE): Description
+        lepeff_trig_mc (TYPE): Description
+        lepsf_id (TYPE): Description
+        lepsf_iso (TYPE): Description
+        libhmm (TYPE): Description
+        lumidata (TYPE): Description
+        lumimask (TYPE): Description
+        miscvariables (TYPE): Description
+        nnlopsreweighting (TYPE): Description
+        pu_corrections (TYPE): Description
+        puidreweighting (TYPE): Description
+        ratios_dataera (TYPE): Description
+        rochester_corrections (TYPE): Description
+        zptreweighting (TYPE): Description
+    """
+    
     def __init__(self, args, do_tensorflow=True, gpu_memory_fraction=0.2):
+        """Summary
+        
+        Args:
+            args (Namespace): Command line arguments from analysis_hmumu.parse_args
+            do_tensorflow (bool, optional): Description
+            gpu_memory_fraction (float, optional): What fraction of GPU memory to allocate to tensorflow
+        """
         self.lumimask = {
             "2016": LumiMask("data/Cert_271036-284044_13TeV_23Sep2016ReReco_Collisions16_JSON.txt", np, backend_cpu),
             "2017": LumiMask("data/Cert_294927-306462_13TeV_EOY2017ReReco_Collisions17_JSON_v1.txt", np, backend_cpu),
@@ -273,7 +355,6 @@ class AnalysisCorrections:
                         "RunH": "Summer16_07Aug2017GH_V11_DATA",
                     },
                     jer_tag="Summer16_25nsV1_MC",
-                    jmr_vals=[1.0, 1.2, 0.8],
                     do_factorized_jec=True),
             },
             "2017": {
@@ -288,7 +369,6 @@ class AnalysisCorrections:
                         "RunF": "Fall17_17Nov2017F_V32_DATA",
                     },
                     jer_tag="Fall17_V3_MC",
-                    jmr_vals=[1.09, 1.14, 1.04],
                     do_factorized_jec=True),
             },
             "2018": {
@@ -302,7 +382,6 @@ class AnalysisCorrections:
                         "RunD": "Autumn18_RunD_V16_DATA",
                     },
                     jer_tag="Autumn18_V7_MC",
-                    jmr_vals=[1.0, 1.2, 0.8],
                     do_factorized_jec=True),
             }
         }
@@ -377,7 +456,6 @@ class AnalysisCorrections:
 
         print("Extracting b-tag weights...")
         self.btag_weights = {
-            
             "DeepCSV_2016": BTagWeights( tag_name = "DeepCSV_2016LegacySF_V1"),
             "DeepCSV_2017": BTagWeights( tag_name = "DeepCSV_94XSF_V4_B_F"),
             "DeepCSV_2018": BTagWeights( tag_name = "DeepCSV_102XSF_V1")
@@ -385,6 +463,20 @@ class AnalysisCorrections:
         
 
 def check_and_recreate_filename_cache(cache_filename, datapath, datasets, use_merged):
+    """Summary
+    
+    Args:
+        cache_filename (TYPE): Description
+        datapath (TYPE): Description
+        datasets (TYPE): Description
+        use_merged (TYPE): Description
+    
+    Returns:
+        TYPE: Description
+    
+    Raises:
+        Exception: Description
+    """
     if os.path.isfile(cache_filename):
         print("Cache file {0} already exists, we will not overwrite it to be safe.".format(cache_filename), file=sys.stderr)
         print("Delete it to rescan the filesystem for dataset files.", file=sys.stderr)
@@ -417,6 +509,22 @@ def check_and_recreate_filename_cache(cache_filename, datapath, datasets, use_me
         fi.write(json.dumps(filenames_cache, indent=2))
 
 def create_all_jobfiles(datasets, cache_filename, datapath, chunksize, outpath):
+    """Summary
+    
+    Args:
+        datasets (TYPE): Description
+        cache_filename (TYPE): Description
+        datapath (TYPE): Description
+        chunksize (TYPE): Description
+        outpath (TYPE): Description
+    
+    Returns:
+        TYPE: Description
+    
+    Raises:
+        e: Description
+        Exception: Description
+    """
     jobfile_path = outpath + "/jobfiles"
     if os.path.isdir(jobfile_path):
         print("Jobfiles directory {0} already exists, skipping jobfile creation".format(jobfile_path))
@@ -458,11 +566,27 @@ def create_all_jobfiles(datasets, cache_filename, datapath, chunksize, outpath):
 
 
 def load_jobfiles(datasets, jobfiles_load_from_file, jobfiles, maxchunks, outpath):
-    #Load from file
+    """Summary
+    
+    Args:
+        datasets (list of Dataset): List of datasets to load jobfiles for
+        jobfiles_load_from_file (str): Filename to load the jobfiles from, otherwise None
+        jobfiles (list of str): List of job description files to load
+        maxchunks (int): Max number of files per dataset to process
+        outpath (str): Path where jobfiles are loaded from
+    
+    Returns:
+        TYPE: Description
+    
+    Raises:
+        Exception: Description
+    """
+
+    #Load list of jobfiles from a single text file
     if not (jobfiles_load_from_file is None):
         jobfiles = [l.strip() for l in open(jobfiles_load_from_file).readlines()]
 
-    #Check for existing jobfiles
+    #Check for existing jobfiles in {outpath}/jobfiles/*.json
     if jobfiles is None:
         print("You did not specify to process specific jobfiles, assuming you want to process all")
         print("If this is not true, please specify e.g. --jobfiles data_2018_0.json data_2018_1.json ...")
@@ -482,7 +606,7 @@ def load_jobfiles(datasets, jobfiles_load_from_file, jobfiles, maxchunks, outpat
                 jobfiles_dataset = jobfiles_dataset[:maxchunks]
             jobfiles += jobfiles_dataset
     
-    #Now actually load the jobfiles 
+    #Now actually load the job description data
     assert(len(jobfiles) > 0)
     print("You specified --jobfiles {0}, processing only these jobfiles".format(" ".join(jobfiles))) 
     jobfile_data = []
@@ -496,7 +620,15 @@ def load_jobfiles(datasets, jobfiles_load_from_file, jobfiles, maxchunks, outpat
     assert(len(jobfile_data) > 0)
     return jobfile_data
 
-def merge_partial_results(dataset_name, dataset_era, outpath, outpath_partial):
+def merge_partial_results(dataset_name: str, dataset_era: str, outpath: str, outpath_partial: str):
+    """Merges the output from separate jobs for each dataset.
+    
+    Args:
+        dataset_name (str): Name of the dataset
+        dataset_era (str): Dataset era
+        outpath (str): Directory with the output results
+        outpath_partial (str): Directory with the partial input results
+    """
     results = []
     partial_results = glob.glob(outpath_partial + "/{0}_{1}_*.pkl".format(dataset_name, dataset_era))
     print("Merging {0} partial results for dataset {1}_{2}".format(len(partial_results), dataset_name, dataset_era))
@@ -512,7 +644,6 @@ def merge_partial_results(dataset_name, dataset_era, outpath, outpath_partial):
     print("Saving results to {0}".format(result_filename))
     with open(result_filename, "wb") as fi:
         pickle.dump(results, fi, protocol=pickle.HIGHEST_PROTOCOL) 
-    return
 
 def main(args):
     do_prof = args.do_profile
