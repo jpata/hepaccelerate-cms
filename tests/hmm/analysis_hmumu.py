@@ -114,7 +114,7 @@ class JetMetCorrections:
         jec_tag_data: dict,
         jer_tag: str,
         do_factorized_jec=True):
-        """Summary
+        """Loads the JEC and JER corrections corresponding to the given tags from txt files.
         
         Args:
             jec_tag (str): Tag for the jet energy corrections for MC simulation
@@ -135,10 +135,10 @@ class JetMetCorrections:
             '* * data/jme/{0}_Uncertainty_AK4PFchs.junc.txt'.format(jec_tag),
         ])
 
-        if jer_tag:
-            extract.add_weight_sets([
-            '* * data/jme/{0}_PtResolution_AK4PFchs.jr.txt'.format(jer_tag),
-            '* * data/jme/{0}_SF_AK4PFchs.jersf.txt'.format(jer_tag)])
+        extract.add_weight_sets([
+        '* * data/jme/{0}_PtResolution_AK4PFchs.jr.txt'.format(jer_tag),
+        '* * data/jme/{0}_SF_AK4PFchs.jersf.txt'.format(jer_tag)])
+
         #For data, make sure we don't duplicate
         tags_done = []
         for run, tag in jec_tag_data.items():
@@ -205,20 +205,20 @@ class AnalysisCorrections:
         dnnPisa_normfactors2 (numpy.array): Normalization factors for node2 of the Pisa DNN
         hrelresolution (hmumu_lib.hRelResolution): The Higgs resolution corrections
         jetmet_corrections (analysis_hmumu.JetMetCorrections): The jet energy scale (JES) and resolution (JER) corrections and uncertainties/scale-factors
-        lepeff_trig_data (TYPE): Description
-        lepeff_trig_mc (TYPE): Description
-        lepsf_id (TYPE): Description
-        lepsf_iso (TYPE): Description
-        libhmm (TYPE): Description
-        lumidata (TYPE): Description
-        lumimask (TYPE): Description
-        miscvariables (TYPE): Description
-        nnlopsreweighting (TYPE): Description
-        pu_corrections (TYPE): Description
-        puidreweighting (TYPE): Description
-        ratios_dataera (TYPE): Description
-        rochester_corrections (TYPE): Description
-        zptreweighting (TYPE): Description
+        lepeff_trig_data (dict of str->hmumu_lib.LeptonEfficiencyCorrections): Lepton efficiency corrections for data for each year 
+        lepeff_trig_mc (dict of str->hmumu_lib.LeptonEfficiencyCorrections): Lepton efficiency corrections for data for each year 
+        lepsf_id (dict of str->hmumu_lib.LeptonEfficiencyCorrections): Lepton ID corrections for each year 
+        lepsf_iso (dict of str->hmumu_lib.LeptonEfficiencyCorrections): Lepton iso corrections for each year 
+        libhmm (hmumu_lib.LibHMuMu): The Python wrapper for the C++ helper library defined in hmumu_lib
+        lumidata (LumiData): The integrated luminosity information for each lumi block, loaded from a csv file
+        lumimask (LumiMask): The JSON of good luminosity blocks
+        miscvariables (hmumu_lib.MiscVariables): The python wrapper for the C++ helper library for various tricky variables
+        nnlopsreweighting (hmumu_lib.NNLOPSReweighting): The python wrapper for the C++ helper library for NNLO Parton Shower reweighting
+        pu_corrections (dict of str->Histogram): Data PU histograms for each year
+        puidreweighting (coffea.lookup_tools.evaluator): pileup ID reweighting evaluator from coffea
+        ratios_dataera (dict of str->list): Luminosity ratios for the datataking periods used for weighting lepton scale factors
+        rochester_corrections (dict of str->hmumu_lib.RochesterCorrections): Per-era python wrapper for the C++ helper library for Rochester corrections to muon momentum 
+        zptreweighting (hmumu_lib.ZpTReweighting): Python wrapper for the C++ library for Z-boson pT reweighting
     """
     
     def __init__(self, args, do_tensorflow=True, gpu_memory_fraction=0.2):
@@ -226,7 +226,7 @@ class AnalysisCorrections:
         
         Args:
             args (Namespace): Command line arguments from analysis_hmumu.parse_args
-            do_tensorflow (bool, optional): Description
+            do_tensorflow (bool, optional): If True, enable the use of tensorflow-based DNN evaluation
             gpu_memory_fraction (float, optional): What fraction of GPU memory to allocate to tensorflow
         """
         self.lumimask = {
@@ -266,8 +266,9 @@ class AnalysisCorrections:
             "2018": RochesterCorrections(self.libhmm, "data/RoccoR2018.txt")
         }
 
-        #Weight ratios for computing scale factors
+        #Luminosity weight ratios for computing lepton scale factors
         self.ratios_dataera = {
+            #BCDEF, GH
             "2016": [0.5548, 1.0 - 0.5548],
             "2017": 1.0,
             "2018": 1.0
@@ -462,28 +463,26 @@ class AnalysisCorrections:
         }
         
 
-def check_and_recreate_filename_cache(cache_filename, datapath, datasets, use_merged):
-    """Summary
+def check_and_recreate_filename_cache(cache_filename: str, datapath: str, datasets, use_merged: bool):
+    """Creates the list of all filenames for each dataset.
+    This can involve a substantial crawling of the filesystem, so we save (cache) the results in a JSON file.
     
     Args:
-        cache_filename (TYPE): Description
-        datapath (TYPE): Description
-        datasets (TYPE): Description
-        use_merged (TYPE): Description
+        cache_filename (str): Path to a json file that contains the full list of filenames for each dataset
+        datapath (str): Base directory from where to load the datasets
+        datasets (list of dict): List of all the datasets to process
+        use_merged (bool): if True, use the skimmed+merged files from 'files_merged' for each dataset, otherwise use raw NanoAOD
     
-    Returns:
-        TYPE: Description
-    
-    Raises:
-        Exception: Description
     """
+
+    #Check if the cache file already exists 
     if os.path.isfile(cache_filename):
         print("Cache file {0} already exists, we will not overwrite it to be safe.".format(cache_filename), file=sys.stderr)
         print("Delete it to rescan the filesystem for dataset files.", file=sys.stderr)
         return
- 
-    filenames_cache = {}
 
+    #It didn't, so we need to crawl the filesystem for each dataset
+    filenames_cache = {}
     for dataset in datasets:
         dataset_name = dataset["name"]
         dataset_era = dataset["era"]
@@ -498,6 +497,7 @@ def check_and_recreate_filename_cache(cache_filename, datapath, datasets, use_me
         filenames_cache[dataset_name + "_" + dataset_era] = [
             fn.replace(datapath, "") for fn in filenames_all]
 
+        #We didn't find any files for this dataset, most likely there is a problem
         if len(filenames_all) == 0:
             raise Exception("Dataset {0} matched 0 files from glob pattern {1}, verify that the data files are located in {2}".format(
                 dataset_name, dataset_globpattern, datapath
@@ -507,6 +507,8 @@ def check_and_recreate_filename_cache(cache_filename, datapath, datasets, use_me
     print("Creating a json dump of all the dataset filenames based on data found in {0}".format(datapath))
     with open(cache_filename, "w") as fi:
         fi.write(json.dumps(filenames_cache, indent=2))
+
+    return
 
 def create_all_jobfiles(datasets, cache_filename, datapath, chunksize, outpath):
     """Summary
