@@ -38,6 +38,7 @@ from coffea.jetmet_tools import JetCorrectionUncertainty
 from coffea.jetmet_tools import JetResolutionScaleFactor
 
 from concurrent.futures import ProcessPoolExecutor, wait, ALL_COMPLETED
+from typing import List, Set, Dict, Tuple, Optional
 
 def parse_args():
     """Parses the command-line arguments.
@@ -57,7 +58,6 @@ def parse_args():
     parser.add_argument('--datasets-yaml', action='store', help='Dataset definition file', type=str, required=True)
     parser.add_argument('--cachepath', action='store', help='Location of the skimmed NanoAOD files', type=str, required=False)
     parser.add_argument('--eras', action='append', help='Data eras to process', type=str, required=False)
-    parser.add_argument('--pinned', action='store_true', help='Use CUDA pinned memory')
     parser.add_argument('--do-sync', action='store_true', help='run only synchronization datasets')
     parser.add_argument('--do-fsr', action='store_true', help='add FSR recovery')
     parser.add_argument('--do-factorized-jec', action='store_true', help='Enables factorized JEC, disables most validation plots')
@@ -447,7 +447,6 @@ class AnalysisCorrections:
         print("Loading ZpTReweighting...")
         self.zptreweighting = ZpTReweighting(self.libhmm)
 
-
         puid_maps = "data/puidSF/PUIDMaps.root"
         print("Extracting PU ID weights from "+puid_maps)
         puid_extractor = extractor()
@@ -463,14 +462,14 @@ class AnalysisCorrections:
         }
         
 
-def check_and_recreate_filename_cache(cache_filename: str, datapath: str, datasets, use_merged: bool):
+def check_and_recreate_filename_cache(cache_filename: str, datapath: str, datasets: List[Dict[str, str]], use_merged: bool):
     """Creates the list of all filenames for each dataset.
     This can involve a substantial crawling of the filesystem, so we save (cache) the results in a JSON file.
     
     Args:
         cache_filename (str): Path to a json file that contains the full list of filenames for each dataset
         datapath (str): Base directory from where to load the datasets
-        datasets (list of dict): List of all the datasets to process
+        datasets (List[Dict[str, str]]): List of all the datasets to process
         use_merged (bool): if True, use the skimmed+merged files from 'files_merged' for each dataset, otherwise use raw NanoAOD
     
     """
@@ -510,22 +509,17 @@ def check_and_recreate_filename_cache(cache_filename: str, datapath: str, datase
 
     return
 
-def create_all_jobfiles(datasets, cache_filename, datapath, chunksize, outpath):
-    """Summary
+def create_all_jobfiles(datasets: List[Dict], cache_filename: str, datapath: str, chunksize: str, outpath: str):
+    """Splits the dataset into job descriptions, specifying how many files will be processed per job.
+    The job descriptions will be saved to small JSON fioles for batch processing.
     
     Args:
-        datasets (TYPE): Description
-        cache_filename (TYPE): Description
-        datapath (TYPE): Description
-        chunksize (TYPE): Description
-        outpath (TYPE): Description
+        datasets (List[Dataset]): The dataset for which to create the job files
+        cache_filename (str): Input json filename where the filenames for each dataset are loaded from
+        datapath (str): Path to load the data from
+        chunksize (int): Number of files to process in each job
+        outpath (str): Path with the output directory where the jobfiles will be stored
     
-    Returns:
-        TYPE: Description
-    
-    Raises:
-        e: Description
-        Exception: Description
     """
     jobfile_path = outpath + "/jobfiles"
     if os.path.isdir(jobfile_path):
@@ -567,21 +561,24 @@ def create_all_jobfiles(datasets, cache_filename, datapath, chunksize, outpath):
     assert(len(jobfile_data[0]["filenames"]) > 0)
 
 
-def load_jobfiles(datasets, jobfiles_load_from_file, jobfiles, maxchunks, outpath):
-    """Summary
+def load_jobfiles(
+    datasets: List[Dict[str, str]],
+    jobfiles_load_from_file: str,
+    jobfiles: List[str],
+    maxchunks: int,
+    outpath: str):
+
+    """Loads the specified job files.
+    Each job file consists of filenames to process, plus additional information such as the dataset name, era and such.
     
     Args:
-        datasets (list of Dataset): List of datasets to load jobfiles for
-        jobfiles_load_from_file (str): Filename to load the jobfiles from, otherwise None
-        jobfiles (list of str): List of job description files to load
+        datasets (List[Dataset]): List of datasets for which to load the jobfiles
+        jobfiles_load_from_file (str): Filename to load the jobfiles from, if None, use filenames from 
+        jobfiles (list of str): List of filenames from which to load job data
         maxchunks (int): Max number of files per dataset to process
         outpath (str): Path where jobfiles are loaded from
     
-    Returns:
-        TYPE: Description
-    
-    Raises:
-        Exception: Description
+    Returns: List[Dict] of the job files to process
     """
 
     #Load list of jobfiles from a single text file
@@ -654,13 +651,6 @@ def main(args):
     #use the environment variable for cupy/cuda choice
     args.use_cuda = USE_CUPY
 
-    # Optionally disable pinned memory (will be somewhat slower)
-    if args.use_cuda:
-        import cupy
-        if not args.pinned:
-            cupy.cuda.set_allocator(None)
-            cupy.cuda.set_pinned_memory_allocator(None)
-
     datasets = yaml.load(open(args.datasets_yaml), Loader=yaml.FullLoader)["datasets"]
     #Filter datasets by era
     datasets_to_process = []
@@ -672,6 +662,7 @@ def main(args):
         raise Exception("No datasets considered, please check the --datasets and --eras options")
     datasets = datasets_to_process
 
+    #Choose either the CPU or GPU(CUDA) backend
     hmumu_utils.NUMPY_LIB, hmumu_utils.ha = choose_backend(args.use_cuda)
     Dataset.numpy_lib = hmumu_utils.NUMPY_LIB
     NUMPY_LIB = hmumu_utils.NUMPY_LIB 
@@ -687,7 +678,6 @@ def main(args):
     for analysis_name in analysis_parameters.keys():
         analysis_parameters[analysis_name]["do_factorized_jec"] = args.do_factorized_jec
         analysis_parameters[analysis_name]["dnn_vars_path"] = "{0}/dnn_vars".format(args.out)
- 
     with open('{0}/parameters.pkl'.format(outpath_partial), 'wb') as handle:
         pickle.dump(analysis_parameters, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
@@ -713,7 +703,7 @@ def main(args):
     if "analyze" in args.action:
         jobfile_data = load_jobfiles(datasets, args.jobfiles_load, args.jobfiles, args.maxchunks, args.out)
 
-    #Start the profiler only in the actual data processing
+    #If we want to check what part of the code is slow, start the profiler only in the actual data processing
     if do_prof:
         import yappi
         yappi.set_clock_type('cpu')
@@ -739,7 +729,7 @@ def main(args):
                 fut = executor.submit(merge_partial_results, dataset_name, dataset_era, args.out, outpath_partial)
         print("done merging")
 
-    #print memory usage
+    #print memory usage for debugging
     total_memory = resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss
     total_memory += resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
     print("maxrss={0} MB".format(total_memory/1024))
