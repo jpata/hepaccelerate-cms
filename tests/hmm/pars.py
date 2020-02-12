@@ -378,7 +378,7 @@ jec_unc = [
 
 #Uncomment to use just the total JEC for quick tests
 #jec_unc = ["Total"]
-shape_systematics = jec_unc + ["jer", "trigger", "id", "iso", "puWeight", "L1PreFiringWeight","DYLHEScaleWeight","EWZLHEScaleWeight"]#,"btag_weight_bcFl","btag_weight_lFl"]
+shape_systematics = jec_unc + ["jer", "trigger", "id", "iso", "jet_puid","puWeight", "L1PreFiringWeight","DYLHEScaleWeight","EWZLHEScaleWeight","btag_weight_bcFl","btag_weight_lFl"]
 common_scale_uncertainties = {
     "lumi": 1.025,
 }

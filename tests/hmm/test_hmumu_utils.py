@@ -165,7 +165,7 @@ class TestAnalysisSmall(unittest.TestCase):
         nev_zpeak_nominal = np.sum(h["nominal"].contents)
 
         if not USE_CUPY:
-            self.assertAlmostEqual(nev_zpeak_nominal, 0.012526871, places=4)
+            self.assertAlmostEqual(nev_zpeak_nominal, 0.0123814875, places=4)
         
         self.assertTrue("Total__up" in h.keys())
         self.assertTrue("Total__down" in h.keys())
