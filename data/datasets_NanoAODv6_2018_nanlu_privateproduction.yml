@@ -1,0 +1,219 @@
+#All the datasets for the analysis are described here.
+#Each dataset has the following parameters
+# - name: simple string
+# - era: string for the year
+# - files_nano_in: pattern for the raw input NanoAOD
+# - files_merged: pattern for the skimmed and merged NanoAOD
+
+datasets:
+- era: "2018"
+  files_merged: /store/mc/RunIIAutumn18NanoAODv6v1/GluGluHToMuMu_M125_TuneCP5_PSweights_13TeV_amcatnloFXFX_pythia8/merged_*.root
+  files_nano_in: /store/mc/RunIIAutumn18NanoAODv6v1/GluGluHToMuMu_M125_TuneCP5_PSweights_13TeV_amcatnloFXFX_pythia8/RunIIAutumn18MiniAOD*/*/*/*.root
+  is_mc: true
+  name: ggh_amcPS_125
+  skim_cut: "HLT_IsoMu24 && nMuon>=2"
+- era: "2018"
+  files_merged: /store/mc/RunIIAutumn18NanoAODv6v1/GluGluHToMuMu_M120_TuneCP5_PSweights_13TeV_amcatnloFXFX_pythia8/merged_*.root
+  files_nano_in: /store/mc/RunIIAutumn18NanoAODv6v1/GluGluHToMuMu_M120_TuneCP5_PSweights_13TeV_amcatnloFXFX_pythia8/RunIIAutumn18MiniAOD*/*/*/*.root
+  is_mc: true
+  name: ggh_amcPS_120
+  skim_cut: "HLT_IsoMu24 && nMuon>=2"
+- era: "2018"
+  files_merged: /store/mc/RunIIAutumn18NanoAODv6v1/GluGluHToMuMu_M130_TuneCP5_PSweights_13TeV_amcatnloFXFX_pythia8/merged_*.root
+  files_nano_in: /store/mc/RunIIAutumn18NanoAODv6v1/GluGluHToMuMu_M130_TuneCP5_PSweights_13TeV_amcatnloFXFX_pythia8/RunIIAutumn18MiniAOD*/*/*/*.root
+  is_mc: true
+  name: ggh_amcPS_130
+  skim_cut: "HLT_IsoMu24 && nMuon>=2"
+- era: "2018"
+  files_merged: /store/mc/RunIIAutumn18NanoAODv6v1/GluGluHToMuMu_M125_TuneCP5down_PSweights_13TeV_amcatnloFXFX_pythia8/merged_*.root
+  files_nano_in: /store/mc/RunIIAutumn18NanoAODv6v1/GluGluHToMuMu_M125_TuneCP5down_PSweights_13TeV_amcatnloFXFX_pythia8/RunIIAutumn18MiniAOD*/*/*/*.root
+  is_mc: true
+  name: ggh_amcPS_TuneCP5down_125
+  skim_cut: "HLT_IsoMu24 && nMuon>=2"
+- era: "2018"
+  files_merged: /store/mc/RunIIAutumn18NanoAODv6v1/GluGluHToMuMu_M125_TuneCP5up_PSweights_13TeV_amcatnloFXFX_pythia8/merged_*.root
+  files_nano_in: /store/mc/RunIIAutumn18NanoAODv6v1/GluGluHToMuMu_M125_TuneCP5up_PSweights_13TeV_amcatnloFXFX_pythia8/RunIIAutumn18MiniAOD*/*/*/*.root
+  is_mc: true
+  name: ggh_amcPS_TuneCP5up_125
+  skim_cut: "HLT_IsoMu24 && nMuon>=2"
+- era: "2018"
+  files_merged: /store/mc/RunIIAutumn18NanoAODv6v1/GluGluHToMuMu_M-125_TuneCP5_PSweights_13TeV_powheg_pythia8/merged_*.root
+  files_nano_in: /store/mc/RunIIAutumn18NanoAODv6v1/GluGluHToMuMu_M-125_TuneCP5_PSweights_13TeV_powheg_pythia8/RunIIAutumn18MiniAOD*/*/*/*.root
+  is_mc: true
+  name: ggh_powhegPS_125
+  skim_cut: "HLT_IsoMu24 && nMuon>=2"
+- era: "2018"
+  files_merged: /store/mc/RunIIAutumn18NanoAODv6v1/VBFHToMuMu_M125_TuneCP5_PSweights_13TeV_amcatnlo_pythia8/merged_*.root
+  files_nano_in: /store/mc/RunIIAutumn18NanoAODv6v1/VBFHToMuMu_M125_TuneCP5_PSweights_13TeV_amcatnlo_pythia8/RunIIAutumn18MiniAOD*/*/*/*.root
+  is_mc: true
+  name: vbf_amcPS_125
+  skim_cut: "HLT_IsoMu24 && nMuon>=2"
+- era: "2018"
+  files_merged: /store/mc/RunIIAutumn18NanoAODv6v1/VBFHToMuMu_M120_TuneCP5_PSweights_13TeV_amcatnlo_pythia8/merged_*.root
+  files_nano_in: /store/mc/RunIIAutumn18NanoAODv6v1/VBFHToMuMu_M120_TuneCP5_PSweights_13TeV_amcatnlo_pythia8/RunIIAutumn18MiniAOD*/*/*/*.root
+  is_mc: true
+  name: vbf_amcPS_120
+  skim_cut: "HLT_IsoMu24 && nMuon>=2"
+- era: "2018"
+  files_merged: /store/mc/RunIIAutumn18NanoAODv6v1/VBFHToMuMu_M130_TuneCP5_PSweights_13TeV_amcatnlo_pythia8/merged_*.root
+  files_nano_in: /store/mc/RunIIAutumn18NanoAODv6v1/VBFHToMuMu_M130_TuneCP5_PSweights_13TeV_amcatnlo_pythia8/RunIIAutumn18MiniAOD*/*/*/*.root
+  is_mc: true
+  name: vbf_amcPS_130
+  skim_cut: "HLT_IsoMu24 && nMuon>=2"
+- era: "2018"
+  files_merged: /store/mc/RunIIAutumn18NanoAODv6v1/VBFHToMuMu_M125_TuneCP5up_PSweights_13TeV_amcatnlo_pythia8/merged_*.root
+  files_nano_in: /store/mc/RunIIAutumn18NanoAODv6v1/VBFHToMuMu_M125_TuneCP5up_PSweights_13TeV_amcatnlo_pythia8/RunIIAutumn18MiniAOD*/*/*/*.root
+  is_mc: true
+  name: vbf_amcPS_TuneCP5up_125
+  skim_cut: "HLT_IsoMu24 && nMuon>=2"
+- era: "2018"
+  files_merged: /store/mc/RunIIAutumn18NanoAODv6v1/VBFHToMuMu_M125_TuneCP5down_PSweights_13TeV_amcatnlo_pythia8/merged_*.root
+  files_nano_in: /store/mc/RunIIAutumn18NanoAODv6v1/VBFHToMuMu_M125_TuneCP5down_PSweights_13TeV_amcatnlo_pythia8/RunIIAutumn18MiniAOD*/*/*/*.root
+  is_mc: true
+  name: vbf_amcPS_TuneCP5down_125
+  skim_cut: "HLT_IsoMu24 && nMuon>=2"
+- era: "2018"
+  files_merged: /store/mc/RunIIAutumn18NanoAODv6v1/VBFHToMuMu_M-125_TuneCP5_PSweights_13TeV_powheg_pythia8/merged_*.root
+  files_nano_in: /store/mc/RunIIAutumn18NanoAODv6v1/VBFHToMuMu_M-125_TuneCP5_PSweights_13TeV_powheg_pythia8/RunIIAutumn18MiniAOD*/*/*/*.root
+  is_mc: true
+  name: vbf_powhegPS_125
+  skim_cut: "HLT_IsoMu24 && nMuon>=2"
+- era: "2018"
+  files_merged: /store/data/Run2018/SingleMuon/NANOAOD/Nano25Oct2019/merged_*.root
+  files_nano_in: /store/data/RunIIAutumn18NanoAODv6v1/SingleMuon/SingleMuon_Run2018*d01071*/*/*/*.root
+  is_mc: false
+  name: data
+  skim_cut: "HLT_IsoMu24 && nMuon>=2"
+- era: "2018"
+  files_merged: /store/mc/RunIIAutumn18NanoAODv6v1/DYJetsToLL_0J_TuneCP5_13TeV-amcatnloFXFX-pythia8/merged_*.root
+  files_nano_in: /store/mc/RunIIAutumn18NanoAODv6v1/DYJetsToLL_0J_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIIAutumn18MiniAOD*/*/*/*.root
+  is_mc: true
+  name: dy_0j
+  skim_cut: "HLT_IsoMu24 && nMuon>=2"
+- era: "2018"
+  files_merged: /store/mc/RunIIAutumn18NanoAODv6v1/DYJetsToLL_1J_TuneCP5_13TeV-amcatnloFXFX-pythia8/merged_*.root
+  files_nano_in: /store/mc/RunIIAutumn18NanoAODv6v1/DYJetsToLL_1J_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIIAutumn18MiniAOD*/*/*/*.root
+  is_mc: true
+  name: dy_1j
+  skim_cut: "HLT_IsoMu24 && nMuon>=2"
+- era: "2018"
+  files_merged: /store/mc/RunIIAutumn18NanoAODv6v1/DYJetsToLL_2J_TuneCP5_13TeV-amcatnloFXFX-pythia8/merged_*.root
+  files_nano_in: /store/mc/RunIIAutumn18NanoAODv6v1/DYJetsToLL_2J_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIIAutumn18MiniAOD*/*/*/*.root
+  is_mc: true
+  name: dy_2j
+  skim_cut: "HLT_IsoMu24 && nMuon>=2"
+- era: "2018"
+  files_merged: /store/mc/RunIIAutumn18NanoAODv6v1/DYJetsToLL_M-105To160_TuneCP5_PSweights_13TeV-amcatnloFXFX-pythia8/merged_*.root
+  files_nano_in: /store/mc/RunIIAutumn18NanoAODv6v1/DYJetsToLL_M-105To160_TuneCP5_PSweights_13TeV-amcatnloFXFX-pythia8/RunIIAutumn18MiniAOD*/*/*/*.root
+  is_mc: true
+  name: dy_m105_160_amc
+  skim_cut: "HLT_IsoMu24 && nMuon>=2"
+- era: "2018"
+  files_merged: /store/mc/RunIIAutumn18NanoAODv6v1/DYJetsToLL_M-105To160_VBFFilter_TuneCP5_PSweights_13TeV-amcatnloFXFX-pythia8/merged_*.root
+  files_nano_in: /store/mc/RunIIAutumn18NanoAODv6v1/DYJetsToLL_M-105To160_VBFFilter_TuneCP5_PSweights_13TeV-amcatnloFXFX-pythia8/RunIIAutumn18MiniAOD*/*/*/*.root
+  is_mc: true
+  name: dy_m105_160_vbf_amc
+  skim_cut: "HLT_IsoMu24 && nMuon>=2"
+- era: "2018"
+  files_merged: /store/mc/RunIIAutumn18NanoAODv6v1/TTTo2L2Nu_TuneCP5_13TeV-powheg-pythia8/merged_*.root
+  files_nano_in: /store/mc/RunIIAutumn18NanoAODv6v1/TTTo2L2Nu_TuneCP5_13TeV-powheg-pythia8/RunIIAutumn18MiniAOD*/*/*/*.root
+  is_mc: true
+  name: ttjets_dl
+  skim_cut: "HLT_IsoMu24 && nMuon>=2"
+- era: "2018"
+  files_merged: /store/mc/RunIIAutumn18NanoAODv6v1/EWK_LLJJ_MLL-50_MJJ-120_pTJ-0_TuneCH3_PSweights_13TeV-madgraph-herwig7/merged_*.root
+  files_nano_in: /store/mc/RunIIAutumn18NanoAODv6v1/EWK_LLJJ_MLL-50_MJJ-120_pTJ-0_TuneCH3_PSweights_13TeV-madgraph-herwig7/RunIIAutumn18MiniAOD*/*/*/*.root
+  is_mc: true
+  name: ewk_lljj_mll50_mjj120_ptj0
+  skim_cut: "HLT_IsoMu24 && nMuon>=2"
+- era: "2018"
+  files_merged: /store/mc/RunIIAutumn18NanoAODv6v1/EWK_LLJJ_MLL-50_MJJ-120_TuneCH3_13TeV-madgraph-herwig7/merged_*.root
+  files_nano_in: /store/mc/RunIIAutumn18NanoAODv6v1/EWK_LLJJ_MLL-50_MJJ-120_TuneCH3*_13TeV-madgraph-herwig7/RunIIAutumn18MiniAOD*/*/*/*.root
+  is_mc: true
+  name: ewk_lljj_mll50_mjj120
+  skim_cut: "HLT_IsoMu24 && nMuon>=2"
+- era: "2018"
+  files_merged: /store/mc/RunIIAutumn18NanoAODv6v1/EWK_LLJJ_MLL_105-160_SM_5f_LO_TuneCH3_13TeV-madgraph-herwig7/merged_*.root
+  files_nano_in: /store/mc/RunIIAutumn18NanoAODv6v1/EWK_LLJJ_MLL_105-160_SM_5f_LO_TuneCH3_13TeV-madgraph-herwig7/RunIIAutumn18MiniAOD*/*/*/*.root
+  is_mc: true
+  name: ewk_lljj_mll105_160
+  skim_cut: "HLT_IsoMu24 && nMuon>=2"
+- era: "2018"
+  files_merged: /store/mc/RunIIAutumn18NanoAODv6v1/WminusH_HToMuMu_WToAll_M125_TuneCP5_PSweights_13TeV_powheg_pythia8/merged_*.root
+  files_nano_in: /store/mc/RunIIAutumn18NanoAODv6v1/WminusH_HToMuMu_WToAll_M125_TuneCP5_PSweights_13TeV_powheg_pythia8/RunIIAutumn18MiniAOD*/*/*/*.root
+  is_mc: true
+  name: wmh_125
+  skim_cut: "HLT_IsoMu24 && nMuon>=2"
+- era: "2018"
+  files_merged: /store/mc/RunIIAutumn18NanoAODv6v1/WminusH_HToMuMu_WToAll_M120_TuneCP5_PSweights_13TeV_powheg_pythia8/merged_*.root
+  files_nano_in: /store/mc/RunIIAutumn18NanoAODv6v1/WminusH_HToMuMu_WToAll_M120_TuneCP5_PSweights_13TeV_powheg_pythia8/RunIIAutumn18MiniAOD*/*/*/*.root
+  is_mc: true
+  name: wmh_120
+  skim_cut: "HLT_IsoMu24 && nMuon>=2"
+- era: "2018"
+  files_merged: /store/mc/RunIIAutumn18NanoAODv6v1/WminusH_HToMuMu_WToAll_M130_TuneCP5_PSweights_13TeV_powheg_pythia8/merged_*.root
+  files_nano_in: /store/mc/RunIIAutumn18NanoAODv6v1/WminusH_HToMuMu_WToAll_M130_TuneCP5_PSweights_13TeV_powheg_pythia8/RunIIAutumn18MiniAOD*/*/*/*.root
+  is_mc: true
+  name: wmh_130
+  skim_cut: "HLT_IsoMu24 && nMuon>=2"
+- era: "2018"
+  files_merged: /store/mc/RunIIAutumn18NanoAODv6v1/WplusH_HToMuMu_WToAll_M125_TuneCP5_PSweights_13TeV_powheg_pythia8/merged_*.root
+  files_nano_in: /store/mc/RunIIAutumn18NanoAODv6v1/WplusH_HToMuMu_WToAll_M125_TuneCP5_PSweights_13TeV_powheg_pythia8/RunIIAutumn18MiniAOD*/*/*/*.root
+  is_mc: true
+  name: wph_125
+  skim_cut: "HLT_IsoMu24 && nMuon>=2"
+- era: "2018"
+  files_merged: /store/mc/RunIIAutumn18NanoAODv6v1/WplusH_HToMuMu_WToAll_M120_TuneCP5_PSweights_13TeV_powheg_pythia8/merged_*.root
+  files_nano_in: /store/mc/RunIIAutumn18NanoAODv6v1/WplusH_HToMuMu_WToAll_M120_TuneCP5_PSweights_13TeV_powheg_pythia8/RunIIAutumn18MiniAOD*/*/*/*.root
+  is_mc: true
+  name: wph_120
+  skim_cut: "HLT_IsoMu24 && nMuon>=2"
+- era: "2018"
+  files_merged: /store/mc/RunIIAutumn18NanoAODv6v1/WplusH_HToMuMu_WToAll_M130_TuneCP5_PSweights_13TeV_powheg_pythia8/merged_*.root
+  files_nano_in: /store/mc/RunIIAutumn18NanoAODv6v1/WplusH_HToMuMu_WToAll_M130_TuneCP5_PSweights_13TeV_powheg_pythia8/RunIIAutumn18MiniAOD*/*/*/*.root
+  is_mc: true
+  name: wph_130
+  skim_cut: "HLT_IsoMu24 && nMuon>=2"
+- era: "2018"
+  files_merged: /store/mc/RunIIAutumn18NanoAODv6v1/ttHToMuMu_M125_TuneCP5_PSweights_13TeV-powheg-pythia8/merged_*.root
+  files_nano_in: /store/mc/RunIIAutumn18NanoAODv6v1/ttHToMuMu_M125_TuneCP5_PSweights_13TeV-powheg-pythia8/RunIIAutumn18MiniAOD*/*/*/*.root
+  is_mc: true
+  name: tth_125
+  skim_cut: "HLT_IsoMu24 && nMuon>=2"
+- era: "2018"
+  files_merged: /store/mc/RunIIAutumn18NanoAODv6v1/ttHToMuMu_M120_TuneCP5_PSweights_13TeV-powheg-pythia8/merged_*.root
+  files_nano_in: /store/mc/RunIIAutumn18NanoAODv6v1/ttHToMuMu_M120_TuneCP5_PSweights_13TeV-powheg-pythia8/RunIIAutumn18MiniAOD*/*/*/*.root
+  is_mc: true
+  name: tth_120
+  skim_cut: "HLT_IsoMu24 && nMuon>=2"
+- era: "2018"
+  files_merged: /store/mc/RunIIAutumn18NanoAODv6v1/ttHToMuMu_M130_TuneCP5_PSweights_13TeV-powheg-pythia8/merged_*.root
+  files_nano_in: /store/mc/RunIIAutumn18NanoAODv6v1/ttHToMuMu_M130_TuneCP5_PSweights_13TeV-powheg-pythia8/RunIIAutumn18MiniAOD*/*/*/*.root
+  is_mc: true
+  name: tth_130
+  skim_cut: "HLT_IsoMu24 && nMuon>=2"
+- era: "2018"
+  files_merged: /store/mc/RunIIAutumn18NanoAODv6v1/ZH_HToMuMu_ZToAll_M125_TuneCP5_PSweights_13TeV_powheg_pythia8/merged_*.root
+  files_nano_in: /store/mc/RunIIAutumn18NanoAODv6v1/ZH_HToMuMu_ZToAll_M125_TuneCP5_PSweights_13TeV_powheg_pythia8/RunIIAutumn18MiniAOD*/*/*/*.root
+  is_mc: true
+  name: zh_125
+  skim_cut: "HLT_IsoMu24 && nMuon>=2"
+- era: "2018"
+  files_merged: /store/mc/RunIIAutumn18NanoAODv6v1/ZH_HToMuMu_ZToAll_M120_TuneCP5_PSweights_13TeV_powheg_pythia8/merged_*.root
+  files_nano_in: /store/mc/RunIIAutumn18NanoAODv6v1/ZH_HToMuMu_ZToAll_M120_TuneCP5_PSweights_13TeV_powheg_pythia8/RunIIAutumn18MiniAOD*/*/*/*.root
+  is_mc: true
+  name: zh_120
+  skim_cut: "HLT_IsoMu24 && nMuon>=2"
+- era: "2018"
+  files_merged: /store/mc/RunIIAutumn18NanoAODv6v1/ZH_HToMuMu_ZToAll_M130_TuneCP5_PSweights_13TeV_powheg_pythia8/merged_*.root
+  files_nano_in: /store/mc/RunIIAutumn18NanoAODv6v1/ZH_HToMuMu_ZToAll_M130_TuneCP5_PSweights_13TeV_powheg_pythia8/RunIIAutumn18MiniAOD*/*/*/*.root
+  is_mc: true
+  name: zh_130
+  skim_cut: "HLT_IsoMu24 && nMuon>=2"
+- era: "2018"
+  files_merged: /store/mc/RunIIAutumn18NanoAODv6v1/bbHToMuMu_M-125_4FS_yb2_TuneCP5_PSweights_13TeV-amcatnlo-pythia8/merged_*.root
+  files_nano_in: /store/mc/RunIIAutumn18NanoAODv6v1/bbHToMuMu_M-125_4FS_yb2_TuneCP5_PSweights_13TeV-amcatnlo-pythia8/RunIIAutumn18MiniAOD*/*/*/*.root
+  is_mc: true
+  name: bbh_125
+  skim_cut: "HLT_IsoMu24 && nMuon>=2"
+  

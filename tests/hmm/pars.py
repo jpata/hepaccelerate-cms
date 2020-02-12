@@ -345,7 +345,9 @@ cross_sections = {
 signal_samples = ["ggh_amcPS", "vbf", "wmh", "wph", "zh", "tth"]
 jec_unc = [
     #'AbsoluteFlavMap', 
-    'AbsoluteMPFBias', 'AbsoluteSample', 'AbsoluteScale',
+    'AbsoluteMPFBias', 
+    #'AbsoluteSample', 
+    'AbsoluteScale',
     'AbsoluteStat',
 #These can be used as a proxy for all the groups
     #'CorrelationGroupFlavor', 'CorrelationGroupIntercalibration',
@@ -353,8 +355,9 @@ jec_unc = [
 
 #These are overlapping, the one closest to our region of interest should be chosen
     #'FlavorPhotonJet', 'FlavorPureBottom', 'FlavorPureCharm', 'FlavorPureGluon',
-    #'FlavorPureQuark', 'FlavorQCD',
-    'FlavorZJet',
+    #'FlavorPureQuark', 
+    'FlavorQCD',
+    #'FlavorZJet',
     'TimePtEta',
     'Fragmentation', 'PileUpDataMC',
     #'PileUpEnvelope', 'PileUpMuZero',
@@ -368,6 +371,10 @@ jec_unc = [
 #, 'SubTotalAbsolute', 'SubTotalMC', 'SubTotalPileUp',
 #    'SubTotalPt', 'SubTotalRelative', 'SubTotalScale', 'Total', 'TotalNoFlavor',
 #    'TotalNoFlavorNoTime', 'TotalNoTime']
+
+#reduced JEC being tested
+#jec_unc = ['Absolute', 'Absolute2018', 'BBEC1', 'BBEC12018', 'EC2', 'EC22018', 'FlavorQCD', 'HF', 'HF2018', 'RelativeBal', 'RelativeSample2018', 'Absolute2017', 'BBEC12017', 'EC22017', 'HF2017', 'RelativeSample2017',
+#    'Absolute2016', 'BBEC12016', 'EC22016', 'HF2016', 'RelativeSample2016']
 
 #Uncomment to use just the total JEC for quick tests
 #jec_unc = ["Total"]
@@ -491,7 +498,7 @@ varnames = {
 }
 
 analysis_names = {
-    "baseline": {"2018": "Autumn18_V16", "2017": "Fall17_17Nov2017_V32", "2016": "Summer16_07Aug2017_V11"},
+    "baseline": {"2018": "Autumn18_V19", "2017": "Fall17_17Nov2017_V32", "2016": "Summer16_07Aug2017_V11"},
     "jer": {"2018": "JER enabled", "2017": "JER enabled", "2016": "JER enabled"},
 }
 
@@ -524,7 +531,7 @@ analysis_parameters = {
         
         "do_jec": True,
         "do_jer": {"2016": False, "2017": True, "2018": True},
-        "jec_tag": {"2016": "Summer16_07Aug2017_V11", "2017": "Fall17_17Nov2017_V32", "2018": "Autumn18_V16"}, 
+        "jec_tag": {"2016": "Summer16_07Aug2017_V11", "2017": "Fall17_17Nov2017_V32", "2018": "Autumn18_V19"}, 
         "jet_mu_dr": 0.4,
         "jet_pt_leading": {"2016": 35.0, "2017": 35.0, "2018": 35.0},
         "jet_pt_subleading": {"2016": 25.0, "2017": 25.0, "2018": 25.0},
