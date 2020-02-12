@@ -2,13 +2,10 @@
 Process multiple years from NanoAOD to final results with on-the-fly systematics in a few hours!
 """
 import os
-import numba
 
 import argparse
 import numpy as np
-import copy
 import pickle
-import shutil
 import resource
 
 #Load the acceleration backend
@@ -19,10 +16,8 @@ from hepaccelerate.utils import Dataset, Results
 import hmumu_utils
 from hmumu_utils import run_analysis, create_dataset_jobfiles, load_puhist_target, seed_generator
 #Load legacy ROOT-based C++ corrections that are not yet available in coffea 
-from hmumu_lib import LibHMuMu, RochesterCorrections, LeptonEfficiencyCorrections, GBREvaluator, MiscVariables, NNLOPSReweighting, hRelResolution, ZpTReweighting
-
-import os
-import getpass
+from hmumu_lib import LibHMuMu, RochesterCorrections, LeptonEfficiencyCorrections, GBREvaluator
+from hmumu_lib import MiscVariables, NNLOPSReweighting, hRelResolution, ZpTReweighting
 
 import json
 import glob
@@ -37,8 +32,10 @@ from coffea.jetmet_tools import JetResolution
 from coffea.jetmet_tools import JetCorrectionUncertainty
 from coffea.jetmet_tools import JetResolutionScaleFactor
 
-from concurrent.futures import ProcessPoolExecutor, wait, ALL_COMPLETED
-from typing import List, Set, Dict, Tuple, Optional
+from concurrent.futures import ProcessPoolExecutor
+
+from typing import List, Dict
+
 
 def parse_args():
     """Parses the command-line arguments.
@@ -75,6 +72,7 @@ def parse_args():
         args.eras = ["2016", "2017", "2018"]
     return args
 
+
 class BTagWeights:
 
     """Loads and computes b-tagging weights.
@@ -95,6 +93,7 @@ class BTagWeights:
         btag_extractor.add_weight_sets(['* * data/btagSF/{0}.csv'.format(tag_name)])
         btag_extractor.finalize()
         self.evaluator = btag_extractor.make_evaluator() 
+
 
 class JetMetCorrections:
 
@@ -188,6 +187,7 @@ class JetMetCorrections:
                     junc_names.append(name)
 
         self.jesunc = JetCorrectionUncertainty(**{name: evaluator[name] for name in junc_names})
+
 
 class AnalysisCorrections:
 
@@ -456,11 +456,11 @@ class AnalysisCorrections:
 
         print("Extracting b-tag weights...")
         self.btag_weights = {
-            "DeepCSV_2016": BTagWeights( tag_name = "DeepCSV_2016LegacySF_V1"),
-            "DeepCSV_2017": BTagWeights( tag_name = "DeepCSV_94XSF_V4_B_F"),
-            "DeepCSV_2018": BTagWeights( tag_name = "DeepCSV_102XSF_V1")
+            "DeepCSV_2016": BTagWeights(tag_name="DeepCSV_2016LegacySF_V1"),
+            "DeepCSV_2017": BTagWeights(tag_name="DeepCSV_94XSF_V4_B_F"),
+            "DeepCSV_2018": BTagWeights(tag_name="DeepCSV_102XSF_V1")
         }
-        
+
 
 def check_and_recreate_filename_cache(cache_filename: str, datapath: str, datasets: List[Dict[str, str]], use_merged: bool):
     """Creates the list of all filenames for each dataset.
@@ -489,10 +489,12 @@ def check_and_recreate_filename_cache(cache_filename: str, datapath: str, datase
             dataset_globpattern = dataset["files_merged"]
         else:
             dataset_globpattern = dataset["files_nano_in"]
-        is_mc = dataset["is_mc"]
 
         filenames_all = glob.glob(datapath + dataset_globpattern, recursive=True)
-        filenames_all = [fn for fn in filenames_all if not "Friend" in fn]
+
+        #Remove any Friend ntuples - probably not needed
+        filenames_all = [fn for fn in filenames_all if "Friend" not in fn]
+
         filenames_cache[dataset_name + "_" + dataset_era] = [
             fn.replace(datapath, "") for fn in filenames_all]
 
@@ -508,6 +510,7 @@ def check_and_recreate_filename_cache(cache_filename: str, datapath: str, datase
         fi.write(json.dumps(filenames_cache, indent=2))
 
     return
+
 
 def create_all_jobfiles(datasets: List[Dict], cache_filename: str, datapath: str, chunksize: str, outpath: str):
     """Splits the dataset into job descriptions, specifying how many files will be processed per job.
@@ -593,8 +596,6 @@ def load_jobfiles(
         for dataset in datasets:
             dataset_name = dataset["name"]
             dataset_era = dataset["era"]
-            dataset_globpattern = dataset["files_nano_in"]
-            is_mc = dataset["is_mc"]
 
             jobfile_pattern = outpath + "/jobfiles/{0}_{1}_*.json".format(dataset_name, dataset_era)
             jobfiles_dataset = glob.glob(jobfile_pattern)
@@ -619,6 +620,7 @@ def load_jobfiles(
     assert(len(jobfile_data) > 0)
     return jobfile_data
 
+
 def merge_partial_results(dataset_name: str, dataset_era: str, outpath: str, outpath_partial: str):
     """Merges the output from separate jobs for each dataset.
     
@@ -631,28 +633,37 @@ def merge_partial_results(dataset_name: str, dataset_era: str, outpath: str, out
     results = []
     partial_results = glob.glob(outpath_partial + "/{0}_{1}_*.pkl".format(dataset_name, dataset_era))
     print("Merging {0} partial results for dataset {1}_{2}".format(len(partial_results), dataset_name, dataset_era))
+
+    #Load all thge partial results
     for res_file in partial_results:
         res = pickle.load(open(res_file, "rb"))
         results += [res]
+
+    #Merge the partial results
     results = sum(results, Results({}))
+
+    #Create output directory if it does not exist
     try:
         os.makedirs(outpath + "/results")
-    except FileExistsError as e:
-        pass
+    except FileExistsError:
+        print("Output directory {} already exists".format(outpath))
+
     result_filename = outpath + "/results/{0}_{1}.pkl".format(dataset_name, dataset_era)
     print("Saving results to {0}".format(result_filename))
     with open(result_filename, "wb") as fi:
         pickle.dump(results, fi, protocol=pickle.HIGHEST_PROTOCOL) 
 
+
 def main(args):
     do_prof = args.do_profile
     do_tensorflow = not args.disable_tensorflow
 
-    #use the environment variable for cupy/cuda choice
+    # use the environment variable for cupy/cuda choice
     args.use_cuda = USE_CUPY
 
     datasets = yaml.load(open(args.datasets_yaml), Loader=yaml.FullLoader)["datasets"]
-    #Filter datasets by era
+    
+    # Filter datasets by era
     datasets_to_process = []
     for ds in datasets:
         if args.datasets is None or ds["name"] in args.datasets:
@@ -662,18 +673,17 @@ def main(args):
         raise Exception("No datasets considered, please check the --datasets and --eras options")
     datasets = datasets_to_process
 
-    #Choose either the CPU or GPU(CUDA) backend
+    # Choose either the CPU or GPU(CUDA) backend
     hmumu_utils.NUMPY_LIB, hmumu_utils.ha = choose_backend(args.use_cuda)
     Dataset.numpy_lib = hmumu_utils.NUMPY_LIB
-    NUMPY_LIB = hmumu_utils.NUMPY_LIB 
 
     outpath_partial = "{0}/partial_results".format(args.out)
     try:
         os.makedirs(outpath_partial)
-    except FileExistsError as e:
+    except FileExistsError:
         print("Output path {0} already exists, not recreating".format(outpath_partial))
 
-    #save the parameters as a pkl file
+    # save the parameters as a pkl file
     from pars import analysis_parameters
     for analysis_name in analysis_parameters.keys():
         analysis_parameters[analysis_name]["do_factorized_jec"] = args.do_factorized_jec
@@ -681,7 +691,7 @@ def main(args):
     with open('{0}/parameters.pkl'.format(outpath_partial), 'wb') as handle:
         pickle.dump(analysis_parameters, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-    #Recreate dump of all filenames
+    # Recreate dump of all filenames
     cache_filename = "{0}/datasets.json".format(args.out)
 
     use_skim = False
@@ -695,21 +705,21 @@ def main(args):
         use_skim = True
     check_and_recreate_filename_cache(cache_filename, datapath, datasets, use_skim)
 
-    #Create the jobfiles
+    # Create the jobfiles
     if args.jobfiles is None:
         create_all_jobfiles(datasets, cache_filename, datapath, args.chunksize, args.out)
 
-    #For each dataset, find out which chunks we want to process
+    # For each dataset, find out which chunks we want to process
     if "analyze" in args.action:
         jobfile_data = load_jobfiles(datasets, args.jobfiles_load, args.jobfiles, args.maxchunks, args.out)
 
-    #If we want to check what part of the code is slow, start the profiler only in the actual data processing
+    # If we want to check what part of the code is slow, start the profiler only in the actual data processing
     if do_prof:
         import yappi
         yappi.set_clock_type('cpu')
         yappi.start(builtins=True)
 
-    #Run the physics analysis on all specified jobfiles  
+    # Run the physics analysis on all specified jobfiles  
     if "analyze" in args.action:
         print("Running the 'analyze' step of the analysis, processing the events into histograms with all systematics")
         analysis_corrections = AnalysisCorrections(args, do_tensorflow)
@@ -719,20 +729,20 @@ def main(args):
         stats = yappi.get_func_stats()
         stats.save("analysis.prof", type='callgrind')
 
-    #Merge the partial results (pieces of each dataset)
+    # Merge the partial results (pieces of each dataset)
     if "merge" in args.action:
         with ProcessPoolExecutor(max_workers=args.nthreads) as executor:
             for dataset in datasets:
                 dataset_name = dataset["name"]
                 dataset_era = dataset["era"]
-                is_mc = dataset["is_mc"]
-                fut = executor.submit(merge_partial_results, dataset_name, dataset_era, args.out, outpath_partial)
+                executor.submit(merge_partial_results, dataset_name, dataset_era, args.out, outpath_partial)
         print("done merging")
 
-    #print memory usage for debugging
+    # print memory usage for debugging
     total_memory = resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss
     total_memory += resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
     print("maxrss={0} MB".format(total_memory/1024))
+
 
 if __name__ == "__main__":
     args = parse_args()
