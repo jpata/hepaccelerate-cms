@@ -648,7 +648,6 @@ analysis_parameters = {
             "hmmphics": (-4, 4, 11),
         },
 
-        "categorization_trees": {},
         "do_bdt_ucsd": False,
         "do_dnn_pisa": True,
         "do_dnn_cit": True,
