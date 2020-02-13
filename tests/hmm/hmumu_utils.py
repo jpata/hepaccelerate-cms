@@ -29,8 +29,9 @@ NUMPY_LIB = None
 
 #Use this to turn on debugging
 debug = False
+#debug = True
 #event IDs for which to print out detailed information
-debug_event_ids = [37410,37416,37463,37464]
+debug_event_ids = [37750,38232,46970]
 
 #Run additional checks on the analyzed data to ensure consistency - for debugging
 doverify = False
@@ -325,8 +326,8 @@ def analyze_data(
         btagWeights, btagWeights_up, btagWeights_down = get_btag_weights_shape(jets_passing_id, analysis_corrections.btag_weights, dataset_era, scalars, parameters["jet_pt_subleading"][dataset_era])
         
         weights_individual["btag_weight"] = {"nominal": btagWeights, "up": NUMPY_LIB.ones_like(btagWeights), "down": NUMPY_LIB.ones_like(btagWeights)}
-        #weights_individual["btag_weight_bcFl"] = {"nominal": NUMPY_LIB.ones_like(btagWeights), "up": btagWeights_up[0]*btagWeights_up[1], "down": btagWeights_down[0]*btagWeights_down[1]}
-        #weights_individual["btag_weight_lFl"] = {"nominal": NUMPY_LIB.ones_like(btagWeights), "up": btagWeights_up[2], "down": btagWeights_down[2]}
+        weights_individual["btag_weight_bcFl"] = {"nominal": NUMPY_LIB.ones_like(btagWeights), "up": btagWeights_up[0]*btagWeights_up[1], "down": btagWeights_down[0]*btagWeights_down[1]}
+        weights_individual["btag_weight_lFl"] = {"nominal": NUMPY_LIB.ones_like(btagWeights), "up": btagWeights_up[2], "down": btagWeights_down[2]}
     #compute variated weights here to ensure the nominal weight contains all possible other weights  
     compute_event_weights(parameters, weights_individual, scalars,
         genweight_scalefactor, gghnnlopsw, ZpTw,
@@ -796,7 +797,6 @@ def finalize_weights(weights, all_weight_names=None):
                 wtot = NUMPY_LIB.copy(weights["nominal"]["nominal"])
 
                 wtot *= wval_this_systematic
-
                 for other_syst in all_weight_names:
                     if (other_syst == this_syst or other_syst == "nominal") or other_syst == "LHEScaleWeight" or other_syst == "mu1_id" or other_syst == "mu1_iso" or other_syst == "mu2_id"or other_syst == "mu2_iso":
                         continue
@@ -1668,14 +1668,20 @@ def compute_event_btag_weight_shape(offsets, jets_sf, out_weight):
 def get_btag_weights_shape(jets, evaluator, era, scalars, pt_cut):
     tag_name = 'DeepCSV_'+era
     nev = jets.numevents()
+    jet_pt = numpy.copy(jets.pt)
+    jet_pt[(jets.pt > 1000.)]=1000.
     pt_eta_mask = NUMPY_LIB.logical_or((NUMPY_LIB.abs(jets.eta)>2.4), (jets.pt < pt_cut))
     p_jetWt = NUMPY_LIB.ones(len(jets.pt), dtype=NUMPY_LIB.float32)
     eventweight_btag = NUMPY_LIB.ones(nev)
-    
+    mask1 = NUMPY_LIB.logical_and(NUMPY_LIB.logical_not(pt_eta_mask), (jets.pt > 1000. ))
+    mask_pt_bounds =[]
+    mask_pt_bounds.append(NUMPY_LIB.logical_and(mask1,jets.hadronFlavour == 5))
+    mask_pt_bounds.append(NUMPY_LIB.logical_and(mask1,jets.hadronFlavour == 4))
+    mask_pt_bounds.append(NUMPY_LIB.logical_and(mask1,jets.hadronFlavour == 0))
     # Code help from https://github.com/chreissel/hepaccelerate/blob/mass_fit/lib_analysis.py#L118
     # Code help from https://gitlab.cern.ch/uhh-cmssw/CAST/blob/master/BTaggingWeight/plugins/BTaggingReShapeProducer.cc
     for tag in ["DeepCSV_3_iterativefit_central_0", "DeepCSV_3_iterativefit_central_1", "DeepCSV_3_iterativefit_central_2"]:
-        SF_btag = evaluator[tag_name].evaluator[tag](jets.eta, jets.pt, jets.btagDeepB)
+        SF_btag = evaluator[tag_name].evaluator[tag](NUMPY_LIB.abs(jets.eta), jet_pt, jets.btagDeepB)
         if tag.endswith("0"):
             SF_btag[(jets.hadronFlavour != 5)] = 1.
         if tag.endswith("1"):
@@ -1687,17 +1693,16 @@ def get_btag_weights_shape(jets, evaluator, era, scalars, pt_cut):
     #print("p_JetWt before", p_jetWt, p_jetWt.mean(), p_jetWt.std())
     p_jetWt[pt_eta_mask] = 1.
     #print("p_JetWt after", p_jetWt, p_jetWt.mean(), p_jetWt.std())
+    
     compute_event_btag_weight_shape(jets.offsets, p_jetWt, eventweight_btag)
     #print("eventweight_btag", eventweight_btag, eventweight_btag.mean(), eventweight_btag.std())
-    '''
     if debug:
         for evtid in debug_event_ids:
             idx = np.where(scalars["event"] == evtid)[0][0]
             print("jets for b tag")
             jaggedstruct_print(jets, idx,
-                               ["pt", "eta", "phi","hadronFlavour", "btagDeepB"])
+                               ["pt", "eta", "phi","hadronFlavour", "btagDeepB", "jetId", "puId","qgl"])
             print(eventweight_btag[idx])
-    '''     
     #not all syst are for all flavours
     # bFlav - jes, lf, hfstats1, hfstats2
     # cFlav - cferr1, cferr2
@@ -1724,7 +1729,8 @@ def get_btag_weights_shape(jets, evaluator, era, scalars, pt_cut):
                 if tsys_name not in evaluator[tag_name].evaluator.keys():
                     print(tsys_name, " not found for flavour ",i)
                     continue
-                SF_btag = evaluator[tag_name].evaluator[tsys_name](jets.eta, jets.pt, jets.btagDeepB)
+                SF_btag = evaluator[tag_name].evaluator[tsys_name](NUMPY_LIB.abs(jets.eta), jet_pt, jets.btagDeepB)
+                
                 if tsys_name.endswith("0"):
                     SF_btag[jets.hadronFlavour != 5] = 1.
                 if tsys_name.endswith("1"):
@@ -1737,18 +1743,26 @@ def get_btag_weights_shape(jets, evaluator, era, scalars, pt_cut):
                     p_jetWt_down[i]*=SF_btag
             if sdir == 'up':
                 p_jetWt_up[i][pt_eta_mask] = 1.
+                #For jets with pt > 1000., evaluate with pt =1000. (done automatically) and inflate to double the systematic
+                # based on https://github.com/cms-sw/cmssw/blob/master/CondTools/BTau/src/BTagCalibrationReader.cc#L170
+                p_jetWt_up[i][mask_pt_bounds[i]] = p_jetWt[mask_pt_bounds[i]]+2*(p_jetWt_up[i][mask_pt_bounds[i]]-p_jetWt[mask_pt_bounds[i]])
                 compute_event_btag_weight_shape(jets.offsets, p_jetWt_up[i], eventweight_btag_up[i])
             else:
                 p_jetWt_down[i][pt_eta_mask] = 1.
+                #For jets with pt > 1000., evaluate with pt =1000. (done automatically) and inflate to double the systematic
+                # based on https://github.com/cms-sw/cmssw/blob/master/CondTools/BTau/src/BTagCalibrationReader.cc#L170
+                p_jetWt_down[i][mask_pt_bounds[i]] = p_jetWt[mask_pt_bounds[i]]+2*(p_jetWt_down[i][mask_pt_bounds[i]]-p_jetWt[mask_pt_bounds[i]])
                 compute_event_btag_weight_shape(jets.offsets, p_jetWt_down[i], eventweight_btag_down[i])
 
-            if debug:
-                for evtid in debug_event_ids:
-                    idx = np.where(scalars["event"] == evtid)[0][0]
-                    print("jets for b tag")
-                    jaggedstruct_print(jets, idx,
-                                       ["pt", "eta", "phi","hadronFlavour", "btagDeepB"])
-                    print(i,eventweight_btag_up[i][idx],eventweight_btag_down[i][idx])
+        if debug:
+            for evtid in debug_event_ids:
+                idx = np.where(scalars["event"] == evtid)[0][0]
+                print("jets for b tag")
+                jaggedstruct_print(jets, idx,
+                                   ["pt", "eta", "phi","hadronFlavour", "btagDeepB", "jetId", "puId","qgl"])
+                print(i,eventweight_btag_up[i][idx],eventweight_btag_down[i][idx])
+        #print(p_jetWt_up[i][mask_pt_bounds[i]],jets.pt[mask_pt_bounds[i]],jets.eta[mask_pt_bounds[i]],jets.btagDeepB[mask_pt_bounds[i]])
+        #print(p_jetWt_down[i][mask_pt_bounds[i]],jets.pt[mask_pt_bounds[i]],jets.eta[mask_pt_bounds[i]],jets.btagDeepB[mask_pt_bounds[i]])
     return eventweight_btag , eventweight_btag_up, eventweight_btag_down
 
 @numba.njit(parallel=True)
