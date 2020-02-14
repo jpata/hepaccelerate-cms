@@ -193,7 +193,7 @@ def plot_variations(args):
             )
     handles, labels = ax.get_legend_handles_labels()
     ax.legend(handles[::-1], labels[::-1], frameon=False, fontsize=4, loc=1, ncol=2)
-    plt.savefig(_outdir + "/{0}_{1}.pdf".format(mc_samp, unc), bbox_inches="tight")
+    plt.savefig(_outdir + "/{0}_{1}.png".format(mc_samp, unc), bbox_inches="tight")
     plt.close(fig)
     del fig
 
