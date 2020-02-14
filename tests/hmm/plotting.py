@@ -735,7 +735,7 @@ def PrintDatacard(categories, event_counts, filenames, ofname):
         dcof.write("RZ rateParam {0} dy_0j 1 \n".format(cat.full_name))  
         dcof.write("RZ rateParam {0} dy_1j 1 \n".format(cat.full_name))  
         dcof.write("RZ rateParam {0} dy_2j 1 \n".format(cat.full_name)) 
-        dcof.write("REWZ rateParam {0} ewk_lljj_mll50_mjj120 1 \n".format(cat.full_name))
+        #dcof.write("REWZ rateParam {0} ewk_lljj_mll50_mjj120 1 \n".format(cat.full_name))
     elif ("h_peak" in cat.full_name) or ("h_sideband" in cat.full_name):
         dcof.write("R rateParam {0} dy_m105_160_amc 1 \n".format(cat.full_name))           
         dcof.write("R rateParam {0} dy_m105_160_vbf_amc 1 \n".format(cat.full_name))
