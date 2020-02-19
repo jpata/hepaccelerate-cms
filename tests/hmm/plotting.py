@@ -182,17 +182,48 @@ def plot_variations(args):
     hnom = res[mc_samp]["nominal"]* weight_xs[mc_samp]
     plot_hist_step(ax, hnom.edges, hnom.contents,
         np.sqrt(hnom.contents_w2),
-        kwargs_step={"label": "nominal"},
+                   kwargs_step={"label": "nominal "+"({0:.3E})".format(np.sum(hnom.contents))},
     )
     for sdir in ["__up", "__down"]:
         if (unc + sdir) in res[mc_samp]:
             hvar = res[mc_samp][unc + sdir]* weight_xs[mc_samp]
             plot_hist_step(ax, hvar.edges, hvar.contents,
                 np.sqrt(hvar.contents_w2),
-                kwargs_step={"label": sdir.replace("__", "")},
+                           kwargs_step={"label": sdir.replace("__", "") + " ({0:.3E})".format(np.sum(hvar.contents))},
+            
+            )
+    if((('DYLHEScaleWeight' in unc) or ('EWZLHEScaleWeight' in unc)) and (('dy' in mc_samp) or ('ewk' in mc_samp) )):
+        
+        h_lhe =[]
+        h_nom_up = copy.deepcopy(hnom)
+        h_nom_down = copy.deepcopy(hnom)
+        for i in range(9):
+            sname = 'LHEScaleWeight__{0}'.format(i)
+            h_lhe.append(res[mc_samp][sname]* weight_xs[mc_samp])
+        for k in range(len(h_lhe[0].contents)):
+            for i in range(9):
+                if(h_lhe[i].contents[k]>h_nom_up.contents[k]):
+                    h_nom_up.contents[k]=h_lhe[i].contents[k]
+                if(h_lhe[i].contents[k]<h_nom_down.contents[k]):
+                    h_nom_down.contents[k]=h_lhe[i].contents[k]
+        #remove the normalization aspect from QCD scale
+        sum_nom_up=np.sum(h_nom_up.contents)
+        sum_nom_down=np.sum(h_nom_down.contents)
+        for k in range(len(h_nom_up.contents)):
+            h_nom_up.contents[k]=h_nom_up.contents[k]*np.sum(hnom.contents)/sum_nom_up
+            h_nom_down.contents[k]=h_nom_down.contents[k]*np.sum(hnom.contents)/sum_nom_down
+        
+        plot_hist_step(ax, h_nom_up.edges, h_nom_up.contents,
+                np.sqrt(h_nom_up.contents_w2),
+                       kwargs_step={"label": "up "+"({0:.3E})".format(np.sum(h_nom_up.contents))},
+            )
+        plot_hist_step(ax, h_nom_down.edges, h_nom_down.contents,
+                np.sqrt(h_nom_down.contents_w2),
+                       kwargs_step={"label": "down "+"({0:.3E})".format(np.sum(h_nom_down.contents))},
             )
     handles, labels = ax.get_legend_handles_labels()
     ax.legend(handles[::-1], labels[::-1], frameon=False, fontsize=4, loc=1, ncol=2)
+    ax.set_yscale("log")
     plt.savefig(_outdir + "/{0}_{1}.png".format(mc_samp, unc), bbox_inches="tight")
     plt.close(fig)
     del fig
@@ -676,7 +707,6 @@ def PrintDatacard(categories, event_counts, filenames, ofname):
         if('LHEScale' in syst): continue
         dcof.write(syst + "\t shape \t")
         for cat in categories:
-            #import pdb;pdb.set_trace();
             for proc in cat.processes:
                 if (proc in cat.shape_uncertainties.keys() and
                     syst in cat.shape_uncertainties[proc].keys()):
@@ -826,7 +856,6 @@ if __name__ == "__main__":
                     }, indent=2)
                 )
 
-            #import pdb;pdb.set_trace();
             histnames = []
             if cmdline_args.histnames is None:
                 histnames = [h for h in res["data"]["baseline"].keys() if h.startswith("hist__")]
