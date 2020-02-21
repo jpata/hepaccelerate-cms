@@ -42,11 +42,11 @@ class TestAnalysis(unittest.TestCase):
         self.analysis_corrections = AnalysisCorrections(self.cmdline_args, True)
         download_if_not_exists(
             "data/myNanoProdMc2016_NANO.root",
-            "https://jpata.web.cern.ch/jpata/hmm/test_files/myNanoProdMc2016_NANO.root"
+            "https://jpata.web.cern.ch/jpata/hmm/test_files/21-02-2020-private-nanoaod/myNanoProdMc2016_NANO.root"
         )
         download_if_not_exists(
             "data/nano_2016_data.root",
-            "https://jpata.web.cern.ch/jpata/hmm/test_files/nano_2016_data.root"
+            "https://jpata.web.cern.ch/jpata/hmm/test_files/21-02-2020-private-nanoaod/nano_2016_data.root"
         )
 
     #Run the analysis on a raw NanoAOD MC sample
