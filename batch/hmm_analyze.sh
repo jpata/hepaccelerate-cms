@@ -57,8 +57,6 @@ python3 tests/hmm/analysis_hmumu.py \
 
 cd $WORKDIR
 
-#--do-factorized-jec \
-
 #copy the output as a tar archive
 tar -cvzf out.tgz $OUTDIR
 cp out.tgz $OUTFILE
