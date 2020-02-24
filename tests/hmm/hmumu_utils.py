@@ -197,7 +197,9 @@ def analyze_data(
         parameters["muon_pt_leading"][dataset_era], parameters["muon_pt"],
         parameters["muon_eta"], parameters["muon_iso"],
         parameters["muon_id"][dataset_era], parameters["muon_trigger_match_dr"],
-        parameters["muon_iso_trigger_matched"], parameters["muon_id_trigger_matched"][dataset_era], use_cuda
+        parameters["muon_iso_trigger_matched"], parameters["muon_id_trigger_matched"][dataset_era],
+        parameters["fsr_dROverEt2"], parameters["fsr_relIso03"], parameters["pt_fsr_over_mu_e"],
+        use_cuda
     )
     if debug:
         print("muon selection eff", ret_mu["selected_muons"].sum() / float(muons.numobjects()))
@@ -1149,7 +1151,7 @@ def get_histogram(data, weights, bins, mask=None):
  
 #remove parallel running for safety - it's not clear if different loop iterations modify overlapping data, which is not allowed
 @numba.njit(parallel=False)
-def fix_muon_fsrphoton_index(mu_pt, mu_eta, mu_phi, mu_mass, offsets_fsrphotons, offsets_muons, fsrphotons_dROverEt2, fsrphotons_relIso03, fsrphotons_pt, fsrphotons_muonIdx, muons_fsrPhotonIdx, out_muons_fsrPhotonIdx):
+def fix_muon_fsrphoton_index(mu_pt, mu_eta, mu_phi, mu_mass, offsets_fsrphotons, offsets_muons, fsrphotons_dROverEt2, fsrphotons_relIso03, fsrphotons_pt, fsrphotons_muonIdx, muons_fsrPhotonIdx, out_muons_fsrPhotonIdx, fsr_dROverEt2_cut, fsr_relIso03_cut, pt_fsr_over_mu_e_cut):
     for iev in range(len(offsets_fsrphotons) - 1):
         k = 0
         for i in range(offsets_fsrphotons[iev], offsets_fsrphotons[iev + 1]):
@@ -1164,8 +1166,8 @@ def fix_muon_fsrphoton_index(mu_pt, mu_eta, mu_phi, mu_mass, offsets_fsrphotons,
             pz = mu_pt[midx] * np.sinh(mu_eta[midx])
             mu_e = np.sqrt(px**2 + py**2 + pz**2 + mu_mass[midx]**2)
 
-            sel_fsr = fsrphotons_dROverEt2[fidx] < parameters["fsr_dROverEt2"] and (fsrphotons_relIso03[fidx] < parameters["fsr_relIso03"] and fsrphotons_pt[i]/mu_e < parameters["pt_fsr_over_mu_e"])
-            sel_check_fsr = fsrphotons_dROverEt2[i] < parameters["fsr_dROverEt2"] and (fsrphotons_relIso03[i] < parameters["fsr_relIso03"] and fsrphotons_pt[i]/mu_e < parameters["pt_fsr_over_mu_e"])
+            sel_fsr = fsrphotons_dROverEt2[fidx] < fsr_dROverEt2_cut and (fsrphotons_relIso03[fidx] < fsr_relIso03_cut and fsrphotons_pt[i]/mu_e < pt_fsr_over_mu_e_cut)
+            sel_check_fsr = fsrphotons_dROverEt2[i] < fsr_dROverEt2_cut and (fsrphotons_relIso03[i] < fsr_relIso03_cut and fsrphotons_pt[i]/mu_e < pt_fsr_over_mu_e_cut)
             if sel_fsr or sel_check_fsr:
                 if k != muons_fsrPhotonIdx[midx]:
                     if not sel_fsr:
@@ -1184,7 +1186,8 @@ def get_selected_muons(
     muons, fsrphotons, trigobj, mask_events,
     mu_pt_cut_leading, mu_pt_cut_subleading,
     mu_aeta_cut, mu_iso_cut, muon_id_type,
-        muon_trig_match_dr, mu_iso_trig_matched_cut, muon_id_trig_matched_type, use_cuda):
+        muon_trig_match_dr, mu_iso_trig_matched_cut, muon_id_trig_matched_type, fsr_dROverEt2_cut, 
+            fsr_relIso03_cut, pt_fsr_over_mu_e_cut, use_cuda):
     """
     Given a list of muons in events, selects the muons that pass quality, momentum and charge criteria.
     Selects events that have at least 2 such muons. Selections are made by producing boolean masks.
@@ -1218,7 +1221,8 @@ def get_selected_muons(
             NUMPY_LIB.asnumpy(fsrphotons.pt),
             NUMPY_LIB.asnumpy(fsrphotons.muonIdx),
             NUMPY_LIB.asnumpy(muons.fsrPhotonIdx),
-            out_muons_fsrPhotonIdx
+            out_muons_fsrPhotonIdx, fsr_dROverEt2_cut, 
+            fsr_relIso03_cut, pt_fsr_over_mu_e_cut
         )
         correct_muon_with_fsr(
             NUMPY_LIB.asnumpy(muons.offsets),
