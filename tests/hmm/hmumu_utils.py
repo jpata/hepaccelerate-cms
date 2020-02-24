@@ -1164,8 +1164,8 @@ def fix_muon_fsrphoton_index(mu_pt, mu_eta, mu_phi, mu_mass, offsets_fsrphotons,
             pz = mu_pt[midx] * np.sinh(mu_eta[midx])
             mu_e = np.sqrt(px**2 + py**2 + pz**2 + mu_mass[midx]**2)
 
-            sel_fsr = fsrphotons_dROverEt2[fidx] < 0.012 and (fsrphotons_relIso03[fidx] < 1.8 and fsrphotons_pt[fidx]/mu_e < 0.4)
-            sel_check_fsr = fsrphotons_dROverEt2[i] < 0.012 and (fsrphotons_relIso03[i] < 1.8 and fsrphotons_pt[i]/mu_e < 0.4)
+            sel_fsr = fsrphotons_dROverEt2[fidx] < parameters["fsr_dROverEt2"] and (fsrphotons_relIso03[fidx] < parameters["fsr_relIso03"] and fsrphotons_pt[i]/mu_e < parameters["pt_fsr_over_mu_e"])
+            sel_check_fsr = fsrphotons_dROverEt2[i] < parameters["fsr_dROverEt2"] and (fsrphotons_relIso03[i] < parameters["fsr_relIso03"] and fsrphotons_pt[i]/mu_e < parameters["pt_fsr_over_mu_e"])
             if sel_fsr or sel_check_fsr:
                 if k != muons_fsrPhotonIdx[midx]:
                     if not sel_fsr:

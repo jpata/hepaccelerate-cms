@@ -552,6 +552,10 @@ analysis_parameters = {
         "softjet_pt2": 2.0,
         "softjet_evt_dr2": 0.16, 
 
+        "fsr_dROverEt2": 0.012,
+        "fsr_relIso03": 1.8,
+        "pt_fsr_over_mu_e": 0.4,
+ 
         "cat5_dijet_inv_mass": 400.0,
         "cat5_abs_jj_deta_cut": 2.5,
 
