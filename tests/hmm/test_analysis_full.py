@@ -199,10 +199,10 @@ class TestAnalysis(unittest.TestCase):
    
     #Test the analysis on one bkg MC and data file, making sure the data/mc plot looks OK
     def test_run_analysis_mc_and_data(self):
-        fn_mc = "/storage/group/allcit/store/mc/RunIISummer16NanoAODv5/DYJetsToLL_M-50_TuneCUETP8M1_13TeV-amcatnloFXFX-pythia8/NANOAODSIM/PUMoriond17_Nano1June2019_102X_mcRun2_asymptotic_v7_ext2-v1/120000/CBCAE1AB-4AFD-D840-BE00-9E5ABD2E4A20.root"
+        fn_mc = "/storage/user/nlu/hmm/automaticTest/myNanoProdMc2016_NANO.root"
 
         if not os.path.isfile(fn_mc):
-            fn_mc = "data/CBCAE1AB-4AFD-D840-BE00-9E5ABD2E4A20.root"
+            fn_mc = "data/myNanoProdMc2016_NANO.root"
 
         fn_data = "data/nano_2016_data.root"
 
