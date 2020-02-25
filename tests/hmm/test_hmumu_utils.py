@@ -125,18 +125,33 @@ class TestAnalysisSmall(unittest.TestCase):
     def test_fix_muon_fsrphoton_index(self):
         from hmumu_utils import fix_muon_fsrphoton_index
         NUMPY_LIB = self.NUMPY_LIB
-        
+       
+        analysis_parameters = self.analysis_parameters
+ 
         muons = self.dataset.structs["Muon"][0]
         fsrphotons = self.dataset.structs["FsrPhoton"][0]
         
         out_muons_fsrPhotonIdx = np.zeros_like(NUMPY_LIB.asnumpy(muons.fsrPhotonIdx))
+
+        mu_pt = NUMPY_LIB.asnumpy(muons.pt)
+        mu_eta = NUMPY_LIB.asnumpy(muons.eta)
+        mu_phi = NUMPY_LIB.asnumpy(muons.phi)
+        mu_mass = NUMPY_LIB.asnumpy(muons.mass)
+        mu_iso = NUMPY_LIB.asnumpy(muons.pfRelIso04_all)
+
         fix_muon_fsrphoton_index(
+            mu_pt, mu_eta, mu_phi, mu_mass,
             NUMPY_LIB.asnumpy(fsrphotons.offsets),
             NUMPY_LIB.asnumpy(muons.offsets),
             NUMPY_LIB.asnumpy(fsrphotons.dROverEt2),
+            NUMPY_LIB.asnumpy(fsrphotons.relIso03),
+            NUMPY_LIB.asnumpy(fsrphotons.pt),
             NUMPY_LIB.asnumpy(fsrphotons.muonIdx),
             NUMPY_LIB.asnumpy(muons.fsrPhotonIdx),
-            out_muons_fsrPhotonIdx
+            out_muons_fsrPhotonIdx, 
+            analysis_parameters["fsr_dROverEt2"], 
+            analysis_parameters["fsr_relIso03"], 
+            analysis_parameters["pt_fsr_over_mu_e"]
         )
 
     def test_analyze_function(self):
