@@ -2057,6 +2057,7 @@ def get_int_lumi(runs, lumis, mask_events, lumidata):
     lumi_proc = lumidata.get_lumi(runs_lumis)
     return lumi_proc
 
+#genEventSumw and genEventSumw2 for nanoAODv5 and before, genEventSumw_ and genEventSumw2_ for nanoAODv6
 def get_gen_sumweights(filenames):
     sumw = 0
     sumw2 = 0
@@ -2064,9 +2065,11 @@ def get_gen_sumweights(filenames):
         ff = uproot.open(fi)
         bl = ff.get("Runs")
         try:
+            print("nanoAODv5-like genEventSumw and genEventSumw2 used")
             arr = bl.array("genEventSumw")
             arr2 = bl.array("genEventSumw2")
         except KeyError:
+            print("nanoAODv6-like genEventSumw_ and genEventSumw2_ used")
             arr = bl.array("genEventSumw_")
             arr2 = bl.array("genEventSumw2_")
         sumw += arr.sum()
