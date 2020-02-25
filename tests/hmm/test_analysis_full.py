@@ -204,8 +204,8 @@ class TestAnalysis(unittest.TestCase):
         print(ret2["int_lumi"])
         print(ret2["baseline"]["selected_events_dimuon"])
         self.assertAlmostEqual(ret2["num_events"], 142)
-        self.assertAlmostEqual(ret2["int_lumi"], 5.633297364)
-        self.assertAlmostEqual(ret2["baseline"]["selected_events_dimuon"], 4032.0)
+        self.assertAlmostEqual(ret2["int_lumi"], 0.130571592)
+        self.assertAlmostEqual(ret2["baseline"]["selected_events_dimuon"], 41)
 
         #Not sure why this is different on the skimmed sample... floating point precision in changing the file encoding?
         #self.assertAlmostEqual(ret2["baseline"]["numev_passed"]["muon"], 4024.0)
@@ -280,7 +280,7 @@ class TestAnalysis(unittest.TestCase):
         print(genweights["dy"])
         print(int_lumi)
         self.assertAlmostEqual(genweights["dy"], 6073.25342144)
-        self.assertAlmostEqual(int_lumi, 5.633297364)
+        self.assertAlmostEqual(int_lumi, 0.130571592)
         
         histos = {}
         for sample in mc_samples + ["data"]:
