@@ -158,8 +158,8 @@ class TestAnalysis(unittest.TestCase):
         print(ret2["int_lumi"])
         print(ret2["baseline"]["selected_events_dimuon"])
         self.assertAlmostEqual(ret2["num_events"], 2000)
-        self.assertAlmostEqual(ret2["int_lumi"], 5.633297364)
-        self.assertAlmostEqual(ret2["baseline"]["selected_events_dimuon"], 4031.0)
+        self.assertAlmostEqual(ret2["int_lumi"], 0.130571592)
+        self.assertAlmostEqual(ret2["baseline"]["selected_events_dimuon"], 42)
    
     #Run the analysis on a skimmed data sample 
     def test_run_analysis_data_skim(self):
