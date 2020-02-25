@@ -81,6 +81,9 @@ class TestAnalysis(unittest.TestCase):
 
         ret2 = pickle.load(open("test_out/vbf_sync_2016_0.pkl", "rb"))
  
+        print(ret2["num_events"])
+        print(ret2["genEventSumw"])
+        print(ret2["baseline"]["selected_events_dimuon"])
         self.assertAlmostEqual(ret2["num_events"], 97200)
         self.assertAlmostEqual(ret2["genEventSumw"], 3.7593771153623963)
         self.assertAlmostEqual(ret2["baseline"]["selected_events_dimuon"], 62176)
@@ -118,6 +121,9 @@ class TestAnalysis(unittest.TestCase):
 
         ret2 = pickle.load(open("test_out/vbf_sync_skim_2016_0.pkl", "rb"))
  
+        print(ret2["num_events"])
+        print(ret2["genEventSumw"])
+        print(ret2["baseline"]["selected_events_dimuon"])
         self.assertAlmostEqual(ret2["num_events"], 73903)
         self.assertAlmostEqual(ret2["genEventSumw"], 3.7593771153623963)
         self.assertAlmostEqual(ret2["baseline"]["selected_events_dimuon"], 62176)
@@ -193,7 +199,11 @@ class TestAnalysis(unittest.TestCase):
             numev_per_chunk=10000)
 
         ret2 = pickle.load(open("test_out/data_skim_2016_0.pkl", "rb"))
-        self.assertAlmostEqual(ret2["num_events"], 12307)
+        
+        print(ret2["num_events"])
+        print(ret2["int_lumi"])
+        print(ret2["baseline"]["selected_events_dimuon"])
+        self.assertAlmostEqual(ret2["num_events"], 142)
         self.assertAlmostEqual(ret2["int_lumi"], 5.633297364)
         self.assertAlmostEqual(ret2["baseline"]["selected_events_dimuon"], 4032.0)
 
@@ -267,6 +277,8 @@ class TestAnalysis(unittest.TestCase):
             genweights[mc_samp] = res[mc_samp]["genEventSumw"]
             weight_xs[mc_samp] =  cross_sections[mc_samp] * int_lumi / genweights[mc_samp]
         
+        print(genweights["dy"])
+        print(int_lumi)
         self.assertAlmostEqual(genweights["dy"], 6073.25342144)
         self.assertAlmostEqual(int_lumi, 5.633297364)
         
