@@ -279,7 +279,7 @@ class TestAnalysis(unittest.TestCase):
         
         print(genweights["dy"])
         print(int_lumi)
-        self.assertAlmostEqual(genweights["dy"], 6073.25342144)
+        self.assertAlmostEqual(genweights["dy"], 4.659182940800001)
         self.assertAlmostEqual(int_lumi, 0.130571592)
         
         histos = {}
