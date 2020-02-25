@@ -10,7 +10,7 @@ cd skim_merge
 #Prepare list of input files
 singularity exec -B /storage ~jpata/gpuservers/singularity/images/cupy.simg \
     python ../../tests/hmm/prepare_merge_argfile.py \
-    -i ../../data/datasets_NanoAODv5.yml \
+    -i ../../data/datasets_NanoAODv6_2016_mixv1.yml \
     --datapath /storage/group/allcit \
     --outpath ~/hmm/skim_merged
 

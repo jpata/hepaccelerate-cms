@@ -3,17 +3,16 @@ import numpy as np
 categories = {
     "dimuon": {
         "datacard_processes" : [
-            "ggh_amcPS",
-            "vbf_amcPS",
-            "wmh",
-            "wph",
-            "zh",
-            "tth",
+            "ggh_amcPS_125",
+            "vbf_amc_herwig_125",
+            "wmh_125",
+            "wph_125",
+            "zh_125",
+            "tth_125",
             #"wz_1l1nu2q",
             "wz_3lnu", 
             "ww_2l2nu", "wz_2l2q", "zz",
             "ewk_lljj_mll50_mjj120",
-            #"ewk_lljj_mll105_160",
             #"st_top",
             #"st_t_antitop",
             "st_tw_top",
@@ -25,17 +24,16 @@ categories = {
     },
     "z_peak": {
         "datacard_processes" : [
-            "ggh_amcPS",
-            "vbf_amcPS",
-            "wmh",
-            "wph",
-            "zh",
-            "tth",
+            "ggh_amcPS_125",
+            "vbf_amc_herwig_125",
+            "wmh_125",
+            "wph_125",
+            "zh_125",
+            "tth_125",
             #"wz_1l1nu2q",
             "wz_3lnu", 
             "ww_2l2nu", "wz_2l2q", "zz",
             "ewk_lljj_mll50_mjj120",
-            #"ewk_lljj_mll105_160",
             #"st_top",
             #"st_t_antitop",
             "st_tw_top",
@@ -47,17 +45,17 @@ categories = {
     },
     "h_sideband": {
         "datacard_processes" : [
-            "ggh_amcPS",
-            "vbf_amcPS",
-            "wmh",
-            "wph",
-            "zh",
-            "tth",
+            "ggh_amcPS_125",
+            "vbf_amc_herwig_125",
+            "wmh_125",
+            "wph_125",
+            "zh_125",
+            "tth_125",
             #"wz_1l1nu2q",
             "wz_3lnu", 
             "ww_2l2nu", "wz_2l2q", "zz",
-            #"ewk_lljj_mll50_mjj120",
-            "ewk_lljj_mll105_160",
+            #"ewk_lljj_mll105_160",
+            "ewk_lljj_mll105_160_ptJ",
             #"st_top",
             #"st_t_antitop",
             "st_tw_top",
@@ -69,17 +67,16 @@ categories = {
     },
     "h_peak": {
         "datacard_processes" : [
-            "ggh_amcPS",
-            "vbf_amcPS",
-            "wmh",
-            "wph",
-            "zh",
-            "tth",
+            "ggh_amcPS_125",
+            "vbf_amc_herwig_125",
+            "wmh_125",
+            "wph_125",
+            "zh_125",
+            "tth_125",
             #"wz_1l1nu2q",
             "wz_3lnu", 
             "ww_2l2nu", "wz_2l2q", "zz",
-            #"ewk_lljj_mll50_mjj120",
-            "ewk_lljj_mll105_160",
+            "ewk_lljj_mll105_160_ptJ",
             #"st_top",
             #"st_t_antitop",
             "st_tw_top",
@@ -91,24 +88,23 @@ categories = {
     }
 }
 proc_grps = [
-        ("vh",["wmh", "wph", "zh"]),
+        ("vh_125",["wmh_125", "wph_125", "zh_125"]),
         ("vv", ["wz_3lnu", "ww_2l2nu", "wz_2l2q", "zz"]),
         ("vvv", ["www","wwz","wzz","zzz"]),
         ("stop", ["st_tw_top", "st_tw_antitop"]),
         ("tt", ["ttjets_sl", "ttjets_dl",]),
     ]
-combined_signal_samples= ["ggh_amcPS", "vbf_amcPS", "vh", "tth"]
+combined_signal_samples= ["ggh_amcPS_125", "vbf_amc_herwig_125", "vh_125", "tth_125"]
 combined_categories = {
     "dimuon": {
         "datacard_processes" : [
-            "ggh_amcPS",
-            "vbf_amcPS",
-            "vh",
-            "tth",
+            "ggh_amcPS_125",
+            "vbf_amc_herwig_125",
+            "vh_125",
+            "tth_125",
             #"wz_1l1nu2q",
             "vv", 
             "ewk_lljj_mll50_mjj120",
-            #"ewk_lljj_mll105_160",
             #"st_top",
             #"st_t_antitop",
             "stop",
@@ -119,14 +115,13 @@ combined_categories = {
     },
     "z_peak": {
         "datacard_processes" : [
-            "ggh_amcPS",
-            "vbf_amcPS",
-            "vh",
-            "tth",
+            "ggh_amcPS_125",
+            "vbf_amc_herwig_125",
+            "vh_125",
+            "tth_125",
             #"wz_1l1nu2q",
             "vv",
             "ewk_lljj_mll50_mjj120",
-            #"ewk_lljj_mll105_160",
             #"st_top",
             #"st_t_antitop",
             "stop",
@@ -137,14 +132,13 @@ combined_categories = {
     },
     "h_sideband": {
         "datacard_processes" : [
-            "ggh_amcPS",
-            "vbf_amcPS",
-            "vh",
-            "tth",
+            "ggh_amcPS_125",
+            "vbf_amc_herwig_125",
+            "vh_125",
+            "tth_125",
             #"wz_1l1nu2q",
             "vv", 
-            #"ewk_lljj_mll50_mjj120",
-            "ewk_lljj_mll105_160",
+            "ewk_lljj_mll105_160_ptJ",
             #"st_top",
             #"st_t_antitop",
             "stop",
@@ -155,14 +149,13 @@ combined_categories = {
     },
     "h_peak": {
         "datacard_processes" : [
-            "ggh_amcPS",
-            "vbf_amcPS",
-            "vh",
-            "tth",
+            "ggh_amcPS_125",
+            "vbf_amc_herwig_125",
+            "vh_125",
+            "tth_125",
             #"wz_1l1nu2q",
             "vv", 
-            #"ewk_lljj_mll50_mjj120",
-            "ewk_lljj_mll105_160",
+            "ewk_lljj_mll105_160_ptJ",
             #"st_top",
             #"st_t_antitop",
             "stop",
@@ -184,10 +177,10 @@ colors = {
 }
 
 process_groups = [
-    ("higgs", ["ggh_amcPS", "vbf_amcPS", "wmh", "wph", "zh", "tth"]),
+    ("higgs", ["ggh_amcPS_125", "vbf_amc_herwig_125", "wmh_125", "wph_125", "zh_125", "tth_125"]),
     ("vv", ["wz_3lnu", "ww_2l2nu", "wz_2l2q", "zz"]),
     ("vvv", ["www","wwz","wzz","zzz"]),
-    ("ewk", ["ewk_lljj_mll50_mjj120", "ewk_lljj_mll105_160"]),
+    ("ewk", ["ewk_lljj_mll50_mjj120", "ewk_lljj_mll105_160_ptJ"]),
     ("stop", ["st_tw_top", "st_tw_antitop"]),
     ("tt", ["ttjets_sl", "ttjets_dl",]),
     ("dy", ["dy_0j", "dy_1j", "dy_2j", "dy_m105_160_amc", "dy_m105_160_vbf_amc", "dy"]),
@@ -296,26 +289,49 @@ cross_sections = {
     "dy_m105_160_vbf_mg": 2.02,
     "dy_m105_160_amc": 46.9479, # https://docs.google.com/document/d/1bViX80nXQ_p-W4gI6Fqt9PNQ49B6cP1_FhcKwTZVujo/edit?usp=sharing
     "dy_m105_160_vbf_amc": 46.9479*0.0425242, #https://docs.google.com/document/d/1bViX80nXQ_p-W4gI6Fqt9PNQ49B6cP1_FhcKwTZVujo/edit?usp=sharing
-    "ggh_powheg": 0.010571, #48.61 * 0.0002176; https://twiki.cern.ch/twiki/bin/view/LHCPhysics/CERNHLHE2019
-    "ggh_powhegPS": 0.010571,
-    "ggh_amcPS": 0.010571,
-    "ggh_amcPS_TuneCP5down": 0.010571,
-    "ggh_amcPS_TuneCP5up": 0.010571,
-    "ggh_amc": 0.010571,
-    "vbf": 0.000823,
+    "ggh_powheg_125": 0.010571, #48.61 * 0.0002176; https://twiki.cern.ch/twiki/bin/view/LHCPhysics/CERNHLHE2019
+    "ggh_powhegPS_125": 0.010571,
+    "ggh_amcPS_125": 0.010571,
+    "ggh_amcPS_TuneCP5down_125": 0.010571,
+    "ggh_amcPS_TuneCP5up_125": 0.010571,
+    "ggh_amc_125": 0.010571,
+    "ggh_amcPS_120": 0.011363, #5.222E+01 x 0.0002176
+    "ggh_powhegPS_120": 0.011363,
+    "ggh_amcPS_130": 0.00986, #4.531E+01 x 0.0002176
+    "ggh_powhegPS_130": 0.00986,
+    "vbf_125": 0.000823,
     "vbf_sync": 0.000823,
-    "vbf_powheg_herwig": 0.000823,
-    "vbf_powheg": 0.000823,
-    "vbf_powhegPS": 0.000823,
-    "vbf_amc_herwig": 0.000823,
-    "vbf_amcPS_TuneCP5down": 0.000823,
-    "vbf_amcPS_TuneCP5up": 0.000823,
-    "vbf_amcPS": 0.000823,
-    "vbf_amc": 0.000823,
-    "wmh": 0.000116,
-    "wph": 0.000183,
-    "zh": 0.000192,
-    "tth": 0.000110,
+    "vbf_powheg_herwig_125": 0.000823,
+    "vbf_powheg_pythia_125": 0.000823,
+    "vbf_powhegPS_pythia_125": 0.000823,
+    "vbf_amc_herwig_125": 0.000823,
+    "vbf_amcPS_TuneCP5down_125": 0.000823,
+    "vbf_amcPS_TuneCP5up_125": 0.000823,
+    "vbf_amcPS_125": 0.000823,
+    "vbf_amc_125": 0.000823,
+    "vbf_powheg_herwig_120": 0.000856, #3.935E+00 x 0.0002176
+    "vbf_amcPS_120": 0.000856,
+    "vbf_powheg_pythia_120": 0.000856,
+    "vbf_powhegPS_pythia_120": 0.000856,
+    "vbf_amc_herwig_120": 0.000856,
+    "vbf_powheg_herwig_130": 0.000791,
+    "vbf_amcPS_130": 0.000791,
+    "vbf_powheg_pythia_130": 0.000791,
+    "vbf_powhegPS_pythia_130": 0.000791,
+    "vbf_amc_herwig_130": 0.000791,
+    "wmh_125": 0.000116,
+    "wmh_120": 0.000132,
+    "wmh_130": 0.000102,
+    "wph_125": 0.000183,
+    "wph_120": 0.000208,
+    "wph_130": 0.000161,
+    "zh_125": 0.000192,
+    "zh_120": 0.000216,
+    "zh_130": 0.000172,
+    "tth_125": 0.000110,
+    "tth_120": 0.000124,
+    "tth_130": 0.000099,
+    "bbh_125": 0.000106,
     "ttjets_dl": 85.656,
     "ttjets_sl": 687.0,
     "ww_2l2nu": 5.595,
@@ -328,6 +344,7 @@ cross_sections = {
     "st_tw_top": 35.85,
     "st_tw_antitop": 35.85,
     "ewk_lljj_mll105_160": 0.0508896,
+    "ewk_lljj_mll105_160_ptJ": 0.07486, #from Pisa Group https://github.com/arizzi/PisaHmm/blob/59bbce76ab1532c59b44b41a9371591204f24df6/samples2016.py#L30
 
     # Note via Nan L.: the 2016 sample has a different tune, for which Stephane C.
     # computed a new cross-section from MINIAOD using
@@ -343,43 +360,27 @@ cross_sections = {
     "zzz": 0.01398
 }
 
-signal_samples = ["ggh_amcPS", "vbf", "wmh", "wph", "zh", "tth"]
-jec_unc = [
-    #'AbsoluteFlavMap', 
-    'AbsoluteMPFBias', 
-    #'AbsoluteSample', 
-    'AbsoluteScale',
-    'AbsoluteStat',
-#These can be used as a proxy for all the groups
-    #'CorrelationGroupFlavor', 'CorrelationGroupIntercalibration',
-    #'CorrelationGroupMPFInSitu', 'CorrelationGroupUncorrelated', 'CorrelationGroupbJES',
-
-#These are overlapping, the one closest to our region of interest should be chosen
-    #'FlavorPhotonJet', 'FlavorPureBottom', 'FlavorPureCharm', 'FlavorPureGluon',
-    #'FlavorPureQuark', 
-    'FlavorQCD',
-    #'FlavorZJet',
-    'TimePtEta',
-    'Fragmentation', 'PileUpDataMC',
-    #'PileUpEnvelope', 'PileUpMuZero',
-    'PileUpPtBB', 'PileUpPtEC1', 'PileUpPtEC2',
-    'PileUpPtHF', 'PileUpPtRef', 'RelativeBal', 'RelativeFSR', 'RelativeJEREC1',
-    'RelativeJEREC2', 'RelativeJERHF', 'RelativePtBB', 'RelativePtEC1', 'RelativePtEC2',
-    'RelativePtHF', 'RelativeSample', 'RelativeStatEC', 'RelativeStatFSR', 'RelativeStatHF',
-    'SinglePionECAL', 'SinglePionHCAL']
+signal_samples = ["ggh_amcPS_125", "vbf_125", "wmh_125", "wph_125", "zh_125", "tth_125"]
+#jec_unc = [
+#    'AbsoluteMPFBias', 'AbsoluteScale', 'AbsoluteStat',
+#    'FlavorQCD', 'TimePtEta', 'Fragmentation', 'PileUpDataMC',
+#    'PileUpPtBB', 'PileUpPtEC1', 'PileUpPtEC2',
+#    'PileUpPtHF', 'PileUpPtRef', 'RelativeBal', 'RelativeFSR', 'RelativeJEREC1',
+#    'RelativeJEREC2', 'RelativeJERHF', 'RelativePtBB', 'RelativePtEC1', 'RelativePtEC2',
+#    'RelativePtHF', 'RelativeSample', 'RelativeStatEC', 'RelativeStatFSR', 'RelativeStatHF',
+#    'SinglePionECAL', 'SinglePionHCAL']
 
 #These subtotals can be used for cross-checks
 #, 'SubTotalAbsolute', 'SubTotalMC', 'SubTotalPileUp',
 #    'SubTotalPt', 'SubTotalRelative', 'SubTotalScale', 'Total', 'TotalNoFlavor',
 #    'TotalNoFlavorNoTime', 'TotalNoTime']
 
-#reduced JEC being tested
-#jec_unc = ['Absolute', 'Absolute2018', 'BBEC1', 'BBEC12018', 'EC2', 'EC22018', 'FlavorQCD', 'HF', 'HF2018', 'RelativeBal', 'RelativeSample2018', 'Absolute2017', 'BBEC12017', 'EC22017', 'HF2017', 'RelativeSample2017',
-#    'Absolute2016', 'BBEC12016', 'EC22016', 'HF2016', 'RelativeSample2016']
+#Reduced JEC
+jec_unc = ['Absolute', 'Absolute2018', 'BBEC1', 'BBEC12018', 'EC2', 'EC22018', 'FlavorQCD', 'HF', 'HF2018', 'RelativeBal', 'RelativeSample2018', 'Absolute2017', 'BBEC12017', 'EC22017', 'HF2017', 'RelativeSample2017', 'Absolute2016', 'BBEC12016', 'EC22016', 'HF2016', 'RelativeSample2016']
 
 #Uncomment to use just the total JEC for quick tests
 #jec_unc = ["Total"]
-shape_systematics = jec_unc + ["jer", "trigger", "id", "iso", "jet_puid","puWeight", "L1PreFiringWeight","DYLHEScaleWeight","EWZLHEScaleWeight","btag_weight_bcFl","btag_weight_lFl"]
+shape_systematics = jec_unc + ["jer", "trigger", "id", "iso", "jet_puid","puWeight", "L1PreFiringWeight","DYLHEScaleWeightZ","EWZLHEScaleWeightZ","DYLHEScaleWeight","EWZLHEScaleWeight","btag_weight_bcFl","btag_weight_lFl"]
 common_scale_uncertainties = {
     "lumi": 1.025,
 }
@@ -395,8 +396,8 @@ scale_uncertainties = {
     "tt" : {"TTxsec": 1.05},
     #"dy_m105_160_amc": {"DYxsec": 1.10},
     #"dy_m105_160__vbf_amc": {"DYxsec": 1.10},
-    "ewk_lljj_mll105_160": {"EWZxsec": 1.20},
-    #"ewk_lljj_mll50_mjj120": {"EWZxsec": 1.20},
+    "ewk_lljj_mll105_160_ptJ": {"EWZxsec": 1.20},
+    "ewk_lljj_mll50_mjj120": {"EWZxsecZ": 1.20},
     "ttjets_sl": {"TTxsec": 1.05},
     "ttjets_dl": {"TTxsec": 1.05},
     "st_t_top": {"STxsec": 1.05},
@@ -529,6 +530,7 @@ analysis_parameters = {
 
         "do_rochester_corrections": True, 
         "do_lepton_sf": True,
+        "do_geofit": True,
         
         "do_jec": True,
         "do_jer": {"2016": False, "2017": True, "2018": True},
@@ -550,6 +552,10 @@ analysis_parameters = {
         "softjet_pt2": 2.0,
         "softjet_evt_dr2": 0.16, 
 
+        "fsr_dROverEt2": 0.012,
+        "fsr_relIso03": 1.8,
+        "pt_fsr_over_mu_e": 0.4,
+ 
         "cat5_dijet_inv_mass": 400.0,
         "cat5_abs_jj_deta_cut": 2.5,
 
@@ -576,12 +582,12 @@ analysis_parameters = {
             "dy_m105_160_vbf_amc": False, 
         },
         "ggh_nnlops_reweight": {
-            "ggh_amc": 1,
-            "ggh_amcPS": 1,
-            "ggh_amcPS_TuneCP5down": 1,
-            "ggh_amcPS_TuneCP5up": 1,
-            "ggh_powheg": 2,
-            "ggh_powhegPS": 2,
+            "ggh_amc_125": 1,
+            "ggh_amcPS_125": 1,
+            "ggh_amcPS_TuneCP5down_125": 1,
+            "ggh_amcPS_TuneCP5up_125": 1,
+            "ggh_powheg_125": 2,
+            "ggh_powhegPS_125": 2,
         },
         "ZpT_reweight": {
             "2016": {
@@ -617,10 +623,10 @@ analysis_parameters = {
             "dRmm": (0,5,11),
             "dEtamm": (-2,2,11),
             "dPhimm": (-2,2,11),
-            "M_jj": (0,2000,11),
-            "pt_jj": (0,400,11),
-            "eta_jj": (-5,5,11),
-            "phi_jj": (-5,5,11),
+            "M_jj": (0,2000,41),
+            "pt_jj": (0,400,41),
+            "eta_jj": (-5,5,41),
+            "phi_jj": (-5,5,41),
             "M_mmjj": (0,2000,11),
             "eta_mmjj": (-3,3,11),
             "phi_mmjj": (-3,3,11),
@@ -628,17 +634,17 @@ analysis_parameters = {
             "Zep": (-2,2,11),
             "minEtaHQ":(-5,5,11),
             "minPhiHQ":(-5,5,11),
-            "leadingJet_pt": (0, 200, 11),
-            "subleadingJet_pt": (0, 200, 11),
+            "leadingJet_pt": (0, 200, 41),
+            "subleadingJet_pt": (0, 200, 41),
             "massErr_rel":(0,0.5,11),
-            "leadingJet_eta": (-5, 5, 11),
-            "subleadingJet_eta": (-5, 5, 11),
-            "leadingJet_qgl": (0, 1, 11),
-            "subleadingJet_qgl": (0, 1, 11),
+            "leadingJet_eta": (-5, 5, 41),
+            "subleadingJet_eta": (-5, 5, 41),
+            "leadingJet_qgl": (0, 1, 41),
+            "subleadingJet_qgl": (0, 1, 41),
             "cthetaCS": (-1, 1, 11),
-            "Higgs_pt": (0, 200, 11),
-            "Higgs_eta": (-3, 3, 11),
-            "Higgs_mass": (110, 150, 11),
+            "Higgs_pt": (0, 200, 41),
+            "Higgs_eta": (-3, 3, 41),
+            "Higgs_mass": (110, 150, 41),
             "dnn_pred": (0, 1, 1001),
             "dnn_pred2": (0, 1, 11),
             "bdt_ucsd": (-1, 1, 11),

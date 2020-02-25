@@ -3,6 +3,7 @@
 
 std::pair<double,double> CSAngles(TLorentzVector& v1, TLorentzVector& v2, int charge);
 std::pair<double,double> CSAnglesPisa(TLorentzVector& v1, TLorentzVector& v2, int charge);
+float PtCorrGeoFit(float d0_BS_charge, float pt_Roch, float eta, int year);
 
 extern "C" {
     void csangles_eval(
@@ -35,4 +36,13 @@ extern "C" {
                 out_phi[iev] = (float)(ret.second);
             }
     }
+    void ptcorrgeofit_eval(
+        float* out_pt, int nev,
+        float* d0_BS, float* pt_Roch, float* eta, int* charge, int* year){
+            #pragma omp parallel for default(none) shared(out_pt, nev, d0_BS, pt_Roch, eta, charge, year) schedule(dynamic, 1000)
+            for (int iev=0; iev<nev; iev++) {
+                out_pt[iev] = PtCorrGeoFit(d0_BS[iev]*(float)(charge[iev]), pt_Roch[iev], eta[iev], year[iev]);
+            }
+    }
+
 }

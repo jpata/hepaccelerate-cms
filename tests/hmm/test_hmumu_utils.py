@@ -119,24 +119,39 @@ class TestAnalysisSmall(unittest.TestCase):
         else:
             get_genpt_cpu(muons.offsets, muons.genPartIdx, genpart.offsets, genpart.pt, muons_genpt)
         muons_genpt = NUMPY_LIB.asnumpy(muons_genpt)
-        self.assertAlmostEqual(NUMPY_LIB.sum(muons_genpt), 11943932)
-        self.assertListEqual(list(muons_genpt[:10]), [105.0, 30.4375, 0.0, 0.0, 140.5, 28.625, 102.75, 41.25, 120.5, 80.5])
+        self.assertAlmostEqual(NUMPY_LIB.sum(muons_genpt), 250438.765625)
+        self.assertListEqual(list(muons_genpt[:10]), [16.875, 53.125, 50.5, 0.0, 153.5, 32.5, 53.75, 53.125, 55.125, 22.6875])
 
     def test_fix_muon_fsrphoton_index(self):
         from hmumu_utils import fix_muon_fsrphoton_index
         NUMPY_LIB = self.NUMPY_LIB
-        
+       
+        analysis_parameters = self.analysis_parameters
+ 
         muons = self.dataset.structs["Muon"][0]
         fsrphotons = self.dataset.structs["FsrPhoton"][0]
         
         out_muons_fsrPhotonIdx = np.zeros_like(NUMPY_LIB.asnumpy(muons.fsrPhotonIdx))
+
+        mu_pt = NUMPY_LIB.asnumpy(muons.pt)
+        mu_eta = NUMPY_LIB.asnumpy(muons.eta)
+        mu_phi = NUMPY_LIB.asnumpy(muons.phi)
+        mu_mass = NUMPY_LIB.asnumpy(muons.mass)
+        mu_iso = NUMPY_LIB.asnumpy(muons.pfRelIso04_all)
+
         fix_muon_fsrphoton_index(
+            mu_pt, mu_eta, mu_phi, mu_mass,
             NUMPY_LIB.asnumpy(fsrphotons.offsets),
             NUMPY_LIB.asnumpy(muons.offsets),
             NUMPY_LIB.asnumpy(fsrphotons.dROverEt2),
+            NUMPY_LIB.asnumpy(fsrphotons.relIso03),
+            NUMPY_LIB.asnumpy(fsrphotons.pt),
             NUMPY_LIB.asnumpy(fsrphotons.muonIdx),
             NUMPY_LIB.asnumpy(muons.fsrPhotonIdx),
-            out_muons_fsrPhotonIdx
+            out_muons_fsrPhotonIdx, 
+            analysis_parameters["baseline"]["fsr_dROverEt2"], 
+            analysis_parameters["baseline"]["fsr_relIso03"], 
+            analysis_parameters["baseline"]["pt_fsr_over_mu_e"]
         )
 
     def test_analyze_function(self):
@@ -165,7 +180,7 @@ class TestAnalysisSmall(unittest.TestCase):
         nev_zpeak_nominal = np.sum(h["nominal"].contents)
 
         if not USE_CUPY:
-            self.assertAlmostEqual(nev_zpeak_nominal, 0.0123814875, places=4)
+            self.assertAlmostEqual(nev_zpeak_nominal, 0.0024816303, places=4)
         
         self.assertTrue("Total__up" in h.keys())
         self.assertTrue("Total__down" in h.keys())

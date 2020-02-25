@@ -26,6 +26,8 @@ class LibHMuMu:
 
             void csanglesPisa_eval(float* out_theta, float* out_phi, int nev, float* pt1, float* eta1, float* phi1, float* mass1, float* pt2, float* eta2, float* phi2, float* mass2, int* charges);
 
+            void ptcorrgeofit_eval(float* out_pt, int nev, float* d0_BS, float* pt_Roch, float* eta, int* charge, int* year);
+            
             void* new_NNLOPSReweighting(const char* path);
             void NNLOPSReweighting_eval(void* c, int igen, float* out_nnlow, int nev, int* genNjets, float* genHiggs_pt);
 
@@ -50,6 +52,7 @@ class LibHMuMu:
 
         self.csangles_eval = self.libhmm.csangles_eval
         self.csanglesPisa_eval = self.libhmm.csanglesPisa_eval
+        self.ptcorrgeofit_eval = self.libhmm.ptcorrgeofit_eval
         
         self.new_NNLOPSReweighting = self.libhmm.new_NNLOPSReweighting
         self.NNLOPSReweighting_eval = self.libhmm.NNLOPSReweighting_eval
@@ -264,3 +267,17 @@ class MiscVariables:
             self.libhmm.cast_as("int *", charges),
         )
         return out_theta, out_phi
+    
+    def ptcorrgeofit(self, d0_BS, pt_Roch, eta, charge, year):
+        nev = len(pt_Roch)
+        out_pt = numpy_lib.zeros(nev, dtype=numpy_lib.float32)
+        self.libhmm.ptcorrgeofit_eval(
+            self.libhmm.cast_as("float *", out_pt),
+            nev,
+            self.libhmm.cast_as("float *", d0_BS),
+            self.libhmm.cast_as("float *", pt_Roch),
+            self.libhmm.cast_as("float *", eta),
+            self.libhmm.cast_as("int *", charge),
+            self.libhmm.cast_as("int *", year),
+        )
+        return out_pt

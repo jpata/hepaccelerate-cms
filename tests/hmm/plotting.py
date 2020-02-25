@@ -785,7 +785,7 @@ if __name__ == "__main__":
     from pars import signal_samples, shape_systematics, common_scale_uncertainties, scale_uncertainties
 
     #create a list of all the processes that need to be loaded from the result files
-    datasets = yaml.load(open("data/datasets_NanoAODv5.yml"), Loader=yaml.FullLoader)["datasets"]
+    datasets = yaml.load(open("data/datasets_NanoAODv6_2016_mixv1.yml"), Loader=yaml.FullLoader)["datasets"]
     mc_samples_load = set([d["name"] for d in datasets])
 
     data_results_glob = cmdline_args.input + "/results/data_*.pkl"

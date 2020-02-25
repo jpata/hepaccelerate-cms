@@ -42,11 +42,11 @@ class TestAnalysis(unittest.TestCase):
         self.analysis_corrections = AnalysisCorrections(self.cmdline_args, True)
         download_if_not_exists(
             "data/myNanoProdMc2016_NANO.root",
-            "https://jpata.web.cern.ch/jpata/hmm/test_files/myNanoProdMc2016_NANO.root"
+            "https://jpata.web.cern.ch/jpata/hmm/test_files/21-02-2020-private-nanoaod/myNanoProdMc2016_NANO.root"
         )
         download_if_not_exists(
             "data/nano_2016_data.root",
-            "https://jpata.web.cern.ch/jpata/hmm/test_files/nano_2016_data.root"
+            "https://jpata.web.cern.ch/jpata/hmm/test_files/21-02-2020-private-nanoaod/nano_2016_data.root"
         )
 
     #Run the analysis on a raw NanoAOD MC sample
@@ -81,9 +81,12 @@ class TestAnalysis(unittest.TestCase):
 
         ret2 = pickle.load(open("test_out/vbf_sync_2016_0.pkl", "rb"))
  
-        self.assertAlmostEqual(ret2["num_events"], 97200)
-        self.assertAlmostEqual(ret2["genEventSumw"], 3.7593771153623963)
-        self.assertAlmostEqual(ret2["baseline"]["selected_events_dimuon"], 62176)
+        print(ret2["num_events"])
+        print(ret2["genEventSumw"])
+        print(ret2["baseline"]["selected_events_dimuon"])
+        self.assertAlmostEqual(ret2["num_events"], 3674)
+        self.assertAlmostEqual(ret2["genEventSumw"], 4.659182940800001)
+        self.assertAlmostEqual(ret2["baseline"]["selected_events_dimuon"], 1561)
     
     #Run the analysis on a skimmed MC sample
     def test_run_analysis_mc_skim(self):
@@ -118,9 +121,12 @@ class TestAnalysis(unittest.TestCase):
 
         ret2 = pickle.load(open("test_out/vbf_sync_skim_2016_0.pkl", "rb"))
  
-        self.assertAlmostEqual(ret2["num_events"], 73903)
-        self.assertAlmostEqual(ret2["genEventSumw"], 3.7593771153623963)
-        self.assertAlmostEqual(ret2["baseline"]["selected_events_dimuon"], 62176)
+        print(ret2["num_events"])
+        print(ret2["genEventSumw"])
+        print(ret2["baseline"]["selected_events_dimuon"])
+        self.assertAlmostEqual(ret2["num_events"], 1880)
+        self.assertAlmostEqual(ret2["genEventSumw"], 4.659182940800001)
+        self.assertAlmostEqual(ret2["baseline"]["selected_events_dimuon"], 1561)
     
     #Run the analysis on a raw NanoAOD data sample 
     def test_run_analysis_data(self):
@@ -154,9 +160,12 @@ class TestAnalysis(unittest.TestCase):
             numev_per_chunk=10000)
 
         ret2 = pickle.load(open("test_out/data_2016_0.pkl", "rb"))
-        self.assertAlmostEqual(ret2["num_events"], 142491)
-        self.assertAlmostEqual(ret2["int_lumi"], 5.633297364)
-        self.assertAlmostEqual(ret2["baseline"]["selected_events_dimuon"], 4031.0)
+        print(ret2["num_events"])
+        print(ret2["int_lumi"])
+        print(ret2["baseline"]["selected_events_dimuon"])
+        self.assertAlmostEqual(ret2["num_events"], 2000)
+        self.assertAlmostEqual(ret2["int_lumi"], 0.130571592)
+        self.assertAlmostEqual(ret2["baseline"]["selected_events_dimuon"], 42)
    
     #Run the analysis on a skimmed data sample 
     def test_run_analysis_data_skim(self):
@@ -190,19 +199,23 @@ class TestAnalysis(unittest.TestCase):
             numev_per_chunk=10000)
 
         ret2 = pickle.load(open("test_out/data_skim_2016_0.pkl", "rb"))
-        self.assertAlmostEqual(ret2["num_events"], 12307)
-        self.assertAlmostEqual(ret2["int_lumi"], 5.633297364)
-        self.assertAlmostEqual(ret2["baseline"]["selected_events_dimuon"], 4032.0)
+        
+        print(ret2["num_events"])
+        print(ret2["int_lumi"])
+        print(ret2["baseline"]["selected_events_dimuon"])
+        self.assertAlmostEqual(ret2["num_events"], 142)
+        self.assertAlmostEqual(ret2["int_lumi"], 0.130571592)
+        self.assertAlmostEqual(ret2["baseline"]["selected_events_dimuon"], 41)
 
         #Not sure why this is different on the skimmed sample... floating point precision in changing the file encoding?
         #self.assertAlmostEqual(ret2["baseline"]["numev_passed"]["muon"], 4024.0)
    
     #Test the analysis on one bkg MC and data file, making sure the data/mc plot looks OK
     def test_run_analysis_mc_and_data(self):
-        fn_mc = "/storage/group/allcit/store/mc/RunIISummer16NanoAODv5/DYJetsToLL_M-50_TuneCUETP8M1_13TeV-amcatnloFXFX-pythia8/NANOAODSIM/PUMoriond17_Nano1June2019_102X_mcRun2_asymptotic_v7_ext2-v1/120000/CBCAE1AB-4AFD-D840-BE00-9E5ABD2E4A20.root"
+        fn_mc = "/storage/user/nlu/hmm/automaticTest/myNanoProdMc2016_NANO.root"
 
         if not os.path.isfile(fn_mc):
-            fn_mc = "data/CBCAE1AB-4AFD-D840-BE00-9E5ABD2E4A20.root"
+            fn_mc = "data/myNanoProdMc2016_NANO.root"
 
         fn_data = "data/nano_2016_data.root"
 
@@ -264,8 +277,10 @@ class TestAnalysis(unittest.TestCase):
             genweights[mc_samp] = res[mc_samp]["genEventSumw"]
             weight_xs[mc_samp] =  cross_sections[mc_samp] * int_lumi / genweights[mc_samp]
         
-        self.assertAlmostEqual(genweights["dy"], 6073.25342144)
-        self.assertAlmostEqual(int_lumi, 5.633297364)
+        print(genweights["dy"])
+        print(int_lumi)
+        self.assertAlmostEqual(genweights["dy"], 4.659182940800001)
+        self.assertAlmostEqual(int_lumi, 0.130571592)
         
         histos = {}
         for sample in mc_samples + ["data"]:

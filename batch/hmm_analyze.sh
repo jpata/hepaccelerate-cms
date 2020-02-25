@@ -24,7 +24,7 @@ export NUMBA_NUM_THREADS=$NTHREADS
 export OMP_NUM_THREADS=$NTHREADS
 
 #This is where the skim files are loaded from
-export CACHE_PATH=/storage/user/jpata/hmm/skim_merged
+export CACHE_PATH=/storage/user/nlu/hmm/skim_merged
 
 WORKDIR=`pwd`
 
@@ -49,9 +49,10 @@ python3 tests/hmm/analysis_hmumu.py \
     --action analyze \
     --nthreads $NTHREADS \
     --datapath /storage/group/allcit \
+    --do-fsr \
     --do-factorized-jec \
     --out $WORKDIR/$OUTDIR \
-    --datasets-yaml data/datasets_NanoAODv5.yml \
+    --datasets-yaml data/datasets_NanoAODv6_2016_mixv1.yml \
     --jobfiles-load $WORKDIR/$OUTDIR/$INFILE
 
 cd $WORKDIR
