@@ -149,9 +149,9 @@ class TestAnalysisSmall(unittest.TestCase):
             NUMPY_LIB.asnumpy(fsrphotons.muonIdx),
             NUMPY_LIB.asnumpy(muons.fsrPhotonIdx),
             out_muons_fsrPhotonIdx, 
-            analysis_parameters["fsr_dROverEt2"], 
-            analysis_parameters["fsr_relIso03"], 
-            analysis_parameters["pt_fsr_over_mu_e"]
+            analysis_parameters["baseline"]["fsr_dROverEt2"], 
+            analysis_parameters["baseline"]["fsr_relIso03"], 
+            analysis_parameters["baseline"]["pt_fsr_over_mu_e"]
         )
 
     def test_analyze_function(self):
