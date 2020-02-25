@@ -124,9 +124,9 @@ class TestAnalysis(unittest.TestCase):
         print(ret2["num_events"])
         print(ret2["genEventSumw"])
         print(ret2["baseline"]["selected_events_dimuon"])
-        self.assertAlmostEqual(ret2["num_events"], 73903)
-        self.assertAlmostEqual(ret2["genEventSumw"], 3.7593771153623963)
-        self.assertAlmostEqual(ret2["baseline"]["selected_events_dimuon"], 62176)
+        self.assertAlmostEqual(ret2["num_events"], 1880)
+        self.assertAlmostEqual(ret2["genEventSumw"], 4.659182940800001)
+        self.assertAlmostEqual(ret2["baseline"]["selected_events_dimuon"], 1561)
     
     #Run the analysis on a raw NanoAOD data sample 
     def test_run_analysis_data(self):
