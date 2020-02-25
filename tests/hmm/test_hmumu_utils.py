@@ -120,7 +120,7 @@ class TestAnalysisSmall(unittest.TestCase):
             get_genpt_cpu(muons.offsets, muons.genPartIdx, genpart.offsets, genpart.pt, muons_genpt)
         muons_genpt = NUMPY_LIB.asnumpy(muons_genpt)
         self.assertAlmostEqual(NUMPY_LIB.sum(muons_genpt), 250438.765625)
-        self.assertListEqual(list(muons_genpt[:10]), [105.0, 30.4375, 0.0, 0.0, 140.5, 28.625, 102.75, 41.25, 120.5, 80.5])
+        self.assertListEqual(list(muons_genpt[:10]), [16.875, 53.125, 50.5, 0.0, 153.5, 32.5, 53.75, 53.125, 55.125, 22.6875])
 
     def test_fix_muon_fsrphoton_index(self):
         from hmumu_utils import fix_muon_fsrphoton_index
