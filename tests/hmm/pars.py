@@ -295,10 +295,13 @@ cross_sections = {
     "ggh_amcPS_TuneCP5down_125": 0.010571,
     "ggh_amcPS_TuneCP5up_125": 0.010571,
     "ggh_amc_125": 0.010571,
-    "ggh_amcPS_120": 0.011363, #5.222E+01 x 0.0002176
-    "ggh_powhegPS_120": 0.011363,
-    "ggh_amcPS_130": 0.00986, #4.531E+01 x 0.0002176
-    "ggh_powhegPS_130": 0.00986,
+
+    "ggh_amcPS_120": 1.265E-02, #5.222E+01 x 2.423E-04 (xs(ggH,H=120 GeV) X br(H->mumu,H=120 GeV))
+    "ggh_powhegPS_120": 1.265E-02,
+
+    "ggh_amcPS_130": 8.505E-03, #4.531E+01 x 1.877E-04 (xs(ggH, H=130 GeV) X br(H->mumu, H=130 GeV))
+    "ggh_powhegPS_130": 8.505E-03,
+
     "vbf_125": 0.000823,
     "vbf_sync": 0.000823,
     "vbf_powheg_herwig_125": 0.000823,
@@ -309,28 +312,35 @@ cross_sections = {
     "vbf_amcPS_TuneCP5up_125": 0.000823,
     "vbf_amcPS_125": 0.000823,
     "vbf_amc_125": 0.000823,
-    "vbf_powheg_herwig_120": 0.000856, #3.935E+00 x 0.0002176
-    "vbf_amcPS_120": 0.000856,
-    "vbf_powheg_pythia_120": 0.000856,
-    "vbf_powhegPS_pythia_120": 0.000856,
-    "vbf_amc_herwig_120": 0.000856,
-    "vbf_powheg_herwig_130": 0.000791,
-    "vbf_amcPS_130": 0.000791,
-    "vbf_powheg_pythia_130": 0.000791,
-    "vbf_powhegPS_pythia_130": 0.000791,
-    "vbf_amc_herwig_130": 0.000791,
+
+    "vbf_powheg_herwig_120": 9.535E-04, #3.935E+00 x 2.423E-04
+    "vbf_amcPS_120": 9.535E-04,
+    "vbf_powheg_pythia_120": 9.535E-04,
+    "vbf_powhegPS_pythia_120": 9.535E-04,
+    "vbf_amc_herwig_120": 9.535E-04,
+
+    "vbf_powheg_herwig_130": 6.827E-04, #3.637E+00 x 1.877E-04
+    "vbf_amcPS_130": 6.827E-04,
+    "vbf_powheg_pythia_130": 6.827E-04,
+    "vbf_powhegPS_pythia_130": 6.827E-04,
+    "vbf_amc_herwig_130": 6.827E-04,
+
     "wmh_125": 0.000116,
-    "wmh_120": 0.000132,
-    "wmh_130": 0.000102,
+    "wmh_120": 1.476E-04,
+    "wmh_130": 8.777E-05,
+
     "wph_125": 0.000183,
-    "wph_120": 0.000208,
-    "wph_130": 0.000161,
+    "wph_120": 2.316E-04,
+    "wph_130": 1.392E-04,
+
     "zh_125": 0.000192,
-    "zh_120": 0.000216,
-    "zh_130": 0.000172,
+    "zh_120": 2.408E-04,
+    "zh_130": 1.483E-04,
+
     "tth_125": 0.000110,
-    "tth_120": 0.000124,
-    "tth_130": 0.000099,
+    "tth_120": 1.380E-04,
+    "tth_130": 8.520E-05,
+
     "bbh_125": 0.000106,
     "ttjets_dl": 85.656,
     "ttjets_sl": 687.0,
