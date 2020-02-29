@@ -276,8 +276,9 @@ extra_plot_kwargs = {
 }
 
 controlplots_shape = [
-    #"inv_mass",
-    "dnn_pred"
+    "inv_mass",
+    "dnn_pred",
+    "dnnPisa_pred"
 ]
 
 cross_sections = {

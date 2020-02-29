@@ -31,7 +31,7 @@ from coffea.jetmet_tools import FactorizedJetCorrector
 from coffea.jetmet_tools import JetResolution
 from coffea.jetmet_tools import JetCorrectionUncertainty
 from coffea.jetmet_tools import JetResolutionScaleFactor
-
+from coffea.btag_tools import BTagScaleFactor
 from concurrent.futures import ProcessPoolExecutor
 
 from typing import List, Dict
@@ -455,9 +455,12 @@ class AnalysisCorrections:
 
         print("Extracting b-tag weights...")
         self.btag_weights = {
-            "DeepCSV_2016": BTagWeights(tag_name="DeepCSV_2016LegacySF_V1"),
-            "DeepCSV_2017": BTagWeights(tag_name="DeepCSV_94XSF_V4_B_F"),
-            "DeepCSV_2018": BTagWeights(tag_name="DeepCSV_102XSF_V1")
+            "DeepCSV_2016": BTagScaleFactor("data/btagSF/DeepCSV_2016LegacySF_V1.csv", BTagScaleFactor.RESHAPE, 'iterativefit,iterativefit,iterativefit', keep_df=True),
+            "DeepCSV_2017": BTagScaleFactor("data/btagSF/DeepCSV_94XSF_V5_B_F.csv", BTagScaleFactor.RESHAPE, 'iterativefit,iterativefit,iterativefit', keep_df=True),
+            "DeepCSV_2018": BTagScaleFactor("data/btagSF/DeepCSV_102XSF_V1.csv", BTagScaleFactor.RESHAPE, 'iterativefit,iterativefit,iterativefit', keep_df=True)
+            #"DeepCSV_2016": BTagWeights(tag_name="DeepCSV_2016LegacySF_V1"),
+            #"DeepCSV_2017": BTagWeights(tag_name="DeepCSV_94XSF_V4_B_F"),
+            #"DeepCSV_2018": BTagWeights(tag_name="DeepCSV_102XSF_V1")
         }
 
 

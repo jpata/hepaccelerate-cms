@@ -25,6 +25,7 @@ install:
   - conda activate myenv
   - conda install awkward cffi cloudpickle lz4 numba numpy psutil python-xxhash pyyaml requests root scipy six tbb tqdm uproot xxhash boost matplotlib
   - pip install tensorflow keras
+  - pip install coffea
   - cd tests/hmm
   - make
   - cd ../..
