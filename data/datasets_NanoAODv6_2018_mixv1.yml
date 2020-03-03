@@ -97,6 +97,18 @@ datasets:
   name: ewk_lljj_mll50_mjj120_ptJ
   skim_cut: "HLT_IsoMu24 && nMuon>=2"
 - era: "2018"
+  files_merged: /store/mc/RunIIAutumn18NanoAODv6/EWK_LLJJ_MLL-50_MJJ-120_TuneCH3_13TeV-madgraph-herwig7/merged_*.root
+  files_nano_in: /store/mc/RunIIAutumn18NanoAODv6/EWK_LLJJ_MLL-50_MJJ-120_TuneCH3_13TeV-madgraph-herwig7/NANOAODSIM/Nano25Oct2019*/*/*.root
+  is_mc: true
+  name: ewk_lljj_mll50_mjj120
+  skim_cut: "HLT_IsoMu24 && nMuon>=2"
+- era: "2018"
+  files_merged: /store/mc/RunIIAutumn18NanoAODv6/EWK_LLJJ_MLL-50_MJJ-120_TuneCP5_13TeV-madgraph-pythia8/merged_*.root
+  files_nano_in: /store/mc/RunIIAutumn18NanoAODv6/EWK_LLJJ_MLL-50_MJJ-120_TuneCP5_13TeV-madgraph-pythia8/NANOAODSIM/Nano25Oct2019*/*/*.root
+  is_mc: true
+  name: ewk_lljj_mll50_mjj120_pythia
+  skim_cut: "HLT_IsoMu24 && nMuon>=2"
+- era: "2018"
   files_merged: /store/mc/Feb132020PisaNanoAOD/2018/EWK_LLJJ_MLL_105-160_ptJ-0_SM_5f_LO_TuneEEC5_13TeV-madgraph-h7/merged_*.root
   files_nano_in: /store/mc/Feb132020PisaNanoAOD/EWZ_AndreaMarini_V8d/EWK_LLJJ_MLL_105-160_ptJ-0_SM_5f_LO_TuneEEC5_13TeV-madgraph-h7/RunIISummer16MiniAODv3_FSRmyNanoProdMc2018*/*/*/*.root
   is_mc: true
@@ -107,6 +119,12 @@ datasets:
   files_nano_in: /store/mc/RunIIAutumn18NanoAODv6/EWK_LLJJ_MLL_105-160_SM_5f_LO_TuneCH3_13TeV-madgraph-herwig7/NANOAODSIM/Nano25Oct2019*/*/*.root
   is_mc: true
   name: ewk_lljj_mll105_160
+  skim_cut: "HLT_IsoMu24 && nMuon>=2"
+- era: "2018"
+  files_merged: /store/mc/unIIAutumn18NanoAODv6/EWK_LLJJ_MLL_105-160_SM_5f_LO_TuneCP5_PSweights_13TeV-madgraph-pythia8/merged_*.root
+  files_nano_in: /store/mc/RunIIAutumn18NanoAODv6/EWK_LLJJ_MLL_105-160_SM_5f_LO_TuneCP5_PSweights_13TeV-madgraph-pythia8/NANOAODSIM/Nano25Oct2019*/*/*.root
+  is_mc: true
+  name: ewk_lljj_mll105_160_pythia
   skim_cut: "HLT_IsoMu24 && nMuon>=2"
 - era: "2018"
   files_merged: /store/mc/RunIIAutumn18NanoAODv6/WWTo2L2Nu_NNPDF31_TuneCP5_13TeV-powheg-pythia8/merged_*.root
