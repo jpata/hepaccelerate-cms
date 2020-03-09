@@ -97,6 +97,11 @@ def analyze_data(
     LHEScalew = None
     if "dy" in dataset_name or "ewk" in dataset_name:
         LHEScalew = data.structs["LHEScaleWeight"][0]
+    
+    LHEPdfw = None
+    if "dy" in dataset_name or "ewk" in dataset_name or "ggh" in dataset_name or "vbf" in dataset_name or "wmh" in dataset_name or "wph" in dataset_name or "zh" in dataset_name or "tth" in dataset_name:
+        LHEPdfw = data.structs["LHEPdfWeight"][0]
+
     histo_bins = parameters["histo_bins"]
 
     #first mask of all events enabled
@@ -347,11 +352,11 @@ def analyze_data(
     #compute variated weights here to ensure the nominal weight contains all possible other weights  
     compute_event_weights(parameters, weights_individual, scalars,
         genweight_scalefactor, gghnnlopsw, ZpTw,
-        LHEScalew, analysis_corrections.pu_corrections, is_mc, dataset_era, dataset_name, use_cuda)
+        LHEScalew, LHEPdfw, analysis_corrections.pu_corrections, is_mc, dataset_era, dataset_name, use_cuda)
 
     #actually multiply all the weights together with the appropriate up/down variations.
     #creates a 1-level dictionary with weights "nominal", "puweight__up", "puweight__down", ..." 
-    weights_final = finalize_weights(weights_individual)
+    weights_final = finalize_weights(weights_individual, parameters, dataset_era)
     '''
     if parameters["do_lepton_sf"] and is_mc:
         lepton_sf_values = compute_lepton_sf(leading_muon, subleading_muon,
@@ -656,6 +661,10 @@ def analyze_data(
                             (dnn_vars["dnnPisa_pred"+str(imodel)], "dnnPisa_pred"+str(imodel), histo_bins["dnnPisa_pred"])
                             for imodel in range(len(dnnPisa_predictions)) if (len(dnnPisa_predictions)!=0)
                         ]
+                        + [
+                            (dnn_vars["dnnPisa_pred"+str(imodel)], "dnnPisa_pred2_"+str(imodel), histo_bins["dnn_pred2"][massbin_name])
+                            for imodel in range(len(dnnPisa_predictions)) if (len(dnnPisa_predictions)!=0)
+                        ]
                         ,
                         (dnn_presel & massbin_msk & msk_cat)[dnn_presel],
                         weights_in_dnn_presel,
@@ -776,7 +785,7 @@ def assign_data_run_id(scalars, data_runs, dataset_era, is_mc, runmap_numerical)
             scalars["run_index"][msk] = runmap_numerical[run_name]
         assert(NUMPY_LIB.sum(scalars["run_index"]==-1)==0)
 
-def finalize_weights(weights, all_weight_names=None):
+def finalize_weights(weights, parameters, dataset_era, all_weight_names=None):
     if all_weight_names is None:
         all_weight_names = weights.keys()
     
@@ -787,7 +796,7 @@ def finalize_weights(weights, all_weight_names=None):
 
     #multitply up all the nominal weights
     for this_syst in all_weight_names:
-        if this_syst == "nominal" or this_syst == "LHEScaleWeight" or this_syst == "mu1_id" or this_syst == "mu1_iso" or this_syst == "mu2_id"or this_syst == "mu2_iso" or this_syst == "btag_weight_bcFl" or this_syst == "btag_weight_lFl":
+        if this_syst == "nominal" or this_syst == "LHEScaleWeight" or this_syst == "LHEPdfWeight" or this_syst == "mu1_id" or this_syst == "mu1_iso" or this_syst == "mu2_id"or this_syst == "mu2_iso" or this_syst == "btag_weight_bcFl" or this_syst == "btag_weight_lFl":
             continue
         ret["nominal"] *= weights[this_syst]["nominal"]
 
@@ -801,6 +810,14 @@ def finalize_weights(weights, all_weight_names=None):
                 wtot = NUMPY_LIB.copy(ret["nominal"])
                 wtot *= wval_this_systematic
                 ret["{0}__{1}".format(this_syst, sdir)] = wtot
+
+        elif this_syst == "LHEPdfWeight":
+            for sdir in range(parameters["n_max_pdfweights"][dataset_era]):
+                wval_this_systematic = weights[this_syst][str(sdir)]
+                wtot = NUMPY_LIB.copy(ret["nominal"])
+                wtot *= wval_this_systematic
+                ret["{0}__{1}".format(this_syst, sdir)] = wtot
+
         else:
             for sdir in ["up", "down", "off"]:
                 #for the particular weight or scenario we are considering, get the variated value
@@ -814,7 +831,7 @@ def finalize_weights(weights, all_weight_names=None):
 
                 wtot *= wval_this_systematic
                 for other_syst in all_weight_names:
-                    if (other_syst == this_syst or other_syst == "nominal") or other_syst == "LHEScaleWeight" or other_syst == "mu1_id" or other_syst == "mu1_iso" or other_syst == "mu2_id"or other_syst == "mu2_iso":
+                    if (other_syst == this_syst or other_syst == "nominal") or other_syst == "LHEScaleWeight" or other_syst == "LHEPdfWeight" or other_syst == "mu1_id" or other_syst == "mu1_iso" or other_syst == "mu2_id"or other_syst == "mu2_iso":
                         continue
                     #Don't apply the nominal btag weight while considering btag systematics. 
                     #Fine to apply btag_lFl nominal (array of ones) while considering shape variation from btag_bcFl (or vice-versa)
@@ -830,7 +847,7 @@ def finalize_weights(weights, all_weight_names=None):
             print("finalized weight", k, ret[k].mean())
     return ret
 
-def compute_event_weights(parameters, weights, scalars, genweight_scalefactor, gghw, zptw, LHEScalew, pu_corrections, is_mc, dataset_era, dataset_name, use_cuda):
+def compute_event_weights(parameters, weights, scalars, genweight_scalefactor, gghw, zptw, LHEScalew, LHEPdfw, pu_corrections, is_mc, dataset_era, dataset_name, use_cuda):
     if is_mc:
         if dataset_name in parameters["ggh_nnlops_reweight"]:
             weights["nominal"]["nominal"] = scalars["genWeight"] * genweight_scalefactor * gghw
@@ -879,6 +896,7 @@ def compute_event_weights(parameters, weights, scalars, genweight_scalefactor, g
             str(n): NUMPY_LIB.ones_like(weights["nominal"]["nominal"])
             for n in range(n_max_lheweights)}
 
+
         #only defined for dy and ewk samples
         if ("dy" in dataset_name) or ("ewk" in dataset_name):
             nevt = len(weights["nominal"]["nominal"])
@@ -886,6 +904,21 @@ def compute_event_weights(parameters, weights, scalars, genweight_scalefactor, g
                 LHEScalew_all = NUMPY_LIB.zeros(nevt, dtype=NUMPY_LIB.float32)
                 get_theoryweights(LHEScalew.offsets, LHEScalew.LHEScaleWeight, iScale, LHEScalew_all, use_cuda)
                 weights["LHEScaleWeight"][str(iScale)] = LHEScalew_all
+
+
+        
+        n_max_pdfw = parameters["n_max_pdfweights"][dataset_era]
+        weights["LHEPdfWeight"] = {
+            str(n): NUMPY_LIB.ones_like(weights["nominal"]["nominal"])
+            for n in range(n_max_pdfw)}
+
+        #only defined for dy and ewk samples or signal samples
+        if "dy" in dataset_name or "ewk" in dataset_name or "ggh" in dataset_name or "vbf" in dataset_name or "wmh" in dataset_name or "wph" in dataset_name or "zh" in dataset_name or "tth" in dataset_name:
+            nevt = len(weights["nominal"]["nominal"])
+            for iScale in range(n_max_pdfw):
+                LHEPdfw_all = NUMPY_LIB.zeros(nevt, dtype=NUMPY_LIB.float32)
+                get_theoryweights(LHEPdfw.offsets, LHEPdfw.LHEPdfWeight, iScale, LHEPdfw_all, use_cuda)
+                weights["LHEPdfWeight"][str(iScale)] = LHEPdfw_all
 
 def evaluate_bdt_ucsd(dnn_vars, gbr_bdt):
     # BDT var=hmmpt
@@ -3349,10 +3382,12 @@ def create_datastructure(dataset_name, is_mc, dataset_era, do_fsr=False):
             datastructures["psweight"] = [
                 ("PSWeight", "float32"),
             ]
-        if "dy" in dataset_name or "ewk" in dataset_name:
+        if "dy" in dataset_name or "ewk" in dataset_name or "ggh" in dataset_name or "vbf" in dataset_name or "wmh" in dataset_name or "wph" in dataset_name or "zh" in dataset_name or "tth" in dataset_name:
             datastructures["LHEPdfWeight"] = [
                 ("LHEPdfWeight", "float32"),
             ]
+        if "dy" in dataset_name or "ewk" in dataset_name:
+            
             datastructures["LHEScaleWeight"] = [
                 ("LHEScaleWeight", "float32"),
             ]
