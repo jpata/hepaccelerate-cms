@@ -31,6 +31,24 @@ datasets:
   name: ggh_powhegPS_pythia_130
   skim_cut: "(HLT_IsoMu24 || HLT_IsoTkMu24) && nMuon>=2"
 - era: "2016"
+  files_merged: /store/mc/RunIISummer16NanoAODv6v2/VBFHToMuMu_M125_TuneCP5_PSweights_13TeV_amcatnlo_pythia8/merged_*.root
+  files_nano_in: /store/mc/RunIISummer16NanoAODv6v2/VBFHToMuMu_M125_TuneCP5_PSweights_13TeV_amcatnlo_pythia8/RunIISummer16MiniAODv3*/*/*/*.root
+  is_mc: true
+  name: vbf_amcPS_pythia_125
+  skim_cut: "(HLT_IsoMu24 || HLT_IsoTkMu24) && nMuon>=2"
+- era: "2016"
+  files_merged: /store/mc/RunIISummer16NanoAODv6v2/VBFHToMuMu_M120_TuneCP5_PSweights_13TeV_amcatnlo_pythia8/merged_*.root
+  files_nano_in: /store/mc/RunIISummer16NanoAODv6v2/VBFHToMuMu_M120_TuneCP5_PSweights_13TeV_amcatnlo_pythia8/RunIISummer16MiniAODv3*/*/*/*.root
+  is_mc: true
+  name: vbf_amcPS_pythia_120
+  skim_cut: "(HLT_IsoMu24 || HLT_IsoTkMu24) && nMuon>=2"
+- era: "2016"
+  files_merged: /store/mc/RunIISummer16NanoAODv6v2/VBFHToMuMu_M130_TuneCP5_PSweights_13TeV_amcatnlo_pythia8/merged_*.root
+  files_nano_in: /store/mc/RunIISummer16NanoAODv6v2/VBFHToMuMu_M130_TuneCP5_PSweights_13TeV_amcatnlo_pythia8/RunIISummer16MiniAODv3*/*/*/*.root
+  is_mc: true
+  name: vbf_amcPS_pythia_130
+  skim_cut: "(HLT_IsoMu24 || HLT_IsoTkMu24) && nMuon>=2"
+- era: "2016"
   files_merged: /store/mc/RunIISummer16NanoAODv6v2/VBFHToMuMu_M-125_TuneEEC5_13TeV-amcatnlo-herwigpp/merged_*.root
   files_nano_in: /store/mc/RunIISummer16NanoAODv6v2/VBFHToMuMu_M-125_TuneEEC5_13TeV-amcatnlo-herwigpp/RunIISummer16MiniAODv3*/*/*/*.root
   is_mc: true

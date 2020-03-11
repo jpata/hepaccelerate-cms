@@ -903,7 +903,7 @@ if __name__ == "__main__":
     from pars import signal_samples, shape_systematics, common_scale_uncertainties, scale_uncertainties
 
     #create a list of all the processes that need to be loaded from the result files
-    datasets = yaml.load(open("data/datasets_NanoAODv6_2016_mixv1.yml"), Loader=yaml.FullLoader)["datasets"]
+    datasets = yaml.load(open("data/datasets_NanoAODv6_Run2_mixv1.yml"), Loader=yaml.FullLoader)["datasets"]
     mc_samples_load = set([d["name"] for d in datasets])
 
     data_results_glob = cmdline_args.input + "/results/data_*.pkl"
@@ -1059,7 +1059,7 @@ if __name__ == "__main__":
         rets = list(pool.map(make_pdf_plot, plot_args))
         #rets = list(pool.map(make_pdf_plot, plot_args_weights_off))
         rets = list(pool.map(create_datacard_combine_wrap, datacard_args))
-        rets = list(pool.map(plot_variations, plot_args_shape_syst))
+        #rets = list(pool.map(plot_variations, plot_args_shape_syst))
 
         #for args, retval in zip(datacard_args, rets):
         #    res, hd, mc_samples, analysis, var, weight, weight_xs, int_lumi, outdir, datataking_year = args
