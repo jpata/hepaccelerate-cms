@@ -29,8 +29,8 @@ export CACHEPATH=/storage/user/nlu/hmm/skim_merged
 ## Step 2: Prepare the list of files to process and run the physics analysis
 singularity exec --nv -B /storage $SINGULARITY_IMAGE python3 tests/hmm/analysis_hmumu.py \
     --action analyze --action merge --maxchunks $MAXCHUNKS \
-    --nthreads $NTHREADS --eras 2016 \
+    --nthreads $NTHREADS \
     --out ./out \
     --datapath $INPUTDATAPATH \
     --cachepath $CACHEPATH \
-    --datasets-yaml data/datasets_NanoAODv6_2016_mixv1.yml
+    --datasets-yaml data/datasets_NanoAODv6_Run2_mixv1.yml
