@@ -3,8 +3,8 @@ import numpy as np
 categories = {
     "dimuon": {
         "datacard_processes" : [
-            "ggh_amcPS_125",
-            "vbf_amc_herwig_125",
+            "ggh_amcPS_pythia_125",
+            "vbf_amcPS_pythia_125",
             "wmh_125",
             "wph_125",
             "zh_125",
@@ -12,7 +12,7 @@ categories = {
             #"wz_1l1nu2q",
             "wz_3lnu", 
             "ww_2l2nu", "wz_2l2q", "zz",
-            "ewk_lljj_mll50_mjj120",
+            "ewk_lljj_mll50_mjj120_herwig",
             #"st_top",
             #"st_t_antitop",
             "st_tw_top",
@@ -24,8 +24,8 @@ categories = {
     },
     "z_peak": {
         "datacard_processes" : [
-            "ggh_amcPS_125",
-            "vbf_amc_herwig_125",
+            "ggh_amcPS_pythia_125",
+            "vbf_amcPS_pythia_125",
             "wmh_125",
             "wph_125",
             "zh_125",
@@ -33,7 +33,7 @@ categories = {
             #"wz_1l1nu2q",
             "wz_3lnu", 
             "ww_2l2nu", "wz_2l2q", "zz",
-            "ewk_lljj_mll50_mjj120",
+            "ewk_lljj_mll50_mjj120_herwig",
             #"st_top",
             #"st_t_antitop",
             "st_tw_top",
@@ -45,8 +45,8 @@ categories = {
     },
     "h_sideband": {
         "datacard_processes" : [
-            "ggh_amcPS_125",
-            "vbf_amc_herwig_125",
+            "ggh_amcPS_pythia_125",
+            "vbf_amcPS_pythia_125",
             "wmh_125",
             "wph_125",
             "zh_125",
@@ -55,7 +55,7 @@ categories = {
             "wz_3lnu", 
             "ww_2l2nu", "wz_2l2q", "zz",
             #"ewk_lljj_mll105_160",
-            "ewk_lljj_mll105_160_ptJ",
+            "ewk_lljj_mll105_160_ptJ_herwig",
             #"st_top",
             #"st_t_antitop",
             "st_tw_top",
@@ -67,8 +67,8 @@ categories = {
     },
     "h_peak": {
         "datacard_processes" : [
-            "ggh_amcPS_125",
-            "vbf_amc_herwig_125",
+            "ggh_amcPS_pythia_125",
+            "vbf_amcPS_pythia_125",
             "wmh_125",
             "wph_125",
             "zh_125",
@@ -76,7 +76,7 @@ categories = {
             #"wz_1l1nu2q",
             "wz_3lnu", 
             "ww_2l2nu", "wz_2l2q", "zz",
-            "ewk_lljj_mll105_160_ptJ",
+            "ewk_lljj_mll105_160_ptJ_herwig",
             #"st_top",
             #"st_t_antitop",
             "st_tw_top",
@@ -94,17 +94,17 @@ proc_grps = [
         ("stop", ["st_tw_top", "st_tw_antitop"]),
         ("tt", ["ttjets_sl", "ttjets_dl",]),
     ]
-combined_signal_samples= ["ggh_amcPS_125", "vbf_amc_herwig_125", "vh_125", "tth_125"]
+combined_signal_samples= ["ggh_amcPS_pythia_125", "vbf_amcPS_pythia_125", "vh_125", "tth_125"]
 combined_categories = {
     "dimuon": {
         "datacard_processes" : [
-            "ggh_amcPS_125",
-            "vbf_amc_herwig_125",
+            "ggh_amcPS_pythia_125",
+            "vbf_amcPS_pythia_125",
             "vh_125",
             "tth_125",
             #"wz_1l1nu2q",
             "vv", 
-            "ewk_lljj_mll50_mjj120",
+            "ewk_lljj_mll50_mjj120_herwig",
             #"st_top",
             #"st_t_antitop",
             "stop",
@@ -115,13 +115,13 @@ combined_categories = {
     },
     "z_peak": {
         "datacard_processes" : [
-            "ggh_amcPS_125",
-            "vbf_amc_herwig_125",
+            "ggh_amcPS_pythia_125",
+            "vbf_amcPS_pythia_125",
             "vh_125",
             "tth_125",
             #"wz_1l1nu2q",
             "vv",
-            "ewk_lljj_mll50_mjj120",
+            "ewk_lljj_mll50_mjj120_herwig",
             #"st_top",
             #"st_t_antitop",
             "stop",
@@ -132,13 +132,13 @@ combined_categories = {
     },
     "h_sideband": {
         "datacard_processes" : [
-            "ggh_amcPS_125",
-            "vbf_amc_herwig_125",
+            "ggh_amcPS_pythia_125",
+            "vbf_amcPS_pythia_125",
             "vh_125",
             "tth_125",
             #"wz_1l1nu2q",
             "vv", 
-            "ewk_lljj_mll105_160_ptJ",
+            "ewk_lljj_mll105_160_ptJ_herwig",
             #"st_top",
             #"st_t_antitop",
             "stop",
@@ -149,13 +149,13 @@ combined_categories = {
     },
     "h_peak": {
         "datacard_processes" : [
-            "ggh_amcPS_125",
-            "vbf_amc_herwig_125",
+            "ggh_amcPS_pythia_125",
+            "vbf_amcPS_pythia_125",
             "vh_125",
             "tth_125",
             #"wz_1l1nu2q",
             "vv", 
-            "ewk_lljj_mll105_160_ptJ",
+            "ewk_lljj_mll105_160_ptJ_herwig",
             #"st_top",
             #"st_t_antitop",
             "stop",
@@ -177,10 +177,10 @@ colors = {
 }
 
 process_groups = [
-    ("higgs", ["ggh_amcPS_125", "vbf_amc_herwig_125", "wmh_125", "wph_125", "zh_125", "tth_125"]),
+    ("higgs", ["ggh_amcPS_pythia_125", "vbf_amcPS_pythia_125", "wmh_125", "wph_125", "zh_125", "tth_125"]),
     ("vv", ["wz_3lnu", "ww_2l2nu", "wz_2l2q", "zz"]),
     ("vvv", ["www","wwz","wzz","zzz"]),
-    ("ewk", ["ewk_lljj_mll50_mjj120", "ewk_lljj_mll105_160_ptJ"]),
+    ("ewk", ["ewk_lljj_mll50_mjj120_herwig", "ewk_lljj_mll105_160_ptJ_herwig"]),
     ("stop", ["st_tw_top", "st_tw_antitop"]),
     ("tt", ["ttjets_sl", "ttjets_dl",]),
     ("dy", ["dy_0j", "dy_1j", "dy_2j", "dy_m105_160_amc", "dy_m105_160_vbf_amc", "dy"]),
@@ -285,22 +285,23 @@ cross_sections = {
     "dy_0j": 4620.52, #https://indico.cern.ch/event/673253/contributions/2756806/attachments/1541203/2416962/20171016_VJetsXsecsUpdate_PH-GEN.pdf
     "dy_1j": 859.59,
     "dy_2j": 338.26,
-    "dy_m105_160_mg": 46.9479,
-    "dy_m105_160_vbf_mg": 2.02,
+    "dy_m105_160_mg": 46.9479, #Pisa 47.17
+    "dy_m105_160_vbf_mg": 46.9479*0.0425242, #Pisa 1.77
     "dy_m105_160_amc": 46.9479, # https://docs.google.com/document/d/1bViX80nXQ_p-W4gI6Fqt9PNQ49B6cP1_FhcKwTZVujo/edit?usp=sharing
     "dy_m105_160_vbf_amc": 46.9479*0.0425242, #https://docs.google.com/document/d/1bViX80nXQ_p-W4gI6Fqt9PNQ49B6cP1_FhcKwTZVujo/edit?usp=sharing
-    "ggh_powheg_125": 0.010571, #48.61 * 0.0002176; https://twiki.cern.ch/twiki/bin/view/LHCPhysics/CERNHLHE2019
-    "ggh_powhegPS_125": 0.010571,
+    "ggh_powheg_pythia_125": 0.010571, #48.61 * 0.0002176; https://twiki.cern.ch/twiki/bin/view/LHCPhysics/CERNHLHE2019
+    "ggh_amcPS_pythia_125": 0.010571,
+    "ggh_powhegPS_pythia_125": 0.010571,
     "ggh_amcPS_125": 0.010571,
     "ggh_amcPS_TuneCP5down_125": 0.010571,
     "ggh_amcPS_TuneCP5up_125": 0.010571,
-    "ggh_amc_125": 0.010571,
+    "ggh_amc_pythia_125": 0.010571,
 
-    "ggh_amcPS_120": 1.265E-02, #5.222E+01 x 2.423E-04 (xs(ggH,H=120 GeV) X br(H->mumu,H=120 GeV))
-    "ggh_powhegPS_120": 1.265E-02,
+    "ggh_amcPS_pythia_120": 1.265E-02, #5.222E+01 x 2.423E-04 (xs(ggH,H=120 GeV) X br(H->mumu,H=120 GeV))
+    "ggh_powhegPS_pythia_120": 1.265E-02,
 
-    "ggh_amcPS_130": 8.505E-03, #4.531E+01 x 1.877E-04 (xs(ggH, H=130 GeV) X br(H->mumu, H=130 GeV))
-    "ggh_powhegPS_130": 8.505E-03,
+    "ggh_amcPS_pythia_130": 8.505E-03, #4.531E+01 x 1.877E-04 (xs(ggH, H=130 GeV) X br(H->mumu, H=130 GeV))
+    "ggh_powhegPS_pythia_130": 8.505E-03,
 
     "vbf_125": 0.000823,
     "vbf_sync": 0.000823,
@@ -310,21 +311,24 @@ cross_sections = {
     "vbf_amc_herwig_125": 0.000823,
     "vbf_amcPS_TuneCP5down_125": 0.000823,
     "vbf_amcPS_TuneCP5up_125": 0.000823,
-    "vbf_amcPS_125": 0.000823,
-    "vbf_amc_125": 0.000823,
+    "vbf_amcPS_pythia_125": 0.000823,
+    "vbf_amc_pythia_125": 0.000823,
+    "vbf_amcPS_pythia_125": 0.000823,
 
     "vbf_powheg_herwig_120": 9.535E-04, #3.935E+00 x 2.423E-04
     "vbf_amcPS_120": 9.535E-04,
     "vbf_powheg_pythia_120": 9.535E-04,
     "vbf_powhegPS_pythia_120": 9.535E-04,
     "vbf_amc_herwig_120": 9.535E-04,
-
+    "vbf_amcPS_pythia_120": 9.535E-04,
+    
     "vbf_powheg_herwig_130": 6.827E-04, #3.637E+00 x 1.877E-04
     "vbf_amcPS_130": 6.827E-04,
     "vbf_powheg_pythia_130": 6.827E-04,
     "vbf_powhegPS_pythia_130": 6.827E-04,
     "vbf_amc_herwig_130": 6.827E-04,
-
+    "vbf_amcPS_pythia_130": 6.827E-04,
+    
     "wmh_125": 0.000116,
     "wmh_120": 1.476E-04,
     "wmh_130": 8.777E-05,
@@ -353,13 +357,16 @@ cross_sections = {
     "st_t_antitop": 80.95,
     "st_tw_top": 35.85,
     "st_tw_antitop": 35.85,
-    "ewk_lljj_mll105_160": 0.0508896,
-    "ewk_lljj_mll105_160_ptJ": 0.07486, #from Pisa Group https://github.com/arizzi/PisaHmm/blob/59bbce76ab1532c59b44b41a9371591204f24df6/samples2016.py#L30
+    "ewk_lljj_mll105_160_pythia": 0.0508896,
+    "ewk_lljj_mll105_160_herwig": 0.0508896,
+    "ewk_lljj_mll105_160_ptJ_herwig": 0.07486, #from Pisa Group https://github.com/arizzi/PisaHmm/blob/59bbce76ab1532c59b44b41a9371591204f24df6/samples2016.py#L30
 
     # Note via Nan L.: the 2016 sample has a different tune, for which Stephane C.
     # computed a new cross-section from MINIAOD using
     # https://twiki.cern.ch/twiki/bin/viewauth/CMS/HowToGenXSecAnalyzer
-    "ewk_lljj_mll50_mjj120": {"2016": 1.611, "2017": 1.700, "2018": 1.700},
+    "ewk_lljj_mll50_mjj120_herwig": {"2016": 1.611, "2017": 1.700, "2018": 1.700},
+    "ewk_lljj_mll50_mjj120_ptJ_herwig": 2.734,
+    "ewk_lljj_mll50_mjj120_pythia": {"2016": 1.611, "2017": 1.700, "2018": 1.700},
 
     "ttw": 0.2001,
     "ttz": 0.2529,
@@ -370,7 +377,7 @@ cross_sections = {
     "zzz": 0.01398
 }
 
-signal_samples = ["ggh_amcPS_125", "vbf_125", "wmh_125", "wph_125", "zh_125", "tth_125"]
+signal_samples = ["ggh_amcPS_pythia_125", "vbf_amcPS_pythia_125", "wmh_125", "wph_125", "zh_125", "tth_125"]
 #jec_unc = [
 #    'AbsoluteMPFBias', 'AbsoluteScale', 'AbsoluteStat',
 #    'FlavorQCD', 'TimePtEta', 'Fragmentation', 'PileUpDataMC',
@@ -596,12 +603,10 @@ analysis_parameters = {
             "dy_m105_160_vbf_amc": False, 
         },
         "ggh_nnlops_reweight": {
-            "ggh_amc_125": 1,
-            "ggh_amcPS_125": 1,
-            "ggh_amcPS_TuneCP5down_125": 1,
-            "ggh_amcPS_TuneCP5up_125": 1,
-            "ggh_powheg_125": 2,
-            "ggh_powhegPS_125": 2,
+            "ggh_amc_pythia_125": 1,
+            "ggh_amcPS_pythia_125": 1,
+            "ggh_powheg_pythia_125": 2,
+            "ggh_powhegPS_pythia_125": 2,
         },
         "ZpT_reweight": {
             "2016": {

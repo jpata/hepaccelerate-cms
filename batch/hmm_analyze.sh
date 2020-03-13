@@ -52,7 +52,7 @@ python3 tests/hmm/analysis_hmumu.py \
     --do-fsr \
     --do-factorized-jec \
     --out $WORKDIR/$OUTDIR \
-    --datasets-yaml data/datasets_NanoAODv6_2016_mixv1.yml \
+    --datasets-yaml data/datasets_NanoAODv6_Run2_mixv1.yml \
     --jobfiles-load $WORKDIR/$OUTDIR/$INFILE
 
 cd $WORKDIR

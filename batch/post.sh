@@ -20,7 +20,7 @@ export PYTHONPATH=coffea:hepaccelerate:.
 python3 tests/hmm/analysis_hmumu.py \
     --action merge \
     --nthreads $NTHREADS \
-    --datasets-yaml data/datasets_NanoAODv6_2016_mixv1.yml \
+    --datasets-yaml data/datasets_NanoAODv6_Run2_mixv1.yml \
     --out /storage/user/$USER/hmm/out
 
 #Run plots
