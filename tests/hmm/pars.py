@@ -285,8 +285,8 @@ cross_sections = {
     "dy_0j": 4620.52, #https://indico.cern.ch/event/673253/contributions/2756806/attachments/1541203/2416962/20171016_VJetsXsecsUpdate_PH-GEN.pdf
     "dy_1j": 859.59,
     "dy_2j": 338.26,
-    "dy_m105_160_mg": 46.9479,
-    "dy_m105_160_vbf_mg": 2.02,
+    "dy_m105_160_mg": 46.9479, #Pisa 47.17
+    "dy_m105_160_vbf_mg": 46.9479*0.0425242, #Pisa 1.77
     "dy_m105_160_amc": 46.9479, # https://docs.google.com/document/d/1bViX80nXQ_p-W4gI6Fqt9PNQ49B6cP1_FhcKwTZVujo/edit?usp=sharing
     "dy_m105_160_vbf_amc": 46.9479*0.0425242, #https://docs.google.com/document/d/1bViX80nXQ_p-W4gI6Fqt9PNQ49B6cP1_FhcKwTZVujo/edit?usp=sharing
     "ggh_powheg_pythia_125": 0.010571, #48.61 * 0.0002176; https://twiki.cern.ch/twiki/bin/view/LHCPhysics/CERNHLHE2019
@@ -365,8 +365,7 @@ cross_sections = {
     # computed a new cross-section from MINIAOD using
     # https://twiki.cern.ch/twiki/bin/viewauth/CMS/HowToGenXSecAnalyzer
     "ewk_lljj_mll50_mjj120_herwig": {"2016": 1.611, "2017": 1.700, "2018": 1.700},
-    #wrong
-    "ewk_lljj_mll50_mjj120_ptJ_herwig": {"2016": 1.611, "2017": 1.700, "2018": 1.700},
+    "ewk_lljj_mll50_mjj120_ptJ_herwig": 2.734,
     "ewk_lljj_mll50_mjj120_pythia": {"2016": 1.611, "2017": 1.700, "2018": 1.700},
 
     "ttw": 0.2001,
