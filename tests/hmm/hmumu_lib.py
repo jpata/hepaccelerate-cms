@@ -74,6 +74,10 @@ class RochesterCorrections:
 
     def compute_kScaleDT(self, pts, etas, phis, charges):
         out = numpy_lib.zeros_like(pts)
+        nev = len(pts)
+        assert(len(etas) == nev)
+        assert(len(phis) == nev)
+        assert(len(charges) == nev)
         self.libhmm.roccor_kScaleDT(self.c_class,
             self.libhmm.cast_as("float *", out), len(out), #output
             self.libhmm.cast_as("int *", charges),
@@ -86,6 +90,13 @@ class RochesterCorrections:
 
     def compute_kSpreadMC_or_kSmearMC(self, pts, etas, phis, charges, genpts, tracklayers, rnds):
         out = numpy_lib.zeros_like(pts)
+        nev = len(pts)
+        assert(len(etas) == nev)
+        assert(len(phis) == nev)
+        assert(len(charges) == nev)
+        assert(len(genpts) == nev)
+        assert(len(tracklayers) == nev)
+        assert(len(rnds) == nev)
         self.libhmm.roccor_kSpreadMC_or_kSmearMC(self.c_class,
             self.libhmm.cast_as("float *", out), len(out), #output
             self.libhmm.cast_as("int *", charges),
@@ -171,6 +182,8 @@ class NNLOPSReweighting:
 
     def compute(self, genNjets, genHiggs_pt, igen):
         out_nnlow = numpy_lib.ones_like(genNjets, dtype=numpy_lib.float32)
+        nev = len(genNjets)
+        assert(len(genHiggs_pt) == nev)
         self.libhmm.NNLOPSReweighting_eval(
             self.c_class,
             igen,
@@ -195,6 +208,10 @@ class hRelResolution:
 
     def compute(self, mu1_pt, mu1_eta, mu2_pt, mu2_eta):
         out_hres = numpy_lib.ones_like(mu1_pt, dtype=numpy_lib.float32)
+        nev = len(mu1_pt)
+        assert(len(mu1_eta) == nev)
+        assert(len(mu2_pt) == nev)
+        assert(len(mu2_eta) == nev)
         self.libhmm.hRelResolution_eval(
             self.c_class,
             self.libhmm.cast_as("float *", out_hres),
@@ -228,6 +245,14 @@ class MiscVariables:
 
     def csangles(self, pt1, eta1, phi1, mass1, pt2, eta2, phi2, mass2, charges):
         nev = len(pt1)
+        assert(len(eta1) == nev)
+        assert(len(phi1) == nev)
+        assert(len(mass1) == nev)
+        assert(len(pt2) == nev)
+        assert(len(eta2) == nev)
+        assert(len(phi2) == nev)
+        assert(len(mass2) == nev)
+        assert(len(charges) == nev)
         out_theta = numpy_lib.zeros(nev, dtype=numpy_lib.float32)
         out_phi = numpy_lib.zeros(nev, dtype=numpy_lib.float32)
 
@@ -249,6 +274,14 @@ class MiscVariables:
 
     def csanglesPisa(self, pt1, eta1, phi1, mass1, pt2, eta2, phi2, mass2, charges):
         nev = len(pt1)
+        assert(len(eta1) == nev)
+        assert(len(phi1) == nev)
+        assert(len(mass1) == nev)
+        assert(len(pt2) == nev)
+        assert(len(eta2) == nev)
+        assert(len(phi2) == nev)
+        assert(len(mass2) == nev)
+        assert(len(charges) == nev)
         out_theta = numpy_lib.zeros(nev, dtype=numpy_lib.float32)
         out_phi = numpy_lib.zeros(nev, dtype=numpy_lib.float32)
 
@@ -271,6 +304,10 @@ class MiscVariables:
     def ptcorrgeofit(self, d0_BS, pt_Roch, eta, charge, year):
         nev = len(pt_Roch)
         out_pt = numpy_lib.zeros(nev, dtype=numpy_lib.float32)
+        assert(len(d0_BS) == nev)
+        assert(len(eta) == nev)
+        assert(len(charge) == nev)
+        assert(len(year) == nev)
         self.libhmm.ptcorrgeofit_eval(
             self.libhmm.cast_as("float *", out_pt),
             nev,
