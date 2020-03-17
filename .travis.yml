@@ -23,8 +23,9 @@ install:
   - conda config --add channels conda-forge
   - conda create -n myenv python=3.7
   - conda activate myenv
-  - conda install awkward cffi cloudpickle lz4 numba numpy psutil python-xxhash pyyaml requests root scipy six tbb tqdm uproot xxhash boost matplotlib
-  - pip install tensorflow keras
+  - conda install --channel "intel" -y tbb numba numpy scipy tensorflow-gpu==1.14.0 
+  - conda install awkward cffi cloudpickle lz4 psutil python-xxhash pyyaml requests root six tbb tqdm uproot xxhash boost matplotlib
+  - pip install -U keras
   - pip install coffea
   - cd tests/hmm
   - make

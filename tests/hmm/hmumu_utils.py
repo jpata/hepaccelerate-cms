@@ -2218,7 +2218,7 @@ def do_geofit_corrections(
     miscvariables,
     muons,
     dataset_era):
-    years = int(dataset_era)*NUMPY_LIB.ones(len(muons.pt), dtype=NUMPY_LIB.int8)
+    years = int(dataset_era)*NUMPY_LIB.ones(len(muons.pt), dtype=NUMPY_LIB.int32)
     muon_pt_corr = miscvariables.ptcorrgeofit(
         NUMPY_LIB.asnumpy(muons.dxybs),
         NUMPY_LIB.asnumpy(muons.pt),

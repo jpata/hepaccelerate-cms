@@ -1,6 +1,9 @@
 all: libhmm.so
 
-CXX      = g++ -fPIC -fopenmp -O3
+# We need to be careful to link against the intel version of OpenMP to prevent segfaults
+# https://stackoverflow.com/questions/25986091/telling-gcc-to-not-link-libgomp-so-it-links-libiomp5-instead
+CXX      = g++ -fPIC -O3
+LINK     = g++ -fPIC -L/usr/local/anaconda3/lib -liomp5 -lmkl_intel_thread
 
 CXXFLAGS= $(shell root-config --cflags)
 LIBS    = $(shell root-config --libs)
@@ -14,7 +17,7 @@ OBJECTS = $(SOURCES:.cc=.o)
 	$(CXX) $(CXXFLAGS) -c -o $@ $< 
 
 libhmm.so: $(OBJECTS)
-	$(CXX) $(LIBS) -shared -o $@ $^
+	$(LINK) $(LIBS) -shared -o $@ $^
 
 # Specifying the object files as intermediates deletes them automatically after the build process.
 .INTERMEDIATE:  $(OBJECTS) tmva
