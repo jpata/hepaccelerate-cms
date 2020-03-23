@@ -54,8 +54,9 @@ categories = {
             #"wz_1l1nu2q",
             "wz_3lnu", 
             "ww_2l2nu", "wz_2l2q", "zz",
-            #"ewk_lljj_mll105_160",
             "ewk_lljj_mll105_160_ptJ_herwig",
+            "ewk_lljj_mll105_160_herwig",
+            "ewk_lljj_mll105_160_pythia",
             #"st_top",
             #"st_t_antitop",
             "st_tw_top",
@@ -77,6 +78,8 @@ categories = {
             "wz_3lnu", 
             "ww_2l2nu", "wz_2l2q", "zz",
             "ewk_lljj_mll105_160_ptJ_herwig",
+            "ewk_lljj_mll105_160_herwig",
+            "ewk_lljj_mll105_160_pythia",
             #"st_top",
             #"st_t_antitop",
             "st_tw_top",
@@ -139,6 +142,8 @@ combined_categories = {
             #"wz_1l1nu2q",
             "vv", 
             "ewk_lljj_mll105_160_ptJ_herwig",
+            "ewk_lljj_mll105_160_herwig",
+            "ewk_lljj_mll105_160_pythia",
             #"st_top",
             #"st_t_antitop",
             "stop",
@@ -156,6 +161,8 @@ combined_categories = {
             #"wz_1l1nu2q",
             "vv", 
             "ewk_lljj_mll105_160_ptJ_herwig",
+            "ewk_lljj_mll105_160_herwig",
+            "ewk_lljj_mll105_160_pythia",
             #"st_top",
             #"st_t_antitop",
             "stop",
@@ -397,7 +404,7 @@ jec_unc = ['Absolute', 'Absolute2018', 'BBEC1', 'BBEC12018', 'EC2', 'EC22018', '
 
 #Uncomment to use just the total JEC for quick tests
 #jec_unc = ["Total"]
-shape_systematics = jec_unc + ["jer", "trigger", "id", "iso", "jet_puid","puWeight", "L1PreFiringWeight","DYLHEScaleWeightZ","EWZLHEScaleWeightZ","DYLHEScaleWeight","EWZLHEScaleWeight","btag_weight_bcFl","btag_weight_lFl","LHEPdfWeight"]
+shape_systematics = jec_unc + ["jer", "trigger", "id", "iso", "jet_puid","puWeight", "L1PreFiringWeight","DYLHEScaleWeightZ","EWZLHEScaleWeightZ","DYLHEScaleWeight","EWZLHEScaleWeight","btag_weight_bcFl","btag_weight_lFl","LHEPdfWeight","EWZ105160PS"]
 common_scale_uncertainties = {
     "lumi": 1.025,
 }

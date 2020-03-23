@@ -192,6 +192,7 @@ def plot_variations(args):
                            kwargs_step={"label": sdir.replace("__", "") + " ({0:.3E})".format(np.sum(hvar.contents))},
             
             )
+        
     if((('DYLHEScaleWeight' in unc) and ('dy' in mc_samp)) or (('EWZLHEScaleWeight' in unc) and ('ewk' in mc_samp) )):
         
         h_lhe =[]
@@ -403,10 +404,9 @@ def mask_inv_mass(hist):
     hist["contents_w2"][bin_idx1:bin_idx2] = 0.0
 
 def create_variated_histos(proc,
-    hdict, era,
+    hdict, hdict_ps_pythia, hdict_ps_herwig, era,
     baseline="nominal",
         variations=shape_systematics):
- 
     if not baseline in hdict.keys():
         raise KeyError("baseline histogram missing")
     
@@ -429,6 +429,19 @@ def create_variated_histos(proc,
             else:
                 hret = hdict[sname]
             ret[sname2] = hret
+ 
+    if('EWZ105160PS' in variations) and ('ewk_lljj_mll105_160_ptJ_herwig' in proc):
+        h_ps_pythia = copy.deepcopy(hdict_ps_pythia[baseline])
+        h_ps_herwig = copy.deepcopy(hdict_ps_herwig[baseline])
+        hnom = copy.deepcopy(hbase)
+        h_nom_up = copy.deepcopy(hbase)
+        h_nom_down = copy.deepcopy(hbase)
+        for k in range(len(hnom.contents)):
+            h_nom_up.contents[k] = hnom.contents[k] + 0.2*(h_ps_pythia.contents[k] - h_ps_herwig.contents[k])
+            h_nom_down.contents[k] = hnom.contents[k] - 0.2*(h_ps_pythia.contents[k] - h_ps_herwig.contents[k])
+        ret['EWZ105160PSUp']=h_nom_up
+        ret['EWZ105160PSDown']=h_nom_down
+
     if(('DYLHEScaleWeight' in variations) or ('EWZLHEScaleWeight' in variations)):
         h_lhe =[]
         h_nom_up = copy.deepcopy(hbase)
@@ -502,15 +515,23 @@ def create_datacard(dict_procs, parameter_name, all_processes, histname, baselin
     for pid,pid_procs in proc_grps:
         event_counts[pid]=0
     for proc in all_processes:
-        #print("create_datacard", proc)
         rr = dict_procs[proc]
         _variations = variations
-
+        
+        ps_pythia = 'ewk_lljj_mll105_160_pythia'
+        ps_herwig = 'ewk_lljj_mll105_160_herwig'
+        if ((ps_pythia in dict_procs.keys()) and (ps_herwig in dict_procs.keys())):
+            rr_ps_pythia = dict_procs[ps_pythia]
+            rr_ps_herwig = dict_procs[ps_herwig]
+        else:
+            rr_ps_pythia = rr
+            rr_ps_herwig = rr
+            
         #don't produce variated histograms for data
         if proc == "data":
             _variations = []
 
-        variated_histos = create_variated_histos(proc, rr, era, baseline, _variations)
+        variated_histos = create_variated_histos(proc, rr, rr_ps_pythia, rr_ps_herwig, era, baseline, _variations)
 
         for syst_name, histo in variated_histos.items():
             if proc != "data":
@@ -523,7 +544,6 @@ def create_datacard(dict_procs, parameter_name, all_processes, histname, baselin
                     if proc in pid_procs:
                         event_counts[pid]+= np.sum(histo.contents)
                         found_proc=1
-                        #print(pid,proc, syst_name, np.sum(histo.contents))
                     
                 if proc != "data":
                     hists_mc += [histo]
@@ -1066,3 +1086,4 @@ if __name__ == "__main__":
         #    htot_nominal, hd, htot_variated, hdelta_quadrature = retval
         #    wd = wasserstein_distance(htot_nominal.contents/np.sum(htot_nominal.contents), hd.contents/np.sum(hd.contents))
         #    print("DataToMC", analysis, var, wd)
+
