@@ -192,7 +192,6 @@ def plot_variations(args):
                            kwargs_step={"label": sdir.replace("__", "") + " ({0:.3E})".format(np.sum(hvar.contents))},
             
             )
-        
     if((('DYLHEScaleWeight' in unc) and ('dy' in mc_samp)) or (('EWZLHEScaleWeight' in unc) and ('ewk' in mc_samp) )):
         
         h_lhe =[]
@@ -1086,4 +1085,3 @@ if __name__ == "__main__":
         #    htot_nominal, hd, htot_variated, hdelta_quadrature = retval
         #    wd = wasserstein_distance(htot_nominal.contents/np.sum(htot_nominal.contents), hd.contents/np.sum(hd.contents))
         #    print("DataToMC", analysis, var, wd)
-
