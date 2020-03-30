@@ -284,7 +284,7 @@ extra_plot_kwargs = {
 controlplots_shape = [
     "inv_mass",
     "dnn_pred2",
-    "dnnPisa_pred2"
+    "dnnPisa_predf"
 ]
 
 cross_sections = {
@@ -366,7 +366,7 @@ cross_sections = {
     "st_tw_antitop": 35.85,
     "ewk_lljj_mll105_160_pythia": 0.0508896,
     "ewk_lljj_mll105_160_herwig": 0.0508896,
-    "ewk_lljj_mll105_160_ptJ_herwig": 0.07486, #from Pisa Group https://github.com/arizzi/PisaHmm/blob/59bbce76ab1532c59b44b41a9371591204f24df6/samples2016.py#L30
+    "ewk_lljj_mll105_160_ptJ_herwig": {"2016": 0.07486, "2017": 0.0789, "2018": 0.0789}, #from Pisa Group https://github.com/arizzi/PisaHmm/blob/59bbce76ab1532c59b44b41a9371591204f24df6/samples2016.py#L30
 
     # Note via Nan L.: the 2016 sample has a different tune, for which Stephane C.
     # computed a new cross-section from MINIAOD using
@@ -508,6 +508,7 @@ varnames = {
     "dRmin_mj": "min $\Delta R (\mu j)$",
     "dijet_inv_mass": "dijet invariant mass $M_{jj} [GeV]",
     "dnn_pred2": "signal DNN", 
+    "dnnPisa_predf": "signal Pisa DNN",
     "eta_mmjj": "$\eta_{\mu\mu j_1 j_2}$",
     "hmmthetacs": "$\theta_{CS}$",
     "inv_mass": "$M_{\mu\mu}$",
@@ -558,7 +559,7 @@ analysis_parameters = {
 
         "do_rochester_corrections": True, 
         "do_lepton_sf": True,
-        "do_geofit": True,
+        "do_geofit": False,
         
         "do_jec": True,
         "do_jer": {"2016": False, "2017": True, "2018": True},
@@ -671,19 +672,18 @@ analysis_parameters = {
             "Higgs_pt": (0, 200, 41),
             "Higgs_eta": (-3, 3, 41),
             "Higgs_mass": (110, 150, 41),
-            "dnn_pred": (0, 1, 1001),
-            "dnn_pred2": (0, 1, 11),
-            "bdt_ucsd": (-1, 1, 11),
-            "bdt2j_ucsd": (-1, 1, 11),
-            "bdt01j_ucsd": (-1, 1, 11),
-            "MET_pt": (0, 200, 11),
             "hmmthetacs": (-1, 1, 11),
             "hmmphics": (-4, 4, 11),
+            "dnn_pred": (0, 1, 1001),
+            "dnnPisa_pred": (0, 1, 1001)
+            #"bdt_ucsd": (-1, 1, 11),
+            #"bdt2j_ucsd": (-1, 1, 11),
+            #"bdt01j_ucsd": (-1, 1, 11)
         },
 
         "do_bdt_ucsd": False,
         "do_dnn_pisa": True,
-        "do_dnn_cit": True,
+        "do_dnn_cit": False,
     },
 }
 #define the histogram binning
@@ -702,7 +702,7 @@ histo_bins = {
     "massErr": np.linspace(0, 10, 101, dtype=np.float32),
     "massErr_rel": np.linspace(0, 0.05, 101, dtype=np.float32),
     "DeepCSV": np.linspace(0, 1, 11, dtype=np.float32),
-    "dnnPisa_pred" : np.linspace(0,1,1001, dtype=np.float32),
+    #"dnnPisa_pred" : np.linspace(0,1,1001, dtype=np.float32),
 
 }
 for hname, bins in analysis_parameters["baseline"]["dnn_input_histogram_bins"].items():
@@ -716,6 +716,13 @@ histo_bins["dnn_pred2"] = {
     "h_peak": np.array([0., 0.905, 0.915, 0.925, 0.935, 0.94, 0.945, 0.95, 0.955, 0.96, 0.965,0.97, 0.975,0.98, 0.985,1.0], dtype=np.float32),
     "z_peak": np.array([0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], dtype=np.float32),
     "h_sideband": np.array([0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], dtype=np.float32),
+}
+
+
+histo_bins["dnnPisa_predf"] = {
+    "h_peak": np.array([0.0, 0.797, 0.892, 0.939, 0.964, 0.976, 0.983, 0.988, 0.991, 0.994, 0.996, 0.998, 1.0], dtype=np.float32),
+    "z_peak": np.array([0.0, 0.797, 0.892, 0.939, 0.964, 0.976, 0.983, 0.988, 0.991, 0.994, 0.996, 0.998, 1.0], dtype=np.float32),
+    "h_sideband": np.array([0.0, 0.797, 0.892, 0.939, 0.964, 0.976, 0.983, 0.988, 0.991, 0.994, 0.996, 0.998, 1.0], dtype=np.float32),
 }
 
 analysis_parameters["baseline"]["histo_bins"] = histo_bins

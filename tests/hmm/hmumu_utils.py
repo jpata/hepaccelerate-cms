@@ -649,7 +649,10 @@ def analyze_data(
                         weights_selected,
                         use_cuda
                     )
-
+                    
+                    print("plot CIT dnn histos")
+                    print("dnn_vars.keys(): ",dnn_vars.keys())
+                    print("histo_bins.keys(): ",histo_bins.keys())
                     fill_histograms_several(
                         hists, jet_syst_name, "hist__dimuon_invmass_{0}_cat{1}__".format(massbin_name, icat),
                         [
@@ -658,18 +661,22 @@ def analyze_data(
                         ] + [
                             (dnn_vars["dnn_pred"], "dnn_pred2", histo_bins["dnn_pred2"][massbin_name])
                         ] + [
-                            (dnn_vars["dnnPisa_pred"+str(imodel)], "dnnPisa_pred"+str(imodel), histo_bins["dnnPisa_pred"])
-                            for imodel in range(len(dnnPisa_predictions)) if (len(dnnPisa_predictions)!=0)
-                        ]
-                        + [
-                            (dnn_vars["dnnPisa_pred"+str(imodel)], "dnnPisa_pred2_"+str(imodel), histo_bins["dnn_pred2"][massbin_name])
-                            for imodel in range(len(dnnPisa_predictions)) if (len(dnnPisa_predictions)!=0)
-                        ]
-                        ,
+                            (dnn_vars["dnnPisa_pred"], "dnnPisa_predf", histo_bins["dnnPisa_predf"][massbin_name])
+                        ],
                         (dnn_presel & massbin_msk & msk_cat)[dnn_presel],
                         weights_in_dnn_presel,
                         use_cuda
                     )
+                    #print("plot Pisa dnn histos")
+                    #fill_histograms_several(
+                    #    hists, jet_syst_name, "hist__dimuon_invmass_{0}_cat{1}__".format(massbin_name, icat),
+                    #    [
+                    #        (dnn_vars["dnnPisa_pred"], "dnnPisa_pred2", histo_bins["dnnPisa_pred2"][massbin_name])
+                    #    ],
+                    #    (dnn_presel & massbin_msk & msk_cat)[dnn_presel],
+                    #    weights_in_dnn_presel,
+                    #    use_cuda
+                    #)
          #end of isyst loop
     #end of uncertainty_name loop
 
@@ -692,7 +699,6 @@ def fill_histograms_several(hists, systematic_name, histname_prefix, variables, 
             raise Exception("Data array {0} is of incompatible size".format(varname))
         all_arrays += [array]
         all_bins += [bins]
-
     max_bins = max([b.shape[0] for b in all_bins])
     stacked_array = NUMPY_LIB.stack(all_arrays, axis=0)
     stacked_bins = np.concatenate(all_bins)

@@ -402,17 +402,18 @@ def mask_inv_mass(hist):
     hist["contents"][bin_idx1:bin_idx2] = 0.0
     hist["contents_w2"][bin_idx1:bin_idx2] = 0.0
 
-def create_variated_histos(proc,
-    hdict, hdict_ps_pythia, hdict_ps_herwig, era,
+def create_variated_histos(weight_xs, proc,
+    hdict, hdict_ps_pythia, ps_pythia, hdict_ps_herwig, ps_herwig, era,
     baseline="nominal",
         variations=shape_systematics):
     if not baseline in hdict.keys():
         raise KeyError("baseline histogram missing")
-    
+   
     #hbase = copy.deepcopy(hdict[baseline])
     hbase = hdict[baseline]
     ret = Results(OrderedDict())
     ret["nominal"] = hbase
+    
     for variation in variations:
         for vdir in ["up", "down"]:
             #print("create_variated_histos", variation, vdir)
@@ -435,9 +436,17 @@ def create_variated_histos(proc,
         hnom = copy.deepcopy(hbase)
         h_nom_up = copy.deepcopy(hbase)
         h_nom_down = copy.deepcopy(hbase)
+        hnom = hnom * weight_xs[proc]
+        h_ps_pythia = h_ps_pythia * weight_xs[ps_pythia]
+        h_ps_herwig = h_ps_herwig * weight_xs[ps_herwig]
         for k in range(len(hnom.contents)):
             h_nom_up.contents[k] = hnom.contents[k] + 0.2*(h_ps_pythia.contents[k] - h_ps_herwig.contents[k])
             h_nom_down.contents[k] = hnom.contents[k] - 0.2*(h_ps_pythia.contents[k] - h_ps_herwig.contents[k])
+        hnom = hnom * (1./weight_xs[proc])
+        h_nom_up = h_nom_up * (1./weight_xs[proc])
+        h_nom_down = h_nom_down * (1./ weight_xs[proc])
+        h_ps_pythia = h_ps_pythia * (1./weight_xs[ps_pythia])
+        h_ps_herwig = h_ps_herwig * (1./weight_xs[ps_herwig])
         ret['EWZ105160PSUp']=h_nom_up
         ret['EWZ105160PSDown']=h_nom_down
 
@@ -507,7 +516,6 @@ def create_variated_histos(proc,
         
     return ret
 def create_datacard(dict_procs, parameter_name, all_processes, histname, baseline, variations, weight_xs, era):
-    
     ret = Results(OrderedDict())
     event_counts = {}
     hists_mc = []
@@ -530,7 +538,7 @@ def create_datacard(dict_procs, parameter_name, all_processes, histname, baselin
         if proc == "data":
             _variations = []
 
-        variated_histos = create_variated_histos(proc, rr, rr_ps_pythia, rr_ps_herwig, era, baseline, _variations)
+        variated_histos = create_variated_histos(weight_xs, proc, rr, rr_ps_pythia, ps_pythia, rr_ps_herwig, ps_herwig, era, baseline, _variations)
 
         for syst_name, histo in variated_histos.items():
             if proc != "data":
@@ -587,7 +595,6 @@ def create_datacard_combine(
     txtfile_name,
     era
     ):
-     
     dc, event_counts = create_datacard(
         dict_procs, parameter_name, all_processes,
         histname, baseline, variations, weight_xs, era)
@@ -1075,10 +1082,10 @@ if __name__ == "__main__":
                                 plot_args_shape_syst += [(
                                     histos, hdata, mc_samp, analysis,
                                     var, "nominal", weight_xs, int_lumi, outdir, era, unc)]
-        rets = list(pool.map(make_pdf_plot, plot_args))
+        #rets = list(pool.map(make_pdf_plot, plot_args))
         #rets = list(pool.map(make_pdf_plot, plot_args_weights_off))
         rets = list(pool.map(create_datacard_combine_wrap, datacard_args))
-        rets = list(pool.map(plot_variations, plot_args_shape_syst))
+        #rets = list(pool.map(plot_variations, plot_args_shape_syst))
 
         #for args, retval in zip(datacard_args, rets):
         #    res, hd, mc_samples, analysis, var, weight, weight_xs, int_lumi, outdir, datataking_year = args
