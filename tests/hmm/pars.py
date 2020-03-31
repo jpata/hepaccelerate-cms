@@ -559,7 +559,7 @@ analysis_parameters = {
 
         "do_rochester_corrections": True, 
         "do_lepton_sf": True,
-        "do_geofit": False,
+        "do_geofit": True,
         
         "do_jec": True,
         "do_jer": {"2016": False, "2017": True, "2018": True},

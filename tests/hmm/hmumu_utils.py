@@ -650,9 +650,6 @@ def analyze_data(
                         use_cuda
                     )
                     
-                    print("plot CIT dnn histos")
-                    print("dnn_vars.keys(): ",dnn_vars.keys())
-                    print("histo_bins.keys(): ",histo_bins.keys())
                     fill_histograms_several(
                         hists, jet_syst_name, "hist__dimuon_invmass_{0}_cat{1}__".format(massbin_name, icat),
                         [
@@ -667,16 +664,6 @@ def analyze_data(
                         weights_in_dnn_presel,
                         use_cuda
                     )
-                    #print("plot Pisa dnn histos")
-                    #fill_histograms_several(
-                    #    hists, jet_syst_name, "hist__dimuon_invmass_{0}_cat{1}__".format(massbin_name, icat),
-                    #    [
-                    #        (dnn_vars["dnnPisa_pred"], "dnnPisa_pred2", histo_bins["dnnPisa_pred2"][massbin_name])
-                    #    ],
-                    #    (dnn_presel & massbin_msk & msk_cat)[dnn_presel],
-                    #    weights_in_dnn_presel,
-                    #    use_cuda
-                    #)
          #end of isyst loop
     #end of uncertainty_name loop
 
