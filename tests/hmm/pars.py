@@ -675,7 +675,6 @@ analysis_parameters = {
             "hmmthetacs": (-1, 1, 11),
             "hmmphics": (-4, 4, 11),
             "dnn_pred": (0, 1, 1001),
-            "dnnPisa_pred": (0, 1, 1001)
             #"bdt_ucsd": (-1, 1, 11),
             #"bdt2j_ucsd": (-1, 1, 11),
             #"bdt01j_ucsd": (-1, 1, 11)
@@ -683,7 +682,7 @@ analysis_parameters = {
 
         "do_bdt_ucsd": False,
         "do_dnn_pisa": True,
-        "do_dnn_cit": False,
+        "do_dnn_cit": True,
     },
 }
 #define the histogram binning
@@ -702,7 +701,7 @@ histo_bins = {
     "massErr": np.linspace(0, 10, 101, dtype=np.float32),
     "massErr_rel": np.linspace(0, 0.05, 101, dtype=np.float32),
     "DeepCSV": np.linspace(0, 1, 11, dtype=np.float32),
-    #"dnnPisa_pred" : np.linspace(0,1,1001, dtype=np.float32),
+    "dnnPisa_pred" : np.linspace(0,1,1001, dtype=np.float32),
 
 }
 for hname, bins in analysis_parameters["baseline"]["dnn_input_histogram_bins"].items():

@@ -649,7 +649,7 @@ def analyze_data(
                         weights_selected,
                         use_cuda
                     )
-                    
+
                     fill_histograms_several(
                         hists, jet_syst_name, "hist__dimuon_invmass_{0}_cat{1}__".format(massbin_name, icat),
                         [
