@@ -441,9 +441,6 @@ def create_variated_histos(weight_xs, proc,
         h_ps_herwig = h_ps_herwig * weight_xs[ps_herwig]
         h_nom_up.contents = hnom.contents + 0.2*(h_ps_pythia.contents - h_ps_herwig.contents)
         h_nom_down.contents = hnom.contents - 0.2*(h_ps_pythia.contents - h_ps_herwig.contents)
-        #for k in range(len(hnom.contents)):
-        #    h_nom_up.contents[k] = hnom.contents[k] + 0.2*(h_ps_pythia.contents[k] - h_ps_herwig.contents[k])
-        #    h_nom_down.contents[k] = hnom.contents[k] - 0.2*(h_ps_pythia.contents[k] - h_ps_herwig.contents[k])
         hnom = hnom * (1./weight_xs[proc])
         h_nom_up = h_nom_up * (1./weight_xs[proc])
         h_nom_down = h_nom_down * (1./ weight_xs[proc])
@@ -517,6 +514,7 @@ def create_variated_histos(weight_xs, proc,
         ret['LHEPdfWeightDown']=h_pdf_down
         
     return ret
+
 def create_datacard(dict_procs, parameter_name, all_processes, histname, baseline, variations, weight_xs, era):
     ret = Results(OrderedDict())
     event_counts = {}
@@ -553,6 +551,7 @@ def create_datacard(dict_procs, parameter_name, all_processes, histname, baselin
                     if proc in pid_procs:
                         event_counts[pid]+= np.sum(histo.contents)
                         found_proc=1
+                        #print(pid,proc, syst_name, np.sum(histo.contents))
                     
                 if proc != "data":
                     hists_mc += [histo]
@@ -597,6 +596,7 @@ def create_datacard_combine(
     txtfile_name,
     era
     ):
+
     dc, event_counts = create_datacard(
         dict_procs, parameter_name, all_processes,
         histname, baseline, variations, weight_xs, era)
@@ -1084,10 +1084,10 @@ if __name__ == "__main__":
                                 plot_args_shape_syst += [(
                                     histos, hdata, mc_samp, analysis,
                                     var, "nominal", weight_xs, int_lumi, outdir, era, unc)]
-        #rets = list(pool.map(make_pdf_plot, plot_args))
+        rets = list(pool.map(make_pdf_plot, plot_args))
         #rets = list(pool.map(make_pdf_plot, plot_args_weights_off))
         rets = list(pool.map(create_datacard_combine_wrap, datacard_args))
-        #rets = list(pool.map(plot_variations, plot_args_shape_syst))
+        rets = list(pool.map(plot_variations, plot_args_shape_syst))
 
         #for args, retval in zip(datacard_args, rets):
         #    res, hd, mc_samples, analysis, var, weight, weight_xs, int_lumi, outdir, datataking_year = args
