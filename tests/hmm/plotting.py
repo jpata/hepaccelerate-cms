@@ -413,7 +413,6 @@ def create_variated_histos(weight_xs, proc,
     hbase = hdict[baseline]
     ret = Results(OrderedDict())
     ret["nominal"] = hbase
-    
     for variation in variations:
         for vdir in ["up", "down"]:
             #print("create_variated_histos", variation, vdir)
