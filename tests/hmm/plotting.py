@@ -192,6 +192,23 @@ def plot_variations(args):
                            kwargs_step={"label": sdir.replace("__", "") + " ({0:.3E})".format(np.sum(hvar.contents))},
             
             )
+
+    if('EWZ105160PS' in unc) and ('ewk_lljj_mll105_160_ptJ_herwig' in mc_samp):
+        h_ps_pythia = res["ewk_lljj_mll105_160_pythia"]["nominal"]* weight_xs["ewk_lljj_mll105_160_pythia"]
+        h_ps_herwig = res["ewk_lljj_mll105_160_herwig"]["nominal"]* weight_xs["ewk_lljj_mll105_160_herwig"]
+        h_nom_up = copy.deepcopy(hnom)
+        h_nom_down = copy.deepcopy(hnom)
+        h_nom_up.contents = hnom.contents - 0.2*(h_ps_pythia.contents - h_ps_herwig.contents)
+        h_nom_down.contents = hnom.contents + 0.2*(h_ps_pythia.contents - h_ps_herwig.contents)
+        plot_hist_step(ax, h_nom_up.edges, h_nom_up.contents,
+                np.sqrt(h_nom_up.contents_w2),
+                       kwargs_step={"label": "up "+"({0:.3E})".format(np.sum(h_nom_up.contents))},
+            )
+        plot_hist_step(ax, h_nom_down.edges, h_nom_down.contents,
+                np.sqrt(h_nom_down.contents_w2),
+                       kwargs_step={"label": "down "+"({0:.3E})".format(np.sum(h_nom_down.contents))},
+            )
+
     if((('DYLHEScaleWeight' in unc) and ('dy' in mc_samp)) or (('EWZLHEScaleWeight' in unc) and ('ewk' in mc_samp) )):
         
         h_lhe =[]
@@ -221,7 +238,6 @@ def plot_variations(args):
                 np.sqrt(h_nom_down.contents_w2),
                        kwargs_step={"label": "down "+"({0:.3E})".format(np.sum(h_nom_down.contents))},
             )
-
 
     if(('LHEPdfWeight' in unc) and ("dy" in mc_samp or "ewk" in mc_samp or "ggh" in mc_samp or "vbf" in mc_samp or "wph" in mc_samp or "wmh" in mc_samp or "tth" in mc_samp)):
         h_pdf =[]
@@ -438,8 +454,8 @@ def create_variated_histos(weight_xs, proc,
         hnom = hnom * weight_xs[proc]
         h_ps_pythia = h_ps_pythia * weight_xs[ps_pythia]
         h_ps_herwig = h_ps_herwig * weight_xs[ps_herwig]
-        h_nom_up.contents = hnom.contents + 0.2*(h_ps_pythia.contents - h_ps_herwig.contents)
-        h_nom_down.contents = hnom.contents - 0.2*(h_ps_pythia.contents - h_ps_herwig.contents)
+        h_nom_up.contents = hnom.contents - 0.2*(h_ps_pythia.contents - h_ps_herwig.contents)
+        h_nom_down.contents = hnom.contents + 0.2*(h_ps_pythia.contents - h_ps_herwig.contents)
         hnom = hnom * (1./weight_xs[proc])
         h_nom_up = h_nom_up * (1./weight_xs[proc])
         h_nom_down = h_nom_down * (1./ weight_xs[proc])
