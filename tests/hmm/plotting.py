@@ -998,12 +998,6 @@ if __name__ == "__main__":
         dd = "{0}/{1}".format(input_folder, analysis)
         res = {} 
         res["data"] = pickle.load(open(dd + "/data_{0}.pkl".format(era), "rb"))
-
-        #debug
-        #for i in range(11):
-        #    res_file_name = "/storage/user/nlu/hmm/out/partial_results/ewk_lljj_mll105_160_ptJ_herwig_2016_"+str(i)+".pkl"
-        #res_file_name = "/storage/user/nlu/hmm/out/results/ewk_lljj_mll105_160_ptJ_herwig_2016.pkl"
-
         for mc_samp in mc_samples_load:
             res_file_name = dd + "/{0}_{1}.pkl".format(mc_samp, era)
             try:
@@ -1083,9 +1077,11 @@ if __name__ == "__main__":
                         "please check the definition in pars.py -> categories as "
                         "well as --keep-processes commandline option."
                         )
+
                 histos = {}
                 for sample in mc_samples + ["data"]:
                     histos[sample] = res[sample][analysis][var]
+
                 print(era, analysis, var)
                 datacard_args += [
                     (histos,

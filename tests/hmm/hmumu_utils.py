@@ -686,6 +686,7 @@ def fill_histograms_several(hists, systematic_name, histname_prefix, variables, 
             raise Exception("Data array {0} is of incompatible size".format(varname))
         all_arrays += [array]
         all_bins += [bins]
+
     max_bins = max([b.shape[0] for b in all_bins])
     stacked_array = NUMPY_LIB.stack(all_arrays, axis=0)
     stacked_bins = np.concatenate(all_bins)
@@ -1162,9 +1163,8 @@ def event_loop(ds, analysis_corrections, parameter_sets, do_fsr=False, use_cuda=
         pinned_mempool = cupy.get_default_pinned_memory_pool()
         mempool.free_all_blocks()
         pinned_mempool.free_all_blocks()
-     
-    ret = Results(ret)
 
+    ret = Results(ret)
     return ret, ds, len(ds), ds.memsize()/1024.0/1024.0
 
 def get_histogram(data, weights, bins, mask=None):

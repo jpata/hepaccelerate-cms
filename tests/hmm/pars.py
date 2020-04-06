@@ -578,7 +578,7 @@ analysis_parameters = {
         "jet_btag_medium": {"2016": 0.6321, "2017": 0.4941, "2018": 0.4184},
         "jet_btag_loose": {"2016": 0.2217, "2017": 0.1522, "2018": 0.1241},
         "do_factorized_jec": True,
-        "apply_btag": False,
+        "apply_btag": True,
         "softjet_pt5": 5.0,
         "softjet_pt2": 2.0,
         "softjet_evt_dr2": 0.16, 
@@ -603,7 +603,6 @@ analysis_parameters = {
 
         "save_dnn_vars": False,
         "dnn_vars_path": "out/dnn_vars",
-        #"n_max_pdfweights": {"2016": 103, "2017": 33, "2018": 33},
         #If true, apply mjj > cut, otherwise inverse
         "vbf_filter_mjj_cut": 350,
         "vbf_filter": {
