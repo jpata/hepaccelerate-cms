@@ -129,8 +129,8 @@ datasets:
   name: ewk_lljj_mll50_mjj120_ptJ_herwig
   skim_cut: "(HLT_IsoMu27) && nMuon>=2"
 - era: "2017"
-  files_merged: /store/mc/RunIIFall17NanoAODv6v2/EWK_LLJJ_MLL_105-160_pTJ-0_SM_5f_LO_TuneCH3_13TeV-madgraph-herwig7/merged_*.root
-  files_nano_in: /store/mc/RunIIFall17NanoAODv6v2/EWK_LLJJ_MLL_105-160_pTJ-0_SM_5f_LO_TuneCH3_13TeV-madgraph-herwig7/*d02171*/*/*/*.root
+  files_merged: /store/mc/Feb132020PisaNanoAOD/2017/EWZ_AndreaMarini_V8d/EWK_LLJJ_MLL_105-160_ptJ-0_SM_5f_LO_TuneEEC5_13TeV-madgraph-h7/merged_*.root
+  files_nano_in: /store/mc/Feb132020PisaNanoAOD/EWZ_AndreaMarini_V8d/EWK_LLJJ_MLL_105-160_ptJ-0_SM_5f_LO_TuneEEC5_13TeV-madgraph-h7/RunIISummer16MiniAODv3_FSRmyNanoProdMc2017*/*/*/*.root
   is_mc: true
   name: ewk_lljj_mll105_160_ptJ_herwig
   skim_cut: "(HLT_IsoMu27) && nMuon>=2"
@@ -139,6 +139,12 @@ datasets:
   files_nano_in: /store/mc/RunIIFall17NanoAODv6v1/EWK_LLJJ_MLL_105-160_SM_5f_LO_TuneCH3_13TeV-madgraph-herwig7/*d01*/*/*/*.root
   is_mc: true
   name: ewk_lljj_mll105_160_herwig
+  skim_cut: "(HLT_IsoMu27) && nMuon>=2"
+- era: "2017"
+  files_merged: /store/mc/RunIIFall17NanoAODv6v2/EWK_LLJJ_MLL_105-160_SM_5f_LO_TuneCP5_PSweights_13TeV-madgraph-pythia8/merged_*.root
+  files_nano_in: /store/mc/RunIIFall17NanoAODv6v2/EWK_LLJJ_MLL_105-160_SM_5f_LO_TuneCP5_PSweights_13TeV-madgraph-pythia8/*d02*/*/*/*.root 
+  is_mc: true
+  name: ewk_lljj_mll105_160_pythia
   skim_cut: "(HLT_IsoMu27) && nMuon>=2"
 - era: "2017"
   files_merged: /store/mc/RunIIFall17NanoAODv6v1/ST_tW_antitop_5f_NoFullyHadronicDecays_TuneCP5_13TeV-powheg-pythia8/merged_*.root
@@ -453,7 +459,7 @@ datasets:
   name: ewk_lljj_mll105_160_pythia
   skim_cut: "(HLT_IsoMu24 || HLT_IsoTkMu24) && nMuon>=2"
 - era: "2016"
-  files_merged: /store/mc/Feb132020PisaNanoAOD/EWK_LLJJ_MLL_105-160_ptJ-0_SM_5f_LO_TuneEEC5_13TeV-madgraph-herwigpp/merged_*.root
+  files_merged: /store/mc/Feb132020PisaNanoAOD/2016/EWK_LLJJ_MLL_105-160_ptJ-0_SM_5f_LO_TuneEEC5_13TeV-madgraph-herwigpp/merged_*.root
   files_nano_in: /store/mc/Feb132020PisaNanoAOD/EWZ_AndreaMarini_V8d/EWK_LLJJ_MLL_105-160_ptJ-0_SM_5f_LO_TuneEEC5_13TeV-madgraph-herwigpp/RunIISummer16MiniAODv3_FSRNANO2016MCV8d_bcad356ea4ed7e4f08b4/*/*/*.root
   is_mc: true
   name: ewk_lljj_mll105_160_ptJ_herwig

@@ -10,7 +10,7 @@ import copy
 import multiprocessing
 
 from pars import catnames, varnames, analysis_names, shape_systematics, controlplots_shape, genweight_scalefactor, lhe_pdf_variations
-from pars import process_groups, colors, extra_plot_kwargs,proc_grps,combined_signal_samples
+from pars import process_groups, colors, extra_plot_kwargs,proc_grps,combined_signal_samples, remove_proc
 
 from scipy.stats import wasserstein_distance
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
@@ -192,6 +192,23 @@ def plot_variations(args):
                            kwargs_step={"label": sdir.replace("__", "") + " ({0:.3E})".format(np.sum(hvar.contents))},
             
             )
+
+    if('EWZ105160PS' in unc) and ('ewk_lljj_mll105_160_ptJ_herwig' in mc_samp):
+        h_ps_pythia = res["ewk_lljj_mll105_160_pythia"]["nominal"]* weight_xs["ewk_lljj_mll105_160_pythia"]
+        h_ps_herwig = res["ewk_lljj_mll105_160_herwig"]["nominal"]* weight_xs["ewk_lljj_mll105_160_herwig"]
+        h_nom_up = copy.deepcopy(hnom)
+        h_nom_down = copy.deepcopy(hnom)
+        h_nom_up.contents = hnom.contents - 0.2*(h_ps_pythia.contents - h_ps_herwig.contents)
+        h_nom_down.contents = hnom.contents + 0.2*(h_ps_pythia.contents - h_ps_herwig.contents)
+        plot_hist_step(ax, h_nom_up.edges, h_nom_up.contents,
+                np.sqrt(h_nom_up.contents_w2),
+                       kwargs_step={"label": "up "+"({0:.3E})".format(np.sum(h_nom_up.contents))},
+            )
+        plot_hist_step(ax, h_nom_down.edges, h_nom_down.contents,
+                np.sqrt(h_nom_down.contents_w2),
+                       kwargs_step={"label": "down "+"({0:.3E})".format(np.sum(h_nom_down.contents))},
+            )
+
     if((('DYLHEScaleWeight' in unc) and ('dy' in mc_samp)) or (('EWZLHEScaleWeight' in unc) and ('ewk' in mc_samp) )):
         
         h_lhe =[]
@@ -222,19 +239,19 @@ def plot_variations(args):
                        kwargs_step={"label": "down "+"({0:.3E})".format(np.sum(h_nom_down.contents))},
             )
 
-
     if(('LHEPdfWeight' in unc) and ("dy" in mc_samp or "ewk" in mc_samp or "ggh" in mc_samp or "vbf" in mc_samp or "wph" in mc_samp or "wmh" in mc_samp or "tth" in mc_samp)):
         h_pdf =[]
         h_pdf_up = copy.deepcopy(hnom)
         h_pdf_down = copy.deepcopy(hnom)
         for i in range(lhe_pdf_variations[str(datataking_year)]):
             sname = 'LHEPdfWeight__{0}'.format(i)
-            h_pdf.append(res[mc_samp][sname]* weight_xs[mc_samp])
+            if sname in res[mc_samp]:
+                h_pdf.append(res[mc_samp][sname]* weight_xs[mc_samp])
         for k in range(len(h_pdf[0].contents)):
             rms = 0.0
-            for i in range(lhe_pdf_variations[str(datataking_year)]):
+            for i in range(len(h_pdf)):
                     rms = rms + (h_pdf[i].contents[k]-hnom.contents[k])**2
-            rms = np.sqrt(rms/(lhe_pdf_variations[str(datataking_year)]-1))
+            rms = np.sqrt(rms/(len(h_pdf)-1))
             h_pdf_up.contents[k] = hnom.contents[k] + rms
             h_pdf_down.contents[k] = hnom.contents[k] - rms
         #remove the normalization aspect from pdf
@@ -402,14 +419,13 @@ def mask_inv_mass(hist):
     hist["contents"][bin_idx1:bin_idx2] = 0.0
     hist["contents_w2"][bin_idx1:bin_idx2] = 0.0
 
-def create_variated_histos(proc,
-    hdict, era,
+def create_variated_histos(weight_xs, proc,
+    hdict, hdict_ps_pythia, ps_pythia, hdict_ps_herwig, ps_herwig, era,
     baseline="nominal",
         variations=shape_systematics):
- 
     if not baseline in hdict.keys():
         raise KeyError("baseline histogram missing")
-    
+   
     #hbase = copy.deepcopy(hdict[baseline])
     hbase = hdict[baseline]
     ret = Results(OrderedDict())
@@ -429,6 +445,26 @@ def create_variated_histos(proc,
             else:
                 hret = hdict[sname]
             ret[sname2] = hret
+ 
+    if('EWZ105160PS' in variations) and ('ewk_lljj_mll105_160_ptJ_herwig' in proc):
+        h_ps_pythia = copy.deepcopy(hdict_ps_pythia[baseline])
+        h_ps_herwig = copy.deepcopy(hdict_ps_herwig[baseline])
+        hnom = copy.deepcopy(hbase)
+        h_nom_up = copy.deepcopy(hbase)
+        h_nom_down = copy.deepcopy(hbase)
+        hnom = hnom * weight_xs[proc]
+        h_ps_pythia = h_ps_pythia * weight_xs[ps_pythia]
+        h_ps_herwig = h_ps_herwig * weight_xs[ps_herwig]
+        h_nom_up.contents = hnom.contents - 0.2*(h_ps_pythia.contents - h_ps_herwig.contents)
+        h_nom_down.contents = hnom.contents + 0.2*(h_ps_pythia.contents - h_ps_herwig.contents)
+        hnom = hnom * (1./weight_xs[proc])
+        h_nom_up = h_nom_up * (1./weight_xs[proc])
+        h_nom_down = h_nom_down * (1./ weight_xs[proc])
+        h_ps_pythia = h_ps_pythia * (1./weight_xs[ps_pythia])
+        h_ps_herwig = h_ps_herwig * (1./weight_xs[ps_herwig])
+        ret['EWZ105160PSUp']=h_nom_up
+        ret['EWZ105160PSDown']=h_nom_down
+
     if(('DYLHEScaleWeight' in variations) or ('EWZLHEScaleWeight' in variations)):
         h_lhe =[]
         h_nom_up = copy.deepcopy(hbase)
@@ -471,16 +507,17 @@ def create_variated_histos(proc,
             h_nom = np.zeros_like(hbase.contents)
             for i in range(lhe_pdf_variations[str(era)]):
                 sname = 'LHEPdfWeight__{0}'.format(i)
-                h_pdf.append(hdict[sname])
-            for i in range(lhe_pdf_variations[str(era)]):
+                if sname in hdict:
+                    h_pdf.append(hdict[sname])
+            for i in range(len(h_pdf)):
                 h_nom = h_nom + h_pdf[i].contents 
-            h_nom = h_nom/lhe_pdf_variations[str(era)]
+            h_nom = h_nom/len(h_pdf)
             for k in range(len(h_pdf[0].contents)):
                 h_pdf_nom.contents[k] = h_nom[k]
                 rms = 0.0
-                for i in range(lhe_pdf_variations[str(era)]):
+                for i in range(len(h_pdf)):
                     rms = rms + (h_pdf[i].contents[k]-hbase.contents[k])**2
-                rms = np.sqrt(rms/(lhe_pdf_variations[str(era)]-1))
+                rms = np.sqrt(rms/(len(h_pdf)-1))
                 h_pdf_up.contents[k] = hbase.contents[k] + rms
                 h_pdf_down.contents[k] = hbase.contents[k] - rms
             #remove the normalization aspect from pdf
@@ -494,23 +531,31 @@ def create_variated_histos(proc,
         ret['LHEPdfWeightDown']=h_pdf_down
         
     return ret
+
 def create_datacard(dict_procs, parameter_name, all_processes, histname, baseline, variations, weight_xs, era):
-    
     ret = Results(OrderedDict())
     event_counts = {}
     hists_mc = []
     for pid,pid_procs in proc_grps:
         event_counts[pid]=0
     for proc in all_processes:
-        #print("create_datacard", proc)
         rr = dict_procs[proc]
         _variations = variations
-
+        
+        ps_pythia = 'ewk_lljj_mll105_160_pythia'
+        ps_herwig = 'ewk_lljj_mll105_160_herwig'
+        if ((ps_pythia in dict_procs.keys()) and (ps_herwig in dict_procs.keys())):
+            rr_ps_pythia = dict_procs[ps_pythia]
+            rr_ps_herwig = dict_procs[ps_herwig]
+        else:
+            rr_ps_pythia = rr
+            rr_ps_herwig = rr
+            
         #don't produce variated histograms for data
         if proc == "data":
             _variations = []
 
-        variated_histos = create_variated_histos(proc, rr, era, baseline, _variations)
+        variated_histos = create_variated_histos(weight_xs, proc, rr, rr_ps_pythia, ps_pythia, rr_ps_herwig, ps_herwig, era, baseline, _variations)
 
         for syst_name, histo in variated_histos.items():
             if proc != "data":
@@ -568,7 +613,7 @@ def create_datacard_combine(
     txtfile_name,
     era
     ):
-     
+
     dc, event_counts = create_datacard(
         dict_procs, parameter_name, all_processes,
         histname, baseline, variations, weight_xs, era)
@@ -593,7 +638,7 @@ def create_datacard_combine(
     filenames = {}
     for cat in categories:
         filenames[cat.full_name] = rootfile_name
-
+ 
     PrintDatacard(categories, dict_procs, era, event_counts, filenames, txtfile_name)
 
 from uproot_methods.classes.TH1 import from_numpy
@@ -701,22 +746,23 @@ class Category:
                 self.scale_uncertainties[proc] = {}
             self.scale_uncertainties[proc].update(v)
 
-def calculate_LHEPdf_norm(histos, era):
+def calculate_LHEPdf_norm(histos, era, proc):
     #Based on https://arxiv.org/pdf/1510.03865.pdf
     h_pdf = []
     for i in range(lhe_pdf_variations[str(era)]):
         sname = 'LHEPdfWeight__{0}'.format(i)
-        h_pdf.append(histos[sname])
+        if sname in histos:
+            h_pdf.append(histos[sname])
     h_nom = np.zeros_like(histos["nominal"].contents)
-    for i in range(lhe_pdf_variations[str(era)]):
+    for i in range(len(h_pdf)):
         h_nom = h_nom + h_pdf[i].contents
-    h_nom = h_nom/lhe_pdf_variations[str(era)]
+    h_nom = h_nom/len(h_pdf)
     var = 0.0
-    for i in range(lhe_pdf_variations[str(era)]):
+    for i in range(len(h_pdf)):
         var = var + (np.sum(h_pdf[i].contents) - np.sum(h_nom))**2
 
-    if(era == 2016): 
-        var = np.sqrt(var/(lhe_pdf_variations[str(era)]-1)) # MC replicas for 2016
+    if((era == "2016") and ("ewk_lljj_mll105_160_ptJ_herwig" not in proc) and ("tth_125" not in proc)):
+        var = np.sqrt(var/(len(h_pdf)-1)) # MC replicas for 2016
     else: var = np.sqrt(var) #Hessian weights for 2017 and 2018
     if(np.sum(h_nom)!=0.0): var = var/np.sum(h_nom)
     return var
@@ -726,13 +772,15 @@ def PrintDatacard(categories, dict_procs, era, event_counts, filenames, ofname):
     
     number_of_bins = len(categories)
     number_of_backgrounds = 0
-    
+   
     backgrounds = []    
     signals = []    
     for cat in categories:
         for proc in cat.processes:
             if (proc in cat.signal_processes):
                 signals += [proc]
+            elif (proc in remove_proc):
+                continue
             else:
                 backgrounds += [proc]
     
@@ -768,12 +816,15 @@ def PrintDatacard(categories, dict_procs, era, event_counts, filenames, ofname):
 
     for cat in categories:
         for i_sample, sample in enumerate(cat.processes):
-            bins.append(cat.full_name)
-            processes_0.append(sample)
-            if sample in cat.signal_processes:
-                i_sample = -i_sample
-            processes_1.append(str(i_sample))
-            rates.append("{0}".format(event_counts[sample]))
+            if (sample in remove_proc): 
+                continue
+            else:
+                bins.append(cat.full_name)
+                processes_0.append(sample)
+                if sample in cat.signal_processes:
+                    i_sample = -i_sample
+                processes_1.append(str(i_sample))
+                rates.append("{0}".format(event_counts[sample]))
     
     #Write process lines (names and IDs)
     dcof.write("bin\t"+"\t".join(bins)+"\n")
@@ -786,9 +837,10 @@ def PrintDatacard(categories, dict_procs, era, event_counts, filenames, ofname):
     all_shape_uncerts = []
     all_scale_uncerts = []
     for cat in categories:
-        for proc in cat.processes:
-            all_shape_uncerts.extend(cat.shape_uncertainties[proc].keys())
-            all_scale_uncerts.extend(cat.scale_uncertainties[proc].keys())
+        for proc in cat.processes: 
+            if proc not in remove_proc:
+                all_shape_uncerts.extend(cat.shape_uncertainties[proc].keys())
+                all_scale_uncerts.extend(cat.scale_uncertainties[proc].keys())
     # Uniquify
     all_shape_uncerts = sorted(list(set(all_shape_uncerts)))
     all_scale_uncerts = sorted(list(set(all_scale_uncerts)))
@@ -799,7 +851,9 @@ def PrintDatacard(categories, dict_procs, era, event_counts, filenames, ofname):
         dcof.write(syst + "\t shape \t")
         for cat in categories:
             for proc in cat.processes:
-                if (proc in cat.shape_uncertainties.keys() and
+                if proc in remove_proc:
+                    continue
+                elif (proc in cat.shape_uncertainties.keys() and
                     syst in cat.shape_uncertainties[proc].keys()):
                     dcof.write(str(cat.shape_uncertainties[proc][syst]))
                 else:
@@ -812,7 +866,9 @@ def PrintDatacard(categories, dict_procs, era, event_counts, filenames, ofname):
         dcof.write("EWZLHEScaleWeight" + "\t shape \t")
     for cat in categories:
         for proc in cat.processes:
-            if ('ewk' in proc):
+            if proc in remove_proc:
+                continue
+            elif ('ewk' in proc):
                 dcof.write(str(1.0))
             else:
                 dcof.write("-")
@@ -825,7 +881,9 @@ def PrintDatacard(categories, dict_procs, era, event_counts, filenames, ofname):
         dcof.write("DYLHEScaleWeight" + "\t shape \t")
     for cat in categories:
         for proc in cat.processes:
-            if ('dy' in proc):
+            if proc in remove_proc:
+                continue
+            elif ('dy' in proc):
                 dcof.write(str(1.0))
             else:
                 dcof.write("-")
@@ -836,7 +894,9 @@ def PrintDatacard(categories, dict_procs, era, event_counts, filenames, ofname):
         dcof.write(syst + "\t lnN \t")
         for cat in categories:
             for proc in cat.processes:
-                if (proc in cat.scale_uncertainties.keys() and
+                if proc in remove_proc:
+                    continue
+                elif (proc in cat.scale_uncertainties.keys() and
                     syst in cat.scale_uncertainties[proc].keys()):
                     dcof.write(str(cat.scale_uncertainties[proc][syst]))
                 else:
@@ -847,18 +907,19 @@ def PrintDatacard(categories, dict_procs, era, event_counts, filenames, ofname):
     dcof.write("LHEPdfWeight_norm" + "\t lnN \t")
     for cat in categories:
         for proc in cat.processes:
-            if "dy" in proc or "ewk" in proc or "ggh" in proc or "vbf" in proc or "vh" in proc or "tth" in proc:
-                
+            if proc in remove_proc:
+                continue
+            elif "dy" in proc or "ewk" in proc or "ggh" in proc or "vbf" in proc or "vh" in proc or "tth" in proc:
                 if("vh" not in proc):
-                    Pdf_norm = calculate_LHEPdf_norm(dict_procs[proc], era)
-                    dcof.write("{0:.2f}".format(1.0 + Pdf_norm))
+                    Pdf_norm = calculate_LHEPdf_norm(dict_procs[proc], era, proc)
+                    dcof.write("{0:.3f}".format(1.0 + Pdf_norm))
                 else:
                     Pdf_norm_vh =[]
-                    Pdf_norm_vh.append(calculate_LHEPdf_norm(dict_procs["wph_125"], era))
-                    Pdf_norm_vh.append(calculate_LHEPdf_norm(dict_procs["wmh_125"], era))
-                    Pdf_norm_vh.append(calculate_LHEPdf_norm(dict_procs["zh_125"], era))
+                    Pdf_norm_vh.append(calculate_LHEPdf_norm(dict_procs["wph_125"], era, proc))
+                    Pdf_norm_vh.append(calculate_LHEPdf_norm(dict_procs["wmh_125"], era, proc))
+                    Pdf_norm_vh.append(calculate_LHEPdf_norm(dict_procs["zh_125"], era, proc))
                     sorted(Pdf_norm_vh, reverse = True)
-                    dcof.write("{0:.2f}".format(1.0 + Pdf_norm_vh[0]))
+                    dcof.write("{0:.3f}".format(1.0 + Pdf_norm_vh[0]))
                     
             else:
                 dcof.write("-")
@@ -1007,7 +1068,6 @@ if __name__ == "__main__":
                 else:
                     mc_samples_new = []
                     for proc in mc_samples:
-                        print(proc)
                         if proc in cmdline_args.keep_processes:
                             mc_samples_new += [proc]
                     mc_samples = mc_samples_new

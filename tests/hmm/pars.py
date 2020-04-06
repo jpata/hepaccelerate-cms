@@ -54,8 +54,9 @@ categories = {
             #"wz_1l1nu2q",
             "wz_3lnu", 
             "ww_2l2nu", "wz_2l2q", "zz",
-            #"ewk_lljj_mll105_160",
             "ewk_lljj_mll105_160_ptJ_herwig",
+            "ewk_lljj_mll105_160_herwig",
+            "ewk_lljj_mll105_160_pythia",
             #"st_top",
             #"st_t_antitop",
             "st_tw_top",
@@ -77,6 +78,8 @@ categories = {
             "wz_3lnu", 
             "ww_2l2nu", "wz_2l2q", "zz",
             "ewk_lljj_mll105_160_ptJ_herwig",
+            "ewk_lljj_mll105_160_herwig",
+            "ewk_lljj_mll105_160_pythia",
             #"st_top",
             #"st_t_antitop",
             "st_tw_top",
@@ -139,6 +142,8 @@ combined_categories = {
             #"wz_1l1nu2q",
             "vv", 
             "ewk_lljj_mll105_160_ptJ_herwig",
+            "ewk_lljj_mll105_160_herwig",
+            "ewk_lljj_mll105_160_pythia",
             #"st_top",
             #"st_t_antitop",
             "stop",
@@ -156,6 +161,8 @@ combined_categories = {
             #"wz_1l1nu2q",
             "vv", 
             "ewk_lljj_mll105_160_ptJ_herwig",
+            "ewk_lljj_mll105_160_herwig",
+            "ewk_lljj_mll105_160_pythia",
             #"st_top",
             #"st_t_antitop",
             "stop",
@@ -175,6 +182,8 @@ colors = {
     "vv": (100, 105, 98),
     "higgs": (0, 0, 0),
 }
+
+remove_proc = ["ewk_lljj_mll105_160_herwig", "ewk_lljj_mll105_160_pythia"]
 
 process_groups = [
     ("higgs", ["ggh_amcPS_pythia_125", "vbf_amcPS_pythia_125", "wmh_125", "wph_125", "zh_125", "tth_125"]),
@@ -277,7 +286,7 @@ extra_plot_kwargs = {
 controlplots_shape = [
     "inv_mass",
     "dnn_pred2",
-    "dnnPisa_pred2"
+    "dnnPisa_predf"
 ]
 
 cross_sections = {
@@ -286,9 +295,9 @@ cross_sections = {
     "dy_1j": 859.59,
     "dy_2j": 338.26,
     "dy_m105_160_mg": 46.9479, #Pisa 47.17
-    "dy_m105_160_vbf_mg": 46.9479*0.0425242, #Pisa 1.77
     "dy_m105_160_amc": 46.9479, # https://docs.google.com/document/d/1bViX80nXQ_p-W4gI6Fqt9PNQ49B6cP1_FhcKwTZVujo/edit?usp=sharing
-    "dy_m105_160_vbf_amc": 46.9479*0.0425242, #https://docs.google.com/document/d/1bViX80nXQ_p-W4gI6Fqt9PNQ49B6cP1_FhcKwTZVujo/edit?usp=sharing
+    "dy_m105_160_vbf_mg": {"2016": 1.77, "2017": 2.04, "2018": 2.03}, #Using Pisa for sync, caltech group xs 46.9479*0.0425242
+    "dy_m105_160_vbf_amc": {"2016": 1.77, "2017": 2.04, "2018": 2.03}, 
     "ggh_powheg_pythia_125": 0.010571, #48.61 * 0.0002176; https://twiki.cern.ch/twiki/bin/view/LHCPhysics/CERNHLHE2019
     "ggh_amcPS_pythia_125": 0.010571,
     "ggh_powhegPS_pythia_125": 0.010571,
@@ -359,7 +368,7 @@ cross_sections = {
     "st_tw_antitop": 35.85,
     "ewk_lljj_mll105_160_pythia": 0.0508896,
     "ewk_lljj_mll105_160_herwig": 0.0508896,
-    "ewk_lljj_mll105_160_ptJ_herwig": 0.07486, #from Pisa Group https://github.com/arizzi/PisaHmm/blob/59bbce76ab1532c59b44b41a9371591204f24df6/samples2016.py#L30
+    "ewk_lljj_mll105_160_ptJ_herwig": {"2016": 0.07486, "2017": 0.0789, "2018": 0.0789}, #from Pisa Group https://github.com/arizzi/PisaHmm/blob/59bbce76ab1532c59b44b41a9371591204f24df6/samples2016.py#L30
 
     # Note via Nan L.: the 2016 sample has a different tune, for which Stephane C.
     # computed a new cross-section from MINIAOD using
@@ -397,7 +406,7 @@ jec_unc = ['Absolute', 'Absolute2018', 'BBEC1', 'BBEC12018', 'EC2', 'EC22018', '
 
 #Uncomment to use just the total JEC for quick tests
 #jec_unc = ["Total"]
-shape_systematics = jec_unc + ["jer", "trigger", "id", "iso", "jet_puid","puWeight", "L1PreFiringWeight","DYLHEScaleWeightZ","EWZLHEScaleWeightZ","DYLHEScaleWeight","EWZLHEScaleWeight","btag_weight_bcFl","btag_weight_lFl","LHEPdfWeight"]
+shape_systematics = jec_unc + ["jer", "trigger", "id", "iso", "jet_puid","puWeight", "L1PreFiringWeight","DYLHEScaleWeightZ","EWZLHEScaleWeightZ","DYLHEScaleWeight","EWZLHEScaleWeight","btag_weight_bcFl","btag_weight_lFl","LHEPdfWeight","EWZ105160PS"]
 common_scale_uncertainties = {
     "lumi": 1.025,
 }
@@ -501,6 +510,7 @@ varnames = {
     "dRmin_mj": "min $\Delta R (\mu j)$",
     "dijet_inv_mass": "dijet invariant mass $M_{jj} [GeV]",
     "dnn_pred2": "signal DNN", 
+    "dnnPisa_predf": "signal Pisa DNN",
     "eta_mmjj": "$\eta_{\mu\mu j_1 j_2}$",
     "hmmthetacs": "$\theta_{CS}$",
     "inv_mass": "$M_{\mu\mu}$",
@@ -593,7 +603,6 @@ analysis_parameters = {
 
         "save_dnn_vars": False,
         "dnn_vars_path": "out/dnn_vars",
-        "n_max_pdfweights": {"2016": 103, "2017": 33, "2018": 33},
         #If true, apply mjj > cut, otherwise inverse
         "vbf_filter_mjj_cut": 350,
         "vbf_filter": {
@@ -664,14 +673,12 @@ analysis_parameters = {
             "Higgs_pt": (0, 200, 41),
             "Higgs_eta": (-3, 3, 41),
             "Higgs_mass": (110, 150, 41),
-            "dnn_pred": (0, 1, 1001),
-            "dnn_pred2": (0, 1, 11),
-            "bdt_ucsd": (-1, 1, 11),
-            "bdt2j_ucsd": (-1, 1, 11),
-            "bdt01j_ucsd": (-1, 1, 11),
-            "MET_pt": (0, 200, 11),
             "hmmthetacs": (-1, 1, 11),
             "hmmphics": (-4, 4, 11),
+            "dnn_pred": (0, 1, 1001),
+            #"bdt_ucsd": (-1, 1, 11),
+            #"bdt2j_ucsd": (-1, 1, 11),
+            #"bdt01j_ucsd": (-1, 1, 11)
         },
 
         "do_bdt_ucsd": False,
@@ -709,6 +716,13 @@ histo_bins["dnn_pred2"] = {
     "h_peak": np.array([0., 0.905, 0.915, 0.925, 0.935, 0.94, 0.945, 0.95, 0.955, 0.96, 0.965,0.97, 0.975,0.98, 0.985,1.0], dtype=np.float32),
     "z_peak": np.array([0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], dtype=np.float32),
     "h_sideband": np.array([0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], dtype=np.float32),
+}
+
+
+histo_bins["dnnPisa_predf"] = {
+    "h_peak": np.array([0.0, 0.797, 0.892, 0.939, 0.964, 0.976, 0.983, 0.988, 0.991, 0.994, 0.996, 0.998, 1.0], dtype=np.float32),
+    "z_peak": np.array([0.0, 0.797, 0.892, 0.939, 0.964, 0.976, 0.983, 0.988, 0.991, 0.994, 0.996, 0.998, 1.0], dtype=np.float32),
+    "h_sideband": np.array([0.0, 0.797, 0.892, 0.939, 0.964, 0.976, 0.983, 0.988, 0.991, 0.994, 0.996, 0.998, 1.0], dtype=np.float32),
 }
 
 analysis_parameters["baseline"]["histo_bins"] = histo_bins
