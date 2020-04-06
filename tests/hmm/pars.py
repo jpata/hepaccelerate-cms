@@ -295,9 +295,9 @@ cross_sections = {
     "dy_1j": 859.59,
     "dy_2j": 338.26,
     "dy_m105_160_mg": 46.9479, #Pisa 47.17
-    "dy_m105_160_vbf_mg": 46.9479*0.0425242, #Pisa 1.77
     "dy_m105_160_amc": 46.9479, # https://docs.google.com/document/d/1bViX80nXQ_p-W4gI6Fqt9PNQ49B6cP1_FhcKwTZVujo/edit?usp=sharing
-    "dy_m105_160_vbf_amc": 46.9479*0.0425242, #https://docs.google.com/document/d/1bViX80nXQ_p-W4gI6Fqt9PNQ49B6cP1_FhcKwTZVujo/edit?usp=sharing
+    "dy_m105_160_vbf_mg": {"2016": 1.77, "2017": 2.04, "2018": 2.03}, #Using Pisa for sync, caltech group xs 46.9479*0.0425242
+    "dy_m105_160_vbf_amc": {"2016": 1.77, "2017": 2.04, "2018": 2.03}, 
     "ggh_powheg_pythia_125": 0.010571, #48.61 * 0.0002176; https://twiki.cern.ch/twiki/bin/view/LHCPhysics/CERNHLHE2019
     "ggh_amcPS_pythia_125": 0.010571,
     "ggh_powhegPS_pythia_125": 0.010571,
