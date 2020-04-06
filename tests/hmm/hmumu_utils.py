@@ -356,7 +356,7 @@ def analyze_data(
 
     #actually multiply all the weights together with the appropriate up/down variations.
     #creates a 1-level dictionary with weights "nominal", "puweight__up", "puweight__down", ..." 
-    weights_final = finalize_weights(weights_individual, parameters, dataset_era)
+    weights_final = finalize_weights(weights_individual, dataset_era)
     '''
     if parameters["do_lepton_sf"] and is_mc:
         lepton_sf_values = compute_lepton_sf(leading_muon, subleading_muon,
@@ -778,7 +778,7 @@ def assign_data_run_id(scalars, data_runs, dataset_era, is_mc, runmap_numerical)
             scalars["run_index"][msk] = runmap_numerical[run_name]
         assert(NUMPY_LIB.sum(scalars["run_index"]==-1)==0)
 
-def finalize_weights(weights, parameters, dataset_era, all_weight_names=None):
+def finalize_weights(weights, dataset_era, all_weight_names=None):
     if all_weight_names is None:
         all_weight_names = weights.keys()
     
@@ -805,7 +805,7 @@ def finalize_weights(weights, parameters, dataset_era, all_weight_names=None):
                 ret["{0}__{1}".format(this_syst, sdir)] = wtot
 
         elif this_syst == "LHEPdfWeight":
-            for sdir in range(parameters["n_max_pdfweights"][dataset_era]):
+            for sdir in range(len(weights[this_syst])): 
                 wval_this_systematic = weights[this_syst][str(sdir)]
                 wtot = NUMPY_LIB.copy(ret["nominal"])
                 wtot *= wval_this_systematic
@@ -897,21 +897,18 @@ def compute_event_weights(parameters, weights, scalars, genweight_scalefactor, g
                 LHEScalew_all = NUMPY_LIB.zeros(nevt, dtype=NUMPY_LIB.float32)
                 get_theoryweights(LHEScalew.offsets, LHEScalew.LHEScaleWeight, iScale, LHEScalew_all, use_cuda)
                 weights["LHEScaleWeight"][str(iScale)] = LHEScalew_all
-
-
         
-        n_max_pdfw = parameters["n_max_pdfweights"][dataset_era]
-        weights["LHEPdfWeight"] = {
-            str(n): NUMPY_LIB.ones_like(weights["nominal"]["nominal"])
-            for n in range(n_max_pdfw)}
-
         #only defined for dy and ewk samples or signal samples
         if "dy" in dataset_name or "ewk" in dataset_name or "ggh" in dataset_name or "vbf" in dataset_name or "wmh" in dataset_name or "wph" in dataset_name or "zh" in dataset_name or "tth" in dataset_name:
+            n_max_pdfw = scalars["nLHEPdfWeight"][0]
+            weights["LHEPdfWeight"] = {
+                str(n): NUMPY_LIB.ones_like(weights["nominal"]["nominal"])
+                for n in range(n_max_pdfw)}
             nevt = len(weights["nominal"]["nominal"])
-            for iScale in range(n_max_pdfw):
+            for iPdf in range(n_max_pdfw):
                 LHEPdfw_all = NUMPY_LIB.zeros(nevt, dtype=NUMPY_LIB.float32)
-                get_theoryweights(LHEPdfw.offsets, LHEPdfw.LHEPdfWeight, iScale, LHEPdfw_all, use_cuda)
-                weights["LHEPdfWeight"][str(iScale)] = LHEPdfw_all
+                get_theoryweights(LHEPdfw.offsets, LHEPdfw.LHEPdfWeight, iPdf, LHEPdfw_all, use_cuda)
+                weights["LHEPdfWeight"][str(iPdf)] = LHEPdfw_all
 
 def evaluate_bdt_ucsd(dnn_vars, gbr_bdt):
     # BDT var=hmmpt
@@ -1165,8 +1162,9 @@ def event_loop(ds, analysis_corrections, parameter_sets, do_fsr=False, use_cuda=
         pinned_mempool = cupy.get_default_pinned_memory_pool()
         mempool.free_all_blocks()
         pinned_mempool.free_all_blocks()
-   
+     
     ret = Results(ret)
+
     return ret, ds, len(ds), ds.memsize()/1024.0/1024.0
 
 def get_histogram(data, weights, bins, mask=None):
@@ -3352,6 +3350,10 @@ def create_datastructure(dataset_name, is_mc, dataset_era, do_fsr=False):
             ("Generator_weight", "float32"),
             ("genWeight", "float32")
         ]
+        if "dy" in dataset_name or "ewk" in dataset_name or "ggh" in dataset_name or "vbf" in dataset_name or "wmh" in dataset_name or "wph" in dataset_name or "zh" in dataset_name or "tth" in dataset_name:
+            datastructures["EventVariables"] += [
+                ("nLHEPdfWeight", "int32")
+            ]
         if dataset_era == "2016" or dataset_era == "2017":
             datastructures["EventVariables"] += [
                 ("L1PreFiringWeight_Nom", "float32"),

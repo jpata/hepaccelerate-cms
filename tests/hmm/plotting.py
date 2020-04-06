@@ -10,7 +10,7 @@ import copy
 import multiprocessing
 
 from pars import catnames, varnames, analysis_names, shape_systematics, controlplots_shape, genweight_scalefactor, lhe_pdf_variations
-from pars import process_groups, colors, extra_plot_kwargs,proc_grps,combined_signal_samples
+from pars import process_groups, colors, extra_plot_kwargs,proc_grps,combined_signal_samples, remove_proc
 
 from scipy.stats import wasserstein_distance
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
@@ -245,12 +245,13 @@ def plot_variations(args):
         h_pdf_down = copy.deepcopy(hnom)
         for i in range(lhe_pdf_variations[str(datataking_year)]):
             sname = 'LHEPdfWeight__{0}'.format(i)
-            h_pdf.append(res[mc_samp][sname]* weight_xs[mc_samp])
+            if sname in res[mc_samp]:
+                h_pdf.append(res[mc_samp][sname]* weight_xs[mc_samp])
         for k in range(len(h_pdf[0].contents)):
             rms = 0.0
-            for i in range(lhe_pdf_variations[str(datataking_year)]):
+            for i in range(len(h_pdf)):
                     rms = rms + (h_pdf[i].contents[k]-hnom.contents[k])**2
-            rms = np.sqrt(rms/(lhe_pdf_variations[str(datataking_year)]-1))
+            rms = np.sqrt(rms/(len(h_pdf)-1))
             h_pdf_up.contents[k] = hnom.contents[k] + rms
             h_pdf_down.contents[k] = hnom.contents[k] - rms
         #remove the normalization aspect from pdf
@@ -506,16 +507,17 @@ def create_variated_histos(weight_xs, proc,
             h_nom = np.zeros_like(hbase.contents)
             for i in range(lhe_pdf_variations[str(era)]):
                 sname = 'LHEPdfWeight__{0}'.format(i)
-                h_pdf.append(hdict[sname])
-            for i in range(lhe_pdf_variations[str(era)]):
+                if sname in hdict:
+                    h_pdf.append(hdict[sname])
+            for i in range(len(h_pdf)):
                 h_nom = h_nom + h_pdf[i].contents 
-            h_nom = h_nom/lhe_pdf_variations[str(era)]
+            h_nom = h_nom/len(h_pdf)
             for k in range(len(h_pdf[0].contents)):
                 h_pdf_nom.contents[k] = h_nom[k]
                 rms = 0.0
-                for i in range(lhe_pdf_variations[str(era)]):
+                for i in range(len(h_pdf)):
                     rms = rms + (h_pdf[i].contents[k]-hbase.contents[k])**2
-                rms = np.sqrt(rms/(lhe_pdf_variations[str(era)]-1))
+                rms = np.sqrt(rms/(len(h_pdf)-1))
                 h_pdf_up.contents[k] = hbase.contents[k] + rms
                 h_pdf_down.contents[k] = hbase.contents[k] - rms
             #remove the normalization aspect from pdf
@@ -636,7 +638,7 @@ def create_datacard_combine(
     filenames = {}
     for cat in categories:
         filenames[cat.full_name] = rootfile_name
-
+ 
     PrintDatacard(categories, dict_procs, era, event_counts, filenames, txtfile_name)
 
 from uproot_methods.classes.TH1 import from_numpy
@@ -749,17 +751,18 @@ def calculate_LHEPdf_norm(histos, era):
     h_pdf = []
     for i in range(lhe_pdf_variations[str(era)]):
         sname = 'LHEPdfWeight__{0}'.format(i)
-        h_pdf.append(histos[sname])
+        if sname in histos:
+            h_pdf.append(histos[sname])
     h_nom = np.zeros_like(histos["nominal"].contents)
-    for i in range(lhe_pdf_variations[str(era)]):
+    for i in range(len(h_pdf)):
         h_nom = h_nom + h_pdf[i].contents
-    h_nom = h_nom/lhe_pdf_variations[str(era)]
+    h_nom = h_nom/len(h_pdf)
     var = 0.0
-    for i in range(lhe_pdf_variations[str(era)]):
+    for i in range(len(h_pdf)):
         var = var + (np.sum(h_pdf[i].contents) - np.sum(h_nom))**2
 
-    if(era == 2016): 
-        var = np.sqrt(var/(lhe_pdf_variations[str(era)]-1)) # MC replicas for 2016
+    if(era == "2016"):
+        var = np.sqrt(var/(len(h_pdf)-1)) # MC replicas for 2016
     else: var = np.sqrt(var) #Hessian weights for 2017 and 2018
     if(np.sum(h_nom)!=0.0): var = var/np.sum(h_nom)
     return var
@@ -769,13 +772,15 @@ def PrintDatacard(categories, dict_procs, era, event_counts, filenames, ofname):
     
     number_of_bins = len(categories)
     number_of_backgrounds = 0
-    
+   
     backgrounds = []    
     signals = []    
     for cat in categories:
         for proc in cat.processes:
             if (proc in cat.signal_processes):
                 signals += [proc]
+            elif (proc in remove_proc):
+                continue
             else:
                 backgrounds += [proc]
     
@@ -811,12 +816,15 @@ def PrintDatacard(categories, dict_procs, era, event_counts, filenames, ofname):
 
     for cat in categories:
         for i_sample, sample in enumerate(cat.processes):
-            bins.append(cat.full_name)
-            processes_0.append(sample)
-            if sample in cat.signal_processes:
-                i_sample = -i_sample
-            processes_1.append(str(i_sample))
-            rates.append("{0}".format(event_counts[sample]))
+            if (sample in remove_proc): 
+                continue
+            else:
+                bins.append(cat.full_name)
+                processes_0.append(sample)
+                if sample in cat.signal_processes:
+                    i_sample = -i_sample
+                processes_1.append(str(i_sample))
+                rates.append("{0}".format(event_counts[sample]))
     
     #Write process lines (names and IDs)
     dcof.write("bin\t"+"\t".join(bins)+"\n")
@@ -829,9 +837,10 @@ def PrintDatacard(categories, dict_procs, era, event_counts, filenames, ofname):
     all_shape_uncerts = []
     all_scale_uncerts = []
     for cat in categories:
-        for proc in cat.processes:
-            all_shape_uncerts.extend(cat.shape_uncertainties[proc].keys())
-            all_scale_uncerts.extend(cat.scale_uncertainties[proc].keys())
+        for proc in cat.processes: 
+            if proc not in remove_proc:
+                all_shape_uncerts.extend(cat.shape_uncertainties[proc].keys())
+                all_scale_uncerts.extend(cat.scale_uncertainties[proc].keys())
     # Uniquify
     all_shape_uncerts = sorted(list(set(all_shape_uncerts)))
     all_scale_uncerts = sorted(list(set(all_scale_uncerts)))
@@ -842,7 +851,9 @@ def PrintDatacard(categories, dict_procs, era, event_counts, filenames, ofname):
         dcof.write(syst + "\t shape \t")
         for cat in categories:
             for proc in cat.processes:
-                if (proc in cat.shape_uncertainties.keys() and
+                if proc in remove_proc:
+                    continue
+                elif (proc in cat.shape_uncertainties.keys() and
                     syst in cat.shape_uncertainties[proc].keys()):
                     dcof.write(str(cat.shape_uncertainties[proc][syst]))
                 else:
@@ -855,7 +866,9 @@ def PrintDatacard(categories, dict_procs, era, event_counts, filenames, ofname):
         dcof.write("EWZLHEScaleWeight" + "\t shape \t")
     for cat in categories:
         for proc in cat.processes:
-            if ('ewk' in proc):
+            if proc in remove_proc:
+                continue
+            elif ('ewk' in proc):
                 dcof.write(str(1.0))
             else:
                 dcof.write("-")
@@ -868,7 +881,9 @@ def PrintDatacard(categories, dict_procs, era, event_counts, filenames, ofname):
         dcof.write("DYLHEScaleWeight" + "\t shape \t")
     for cat in categories:
         for proc in cat.processes:
-            if ('dy' in proc):
+            if proc in remove_proc:
+                continue
+            elif ('dy' in proc):
                 dcof.write(str(1.0))
             else:
                 dcof.write("-")
@@ -879,7 +894,9 @@ def PrintDatacard(categories, dict_procs, era, event_counts, filenames, ofname):
         dcof.write(syst + "\t lnN \t")
         for cat in categories:
             for proc in cat.processes:
-                if (proc in cat.scale_uncertainties.keys() and
+                if proc in remove_proc:
+                    continue
+                elif (proc in cat.scale_uncertainties.keys() and
                     syst in cat.scale_uncertainties[proc].keys()):
                     dcof.write(str(cat.scale_uncertainties[proc][syst]))
                 else:
@@ -890,8 +907,9 @@ def PrintDatacard(categories, dict_procs, era, event_counts, filenames, ofname):
     dcof.write("LHEPdfWeight_norm" + "\t lnN \t")
     for cat in categories:
         for proc in cat.processes:
-            if "dy" in proc or "ewk" in proc or "ggh" in proc or "vbf" in proc or "vh" in proc or "tth" in proc:
-                
+            if proc in remove_proc:
+                continue
+            elif "dy" in proc or "ewk" in proc or "ggh" in proc or "vbf" in proc or "vh" in proc or "tth" in proc:
                 if("vh" not in proc):
                     Pdf_norm = calculate_LHEPdf_norm(dict_procs[proc], era)
                     dcof.write("{0:.2f}".format(1.0 + Pdf_norm))
@@ -901,7 +919,7 @@ def PrintDatacard(categories, dict_procs, era, event_counts, filenames, ofname):
                     Pdf_norm_vh.append(calculate_LHEPdf_norm(dict_procs["wmh_125"], era))
                     Pdf_norm_vh.append(calculate_LHEPdf_norm(dict_procs["zh_125"], era))
                     sorted(Pdf_norm_vh, reverse = True)
-                    dcof.write("{0:.2f}".format(1.0 + Pdf_norm_vh[0]))
+                    dcof.write("{0:.3f}".format(1.0 + Pdf_norm_vh[0]))
                     
             else:
                 dcof.write("-")
@@ -980,6 +998,12 @@ if __name__ == "__main__":
         dd = "{0}/{1}".format(input_folder, analysis)
         res = {} 
         res["data"] = pickle.load(open(dd + "/data_{0}.pkl".format(era), "rb"))
+
+        #debug
+        #for i in range(11):
+        #    res_file_name = "/storage/user/nlu/hmm/out/partial_results/ewk_lljj_mll105_160_ptJ_herwig_2016_"+str(i)+".pkl"
+        #res_file_name = "/storage/user/nlu/hmm/out/results/ewk_lljj_mll105_160_ptJ_herwig_2016.pkl"
+
         for mc_samp in mc_samples_load:
             res_file_name = dd + "/{0}_{1}.pkl".format(mc_samp, era)
             try:
@@ -1050,7 +1074,6 @@ if __name__ == "__main__":
                 else:
                     mc_samples_new = []
                     for proc in mc_samples:
-                        print(proc)
                         if proc in cmdline_args.keep_processes:
                             mc_samples_new += [proc]
                     mc_samples = mc_samples_new
@@ -1060,11 +1083,9 @@ if __name__ == "__main__":
                         "please check the definition in pars.py -> categories as "
                         "well as --keep-processes commandline option."
                         )
-
                 histos = {}
                 for sample in mc_samples + ["data"]:
                     histos[sample] = res[sample][analysis][var]
-
                 print(era, analysis, var)
                 datacard_args += [
                     (histos,
@@ -1100,8 +1121,8 @@ if __name__ == "__main__":
                                     histos, hdata, mc_samp, analysis,
                                     var, "nominal", weight_xs, int_lumi, outdir, era, unc)]
         rets = list(pool.map(make_pdf_plot, plot_args))
-        #rets = list(pool.map(make_pdf_plot, plot_args_weights_off))
-        rets = list(pool.map(create_datacard_combine_wrap, datacard_args))
+        rets = list(pool.map(make_pdf_plot, plot_args_weights_off))
+        #rets = list(pool.map(create_datacard_combine_wrap, datacard_args))
         rets = list(pool.map(plot_variations, plot_args_shape_syst))
 
         #for args, retval in zip(datacard_args, rets):
