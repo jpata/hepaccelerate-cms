@@ -746,7 +746,7 @@ class Category:
                 self.scale_uncertainties[proc] = {}
             self.scale_uncertainties[proc].update(v)
 
-def calculate_LHEPdf_norm(histos, era):
+def calculate_LHEPdf_norm(histos, era, proc):
     #Based on https://arxiv.org/pdf/1510.03865.pdf
     h_pdf = []
     for i in range(lhe_pdf_variations[str(era)]):
@@ -761,7 +761,7 @@ def calculate_LHEPdf_norm(histos, era):
     for i in range(len(h_pdf)):
         var = var + (np.sum(h_pdf[i].contents) - np.sum(h_nom))**2
 
-    if(era == "2016"):
+    if((era == "2016") and ("ewk_lljj_mll105_160_ptJ_herwig" not in proc) and ("tth_125" not in proc)):
         var = np.sqrt(var/(len(h_pdf)-1)) # MC replicas for 2016
     else: var = np.sqrt(var) #Hessian weights for 2017 and 2018
     if(np.sum(h_nom)!=0.0): var = var/np.sum(h_nom)
@@ -911,13 +911,13 @@ def PrintDatacard(categories, dict_procs, era, event_counts, filenames, ofname):
                 continue
             elif "dy" in proc or "ewk" in proc or "ggh" in proc or "vbf" in proc or "vh" in proc or "tth" in proc:
                 if("vh" not in proc):
-                    Pdf_norm = calculate_LHEPdf_norm(dict_procs[proc], era)
-                    dcof.write("{0:.2f}".format(1.0 + Pdf_norm))
+                    Pdf_norm = calculate_LHEPdf_norm(dict_procs[proc], era, proc)
+                    dcof.write("{0:.3f}".format(1.0 + Pdf_norm))
                 else:
                     Pdf_norm_vh =[]
-                    Pdf_norm_vh.append(calculate_LHEPdf_norm(dict_procs["wph_125"], era))
-                    Pdf_norm_vh.append(calculate_LHEPdf_norm(dict_procs["wmh_125"], era))
-                    Pdf_norm_vh.append(calculate_LHEPdf_norm(dict_procs["zh_125"], era))
+                    Pdf_norm_vh.append(calculate_LHEPdf_norm(dict_procs["wph_125"], era, proc))
+                    Pdf_norm_vh.append(calculate_LHEPdf_norm(dict_procs["wmh_125"], era, proc))
+                    Pdf_norm_vh.append(calculate_LHEPdf_norm(dict_procs["zh_125"], era, proc))
                     sorted(Pdf_norm_vh, reverse = True)
                     dcof.write("{0:.3f}".format(1.0 + Pdf_norm_vh[0]))
                     
@@ -1116,10 +1116,10 @@ if __name__ == "__main__":
                                 plot_args_shape_syst += [(
                                     histos, hdata, mc_samp, analysis,
                                     var, "nominal", weight_xs, int_lumi, outdir, era, unc)]
-        rets = list(pool.map(make_pdf_plot, plot_args))
+        #rets = list(pool.map(make_pdf_plot, plot_args))
         #rets = list(pool.map(make_pdf_plot, plot_args_weights_off))
         rets = list(pool.map(create_datacard_combine_wrap, datacard_args))
-        rets = list(pool.map(plot_variations, plot_args_shape_syst))
+        #rets = list(pool.map(plot_variations, plot_args_shape_syst))
 
         #for args, retval in zip(datacard_args, rets):
         #    res, hd, mc_samples, analysis, var, weight, weight_xs, int_lumi, outdir, datataking_year = args
