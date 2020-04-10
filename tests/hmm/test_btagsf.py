@@ -15,6 +15,7 @@ if __name__ == "__main__":
     
     systs = ["jes", "lfstats1", "lfstats2", "hfstats1", "hfstats2", "cferr1", "cferr2", "lf", "hf"]
     
+    #BTagScaleFactor from coffea
     t0 = time.time()
     sf = BTagScaleFactor(sf_file, BTagScaleFactor.RESHAPE, 'iterativefit,iterativefit,iterativefit', keep_df=True)
     for tsys in systs:
@@ -23,7 +24,8 @@ if __name__ == "__main__":
             sf.eval(tsys_name, arr_flav[:1], arr_abs_eta[:1], arr_pt[:1], arr_discr[:1], True)
     t1 = time.time()
     print("init_py", t1 - t0)
-    
+   
+    #BTagCalibrationStandalone from POG 
     t0 = time.time()
     libhmm = LibHMuMu()
     print("loading BTagCalibration")
@@ -50,6 +52,7 @@ if __name__ == "__main__":
             t1 = time.time()
 
             print("eval_py", t1 - t0)
+            #print jets for which the SF value is different
             k = 0
             for ijet in range(len(arr_pt)):
                 if ret[ijet] != ret2[ijet]:
