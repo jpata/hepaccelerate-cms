@@ -8,7 +8,7 @@ LINK     = g++ -fPIC -L/usr/local/anaconda3/lib -liomp5 -lmkl_intel_thread
 CXXFLAGS= $(shell root-config --cflags)
 LIBS    = $(shell root-config --libs)
 
-SOURCES = GBRForestTools.cc LeptonEfficiencyCorrector.cc RoccoR.cc tinyxml2.cc WeightCalculatorFromHistogram.cc MiscVariables.cc NNLOPSReweighting.cc hRelResolution.cc ZpTReweighting.cc
+SOURCES = GBRForestTools.cc LeptonEfficiencyCorrector.cc RoccoR.cc tinyxml2.cc WeightCalculatorFromHistogram.cc MiscVariables.cc NNLOPSReweighting.cc hRelResolution.cc ZpTReweighting.cc BTagCalibrationStandalone.cc
 HEADERS = *.h
 
 OBJECTS = $(SOURCES:.cc=.o)

@@ -35,6 +35,18 @@ class LibHMuMu:
             void hRelResolution_eval(void* c, float* out_hres, int nev, float* mu1_pt, float* mu1_eta, float* mu2_pt, float* mu2_eta);
             void* new_ZpTReweighting();
             void ZpTReweighting_eval(void* c, float* out_zptw, int nev, float* pt, int itune);
+            
+            void* new_BTagCalibration(const char* tagger);
+            void BTagCalibration_readCSV(void* obj, const char* file_path);
+            void* new_BTagCalibrationReader(int op, const char* syst, int num_other_systs, const char** other_systs);
+            void BTagCalibrationReader_load(void* obj, void* obj2, int flav, const char* type);
+            void BTagCalibrationReader_eval(
+                void* calib_b,
+                void* calib_c,
+                void* calib_l,
+                float* out_w, int nev, const char* sys,
+                int* flav, float* abs_eta, float* pt, float* discr);
+
         """)
         self.libhmm = self.ffi.dlopen(libpath)
 
@@ -62,7 +74,13 @@ class LibHMuMu:
 
         self.new_ZpTReweighting = self.libhmm.new_ZpTReweighting
         self.ZpTReweighting_eval = self.libhmm.ZpTReweighting_eval
-
+        
+        self.new_BTagCalibration = self.libhmm.new_BTagCalibration
+        self.BTagCalibration_readCSV = self.libhmm.BTagCalibration_readCSV
+        self.new_BTagCalibrationReader = self.libhmm.new_BTagCalibrationReader
+        self.BTagCalibrationReader_load = self.libhmm.BTagCalibrationReader_load
+        self.BTagCalibrationReader_eval = self.libhmm.BTagCalibrationReader_eval
+ 
     def cast_as(self, dtype_string, arr):
         return self.ffi.cast(dtype_string, arr.ctypes.data)
 
@@ -175,7 +193,7 @@ class NNLOPSReweighting:
             raise FileNotFoundError("File {0} does not exist".format(path))
         fi = uproot.open(path)
       
-        file_C = libhmm.ffi.new("char[]", path.encode("ascii")) 
+        file_C = self.libhmm.ffi.new("char[]", path.encode("ascii")) 
         self.c_class = self.libhmm.new_NNLOPSReweighting(
             file_C
         )
@@ -201,7 +219,7 @@ class hRelResolution:
             raise FileNotFoundError("File {0} does not exist".format(path))
         fi = uproot.open(path)
         print(path)
-        file_C = libhmm.ffi.new("char[]", path.encode("ascii"))
+        file_C = self.libhmm.ffi.new("char[]", path.encode("ascii"))
         self.c_class = self.libhmm.new_hRelResolution(
             file_C
         )
@@ -318,3 +336,56 @@ class MiscVariables:
             self.libhmm.cast_as("int *", year),
         )
         return out_pt
+
+class BTagCalibration:
+    def __init__(self, libhmm, tagger, csv_file, systs=[]):
+        self.libhmm = libhmm
+        tagger_C = self.libhmm.ffi.new("char[]", tagger.encode("ascii"))
+        self.c_class = self.libhmm.new_BTagCalibration(tagger_C)
+        file_C = self.libhmm.ffi.new("char[]", csv_file.encode("ascii"))
+        self.libhmm.BTagCalibration_readCSV(self.c_class, file_C)
+
+        self.calib_b = BTagCalibrationReader(self.libhmm, 3, "central", systs)
+        self.calib_c = BTagCalibrationReader(self.libhmm, 3, "central", systs)
+        self.calib_l = BTagCalibrationReader(self.libhmm, 3, "central", systs)
+        self.calib_b.load(self, 0)
+        self.calib_c.load(self, 1)
+        self.calib_l.load(self, 2)
+
+    def eval(self, sys_name, arr_flav, arr_abs_eta, arr_pt, arr_discr):
+        sys_C = self.libhmm.ffi.new("char[]", sys_name.encode("ascii"))
+        out = numpy_lib.zeros_like(arr_abs_eta)
+
+        nev = len(arr_flav)
+        assert(arr_flav.dtype == numpy_lib.int32)
+        assert(arr_abs_eta.dtype == numpy_lib.float32)
+        assert(arr_pt.dtype == numpy_lib.float32)
+        assert(arr_discr.dtype == numpy_lib.float32)
+        assert(len(arr_abs_eta) == nev)
+        assert(len(arr_pt) == nev)
+        assert(len(arr_discr) == nev)
+
+        self.libhmm.BTagCalibrationReader_eval(
+            self.calib_b.c_class,
+            self.calib_c.c_class,
+            self.calib_l.c_class,
+            self.libhmm.cast_as("float *", out),
+            nev, sys_C, 
+            self.libhmm.cast_as("int *", arr_flav),
+            self.libhmm.cast_as("float *", arr_abs_eta),
+            self.libhmm.cast_as("float *", arr_pt),
+            self.libhmm.cast_as("float *", arr_discr)
+        )
+        return out
+
+class BTagCalibrationReader:
+    def __init__(self, libhmm, op, syst, other_systs):
+        self.libhmm = libhmm
+
+        syst_C = self.libhmm.ffi.new("char[]", syst.encode("ascii"))
+        other_systs_C = [self.libhmm.ffi.new("char[]", s.encode("ascii")) for s in other_systs]
+        self.c_class = self.libhmm.new_BTagCalibrationReader(op, syst_C, len(other_systs_C), other_systs_C)
+
+    def load(self, calib, flav, typ="iterativefit"):
+        typ_C = self.libhmm.ffi.new("char[]", typ.encode("ascii"))
+        self.libhmm.BTagCalibrationReader_load(self.c_class, calib.c_class, flav, typ_C)

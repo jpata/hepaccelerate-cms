@@ -43,3 +43,4 @@ script:
     - python tests/hmm/skim_and_recompress.py -i ./skim.txt -o ./data/nano_2016_data_skim.root -s "(HLT_IsoMu24 || HLT_IsoTkMu24) && nMuon>=2" -t ./ -b batch/branches.txt || travis_terminate 1
     - wget https://jpata.web.cern.ch/jpata/hmm/test_files/21-02-2020-private-nanoaod/myNanoProdMc2016_NANO.root -O data/myNanoProdMc2016_NANO.root || travis_terminate 1
     - PYTHONPATH=coffea:hepaccelerate:. python tests/hmm/test_analysis_full.py --debug || travis_terminate 1
+    - PYTHONPATH=coffea:hepaccelerate:. python tests/hmm/test_btagsf.py || travis_terminate 1
