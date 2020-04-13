@@ -25,7 +25,8 @@ install:
   - conda activate myenv
   - conda install --channel "intel" -y tbb numba numpy scipy tensorflow-gpu==1.14.0 
   - conda install awkward cffi cloudpickle lz4 psutil python-xxhash pyyaml requests root six tbb tqdm uproot xxhash boost matplotlib
-  - conda install -c conda-forge zstd
+  - conda remove zstd
+  - conda install zstd
   - pip install -U keras
   - pip install coffea
   - cd tests/hmm
