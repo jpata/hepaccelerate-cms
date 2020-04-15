@@ -622,8 +622,8 @@ analysis_parameters = {
                 "dy_0j": 2, 
                 "dy_1j": 2, 
                 "dy_2j": 2, 
-                "dy_m105_160_amc": 2, 
-                "dy_m105_160_vbf_amc": 2,
+                #"dy_m105_160_amc": 2, 
+                #"dy_m105_160_vbf_amc": 2,
             },
             "2017": {
                 "dy_0j": 1,

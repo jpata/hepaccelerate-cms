@@ -341,7 +341,7 @@ def analyze_data(
     # PU ID weights are only applied to 2016 and 2018 so far, as they haven't been validated for 2017
     # https://github.com/jpata/hepaccelerate-cms/pull/66
     if (parameters["jet_puid"] != "none") and is_mc:
-        puid_weights = get_puid_weights(jets_passing_id, passed_puid, analysis_corrections.puidreweighting, dataset_era, parameters["jet_puid"], parameters["jet_pt_subleading"][dataset_era], parameters["jet_puid_pt_max"], use_cuda)
+        puid_weights = get_puid_weights(jets, passed_puid, analysis_corrections.puidreweighting, dataset_era, parameters["jet_puid"], parameters["jet_pt_subleading"][dataset_era], parameters["jet_puid_pt_max"], use_cuda)
         weights_individual["jet_puid"] = {"nominal": puid_weights, "up": puid_weights, "down": puid_weights}
 
     if is_mc and parameters["apply_btag"]:
@@ -353,7 +353,13 @@ def analyze_data(
     compute_event_weights(parameters, weights_individual, scalars,
         genweight_scalefactor, gghnnlopsw, ZpTw,
         LHEScalew, LHEPdfw, analysis_corrections.pu_corrections, is_mc, dataset_era, dataset_name, use_cuda)
-
+ 
+    jet_attrs = ["pt", "eta", "phi", "mass", "qgl","jetId","puId","btagDeepB"]
+    if is_mc:
+        jet_attrs += ["hadronFlavour","partonFlavour"]
+        qglWeights, qglWeights_up, qglWeights_down = get_qglWeights(jets_passing_id, jet_attrs, ret_mu, analysis_corrections.miscvariables, dataset_name)
+        weights_individual["qgl_weight"] = {"nominal": qglWeights, "up": qglWeights_up, "down": qglWeights_down}
+        
     #actually multiply all the weights together with the appropriate up/down variations.
     #creates a 1-level dictionary with weights "nominal", "puweight__up", "puweight__down", ..." 
     weights_final = finalize_weights(weights_individual, dataset_era)
@@ -849,7 +855,6 @@ def compute_event_weights(parameters, weights, scalars, genweight_scalefactor, g
             weights["nominal"]["nominal"] = scalars["genWeight"] * genweight_scalefactor * zptw
         else:
             weights["nominal"]["nominal"] = scalars["genWeight"] * genweight_scalefactor
-        weights["nominal"]["nominal"] = scalars["genWeight"] * genweight_scalefactor
  
         if debug:
             print("mean genWeight=", scalars["genWeight"].mean())
@@ -860,7 +865,7 @@ def compute_event_weights(parameters, weights, scalars, genweight_scalefactor, g
             pu_corrections[dataset_era],
             weights["nominal"]["nominal"],
             scalars["Pileup_nTrueInt"],
-            scalars["PV_npvsGood"])
+            scalars["Pileup_nTrueInt"]) #scalars["PV_npvsGood"])
 
         if debug:
             print("pu_weights", pu_weights.mean(), pu_weights.std())
@@ -1707,7 +1712,7 @@ def compute_dnnPisaComb_cuda(dnnPisaComb_pred, dnnPisa_preds, event_array):
 
 def compute_eff_product(offsets, jet_pt_mask, jets_mask_passes_id, jets_eff, use_cuda):
     nev = len(offsets) - 1
-    p_puid = NUMPY_LIB.zeros(nev, dtype=NUMPY_LIB.float32)
+    p_puid = NUMPY_LIB.ones(nev, dtype=NUMPY_LIB.float32)
     if use_cuda:
         compute_eff_product_cudakernel(offsets, jet_pt_mask, jets_mask_passes_id, jets_eff, p_puid)
         cuda.synchronize()
@@ -3364,7 +3369,9 @@ def create_datastructure(dataset_name, is_mc, dataset_era, do_fsr=False):
             ("Muon_genPartIdx", "int32"),
         ]
         datastructures["Jet"] += [
-        ("Jet_hadronFlavour","int32"),
+            ("Jet_genJetIdx", "int32"),
+            ("Jet_hadronFlavour","int32"),
+            ("Jet_partonFlavour","int32"),
         ]
         datastructures["GenPart"] = [
             ("GenPart_pt", "float32"),
