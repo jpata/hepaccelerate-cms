@@ -532,7 +532,7 @@ varnames = {
 
 analysis_names = {
     "baseline": {"2018": "Autumn18_V19", "2017": "Fall17_17Nov2017_V32", "2016": "Summer16_07Aug2017_V11"},
-    "jer": {"2018": "JER enabled", "2017": "JER enabled", "2016": "JER enabled"},
+    "jer": {"2018": "JER smearing off", "2017": "JER smearing off", "2016": "JER smearing off"},
 }
 
 #All analysis definitions (cut values etc) should go here
@@ -564,7 +564,7 @@ analysis_parameters = {
         "do_geofit": True,
         
         "do_jec": True,
-        "do_jer": {"2016": False, "2017": True, "2018": True},
+        "do_jer": {"2016": False, "2017": False, "2018": False},
         "jec_tag": {"2016": "Summer16_07Aug2017_V11", "2017": "Fall17_17Nov2017_V32", "2018": "Autumn18_V19"}, 
         "jet_mu_dr": 0.4,
         "jet_pt_leading": {"2016": 35.0, "2017": 35.0, "2018": 35.0},

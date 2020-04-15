@@ -475,10 +475,6 @@ def analyze_data(
             # Set this default value as in Nan and Irene's code
             ret_jet["dijet_inv_mass"][ret_jet["num_jets"] < 2] = -1000.0
             # Get the data for the leading and subleading jets as contiguous vectors
-            jet_attrs = ["pt", "eta", "phi", "mass", "qgl","jetId","puId","btagDeepB"]
-            if is_mc:
-                jet_attrs += ["hadronFlavour"]
-
             leading_jet = jets_passing_id.select_nth(
                 0, ret_mu["selected_events"], ret_jet["selected_jets"],
                 attributes=jet_attrs)
@@ -1918,6 +1914,33 @@ def get_new_btag_weights_shape(jets, evaluator, era, scalars, pt_cut):
         #print(p_jetWt_up[i][mask_pt_bounds[i]],jets.pt[mask_pt_bounds[i]],jets.eta[mask_pt_bounds[i]],jets.btagDeepB[mask_pt_bounds[i]])
         #print(p_jetWt_down[i][mask_pt_bounds[i]],jets.pt[mask_pt_bounds[i]],jets.eta[mask_pt_bounds[i]],jets.btagDeepB[mask_pt_bounds[i]])
     return eventweight_btag , eventweight_btag_up, eventweight_btag_down
+
+#qgl reweighting
+def get_qglWeights(jets, jet_attrs, ret_mu, func, dataset_name):
+    qglw = NUMPY_LIB.ones(jets.numevents())
+    qglw_up = NUMPY_LIB.ones(jets.numevents())
+    psgen = NUMPY_LIB.ones(jets.numevents())
+    if "pythia" in dataset_name:
+        psgen = NUMPY_LIB.zeros(jets.numevents())
+    leading_jet = jets.select_nth(
+                0, ret_mu["selected_events"], None,
+                attributes=jet_attrs)
+    subleading_jet = jets.select_nth(
+                1, ret_mu["selected_events"], None,
+                attributes=jet_attrs)
+    qglj1w = NUMPY_LIB.array(func.qglJetWeight(
+                    NUMPY_LIB.asnumpy(leading_jet["partonFlavour"]),
+                    NUMPY_LIB.asnumpy(leading_jet["pt"]),
+                    NUMPY_LIB.asnumpy(leading_jet["eta"]),
+                    NUMPY_LIB.asnumpy(leading_jet["qgl"]), psgen))
+    qglj2w = NUMPY_LIB.array(func.qglJetWeight(
+                    NUMPY_LIB.asnumpy(subleading_jet["partonFlavour"]),
+                    NUMPY_LIB.asnumpy(subleading_jet["pt"]),
+                    NUMPY_LIB.asnumpy(subleading_jet["eta"]),
+                    NUMPY_LIB.asnumpy(subleading_jet["qgl"]), psgen))
+    qglw = NUMPY_LIB.multiply(qglj1w,qglj2w)
+    qglw_down = NUMPY_LIB.multiply(qglw,qglw)
+    return qglw, qglw_up, qglw_down
 
 @numba.njit(parallel=True)
 def compute_eff_product_cpu(offsets, jet_pt_mask, jets_mask_passes_id, jets_eff, out_proba):
