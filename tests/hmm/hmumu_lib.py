@@ -409,4 +409,3 @@ class BTagCalibrationReader:
     def load(self, calib, flav, typ="iterativefit"):
         typ_C = self.libhmm.ffi.new("char[]", typ.encode("ascii"))
         self.libhmm.BTagCalibrationReader_load(self.c_class, calib.c_class, flav, typ_C)
-        
