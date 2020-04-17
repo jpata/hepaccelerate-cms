@@ -22,7 +22,7 @@ export NUMBA_ENABLE_AVX=1
 export NUMBA_THREADING_BACKEND=omp
 export NUMBA_NUM_THREADS=$NTHREADS
 export OMP_NUM_THREADS=$NTHREADS
-
+export NUMBA_BOUNDSCHECK=1
 #This is where the skim files are loaded from
 export CACHE_PATH=/storage/user/nlu/hmm/skim_merged
 

@@ -20,7 +20,7 @@ import hepaccelerate.backend_cpu as backend_cpu
 
 from coffea.lookup_tools import extractor
 
-from pars import runmap_numerical, runmap_numerical_r, data_runs, genweight_scalefactor
+from pars import runmap_numerical, runmap_numerical_r, data_runs, genweight_scalefactor, jer_unc
 
 #global variables need to be configured here for the hepaccelerate backend and numpy library
 #they will be overwritten later
@@ -31,7 +31,7 @@ NUMPY_LIB = None
 debug = False
 #debug = True
 #event IDs for which to print out detailed information
-debug_event_ids = [37750]
+debug_event_ids = [ 1950025  , 1950490 ,  2149410]
 
 #Run additional checks on the analyzed data to ensure consistency - for debugging
 doverify = False
@@ -101,7 +101,6 @@ def analyze_data(
     LHEPdfw = None
     if "dy" in dataset_name or "ewk" in dataset_name or "ggh" in dataset_name or "vbf" in dataset_name or "wmh" in dataset_name or "wph" in dataset_name or "zh" in dataset_name or "tth" in dataset_name:
         LHEPdfw = data.structs["LHEPdfWeight"][0]
-
     histo_bins = parameters["histo_bins"]
 
     #first mask of all events enabled
@@ -341,7 +340,7 @@ def analyze_data(
     # PU ID weights are only applied to 2016 and 2018 so far, as they haven't been validated for 2017
     # https://github.com/jpata/hepaccelerate-cms/pull/66
     if (parameters["jet_puid"] != "none") and is_mc:
-        puid_weights = get_puid_weights(jets_passing_id, passed_puid, analysis_corrections.puidreweighting, dataset_era, parameters["jet_puid"], parameters["jet_pt_subleading"][dataset_era], parameters["jet_puid_pt_max"], use_cuda)
+        puid_weights = get_puid_weights(jets, passed_puid, analysis_corrections.puidreweighting, dataset_era, parameters["jet_puid"], parameters["jet_pt_subleading"][dataset_era], parameters["jet_puid_pt_max"], use_cuda)
         weights_individual["jet_puid"] = {"nominal": puid_weights, "up": puid_weights, "down": puid_weights}
 
     if is_mc and parameters["apply_btag"]:
@@ -352,7 +351,7 @@ def analyze_data(
     #compute variated weights here to ensure the nominal weight contains all possible other weights  
     compute_event_weights(parameters, weights_individual, scalars,
         genweight_scalefactor, gghnnlopsw, ZpTw,
-        LHEScalew, LHEPdfw, analysis_corrections.pu_corrections, is_mc, dataset_era, dataset_name, use_cuda)
+        LHEScalew, LHEPdfw,  analysis_corrections.pu_corrections, is_mc, dataset_era, dataset_name, use_cuda)
 
     #actually multiply all the weights together with the appropriate up/down variations.
     #creates a 1-level dictionary with weights "nominal", "puweight__up", "puweight__down", ..." 
@@ -375,6 +374,8 @@ def analyze_data(
             "nominal": lepton_sf_values["mu2_iso"]
         }
     '''
+
+        
     fill_histograms_several(
         hists, "nominal", "hist__dimuon__",
         [
@@ -390,12 +391,11 @@ def analyze_data(
         use_cuda
     )
     ret["selected_events_dimuon"] = NUMPY_LIB.sum(ret_mu["selected_events"])
- 
     masswindow_z_peak = ((higgs_inv_mass >= parameters["masswindow_z_peak"][0]) & (higgs_inv_mass < parameters["masswindow_z_peak"][1]))
     masswindow_h_region = ((higgs_inv_mass >= parameters["masswindow_h_sideband"][0]) & (higgs_inv_mass < parameters["masswindow_h_sideband"][1]))
     masswindow_h_peak = ((higgs_inv_mass >= parameters["masswindow_h_peak"][0]) & (higgs_inv_mass < parameters["masswindow_h_peak"][1]))
     masswindow_h_sideband = masswindow_h_region & NUMPY_LIB.invert(masswindow_h_peak)
-
+    #masswindow_z_peak_jer = ((higgs_inv_mass >= parameters["masswindow_z_peak"][0]) & (higgs_inv_mass < parameters["masswindow_z_peak"][1]))
     #get the number of additional muons (not OS) that pass ID and iso cuts
     n_additional_muons = ha.sum_in_offsets(muons.offsets, ret_mu["additional_muon_sel"], ret_mu["selected_events"], ret_mu["additional_muon_sel"], dtype=NUMPY_LIB.int8)
     n_additional_electrons = ha.sum_in_offsets(electrons.offsets, ret_el["additional_electron_sel"], ret_mu["selected_events"], ret_el["additional_electron_sel"], dtype=NUMPY_LIB.int8)
@@ -404,6 +404,7 @@ def analyze_data(
     if debug:
         print("event selection eff based on 2 muons", ret_mu["selected_events"].sum() / float(len(mask_events)))
         print("Doing nominal jec on {0} jets".format(jets_passing_id.numobjects()))
+        
     jet_systematics = JetTransformer(
         jets_passing_id, scalars,
         parameters,
@@ -413,8 +414,9 @@ def analyze_data(
     syst_to_consider = ["nominal"]
     if is_mc:
         syst_to_consider += ["Total"]
-        if parameters["do_jer"][dataset_era]:
-            syst_to_consider += ["jer"]
+        if parameters["do_jer"][dataset_era]: 
+            jer_syst = jer_unc
+            syst_to_consider = syst_to_consider + jer_syst
         if parameters["do_factorized_jec"]:
             syst_to_consider = syst_to_consider + jet_systematics.jet_uncertainty_names
 
@@ -423,26 +425,56 @@ def analyze_data(
 
     #Now actually call the JEC computation for each scenario
     jet_pt_startfrom = "pt_jec"
-    if is_mc and parameters["do_jer"][dataset_era]:
-        jet_pt_startfrom = "pt_jec_jer"
+            
     for uncertainty_name in syst_to_consider:
+        # First get the jet mask each uncertainty_name
+        pass_jer_bin = NUMPY_LIB.ones_like(ret_mu['selected_events'])
+        if 'jer' in uncertainty_name:
+            ret_jet_temp = get_selected_jets(
+                scalars,
+                jets_passing_id,
+                ret_mu['selected_events'],
+                parameters["jet_pt_subleading"][dataset_era],
+                parameters["jet_btag_medium"][dataset_era],
+                parameters["jet_btag_loose"][dataset_era],
+                is_mc, use_cuda
+            )
+            j_attrs = ["pt", "eta", "phi"]
+            temp_subleading_jet = jets_passing_id.select_nth(
+                1, ret_mu['selected_events'], ret_jet_temp["selected_jets"],
+                attributes=j_attrs)
+                
+            j2_eta_abs = NUMPY_LIB.abs(temp_subleading_jet["eta"])
+            pass_jer_bin = NUMPY_LIB.logical_and(j2_eta_abs > parameters["jer_pt_eta_bins"][uncertainty_name]["eta"][0], NUMPY_LIB.logical_and(j2_eta_abs < parameters["jer_pt_eta_bins"][uncertainty_name]["eta"][1], NUMPY_LIB.logical_and(temp_subleading_jet["pt"] > parameters["jer_pt_eta_bins"][uncertainty_name]["pt"][0],temp_subleading_jet["pt"] < parameters["jer_pt_eta_bins"][uncertainty_name]["pt"][1])))
+        #calculate the associated genpt for every reco jet
+        jet_genpt = NUMPY_LIB.zeros(jets_passing_id.numobjects(), dtype=NUMPY_LIB.float32)
+        if is_mc:
+            get_genJetpt_cpu(jets_passing_id.offsets, jets_passing_id.pt, jets_passing_id.genJetIdx, genJet.offsets, genJet.pt, jet_genpt)
+
+        is_jer_event = NUMPY_LIB.logical_and(ret_mu["selected_events"],pass_jer_bin)
+        jet_mask_bin = NUMPY_LIB.zeros_like(jets_passing_id.pt)
+        ha.broadcast(jets_passing_id.offsets,is_jer_event,jet_mask_bin)
         #This will be the variated pt vector
         #print("computing variated pt for", uncertainty_name)
-        var_up_down = jet_systematics.get_variated_pts(uncertainty_name, startfrom=jet_pt_startfrom)
+        var_up_down = jet_systematics.get_variated_pts(uncertainty_name, jet_mask_bin, jet_genpt, startfrom=jet_pt_startfrom)
+
         for jet_syst_name, jet_pt_vec in var_up_down.items():
+            if 'jer' in uncertainty_name:
+                jet_syst_name = (uncertainty_name,jet_syst_name[1])
+                
             # For events where the JEC/JER was variated, fill only the nominal weight
             weights_selected = select_weights(weights_final, jet_syst_name)
-
             jet_pt_change = (jet_pt_vec - jets_passing_id.pt).mean()
+            
             # Configure the jet pt vector to the variated one
             # Would need to also do the mass here
             jets_passing_id.pt = jet_pt_vec
-
+                    
             #Do the pt-dependent jet analysis now for all jets
             ret_jet = get_selected_jets(
                 scalars,
                 jets_passing_id,
-                mask_events,
+                ret_mu['selected_events'],
                 parameters["jet_pt_subleading"][dataset_era],
                 parameters["jet_btag_medium"][dataset_era],
                 parameters["jet_btag_loose"][dataset_era],
@@ -457,7 +489,7 @@ def analyze_data(
                 [
                     (ret_jet["num_jets"], "num_jets" , histo_bins["numjets"]),
                 ],
-                ret_mu["selected_events"],
+                ret_mu['selected_events'],
                 weights_final,
                 use_cuda
             )
@@ -474,10 +506,10 @@ def analyze_data(
                 jet_attrs += ["hadronFlavour"]
 
             leading_jet = jets_passing_id.select_nth(
-                0, ret_mu["selected_events"], ret_jet["selected_jets"],
+                0, ret_mu['selected_events'], ret_jet["selected_jets"],
                 attributes=jet_attrs)
             subleading_jet = jets_passing_id.select_nth(
-                1, ret_mu["selected_events"], ret_jet["selected_jets"],
+                1, ret_mu['selected_events'], ret_jet["selected_jets"],
                 attributes=jet_attrs)
             #if do_sync and jet_syst_name[0] == "nominal":
                 #sync_printout(ret_mu, muons, scalars,
@@ -485,6 +517,29 @@ def analyze_data(
                    # n_additional_muons, n_additional_electrons,
                     #ret_jet, leading_jet, subleading_jet)
           
+            if parameters["split_z_peak"][dataset_era]:
+                j2_eta_abs = NUMPY_LIB.abs(subleading_jet["eta"])
+                pass_jerB1 = NUMPY_LIB.logical_and(j2_eta_abs > parameters["jer_pt_eta_bins"]["jerB1"]["eta"][0], NUMPY_LIB.logical_and(j2_eta_abs < parameters["jer_pt_eta_bins"]["jerB1"]["eta"][1], subleading_jet["pt"] > parameters["jer_pt_eta_bins"]["jerB1"]["pt"]))
+                pass_jerB2 = NUMPY_LIB.logical_and(j2_eta_abs > parameters["jer_pt_eta_bins"]["jerB2"]["eta"][0], NUMPY_LIB.logical_and(j2_eta_abs < parameters["jer_pt_eta_bins"]["jerB2"]["eta"][1], subleading_jet["pt"] > parameters["jer_pt_eta_bins"]["jerB2"]["pt"]))
+                pass_jerF1 = NUMPY_LIB.logical_and(j2_eta_abs > parameters["jer_pt_eta_bins"]["jerF1"]["eta"][0], NUMPY_LIB.logical_and(j2_eta_abs < parameters["jer_pt_eta_bins"]["jerF1"]["eta"][1], subleading_jet["pt"] > parameters["jer_pt_eta_bins"]["jerF1"]["pt"]))
+                pass_jerF2 = NUMPY_LIB.logical_and(j2_eta_abs > parameters["jer_pt_eta_bins"]["jerF2"]["eta"][0], NUMPY_LIB.logical_and(j2_eta_abs < parameters["jer_pt_eta_bins"]["jerF2"]["eta"][1], subleading_jet["pt"] > parameters["jer_pt_eta_bins"]["jerF2"]["pt"]))
+                pass_jerEC1 = NUMPY_LIB.logical_and(j2_eta_abs > parameters["jer_pt_eta_bins"]["jerEC1"]["eta"][0], NUMPY_LIB.logical_and(j2_eta_abs < parameters["jer_pt_eta_bins"]["jerEC1"]["eta"][1], subleading_jet["pt"] > parameters["jer_pt_eta_bins"]["jerEC1"]["pt"]))
+                pass_jerEC2 = NUMPY_LIB.logical_and(j2_eta_abs > parameters["jer_pt_eta_bins"]["jerEC2"]["eta"][0], NUMPY_LIB.logical_and(j2_eta_abs < parameters["jer_pt_eta_bins"]["jerEC2"]["eta"][1], subleading_jet["pt"] > parameters["jer_pt_eta_bins"]["jerEC2"]["pt"]))
+                
+                is_jerB1_event = NUMPY_LIB.logical_and(ret_mu['selected_events'],pass_jerB1)
+                is_jerB2_event = NUMPY_LIB.logical_and(ret_mu['selected_events'],pass_jerB2)
+                is_jerF1_event = NUMPY_LIB.logical_and(ret_mu['selected_events'],pass_jerF1)
+                is_jerF2_event = NUMPY_LIB.logical_and(ret_mu['selected_events'],pass_jerF2)
+                is_jerEC1_event = NUMPY_LIB.logical_and(ret_mu['selected_events'],pass_jerEC1)
+                is_jerEC2_event = NUMPY_LIB.logical_and(ret_mu['selected_events'],pass_jerEC2)
+
+                masswindow_z_peak_jerB1 = (masswindow_z_peak) & (is_jerB1_event) #split Z into 6 regions by j2 pt and eta
+                masswindow_z_peak_jerB2 = (masswindow_z_peak) & (is_jerB2_event)
+                masswindow_z_peak_jerF1 = (masswindow_z_peak) & (is_jerF1_event)
+                masswindow_z_peak_jerF2 = (masswindow_z_peak) & (is_jerF2_event)
+                masswindow_z_peak_jerEC1 = (masswindow_z_peak) & (is_jerEC1_event)
+                masswindow_z_peak_jerEC2 = (masswindow_z_peak) & (is_jerEC2_event)
+        
             #compute Nsoft jet variable 5 by removing event footprints
             n_sel_softjet, n_sel_HTsoftjet = nsoftjets(False,
                 scalars["SoftActivityJetNjets5"], scalars["SoftActivityJetHT5"],
@@ -501,10 +556,49 @@ def analyze_data(
 
             #compute DNN input variables in 2 muon, >=2jet region
             dnn_presel = (
-                (ret_mu["selected_events"]) & (ret_jet["num_jets"] >= 2) &
+                (ret_mu['selected_events']) & (ret_jet["num_jets"] >= 2) &
                 (leading_jet["pt"] > parameters["jet_pt_leading"][dataset_era])
             )
+            if is_mc and 'dy_m105_160' in dataset_name:
+                leading_jet_offset = NUMPY_LIB.arange(0,len(leading_jet["pt"])+1)
+                leading_jets_matched_to_genJet = NUMPY_LIB.invert(ha.mask_deltar_first(
+                    {"eta": leading_jet["eta"], "phi": leading_jet["phi"], "offsets": leading_jet_offset},
+                    dnn_presel,
+                    {"eta": genJet.eta, "phi": genJet.phi, "offsets": genJet.offsets},
+                    genJet.masks["all"], 0.4))
+                subleading_jets_matched_to_genJet = NUMPY_LIB.invert(ha.mask_deltar_first(
+                    {"eta": subleading_jet["eta"], "phi": subleading_jet["phi"], "offsets": leading_jet_offset},
+                    dnn_presel,
+                    {"eta": genJet.eta, "phi": genJet.phi, "offsets": genJet.offsets},
+                    genJet.masks["all"], 0.4))
+                
+                if debug:
+                    for evtid in debug_event_ids:
+                        idx = np.where(scalars["event"] == evtid)[0][0]
+                        print("leading jets")
+                        for e in ["pt", "eta", "phi", "mass"]:
+                            print(e, leading_jet[e][idx])
 
+                        print("subleading jets")
+                        for e in ["pt", "eta", "phi", "mass"]:
+                            print(e, subleading_jet[e][idx])
+                        print("gen jets")
+
+                        jaggedstruct_print(genJet, idx,
+                               ["pt", "eta", "phi", "mass"])
+
+                        print(leading_jets_matched_to_genJet[idx],subleading_jets_matched_to_genJet[idx])
+                        
+                        print(ret_jet["num_jets"][idx], ret_jet["num_jets_btag_medium"][idx],ret_jet["num_jets_btag_loose"][idx],n_additional_muons[idx], n_additional_electrons[idx], ret_jet["dijet_inv_mass"][idx],NUMPY_LIB.abs(leading_jet["eta"][idx] - subleading_jet["eta"][idx]))
+            
+                jets_vbf_filter = NUMPY_LIB.logical_and(leading_jets_matched_to_genJet,subleading_jets_matched_to_genJet)
+                if '_2j' in dataset_name:
+                    dnn_presel = NUMPY_LIB.logical_and(dnn_presel,jets_vbf_filter)
+                    
+                else:
+                    dnn_presel = NUMPY_LIB.logical_and(dnn_presel,NUMPY_LIB.invert(jets_vbf_filter))
+                    
+            
             #Histograms after dnn preselection
             fill_histograms_several(
                 hists, jet_syst_name, "hist__dnn_presel__",
@@ -538,7 +632,7 @@ def analyze_data(
                ret_jet["num_jets"],ret_jet["num_jets_btag_medium"], n_sel_softjet, n_sel_HTsoftjet, n_sel_HTsoftjet2, dataset_era, is_mc
             )
             weights_in_dnn_presel = apply_mask(weights_selected, dnn_presel)
-          
+            
             if parameters["do_bdt_ucsd"]: 
                 if not (analysis_corrections.bdt_ucsd is None):
                     bdt_pred = evaluate_bdt_ucsd(dnn_vars, analysis_corrections.bdt_ucsd)
@@ -562,7 +656,7 @@ def analyze_data(
             )
             scalars["category"] = category
 
-
+                    
             #Assign the final analysis discriminator based on category
             #scalars["final_discriminator"] = NUMPY_LIB.zeros_like(higgs_inv_mass)
             if not (dnn_prediction is None):
@@ -621,15 +715,26 @@ def analyze_data(
                         os.makedirs(outpath)
                     np.save("{0}/{1}_{2}.npy".format(outpath, dataset_name, data.num_chunk), arrdata, allow_pickle=False)
 
-            #Save histograms for numerical categories (cat5 only right now) and all mass bins
-            for massbin_name, massbin_msk, mass_edges in [
+            mbins = [
                     ("h_peak", masswindow_h_peak, parameters["masswindow_h_peak"]),
                     ("h_sideband", masswindow_h_sideband, parameters["masswindow_h_sideband"]),
-                    ("z_peak", masswindow_z_peak, parameters["masswindow_z_peak"])]:
+                    ("z_peak", masswindow_z_peak, parameters["masswindow_z_peak"]),
+            ]
+            if (parameters["split_z_peak"][dataset_era]):
+                mbins += [("z_peak_{0}".format("jerB1"), masswindow_z_peak_jerB1, parameters["masswindow_z_peak"]),
+                          ("z_peak_{0}".format("jerB2"), masswindow_z_peak_jerB2, parameters["masswindow_z_peak"]),
+                          ("z_peak_{0}".format("jerF1"), masswindow_z_peak_jerF1, parameters["masswindow_z_peak"]),
+                          ("z_peak_{0}".format("jerF2"), masswindow_z_peak_jerF2, parameters["masswindow_z_peak"]),
+                          ("z_peak_{0}".format("jerEC1"), masswindow_z_peak_jerEC1, parameters["masswindow_z_peak"]),
+                          ("z_peak_{0}".format("jerEC2"), masswindow_z_peak_jerEC2, parameters["masswindow_z_peak"]),
+                      ]
+                
+                
+            #Save histograms for numerical categories (cat5 only right now) and all mass bins
+            for massbin_name, massbin_msk, mass_edges in mbins:
 
                 for icat in [5, ]:
                     msk_cat = (category == icat)
-
                     fill_histograms_several(
                         hists, jet_syst_name, "hist__dimuon_invmass_{0}_cat{1}__".format(massbin_name, icat),
                         [
@@ -649,7 +754,6 @@ def analyze_data(
                         weights_selected,
                         use_cuda
                     )
-
                     fill_histograms_several(
                         hists, jet_syst_name, "hist__dimuon_invmass_{0}_cat{1}__".format(massbin_name, icat),
                         [
@@ -806,6 +910,7 @@ def finalize_weights(weights, dataset_era, all_weight_names=None):
                 ret["{0}__{1}".format(this_syst, sdir)] = wtot
 
         elif this_syst == "LHEPdfWeight":
+
             for sdir in range(len(weights[this_syst])): 
                 wval_this_systematic = weights[this_syst][str(sdir)]
                 wtot = NUMPY_LIB.copy(ret["nominal"])
@@ -841,7 +946,7 @@ def finalize_weights(weights, dataset_era, all_weight_names=None):
             print("finalized weight", k, ret[k].mean())
     return ret
 
-def compute_event_weights(parameters, weights, scalars, genweight_scalefactor, gghw, zptw, LHEScalew, LHEPdfw, pu_corrections, is_mc, dataset_era, dataset_name, use_cuda):
+def compute_event_weights(parameters, weights, scalars, genweight_scalefactor, gghw, zptw, LHEScalew, LHEPdfw,  pu_corrections, is_mc, dataset_era, dataset_name, use_cuda):
     if is_mc:
         if dataset_name in parameters["ggh_nnlops_reweight"]:
             weights["nominal"]["nominal"] = scalars["genWeight"] * genweight_scalefactor * gghw
@@ -2293,7 +2398,8 @@ def deltaphi_cudakernel(phi1, phi2, out_dphi):
 def get_theoryweights_cpu(offsets, variations, index, out_var):
     #loop over events
     for iev in numba.prange(len(offsets) - 1):
-        out_var[iev] = variations[offsets[iev]+index]
+        if(offsets[iev]+index < len(variations)):
+            out_var[iev] = variations[offsets[iev]+index]
 
 @cuda.jit
 def get_theoryweights_cuda(offsets, variations, index, out_var):
@@ -2354,7 +2460,7 @@ def get_genpt_cpu(reco_offsets, reco_genPartIdx, genparts_offsets, genparts_pt, 
         for imu in range(reco_offsets[iev], reco_offsets[iev + 1]):
             #get index of genparticle that reco particle was matched to
             idx_gp = reco_genPartIdx[imu]
-            if idx_gp >= 0:
+            if idx_gp >= 0 and len(genparts_pt) > (genparts_offsets[iev] + idx_gp):
                 genpt = genparts_pt[genparts_offsets[iev] + idx_gp]
                 out_reco_genpt[imu] = genpt
 
@@ -2895,7 +3001,8 @@ class JetTransformer:
             self.jer_nominal, self.jer_up, self.jer_down = self.apply_jer()
             check_inf_nan(self.jer_nominal) 
             self.pt_jec_jer = self.pt_jec * self.jer_nominal
-        
+            self.pt_jec_jer_ms = (self.pt_jec + self.pt_jec_jer)/2.0
+
     def apply_jer(self, startfrom="pt_jec"):
         ptvec = getattr(self, startfrom)
         
@@ -2977,7 +3084,7 @@ class JetTransformer:
         jec_unc_vec = jec_unc_func(*func_args)
         return self.NUMPY_LIB.array(jec_unc_vec)
 
-    def get_variated_pts(self, variation_name, startfrom="pt_jec_jer"):
+    def get_variated_pts(self, variation_name, jet_mask_bin, jet_genpt, startfrom="pt_jec_jer"):
         ptvec = getattr(self, startfrom)
         if variation_name in self.jet_uncertainty_names:
             corrs_up_down = self.NUMPY_LIB.array(self.apply_jec_unc(startfrom, variation_name), dtype=self.NUMPY_LIB.float32)
@@ -2985,15 +3092,33 @@ class JetTransformer:
                 (variation_name, "up"): ptvec*corrs_up_down[:, 0],
                 (variation_name, "down"): ptvec*corrs_up_down[:, 1]
             }
-        elif variation_name == "jer":
+        elif "jer" in variation_name :
+            # Based in part from A. Rizzi's code: https://github.com/arizzi/PisaHmm/blob/49cb2a112f326b07dd133118d973be0901d45287/systematics.py
+            jerSF = (self.pt_jec_jer-jet_genpt)/(ptvec-jet_genpt+(ptvec==jet_genpt)*(self.pt_jec_jer-ptvec))
+            jerDownSF = ((ptvec*self.jer_down)-jet_genpt)/(ptvec-jet_genpt+(ptvec==jet_genpt)*10.)
+            jerDown_pt = jet_genpt+ (ptvec - jet_genpt)*(jerDownSF/jerSF)
             return {
-                ("jer", "up"): ptvec*self.jer_up,
-                ("jer", "down"): ptvec*self.jer_down
+                ("jer", "up"): np.where(jet_mask_bin, ptvec, self.pt_jec_jer),
+                ("jer", "down"): np.where(jet_mask_bin, ptvec, jerDown_pt)
             }
         elif variation_name == "nominal":
             return {("nominal", ""): ptvec}
         else:
             raise KeyError("Variation name {0} was not defined in JetMetCorrections corrections".format(variation_name))
+
+@numba.njit(parallel=True, fastmath=True)
+def get_genJetpt_cpu(reco_offsets, reco_pt, reco_genPartIdx, genparts_offsets, genparts_pt, out_reco_genpt):
+    #loop over events
+    for iev in numba.prange(len(reco_offsets) - 1):
+        #loop over muons
+        for imu in range(reco_offsets[iev], reco_offsets[iev + 1]):
+            #get index of genparticle that reco particle was matched to
+            idx_gp = reco_genPartIdx[imu]
+            if idx_gp >= 0 and len(genparts_pt) > (genparts_offsets[iev] + idx_gp):
+                genpt = genparts_pt[genparts_offsets[iev] + idx_gp]
+                out_reco_genpt[imu] = genpt
+            else :
+                out_reco_genpt[imu] = reco_pt[imu]
 
 def multiply_all(weight_list):
     ret = NUMPY_LIB.copy(weight_list[0])
@@ -3348,12 +3473,12 @@ def create_datastructure(dataset_name, is_mc, dataset_era, do_fsr=False):
         datastructures["EventVariables"] += [
             ("Pileup_nTrueInt", "uint32"),
             ("Generator_weight", "float32"),
-            ("genWeight", "float32")
-        ]
+            ("genWeight", "float32"),
+            ]
         if "dy" in dataset_name or "ewk" in dataset_name or "ggh" in dataset_name or "vbf" in dataset_name or "wmh" in dataset_name or "wph" in dataset_name or "zh" in dataset_name or "tth" in dataset_name:
             datastructures["EventVariables"] += [
-                ("nLHEPdfWeight", "int32")
-            ]
+                ("nLHEPdfWeight", "uint32")
+        ]
         if dataset_era == "2016" or dataset_era == "2017":
             datastructures["EventVariables"] += [
                 ("L1PreFiringWeight_Nom", "float32"),
@@ -3380,7 +3505,9 @@ def create_datastructure(dataset_name, is_mc, dataset_era, do_fsr=False):
         if "dy" in dataset_name or "ewk" in dataset_name or "ggh" in dataset_name or "vbf" in dataset_name or "wmh" in dataset_name or "wph" in dataset_name or "zh" in dataset_name or "tth" in dataset_name:
             datastructures["LHEPdfWeight"] = [
                 ("LHEPdfWeight", "float32"),
+                
             ]
+            
         if "dy" in dataset_name or "ewk" in dataset_name:
             
             datastructures["LHEScaleWeight"] = [

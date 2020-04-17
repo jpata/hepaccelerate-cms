@@ -243,9 +243,10 @@ def plot_variations(args):
         h_pdf =[]
         h_pdf_up = copy.deepcopy(hnom)
         h_pdf_down = copy.deepcopy(hnom)
+        n_pdf =0
         for i in range(lhe_pdf_variations[str(datataking_year)]):
             sname = 'LHEPdfWeight__{0}'.format(i)
-            if sname in res[mc_samp]:
+            if sname in res[mc_samp].keys():
                 h_pdf.append(res[mc_samp][sname]* weight_xs[mc_samp])
         for k in range(len(h_pdf[0].contents)):
             rms = 0.0
@@ -439,7 +440,7 @@ def create_variated_histos(weight_xs, proc,
             elif sname.endswith("__down"):
                 sname2 = sname.replace("__down", "Down")
 
-            if sname not in hdict:
+            if (sname not in hdict.keys()):
                 #print("systematic", sname, "not found, taking baseline") 
                 hret = hbase
             else:
@@ -505,9 +506,10 @@ def create_variated_histos(weight_xs, proc,
         h_pdf_nom = copy.deepcopy(hbase)
         if "dy" in proc or "ewk" in proc or "ggh" in proc or "vbf" in proc or "zh_125" in proc or "wmh_125" in proc or "wph_125" in proc or "tth" in proc:
             h_nom = np.zeros_like(hbase.contents)
+            n_pdf =0
             for i in range(lhe_pdf_variations[str(era)]):
                 sname = 'LHEPdfWeight__{0}'.format(i)
-                if sname in hdict:
+                if sname in hdict.keys():
                     h_pdf.append(hdict[sname])
             for i in range(len(h_pdf)):
                 h_nom = h_nom + h_pdf[i].contents 
@@ -623,7 +625,7 @@ def create_datacard_combine(
  
     all_processes.pop(all_processes.index("data"))
     combined_all_processes.pop(combined_all_processes.index("data"))
-    shape_uncertainties = {v: 1.0 for v in variations}
+    shape_uncertainties = {v:1.0 for v in variations}
     cat = Category(
         name=histname,
         processes=list(combined_all_processes),
@@ -749,9 +751,10 @@ class Category:
 def calculate_LHEPdf_norm(histos, era, proc):
     #Based on https://arxiv.org/pdf/1510.03865.pdf
     h_pdf = []
+    n_pdf =0 
     for i in range(lhe_pdf_variations[str(era)]):
         sname = 'LHEPdfWeight__{0}'.format(i)
-        if sname in histos:
+        if sname in histos.keys():
             h_pdf.append(histos[sname])
     h_nom = np.zeros_like(histos["nominal"].contents)
     for i in range(len(h_pdf)):
@@ -766,6 +769,24 @@ def calculate_LHEPdf_norm(histos, era, proc):
     else: var = np.sqrt(var) #Hessian weights for 2017 and 2018
     if(np.sum(h_nom)!=0.0): var = var/np.sum(h_nom)
     return var
+
+def calculate_LHEscale_norm(histos, era):
+        h_lhe =[]
+        h_nom_up = copy.deepcopy(histos["nominal"])
+        h_nom_down = copy.deepcopy(histos["nominal"])
+        for i in range(9):
+            sname = 'LHEScaleWeight__{0}'.format(i)
+            h_lhe.append(histos[sname])
+        for k in range(len(h_lhe[0].contents)):
+            for i in range(9):
+                if(h_lhe[i].contents[k]>h_nom_up.contents[k]):
+                    h_nom_up.contents[k]=h_lhe[i].contents[k]
+                if(h_lhe[i].contents[k]<h_nom_down.contents[k]):
+                    h_nom_down.contents[k]=h_lhe[i].contents[k]
+        var = (np.sum(h_nom_up.contents) - np.sum(histos["nominal"].contents))**2 + (np.sum(h_nom_down.contents) - np.sum(histos["nominal"].contents))**2 
+        var = np.sqrt(var/2.0)
+        if(np.sum(histos["nominal"].contents)!=0.0): var = var/np.sum(histos["nominal"].contents)
+        return var
 
 def PrintDatacard(categories, dict_procs, era, event_counts, filenames, ofname):
     dcof = open(ofname, "w")
@@ -903,7 +924,7 @@ def PrintDatacard(categories, dict_procs, era, event_counts, filenames, ofname):
                     dcof.write("-")
                 dcof.write("\t")
         dcof.write("\n")
-    # print out LHE PDf inclusive xs scale uncert
+    # print out LHE PDf norm uncert
     dcof.write("LHEPdfWeight_norm" + "\t lnN \t")
     for cat in categories:
         for proc in cat.processes:
@@ -926,8 +947,36 @@ def PrintDatacard(categories, dict_procs, era, event_counts, filenames, ofname):
             dcof.write("\t")
         dcof.write("\n")
 
-
+    # print out LHE Scale norm uncert
+    if 'z_peak'in  cat.full_name:
+        dcof.write("DYLHEScaleWeightZ_norm" + "\t lnN \t")
+    else:
+        dcof.write("DYLHEScaleWeight_norm" + "\t lnN \t")
     
+    for cat in categories:
+        for proc in cat.processes:
+            if "dy" in proc:
+                QCD_norm = calculate_LHEscale_norm(dict_procs[proc], era)
+                dcof.write("{0:.2f}".format(1.0 + QCD_norm))
+            else:
+                dcof.write("-")
+            dcof.write("\t")
+        dcof.write("\n")
+    
+    if 'z_peak'in  cat.full_name:
+        dcof.write("EWKLHEScaleWeightZ_norm" + "\t lnN \t")
+    else:
+        dcof.write("EWKLHEScaleWeight_norm" + "\t lnN \t")
+
+    for cat in categories:
+        for proc in cat.processes:
+            if "ewk" in proc:
+                QCD_norm = calculate_LHEscale_norm(dict_procs[proc], era)
+                dcof.write("{0:.2f}".format(1.0 + QCD_norm))
+            else:
+                dcof.write("-")
+            dcof.write("\t")
+        dcof.write("\n")
     #create nuisance groups for easy manipulation and freezing
     nuisance_groups = {}
     for nuisance_group, nuisances in nuisance_groups.items():
@@ -946,8 +995,10 @@ def PrintDatacard(categories, dict_procs, era, event_counts, filenames, ofname):
         dcof.write("RZ rateParam {0} dy_2j 1 \n".format(cat.full_name)) 
         #dcof.write("REWZ rateParam {0} ewk_lljj_mll50_mjj120 1 \n".format(cat.full_name))
     elif ("h_peak" in cat.full_name) or ("h_sideband" in cat.full_name):
-        dcof.write("R rateParam {0} dy_m105_160_amc 1 \n".format(cat.full_name))           
-        dcof.write("R rateParam {0} dy_m105_160_vbf_amc 1 \n".format(cat.full_name))
+        dcof.write("R_01j rateParam {0} dy_m105_160_amc_01j 1 \n".format(cat.full_name))           
+        dcof.write("R_01j rateParam {0} dy_m105_160_vbf_amc_01j 1 \n".format(cat.full_name))
+        dcof.write("R_2j rateParam {0} dy_m105_160_amc_2j 1 \n".format(cat.full_name))
+        dcof.write("R_2j rateParam {0} dy_m105_160_vbf_amc_2j 1 \n".format(cat.full_name))
         #dcof.write("REWZ rateParam {0} ewk_lljj_mll105_160 1 \n".format(cat.full_name))
     dcof.write("{0} autoMCStats 0 0 1 \n".format(cat.full_name))
     dcof.write("\n")
@@ -1019,7 +1070,6 @@ if __name__ == "__main__":
                 os.makedirs(outdir_datacards)
             except FileExistsError as e:
                 pass
-
             #in inverse picobarns
             int_lumi = res["data"]["int_lumi"]
             for mc_samp in res.keys():
@@ -1042,7 +1092,7 @@ if __name__ == "__main__":
                 print("Use commandline option --histnames hist__dimuon__leading_muon_pt --histnames hist__dimuon__subleading_muon_pt ... to change that")
             else:
                 histnames = cmdline_args.histnames
-            print("Processing histnames", histnames)
+            #print("Processing histnames", histnames)
             
             for var in histnames:
                 if var in ["hist_puweight", "hist__dijet_inv_mass_gen", "hist__dnn_presel__dnn_pred"]:

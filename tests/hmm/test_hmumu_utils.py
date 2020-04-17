@@ -184,8 +184,18 @@ class TestAnalysisSmall(unittest.TestCase):
         
         self.assertTrue("Total__up" in h.keys())
         self.assertTrue("Total__down" in h.keys())
-        self.assertTrue("jer__up" in h.keys())
-        self.assertTrue("jer__down" in h.keys())
+        self.assertTrue("jerB1__up" in h.keys())
+        self.assertTrue("jerB1__down" in h.keys())
+        self.assertTrue("jerB2__up" in h.keys())
+        self.assertTrue("jerB2__down" in h.keys())
+        self.assertTrue("jerF1__up" in h.keys())
+        self.assertTrue("jerF1__down" in h.keys())
+        self.assertTrue("jerF2__up" in h.keys())
+        self.assertTrue("jerF2__down" in h.keys())
+        self.assertTrue("jerEC1__up" in h.keys())
+        self.assertTrue("jerEC1__down" in h.keys())
+        self.assertTrue("jerEC2__up" in h.keys())
+        self.assertTrue("jerEC2__down" in h.keys())
 
 if __name__ == "__main__":
     if "--debug" in sys.argv:
