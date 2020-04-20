@@ -27,7 +27,7 @@ class LibHMuMu:
             void csanglesPisa_eval(float* out_theta, float* out_phi, int nev, float* pt1, float* eta1, float* phi1, float* mass1, float* pt2, float* eta2, float* phi2, float* mass2, int* charges);
 
             void ptcorrgeofit_eval(float* out_pt, int nev, float* d0_BS, float* pt_Roch, float* eta, int* charge, int* year);
-            void qglJetWeight_eval(float* out_weight, int nev, int* partonFlavour, float* pt, float* eta, float* qgl, int *isHerwig);
+            void qglJetWeight_eval(float* out_weight, int nev, int* partonFlavour, float* pt, float* eta, float* qgl, int isHerwig);
 
             void* new_NNLOPSReweighting(const char* path);
             void NNLOPSReweighting_eval(void* c, int igen, float* out_nnlow, int nev, int* genNjets, float* genHiggs_pt);
@@ -345,7 +345,6 @@ class MiscVariables:
         assert(len(partonFlavour) == nev)
         assert(len(eta) == nev)
         assert(len(qgl) == nev)
-        assert(len(isHerwig) == nev)
         self.libhmm.qglJetWeight_eval(
             self.libhmm.cast_as("float *", out_weight),
             nev,
@@ -353,7 +352,7 @@ class MiscVariables:
             self.libhmm.cast_as("float *", pt),
             self.libhmm.cast_as("float *", eta),
             self.libhmm.cast_as("float *", qgl),
-            self.libhmm.cast_as("int *", isHerwig),
+            isHerwig,
         )
         return out_weight
 

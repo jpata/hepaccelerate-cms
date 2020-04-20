@@ -601,7 +601,7 @@ analysis_parameters = {
         "extra_electrons_iso": 0.4, #Check if we want to apply this
         "extra_electrons_id": "mvaFall17V2Iso_WP90",
 
-        "save_dnn_vars": False,
+        "save_dnn_vars": True,
         "dnn_vars_path": "out/dnn_vars",
         #If true, apply mjj > cut, otherwise inverse
         "vbf_filter_mjj_cut": 350,
@@ -619,25 +619,25 @@ analysis_parameters = {
         },
         "ZpT_reweight": {
             "2016": {
-                "dy_0j": 2, 
-                "dy_1j": 2, 
-                "dy_2j": 2, 
+                #"dy_0j": 2, 
+                #"dy_1j": 2, 
+                #"dy_2j": 2, 
                 #"dy_m105_160_amc": 2, 
                 #"dy_m105_160_vbf_amc": 2,
             },
             "2017": {
-                "dy_0j": 1,
-                "dy_1j": 1,
-                "dy_2j": 1,
-                "dy_m105_160_amc": 1,
-                "dy_m105_160_vbf_amc": 1,
+                #"dy_0j": 1,
+                #"dy_1j": 1,
+                #"dy_2j": 1,
+                #"dy_m105_160_amc": 1,
+                #"dy_m105_160_vbf_amc": 1,
             },
             "2018": {
-                "dy_0j": 1,
-                "dy_1j": 1,
-                "dy_2j": 1,
-                "dy_m105_160_amc": 1,
-                "dy_m105_160_vbf_amc": 1,
+                #"dy_0j": 1,
+                #"dy_1j": 1,
+                #"dy_2j": 1,
+                #"dy_m105_160_amc": 1,
+                #"dy_m105_160_vbf_amc": 1,
             },
         },
        
@@ -683,7 +683,7 @@ analysis_parameters = {
 
         "do_bdt_ucsd": False,
         "do_dnn_pisa": True,
-        "do_dnn_cit": True,
+        "do_dnn_cit": False,
     },
 }
 #define the histogram binning

@@ -47,10 +47,10 @@ extern "C" {
     }
     void qglJetWeight_eval(
         float* out_weight, int nev,
-        int* partonFlavour, float* pt, float* eta, float* qgl, int *isHerwig){
+        int* partonFlavour, float* pt, float* eta, float* qgl, int isHerwig){
             #pragma omp parallel for default(none) shared(out_weight, nev, partonFlavour, eta, qgl, isHerwig) schedule(dynamic, 1000)
             for (int iev=0; iev<nev; iev++) {
-                out_weight[iev] = qglJetWeight(partonFlavour[iev], pt[iev], eta[iev], qgl[iev], isHerwig[iev]);
+                out_weight[iev] = qglJetWeight(partonFlavour[iev], pt[iev], eta[iev], qgl[iev], isHerwig);
             }
     }
 
