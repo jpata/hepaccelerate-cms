@@ -1936,7 +1936,7 @@ def get_qglWeights(jets, jet_attrs, ret_mu, func, dataset_name):
     qglw = NUMPY_LIB.ones(jets.numevents())
     qglw_up = NUMPY_LIB.ones(jets.numevents())
     psgen = 0
-    if "pythia" in dataset_name:
+    if "herwig" in dataset_name:
         psgen = 1
     leading_jet = jets.select_nth(
                 0, ret_mu["selected_events"], None,
