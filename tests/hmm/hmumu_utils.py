@@ -342,7 +342,7 @@ def analyze_data(
     # PU ID weights are only applied to 2016 and 2018 so far, as they haven't been validated for 2017
     # https://github.com/jpata/hepaccelerate-cms/pull/66
     if (parameters["jet_puid"] != "none") and is_mc:
-        puid_weights = get_puid_weights(jets_wopuid, analysis_corrections.puidreweighting, dataset_era, parameters["jet_puid"], parameters["jet_pt_subleading"][dataset_era], parameters["jet_puid_pt_max"], scalars, use_cuda)
+        puid_weights = get_puid_weights(jets_wopuid, analysis_corrections.puidreweighting, dataset_era, parameters["jet_puid"], parameters["jet_pt_subleading"][dataset_era], parameters["jet_puid_pt_max"], use_cuda)
         weights_individual["jet_puid"] = {"nominal": puid_weights, "up": puid_weights, "down": puid_weights}
 
     if is_mc and parameters["apply_btag"]:
@@ -1776,7 +1776,7 @@ def get_selected_jets(
     return ret
 
 
-def get_puid_weights(jets, evaluator, era, wp, jet_pt_min, jet_pt_max, scalars, use_cuda):
+def get_puid_weights(jets, evaluator, era, wp, jet_pt_min, jet_pt_max, use_cuda):
     wp_dict = {"loose": "L", "medium": "M", "tight": "T"}
     passed_puid = jet_puid_cut(jets, wp)
     jets_pu_eff, jets_pu_sf = jet_puid_evaluate(evaluator, era, wp_dict[wp], NUMPY_LIB.asnumpy(jets.pt), NUMPY_LIB.asnumpy(jets.eta))
