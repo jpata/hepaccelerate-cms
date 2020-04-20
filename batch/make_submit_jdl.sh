@@ -3,7 +3,7 @@ set -e
 
 #number of files to process per job
 #For factorized JEC, 5-50 is a good starting point
-export NCHUNK=5
+export NCHUNK=50
 export SUBMIT_DIR=$(dirname `pwd`) 
 
 echo "Will create submit files based on directory SUBMIT_DIR="$SUBMIT_DIR
