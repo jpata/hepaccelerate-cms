@@ -339,10 +339,25 @@ def analyze_data(
     #Jets passing all other seletion except the jet puId
     jets_wopuid = jets.select_objects(VBFjets_wopuid)
 
+    temp_ret_jet = get_selected_jets(
+                scalars,
+                jets_passing_id,
+                ret_mu['selected_events'],
+                parameters["jet_pt_subleading"][dataset_era],
+                parameters["jet_btag_medium"][dataset_era],
+                parameters["jet_btag_loose"][dataset_era],
+                is_mc, use_cuda
+            )
+
+    jet_attrs = ["pt"]
+    temp_subjet = jets_passing_id.select_nth(
+                1, ret_mu['selected_events'], temp_ret_jet["selected_jets"],
+                attributes=jet_attrs)
+
     # PU ID weights are only applied to 2016 and 2018 so far, as they haven't been validated for 2017
     # https://github.com/jpata/hepaccelerate-cms/pull/66
     if (parameters["jet_puid"] != "none") and is_mc:
-        puid_weights = get_puid_weights(jets_wopuid, analysis_corrections.puidreweighting, dataset_era, parameters["jet_puid"], parameters["jet_pt_subleading"][dataset_era], parameters["jet_puid_pt_max"], use_cuda)
+        puid_weights = get_puid_weights(jets_wopuid, analysis_corrections.puidreweighting, dataset_era, parameters["jet_puid"], temp_subjet["pt"], parameters["jet_pt_subleading"][dataset_era], parameters["jet_puid_pt_max"], use_cuda)
         weights_individual["jet_puid"] = {"nominal": puid_weights, "up": puid_weights, "down": puid_weights}
 
     if is_mc and parameters["apply_btag"]:
@@ -355,7 +370,7 @@ def analyze_data(
         genweight_scalefactor, gghnnlopsw, ZpTw,
         LHEScalew, LHEPdfw, analysis_corrections.pu_corrections, is_mc, dataset_era, dataset_name, use_cuda)
  
-    jet_attrs = ["pt", "eta", "qgl"]
+    jet_attrs += ["eta", "qgl"]
     if is_mc:
         jet_attrs += ["partonFlavour"]
         qglWeights, qglWeights_up, qglWeights_down = get_qglWeights(jets_passing_id, jet_attrs, ret_mu, analysis_corrections.miscvariables, dataset_name)
@@ -1776,13 +1791,13 @@ def get_selected_jets(
     return ret
 
 
-def get_puid_weights(jets, evaluator, era, wp, jet_pt_min, jet_pt_max, use_cuda):
+def get_puid_weights(jets, evaluator, era, wp, subjet_pt, jet_pt_min, jet_pt_max, use_cuda):
     wp_dict = {"loose": "L", "medium": "M", "tight": "T"}
     passed_puid = jet_puid_cut(jets, wp)
     jets_pu_eff, jets_pu_sf = jet_puid_evaluate(evaluator, era, wp_dict[wp], NUMPY_LIB.asnumpy(jets.pt), NUMPY_LIB.asnumpy(jets.eta))
-    jet_pt_mask = ((NUMPY_LIB.asnumpy(jets.pt)>jet_pt_min) & (NUMPY_LIB.asnumpy(jets.pt)<jet_pt_max))
-    p_puid_mc = compute_eff_product(jets.offsets, jet_pt_mask, passed_puid, jets_pu_eff, use_cuda)
-    p_puid_data = compute_eff_product(jets.offsets, jet_pt_mask, passed_puid, jets_pu_eff*jets_pu_sf, use_cuda)
+    jet_pt_mask = (NUMPY_LIB.asnumpy(jets.pt)>jet_pt_min) & (NUMPY_LIB.asnumpy(jets.pt)<jet_pt_max)
+    p_puid_mc = compute_eff_product(jets.offsets, jets.pt, subjet_pt, jet_pt_mask, passed_puid, jets_pu_eff, use_cuda)
+    p_puid_data = compute_eff_product(jets.offsets, jets.pt, subjet_pt, jet_pt_mask, passed_puid, jets_pu_eff*jets_pu_sf, use_cuda)
     eventweight_puid = NUMPY_LIB.divide(p_puid_data, p_puid_mc)
     eventweight_puid[p_puid_mc==0] = 0
     return eventweight_puid
@@ -1827,14 +1842,14 @@ def compute_dnnPisaComb_cuda(dnnPisaComb_pred, dnnPisa_preds, event_array):
         else:
             dnnPisaComb_pred[i] = dnnPisa_preds[3][i]
 
-def compute_eff_product(offsets, jet_pt_mask, jets_mask_passes_id, jets_eff, use_cuda):
+def compute_eff_product(offsets, jet_pt, subjet_pt, jet_pt_mask, jets_mask_passes_id, jets_eff, use_cuda):
     nev = len(offsets) - 1
     p_puid = NUMPY_LIB.ones(nev, dtype=NUMPY_LIB.float32)
     if use_cuda:
         compute_eff_product_cudakernel(offsets, jet_pt_mask, jets_mask_passes_id, jets_eff, p_puid)
         cuda.synchronize()
     else:
-        compute_eff_product_cpu(offsets, jet_pt_mask, jets_mask_passes_id, jets_eff, p_puid)
+        compute_eff_product_cpu(offsets, jet_pt, subjet_pt, jet_pt_mask, jets_mask_passes_id, jets_eff, p_puid)
     return p_puid
 
 
@@ -2064,13 +2079,13 @@ def get_qglWeights(jets, jet_attrs, ret_mu, func, dataset_name):
     return qglw, qglw_up, qglw_down
 
 @numba.njit(parallel=True)
-def compute_eff_product_cpu(offsets, jet_pt_mask, jets_mask_passes_id, jets_eff, out_proba):
+def compute_eff_product_cpu(offsets, jet_pt, subjet_pt, jet_pt_mask, jets_mask_passes_id, jets_eff, out_proba):
     #loop over events in parallel
     for iev in numba.prange(len(offsets)-1):
         p_tot = 1.0
         #loop over jets in event
         for ij in range(offsets[iev], offsets[iev+1]):
-            if not jet_pt_mask[ij]:
+            if (not jet_pt_mask[ij]) or (jet_pt[ij] < subjet_pt[iev]):
                 continue
             this_jet_passes = jets_mask_passes_id[ij]
             if this_jet_passes:
