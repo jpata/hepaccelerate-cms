@@ -4,6 +4,7 @@
 std::pair<double,double> CSAngles(TLorentzVector& v1, TLorentzVector& v2, int charge);
 std::pair<double,double> CSAnglesPisa(TLorentzVector& v1, TLorentzVector& v2, int charge);
 float PtCorrGeoFit(float d0_BS_charge, float pt_Roch, float eta, int year);
+float qglJetWeight(int partonFlavour, float pt, float eta, float qgl, int isHerwig);
 
 extern "C" {
     void csangles_eval(
@@ -42,6 +43,14 @@ extern "C" {
             #pragma omp parallel for default(none) shared(out_pt, nev, d0_BS, pt_Roch, eta, charge, year) schedule(dynamic, 1000)
             for (int iev=0; iev<nev; iev++) {
                 out_pt[iev] = PtCorrGeoFit(d0_BS[iev]*(float)(charge[iev]), pt_Roch[iev], eta[iev], year[iev]);
+            }
+    }
+    void qglJetWeight_eval(
+        float* out_weight, int nev,
+        int* partonFlavour, float* pt, float* eta, float* qgl, int isHerwig){
+            #pragma omp parallel for default(none) shared(out_weight, nev, partonFlavour, eta, qgl, isHerwig) schedule(dynamic, 1000)
+            for (int iev=0; iev<nev; iev++) {
+                out_weight[iev] = qglJetWeight(partonFlavour[iev], pt[iev], eta[iev], qgl[iev], isHerwig);
             }
     }
 

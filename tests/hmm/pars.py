@@ -416,7 +416,7 @@ jec_unc = ['Absolute', 'Absolute2018', 'BBEC1', 'BBEC12018', 'EC2', 'EC22018', '
 jer_unc = ["jerB1","jerB2","jerEC1","jerEC2","jerF1","jerF2"]
 #Uncomment to use just the total JEC for quick tests
 #jec_unc = ["Total"]
-shape_systematics = jec_unc + jer_unc + [ "trigger", "id", "iso", "jet_puid","puWeight", "L1PreFiringWeight","DYLHEScaleWeightZ","EWZLHEScaleWeightZ","DYLHEScaleWeight","EWZLHEScaleWeight","btag_weight_bcFl","btag_weight_lFl","LHEPdfWeight","EWZ105160PS"]
+shape_systematics = jec_unc + jer_unc + ["trigger", "id", "iso", "jet_puid", "qgl_weight", "puWeight", "L1PreFiringWeight","DYLHEScaleWeightZ","EWZLHEScaleWeightZ","DYLHEScaleWeight","EWZLHEScaleWeight","btag_weight_bcFl","btag_weight_lFl","LHEPdfWeight","EWZ105160PS"]
 common_scale_uncertainties = {
     "lumi": 1.025,
 }
@@ -542,7 +542,7 @@ varnames = {
 
 analysis_names = {
     "baseline": {"2018": "Autumn18_V19", "2017": "Fall17_17Nov2017_V32", "2016": "Summer16_07Aug2017_V11"},
-    "jer": {"2018": "JER enabled", "2017": "JER enabled", "2016": "JER enabled"},
+    "jer": {"2018": "nominal: JER smearing off", "2017": "nominal: JER smearing off", "2016": "nominal: JER smearing off"},
 }
 
 #All analysis definitions (cut values etc) should go here
@@ -647,25 +647,25 @@ analysis_parameters = {
         },
         "ZpT_reweight": {
             "2016": {
-                "dy_0j": 2, 
-                "dy_1j": 2, 
-                "dy_2j": 2, 
-                "dy_m105_160_amc": 2, 
-                "dy_m105_160_vbf_amc": 2,
+                #"dy_0j": 2, 
+                #"dy_1j": 2, 
+                #"dy_2j": 2, 
+                #"dy_m105_160_amc": 2, 
+                #"dy_m105_160_vbf_amc": 2,
             },
             "2017": {
-                "dy_0j": 1,
-                "dy_1j": 1,
-                "dy_2j": 1,
-                "dy_m105_160_amc": 1,
-                "dy_m105_160_vbf_amc": 1,
+                #"dy_0j": 1,
+                #"dy_1j": 1,
+                #"dy_2j": 1,
+                #"dy_m105_160_amc": 1,
+                #"dy_m105_160_vbf_amc": 1,
             },
             "2018": {
-                "dy_0j": 1,
-                "dy_1j": 1,
-                "dy_2j": 1,
-                "dy_m105_160_amc": 1,
-                "dy_m105_160_vbf_amc": 1,
+                #"dy_0j": 1,
+                #"dy_1j": 1,
+                #"dy_2j": 1,
+                #"dy_m105_160_amc": 1,
+                #"dy_m105_160_vbf_amc": 1,
             },
         },
        

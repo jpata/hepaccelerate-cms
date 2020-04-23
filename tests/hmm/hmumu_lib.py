@@ -27,7 +27,8 @@ class LibHMuMu:
             void csanglesPisa_eval(float* out_theta, float* out_phi, int nev, float* pt1, float* eta1, float* phi1, float* mass1, float* pt2, float* eta2, float* phi2, float* mass2, int* charges);
 
             void ptcorrgeofit_eval(float* out_pt, int nev, float* d0_BS, float* pt_Roch, float* eta, int* charge, int* year);
-            
+            void qglJetWeight_eval(float* out_weight, int nev, int* partonFlavour, float* pt, float* eta, float* qgl, int isHerwig);
+
             void* new_NNLOPSReweighting(const char* path);
             void NNLOPSReweighting_eval(void* c, int igen, float* out_nnlow, int nev, int* genNjets, float* genHiggs_pt);
 
@@ -65,6 +66,7 @@ class LibHMuMu:
         self.csangles_eval = self.libhmm.csangles_eval
         self.csanglesPisa_eval = self.libhmm.csanglesPisa_eval
         self.ptcorrgeofit_eval = self.libhmm.ptcorrgeofit_eval
+        self.qglJetWeight_eval = self.libhmm.qglJetWeight_eval
         
         self.new_NNLOPSReweighting = self.libhmm.new_NNLOPSReweighting
         self.NNLOPSReweighting_eval = self.libhmm.NNLOPSReweighting_eval
@@ -336,6 +338,23 @@ class MiscVariables:
             self.libhmm.cast_as("int *", year),
         )
         return out_pt
+    
+    def qglJetWeight(self, partonFlavour, pt, eta, qgl, isHerwig):
+        nev = len(partonFlavour)
+        out_weight = numpy_lib.zeros(nev, dtype=numpy_lib.float32)
+        assert(len(partonFlavour) == nev)
+        assert(len(eta) == nev)
+        assert(len(qgl) == nev)
+        self.libhmm.qglJetWeight_eval(
+            self.libhmm.cast_as("float *", out_weight),
+            nev,
+            self.libhmm.cast_as("int *", partonFlavour),
+            self.libhmm.cast_as("float *", pt),
+            self.libhmm.cast_as("float *", eta),
+            self.libhmm.cast_as("float *", qgl),
+            isHerwig,
+        )
+        return out_weight
 
 class BTagCalibration:
     def __init__(self, libhmm, tagger, csv_file, systs=[]):
