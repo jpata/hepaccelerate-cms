@@ -193,7 +193,7 @@ def plot_variations(args):
             
             )
     if('VBFHPS' in unc) and ('vbf_powheg_pythia_dipole_125' in mc_samp):
-        h_ps_herwig = res["vbf_powheg_herwig_125"]["nominal"]* weight_xs["vbf_powheg_herwig_125"]
+        h_ps_herwig = res["vbf_powheg_herwig_125"]["nominal"]* weight_xs[mc_samp]
         h_nom_up = copy.deepcopy(hnom)
         h_nom_down = copy.deepcopy(hnom)
         h_nom_up.contents = hnom.contents + (hnom.contents - h_ps_herwig.contents)
@@ -1202,10 +1202,10 @@ if __name__ == "__main__":
                                 plot_args_shape_syst += [(
                                     histos, hdata, mc_samp, analysis,
                                     var, "nominal", weight_xs, int_lumi, outdir, era, unc)]
-        rets = list(pool.map(make_pdf_plot, plot_args))
+        #rets = list(pool.map(make_pdf_plot, plot_args))
         #rets = list(pool.map(make_pdf_plot, plot_args_weights_off))
-        rets = list(pool.map(create_datacard_combine_wrap, datacard_args))
-        #rets = list(pool.map(plot_variations, plot_args_shape_syst))
+        #rets = list(pool.map(create_datacard_combine_wrap, datacard_args))
+        rets = list(pool.map(plot_variations, plot_args_shape_syst))
 
         #for args, retval in zip(datacard_args, rets):
         #    res, hd, mc_samples, analysis, var, weight, weight_xs, int_lumi, outdir, datataking_year = args

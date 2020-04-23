@@ -5,6 +5,7 @@ categories = {
         "datacard_processes" : [
             "ggh_amcPS_pythia_125",
             "vbf_powheg_pythia_dipole_125",
+            "vbf_powheg_herwig_125",
             "wmh_125",
             "wph_125",
             "zh_125",
@@ -26,6 +27,7 @@ categories = {
         "datacard_processes" : [
             "ggh_amcPS_pythia_125",
             "vbf_powheg_pythia_dipole_125",
+            "vbf_powheg_herwig_125",
             "wmh_125",
             "wph_125",
             "zh_125",
@@ -47,6 +49,7 @@ categories = {
         "datacard_processes" : [
             "ggh_amcPS_pythia_125",
             "vbf_powheg_pythia_dipole_125",
+            "vbf_powheg_herwig_125",
             "wmh_125",
             "wph_125",
             "zh_125",
@@ -71,6 +74,7 @@ categories = {
         "datacard_processes" : [
             "ggh_amcPS_pythia_125",
             "vbf_powheg_pythia_dipole_125",
+            "vbf_powheg_herwig_125",
             "wmh_125",
             "wph_125",
             "zh_125",
@@ -105,6 +109,7 @@ combined_categories = {
         "datacard_processes" : [
             "ggh_amcPS_pythia_125",
             "vbf_powheg_pythia_dipole_125",
+            "vbf_powheg_herwig_125",
             "vh_125",
             "tth_125",
             #"wz_1l1nu2q",
@@ -122,6 +127,7 @@ combined_categories = {
         "datacard_processes" : [
             "ggh_amcPS_pythia_125",
             "vbf_powheg_pythia_dipole_125",
+            "vbf_powheg_herwig_125",
             "vh_125",
             "tth_125",
             #"wz_1l1nu2q",
@@ -139,6 +145,7 @@ combined_categories = {
         "datacard_processes" : [
             "ggh_amcPS_pythia_125",
             "vbf_powheg_pythia_dipole_125",
+            "vbf_powheg_herwig_125",
             "vh_125",
             "tth_125",
             #"wz_1l1nu2q",
@@ -159,6 +166,7 @@ combined_categories = {
         "datacard_processes" : [
             "ggh_amcPS_pythia_125",
             "vbf_powheg_pythia_dipole_125",
+            "vbf_powheg_herwig_125",
             "vh_125",
             "tth_125",
             #"wz_1l1nu2q",
@@ -187,7 +195,7 @@ colors = {
     "higgs": (0, 0, 0),
 }
 
-remove_proc = ["ewk_lljj_mll105_160_herwig", "ewk_lljj_mll105_160_pythia"]
+remove_proc = ["vbf_powheg_herwig_125","ewk_lljj_mll105_160_herwig", "ewk_lljj_mll105_160_pythia"]
 
 process_groups = [
     ("higgs", ["ggh_amcPS_pythia_125", "vbf_powheg_pythia_dipole_125", "wmh_125", "wph_125", "zh_125", "tth_125"]),
