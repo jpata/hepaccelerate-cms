@@ -193,11 +193,12 @@ def plot_variations(args):
             
             )
     if('VBFHPS' in unc) and ('vbf_powheg_pythia_dipole_125' in mc_samp):
-        h_ps_herwig = res["vbf_powheg_herwig_125"]["nominal"]* weight_xs[mc_samp]
+        h_ps_herwig = res["vbf_powheg_herwig_125"]["nominal"]* weight_xs["vbf_powheg_herwig_125"]
+        h_ps_ref = res["vbf_powheg_pythia_dipole_125_ref"]["nominal"]* weight_xs["vbf_powheg_pythia_dipole_125_ref"]
         h_nom_up = copy.deepcopy(hnom)
         h_nom_down = copy.deepcopy(hnom)
-        h_nom_up.contents = hnom.contents + (hnom.contents - h_ps_herwig.contents)
-        h_nom_down.contents = hnom.contents - (hnom.contents - h_ps_herwig.contents)
+        h_nom_up.contents = hnom.contents + (h_ps_ref.contents - h_ps_herwig.contents)
+        h_nom_down.contents = hnom.contents - (h_ps_ref.contents - h_ps_herwig.contents)
         plot_hist_step(ax, h_nom_up.edges, h_nom_up.contents,
                 np.sqrt(h_nom_up.contents_w2),
                        kwargs_step={"label": "up "+"({0:.3E})".format(np.sum(h_nom_up.contents))},
@@ -463,17 +464,20 @@ def create_variated_histos(weight_xs, proc,
  
     if('VBFHPS' in variations) and ('vbf_powheg_pythia_dipole_125' in proc):
         h_vbf_ps_herwig = copy.deepcopy(hdict_vbf_ps_herwig[baseline])
+        h_vbf_ps_ref = copy.deepcopy(hdict_vbf_ps_ref[baseline])
         hnom = copy.deepcopy(hbase)
         h_nom_up = copy.deepcopy(hbase)
         h_nom_down = copy.deepcopy(hbase)
         hnom = hnom * weight_xs[proc]
         h_vbf_ps_herwig = h_vbf_ps_herwig * weight_xs[vbf_ps_herwig]
-        h_nom_up.contents = hnom.contents + (hnom.contents - h_vbf_ps_herwig.contents)
-        h_nom_down.contents = hnom.contents - (hnom.contents - h_vbf_ps_herwig.contents)
+        h_vbf_ps_ref = h_vbf_ps_ref * weight_xs[vbf_ps_ref]
+        h_nom_up.contents = hnom.contents + (h_vbf_ps_ref.contents - h_vbf_ps_herwig.contents)
+        h_nom_down.contents = hnom.contents - (h_vbf_ps_ref.contents - h_vbf_ps_herwig.contents)
         hnom = hnom * (1./weight_xs[proc])
         h_nom_up = h_nom_up * (1./weight_xs[proc])
         h_nom_down = h_nom_down * (1./ weight_xs[proc])
         h_vbf_ps_herwig = h_vbf_ps_herwig * (1./weight_xs[vbf_ps_herwig])
+        h_vbf_ps_ref = h_vbf_ps_ref * (1./weight_xs[vbf_ps_ref])
         ret['VBFHPSUp']=h_nom_up
         ret['VBFHPSDown']=h_nom_down
         

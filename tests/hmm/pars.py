@@ -6,6 +6,7 @@ categories = {
             "ggh_amcPS_pythia_125",
             "vbf_powheg_pythia_dipole_125",
             "vbf_powheg_herwig_125",
+            "vbf_powheg_pythia_dipole_125_ref",
             "wmh_125",
             "wph_125",
             "zh_125",
@@ -28,6 +29,7 @@ categories = {
             "ggh_amcPS_pythia_125",
             "vbf_powheg_pythia_dipole_125",
             "vbf_powheg_herwig_125",
+            "vbf_powheg_pythia_dipole_125_ref",
             "wmh_125",
             "wph_125",
             "zh_125",
@@ -50,6 +52,7 @@ categories = {
             "ggh_amcPS_pythia_125",
             "vbf_powheg_pythia_dipole_125",
             "vbf_powheg_herwig_125",
+            "vbf_powheg_pythia_dipole_125_ref",
             "wmh_125",
             "wph_125",
             "zh_125",
@@ -75,6 +78,7 @@ categories = {
             "ggh_amcPS_pythia_125",
             "vbf_powheg_pythia_dipole_125",
             "vbf_powheg_herwig_125",
+            "vbf_powheg_pythia_dipole_125_ref",
             "wmh_125",
             "wph_125",
             "zh_125",
@@ -110,6 +114,7 @@ combined_categories = {
             "ggh_amcPS_pythia_125",
             "vbf_powheg_pythia_dipole_125",
             "vbf_powheg_herwig_125",
+            "vbf_powheg_pythia_dipole_125_ref",
             "vh_125",
             "tth_125",
             #"wz_1l1nu2q",
@@ -128,6 +133,7 @@ combined_categories = {
             "ggh_amcPS_pythia_125",
             "vbf_powheg_pythia_dipole_125",
             "vbf_powheg_herwig_125",
+            "vbf_powheg_pythia_dipole_125_ref",
             "vh_125",
             "tth_125",
             #"wz_1l1nu2q",
@@ -146,6 +152,7 @@ combined_categories = {
             "ggh_amcPS_pythia_125",
             "vbf_powheg_pythia_dipole_125",
             "vbf_powheg_herwig_125",
+            "vbf_powheg_pythia_dipole_125_ref",
             "vh_125",
             "tth_125",
             #"wz_1l1nu2q",
@@ -167,6 +174,7 @@ combined_categories = {
             "ggh_amcPS_pythia_125",
             "vbf_powheg_pythia_dipole_125",
             "vbf_powheg_herwig_125",
+            "vbf_powheg_pythia_dipole_125_ref",
             "vh_125",
             "tth_125",
             #"wz_1l1nu2q",
@@ -195,7 +203,7 @@ colors = {
     "higgs": (0, 0, 0),
 }
 
-remove_proc = ["vbf_powheg_herwig_125","ewk_lljj_mll105_160_herwig", "ewk_lljj_mll105_160_pythia"]
+remove_proc = ["vbf_powheg_pythia_dipole_125_ref","vbf_powheg_herwig_125","ewk_lljj_mll105_160_herwig", "ewk_lljj_mll105_160_pythia"]
 
 process_groups = [
     ("higgs", ["ggh_amcPS_pythia_125", "vbf_powheg_pythia_dipole_125", "wmh_125", "wph_125", "zh_125", "tth_125"]),
@@ -334,6 +342,7 @@ cross_sections = {
     "vbf_powheg_pythia_125": 0.000823,
     "vbf_powhegPS_pythia_125": 0.000823,
     "vbf_powheg_pythia_dipole_125": 0.000823,
+    "vbf_powheg_pythia_dipole_125_ref": 0.000823,
     "vbf_amc_herwig_125": 0.000823,
     "vbf_amcPS_TuneCP5down_125": 0.000823,
     "vbf_amcPS_TuneCP5up_125": 0.000823,
