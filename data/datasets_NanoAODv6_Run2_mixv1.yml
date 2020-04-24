@@ -673,7 +673,13 @@ datasets:
   files_nano_in: /store/mc/Feb132020PisaNanoAOD/reNANOAODsignalwithGeoFit/VBFHToMuMu_M-125_TuneCP5_13TeV-powheg-pythia_dipole_fixed/RunIISummer16MiniAODv3_FSRnano18MC_NANOV10b_9f12feadf56f2d534f5f/200414_113904/0000/*.root
   is_mc: true
   name: vbf_powheg_pythia_dipole_125
-  skim_cut: "(HLT_IsoMu24) && nMuon>=2"  
+  skim_cut: "(HLT_IsoMu24) && nMuon>=2"
+- era: "2018"
+  files_merged: /store/mc/RunIISummer16NanoAODv6v2/VBFHToMuMu_M-125_TuneEEC5_13TeV-powheg-herwigpp/merged_*.root
+  files_nano_in: /store/mc/RunIISummer16NanoAODv6v2/VBFHToMuMu_M-125_TuneEEC5_13TeV-powheg-herwigpp/RunIISummer16MiniAODv3*/*/*/*.root
+  is_mc: true
+  name: vbf_powheg_herwig_125
+  skim_cut: "(HLT_IsoMu24) && nMuon>=2"
 - era: "2018"
   files_merged: /store/mc/Feb132020PisaNanoAOD/2018/GluGluHToMuMu_M125_TuneCP5_PSweights_13TeV_amcatnloFXFX_pythia8/merged_*.root
   files_nano_in: /store/mc/Feb132020PisaNanoAOD/reNANOAODsignalwithGeoFit/GluGluHToMuMu_M125_TuneCP5_PSweights_13TeV_amcatnloFXFX_pythia8/RunIISummer16MiniAODv3_FSRmyNanoProdMc2018_NANOV8a*/*/*/*.root

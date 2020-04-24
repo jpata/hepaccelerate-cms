@@ -5,6 +5,8 @@ categories = {
         "datacard_processes" : [
             "ggh_amcPS_pythia_125",
             "vbf_powheg_pythia_dipole_125",
+            "vbf_powheg_herwig_125",
+            "vbf_powheg_pythia_dipole_125_ref",
             "wmh_125",
             "wph_125",
             "zh_125",
@@ -26,6 +28,8 @@ categories = {
         "datacard_processes" : [
             "ggh_amcPS_pythia_125",
             "vbf_powheg_pythia_dipole_125",
+            "vbf_powheg_herwig_125",
+            "vbf_powheg_pythia_dipole_125_ref",
             "wmh_125",
             "wph_125",
             "zh_125",
@@ -47,6 +51,8 @@ categories = {
         "datacard_processes" : [
             "ggh_amcPS_pythia_125",
             "vbf_powheg_pythia_dipole_125",
+            "vbf_powheg_herwig_125",
+            "vbf_powheg_pythia_dipole_125_ref",
             "wmh_125",
             "wph_125",
             "zh_125",
@@ -71,6 +77,8 @@ categories = {
         "datacard_processes" : [
             "ggh_amcPS_pythia_125",
             "vbf_powheg_pythia_dipole_125",
+            "vbf_powheg_herwig_125",
+            "vbf_powheg_pythia_dipole_125_ref",
             "wmh_125",
             "wph_125",
             "zh_125",
@@ -105,6 +113,8 @@ combined_categories = {
         "datacard_processes" : [
             "ggh_amcPS_pythia_125",
             "vbf_powheg_pythia_dipole_125",
+            "vbf_powheg_herwig_125",
+            "vbf_powheg_pythia_dipole_125_ref",
             "vh_125",
             "tth_125",
             #"wz_1l1nu2q",
@@ -122,6 +132,8 @@ combined_categories = {
         "datacard_processes" : [
             "ggh_amcPS_pythia_125",
             "vbf_powheg_pythia_dipole_125",
+            "vbf_powheg_herwig_125",
+            "vbf_powheg_pythia_dipole_125_ref",
             "vh_125",
             "tth_125",
             #"wz_1l1nu2q",
@@ -139,6 +151,8 @@ combined_categories = {
         "datacard_processes" : [
             "ggh_amcPS_pythia_125",
             "vbf_powheg_pythia_dipole_125",
+            "vbf_powheg_herwig_125",
+            "vbf_powheg_pythia_dipole_125_ref",
             "vh_125",
             "tth_125",
             #"wz_1l1nu2q",
@@ -159,6 +173,8 @@ combined_categories = {
         "datacard_processes" : [
             "ggh_amcPS_pythia_125",
             "vbf_powheg_pythia_dipole_125",
+            "vbf_powheg_herwig_125",
+            "vbf_powheg_pythia_dipole_125_ref",
             "vh_125",
             "tth_125",
             #"wz_1l1nu2q",
@@ -187,7 +203,7 @@ colors = {
     "higgs": (0, 0, 0),
 }
 
-remove_proc = ["ewk_lljj_mll105_160_herwig", "ewk_lljj_mll105_160_pythia"]
+remove_proc = ["vbf_powheg_pythia_dipole_125_ref","vbf_powheg_herwig_125","ewk_lljj_mll105_160_herwig", "ewk_lljj_mll105_160_pythia"]
 
 process_groups = [
     ("higgs", ["ggh_amcPS_pythia_125", "vbf_powheg_pythia_dipole_125", "wmh_125", "wph_125", "zh_125", "tth_125"]),
@@ -326,6 +342,7 @@ cross_sections = {
     "vbf_powheg_pythia_125": 0.000823,
     "vbf_powhegPS_pythia_125": 0.000823,
     "vbf_powheg_pythia_dipole_125": 0.000823,
+    "vbf_powheg_pythia_dipole_125_ref": 0.000823,
     "vbf_amc_herwig_125": 0.000823,
     "vbf_amcPS_TuneCP5down_125": 0.000823,
     "vbf_amcPS_TuneCP5up_125": 0.000823,
@@ -416,7 +433,7 @@ jec_unc = ['Absolute', 'Absolute2018', 'BBEC1', 'BBEC12018', 'EC2', 'EC22018', '
 jer_unc = ["jerB1","jerB2","jerEC1","jerEC2","jerF1","jerF2"]
 #Uncomment to use just the total JEC for quick tests
 #jec_unc = ["Total"]
-shape_systematics = jec_unc + jer_unc + ["trigger", "id", "iso", "jet_puid", "qgl_weight", "puWeight", "L1PreFiringWeight","DYLHEScaleWeightZ","EWZLHEScaleWeightZ","DYLHEScaleWeight","EWZLHEScaleWeight","btag_weight_bcFl","btag_weight_lFl","LHEPdfWeight","EWZ105160PS"]
+shape_systematics = jec_unc + jer_unc + ["trigger", "id", "iso", "jet_puid", "qgl_weight", "puWeight", "L1PreFiringWeight","DYLHEScaleWeightZ","EWZLHEScaleWeightZ","DYLHEScaleWeight","EWZLHEScaleWeight","btag_weight_bcFl","btag_weight_lFl","LHEPdfWeight","EWZ105160PS", "VBFHPS"]
 common_scale_uncertainties = {
     "lumi": 1.025,
 }

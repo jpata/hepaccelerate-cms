@@ -192,7 +192,22 @@ def plot_variations(args):
                            kwargs_step={"label": sdir.replace("__", "") + " ({0:.3E})".format(np.sum(hvar.contents))},
             
             )
-
+    if('VBFHPS' in unc) and ('vbf_powheg_pythia_dipole_125' in mc_samp):
+        h_ps_herwig = res["vbf_powheg_herwig_125"]["nominal"]* weight_xs["vbf_powheg_herwig_125"]
+        h_ps_ref = res["vbf_powheg_pythia_dipole_125_ref"]["nominal"]* weight_xs["vbf_powheg_pythia_dipole_125_ref"]
+        h_nom_up = copy.deepcopy(hnom)
+        h_nom_down = copy.deepcopy(hnom)
+        h_nom_up.contents = hnom.contents + (h_ps_ref.contents - h_ps_herwig.contents)
+        h_nom_down.contents = hnom.contents - (h_ps_ref.contents - h_ps_herwig.contents)
+        plot_hist_step(ax, h_nom_up.edges, h_nom_up.contents,
+                np.sqrt(h_nom_up.contents_w2),
+                       kwargs_step={"label": "up "+"({0:.3E})".format(np.sum(h_nom_up.contents))},
+            )
+        plot_hist_step(ax, h_nom_down.edges, h_nom_down.contents,
+                np.sqrt(h_nom_down.contents_w2),
+                       kwargs_step={"label": "down "+"({0:.3E})".format(np.sum(h_nom_down.contents))},
+            )
+        
     if('EWZ105160PS' in unc) and ('ewk_lljj_mll105_160_ptJ_herwig' in mc_samp):
         h_ps_pythia = res["ewk_lljj_mll105_160_pythia"]["nominal"]* weight_xs["ewk_lljj_mll105_160_pythia"]
         h_ps_herwig = res["ewk_lljj_mll105_160_herwig"]["nominal"]* weight_xs["ewk_lljj_mll105_160_herwig"]
@@ -421,7 +436,7 @@ def mask_inv_mass(hist):
     hist["contents_w2"][bin_idx1:bin_idx2] = 0.0
 
 def create_variated_histos(weight_xs, proc,
-    hdict, hdict_ps_pythia, ps_pythia, hdict_ps_herwig, ps_herwig, era,
+    hdict, hdict_vbf_ps_ref, vbf_ps_ref, hdict_vbf_ps_herwig, vbf_ps_herwig, hdict_ps_pythia, ps_pythia, hdict_ps_herwig, ps_herwig, era,
     baseline="nominal",
         variations=shape_systematics):
     if not baseline in hdict.keys():
@@ -447,6 +462,25 @@ def create_variated_histos(weight_xs, proc,
                 hret = hdict[sname]
             ret[sname2] = hret
  
+    if('VBFHPS' in variations) and ('vbf_powheg_pythia_dipole_125' in proc):
+        h_vbf_ps_herwig = copy.deepcopy(hdict_vbf_ps_herwig[baseline])
+        h_vbf_ps_ref = copy.deepcopy(hdict_vbf_ps_ref[baseline])
+        hnom = copy.deepcopy(hbase)
+        h_nom_up = copy.deepcopy(hbase)
+        h_nom_down = copy.deepcopy(hbase)
+        hnom = hnom * weight_xs[proc]
+        h_vbf_ps_herwig = h_vbf_ps_herwig * weight_xs[vbf_ps_herwig]
+        h_vbf_ps_ref = h_vbf_ps_ref * weight_xs[vbf_ps_ref]
+        h_nom_up.contents = hnom.contents + (h_vbf_ps_ref.contents - h_vbf_ps_herwig.contents)
+        h_nom_down.contents = hnom.contents - (h_vbf_ps_ref.contents - h_vbf_ps_herwig.contents)
+        hnom = hnom * (1./weight_xs[proc])
+        h_nom_up = h_nom_up * (1./weight_xs[proc])
+        h_nom_down = h_nom_down * (1./ weight_xs[proc])
+        h_vbf_ps_herwig = h_vbf_ps_herwig * (1./weight_xs[vbf_ps_herwig])
+        h_vbf_ps_ref = h_vbf_ps_ref * (1./weight_xs[vbf_ps_ref])
+        ret['VBFHPSUp']=h_nom_up
+        ret['VBFHPSDown']=h_nom_down
+        
     if('EWZ105160PS' in variations) and ('ewk_lljj_mll105_160_ptJ_herwig' in proc):
         h_ps_pythia = copy.deepcopy(hdict_ps_pythia[baseline])
         h_ps_herwig = copy.deepcopy(hdict_ps_herwig[baseline])
@@ -553,11 +587,20 @@ def create_datacard(dict_procs, parameter_name, all_processes, histname, baselin
             rr_ps_pythia = rr
             rr_ps_herwig = rr
             
+        vbf_ps_herwig = 'vbf_powheg_herwig_125'
+        vbf_ps_ref = 'vbf_powheg_pythia_dipole_125_ref'
+        if ((vbf_ps_herwig in dict_procs.keys()) and (vbf_ps_ref in dict_procs.keys())):
+            rr_vbf_ps_herwig = dict_procs[vbf_ps_herwig]
+            rr_vbf_ps_ref = dict_procs[vbf_ps_ref]
+        else:
+            rr_vbf_ps_herwig = rr
+            rr_vbf_ps_ref = rr
+            
         #don't produce variated histograms for data
         if proc == "data":
             _variations = []
 
-        variated_histos = create_variated_histos(weight_xs, proc, rr, rr_ps_pythia, ps_pythia, rr_ps_herwig, ps_herwig, era, baseline, _variations)
+        variated_histos = create_variated_histos(weight_xs, proc, rr, rr_vbf_ps_ref, vbf_ps_ref, rr_vbf_ps_herwig, vbf_ps_herwig, rr_ps_pythia, ps_pythia, rr_ps_herwig, ps_herwig, era, baseline, _variations)
 
         for syst_name, histo in variated_histos.items():
             if proc != "data":
