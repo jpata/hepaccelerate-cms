@@ -436,7 +436,7 @@ def mask_inv_mass(hist):
     hist["contents_w2"][bin_idx1:bin_idx2] = 0.0
 
 def create_variated_histos(weight_xs, proc,
-    hdict, hdict_vbf_ps_herwig, vbf_ps_herwig, hdict_ps_pythia, ps_pythia, hdict_ps_herwig, ps_herwig, era,
+    hdict, hdict_vbf_ps_ref, vbf_ps_ref, hdict_vbf_ps_herwig, vbf_ps_herwig, hdict_ps_pythia, ps_pythia, hdict_ps_herwig, ps_herwig, era,
     baseline="nominal",
         variations=shape_systematics):
     if not baseline in hdict.keys():
@@ -588,16 +588,19 @@ def create_datacard(dict_procs, parameter_name, all_processes, histname, baselin
             rr_ps_herwig = rr
             
         vbf_ps_herwig = 'vbf_powheg_herwig_125'
-        if vbf_ps_herwig in dict_procs.keys():
+        vbf_ps_ref = 'vbf_powheg_pythia_dipole_125_ref'
+        if ((vbf_ps_herwig in dict_procs.keys()) and (vbf_ps_ref in dict_procs.keys())):
             rr_vbf_ps_herwig = dict_procs[vbf_ps_herwig]
+            rr_vbf_ps_ref = dict_procs[vbf_ps_ref]
         else:
             rr_vbf_ps_herwig = rr
+            rr_vbf_ps_ref = rr
             
         #don't produce variated histograms for data
         if proc == "data":
             _variations = []
 
-        variated_histos = create_variated_histos(weight_xs, proc, rr, rr_vbf_ps_herwig, vbf_ps_herwig, rr_ps_pythia, ps_pythia, rr_ps_herwig, ps_herwig, era, baseline, _variations)
+        variated_histos = create_variated_histos(weight_xs, proc, rr, rr_vbf_ps_ref, vbf_ps_ref, rr_vbf_ps_herwig, vbf_ps_herwig, rr_ps_pythia, ps_pythia, rr_ps_herwig, ps_herwig, era, baseline, _variations)
 
         for syst_name, histo in variated_histos.items():
             if proc != "data":
