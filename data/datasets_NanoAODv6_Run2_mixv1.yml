@@ -57,6 +57,12 @@ datasets:
   name: vbf_powheg_pythia_dipole_125
   skim_cut: "(HLT_IsoMu27) && nMuon>=2"
 - era: "2017"
+  files_merged: /store/mc/Feb132020PisaNanoAOD/2017/VBFHToMuMu_M-125_TuneCP5_13TeV-powheg-pythia_dipole/merged_*.root
+  files_nano_in: /store/mc/Feb132020PisaNanoAOD/reNANOAODsignalwithGeoFit/VBFHToMuMu_M-125_TuneCP5_13TeV-powheg-pythia_dipole/RunIISummer16MiniAODv3_FSRmyNanoProdMc2017_NANOV8h_7a39ab0ed099ff55ceb9/200414_114321/0000/*root
+  is_mc: true
+  name: vbf_powheg_pythia_dipole_125_ref
+  skim_cut: "(HLT_IsoMu27) && nMuon>=2"
+- era: "2017"
   files_merged: /store/mc/RunIIFall17NanoAODv6v2/VBFHToMuMu_M-125_TuneCP5_PSweights_13TeV_powheg_pythia8/merged_*.root
   files_nano_in: /store/mc/RunIIFall17NanoAODv6v2/VBFHToMuMu_M-125_TuneCP5_PSweights_13TeV_powheg_pythia8/*d02171*/*/*/*.root
   is_mc: true
@@ -349,6 +355,12 @@ datasets:
   files_nano_in: /store/mc/Feb132020PisaNanoAOD/reNANOAODsignalwithGeoFit/VBFHToMuMu_M-125_TuneCP5_13TeV-powheg-pythia_dipole/RunIISummer16MiniAODv3_FSRNANO2016MCV8h_04392dd37792585c69c0/200414_114803/0000/*root
   is_mc: true
   name: vbf_powheg_pythia_dipole_125
+  skim_cut: "(HLT_IsoMu24 || HLT_IsoTkMu24) && nMuon>=2"
+- era: "2016"
+  files_merged: /store/mc/Feb132020PisaNanoAOD/2016/VBFHToMuMu_M-125_TuneCP5_13TeV-powheg-pythia_dipole/merged_*.root
+  files_nano_in: /store/mc/Feb132020PisaNanoAOD/reNANOAODsignalwithGeoFit/VBFHToMuMu_M-125_TuneCP5_13TeV-powheg-pythia_dipole/RunIISummer16MiniAODv3_FSRNANO2016MCV8h_04392dd37792585c69c0/200414_114803/0000/*root
+  is_mc: true
+  name: vbf_powheg_pythia_dipole_125_ref
   skim_cut: "(HLT_IsoMu24 || HLT_IsoTkMu24) && nMuon>=2"
 - era: "2016"
   files_merged: /store/mc/RunIISummer16NanoAODv6v2/VBF_HToMuMu_M120_13TeV_powheg_pythia8/merged_*.root
@@ -673,6 +685,12 @@ datasets:
   files_nano_in: /store/mc/Feb132020PisaNanoAOD/reNANOAODsignalwithGeoFit/VBFHToMuMu_M-125_TuneCP5_13TeV-powheg-pythia_dipole_fixed/RunIISummer16MiniAODv3_FSRnano18MC_NANOV10b_9f12feadf56f2d534f5f/200414_113904/0000/*.root
   is_mc: true
   name: vbf_powheg_pythia_dipole_125
+  skim_cut: "(HLT_IsoMu24) && nMuon>=2"
+- era: "2018"
+  files_merged: /store/mc/Feb132020PisaNanoAOD/2016/VBFHToMuMu_M-125_TuneCP5_13TeV-powheg-pythia_dipole/merged_*.root
+  files_nano_in: /store/mc/Feb132020PisaNanoAOD/reNANOAODsignalwithGeoFit/VBFHToMuMu_M-125_TuneCP5_13TeV-powheg-pythia_dipole/RunIISummer16MiniAODv3_FSRNANO2016MCV8h_04392dd37792585c69c0/200414_114803/0000/*root
+  is_mc: true
+  name: vbf_powheg_pythia_dipole_125_ref
   skim_cut: "(HLT_IsoMu24) && nMuon>=2"
 - era: "2018"
   files_merged: /store/mc/RunIISummer16NanoAODv6v2/VBFHToMuMu_M-125_TuneEEC5_13TeV-powheg-herwigpp/merged_*.root

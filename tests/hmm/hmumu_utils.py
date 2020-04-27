@@ -384,7 +384,7 @@ def analyze_data(
                 compute_stxs_unc(scalars["HTXS_stage1_1_fine_cat_pTjet25GeV"], stxs_unc, stxs_up, stxs_down)
                 weights_individual[stxs_unc_name] = {"nominal": stxs_nominal, "up": stxs_up, "down": stxs_down}
 
-            #actually multiply all the weights together with the appropriate up/down variations.
+    #actually multiply all the weights together with the appropriate up/down variations.
     #creates a 1-level dictionary with weights "nominal", "puweight__up", "puweight__down", ..." 
     weights_final = finalize_weights(weights_individual, dataset_era)
     '''
@@ -2085,7 +2085,6 @@ def get_qglWeights(jets, jet_attrs, ret_mu, func, dataset_name):
     qglw = qglj1w*qglj2w
     qglw_down = qglw*qglw
     return qglw, qglw_up, qglw_down
-
 
 #STXS uncertainties
 #https://cms-nanoaod-integration.web.cern.ch/integration/master-cmsswmaster/mc102X_doc.html
