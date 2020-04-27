@@ -20,7 +20,7 @@ import hepaccelerate.backend_cpu as backend_cpu
 
 from coffea.lookup_tools import extractor
 
-from pars import runmap_numerical, runmap_numerical_r, data_runs, genweight_scalefactor, jer_unc
+from pars import runmap_numerical, runmap_numerical_r, data_runs, genweight_scalefactor, jer_unc, VBF_STXS_unc, HSTXS_rel
 
 #global variables need to be configured here for the hepaccelerate backend and numpy library
 #they will be overwritten later
@@ -375,7 +375,16 @@ def analyze_data(
         jet_attrs += ["partonFlavour"]
         qglWeights, qglWeights_up, qglWeights_down = get_qglWeights(jets_passing_id, jet_attrs, ret_mu, analysis_corrections.miscvariables, dataset_name)
         weights_individual["qgl_weight"] = {"nominal": qglWeights, "up": qglWeights_up, "down": qglWeights_down}
-        
+
+        if "vbf_powheg_pythia_dipole_125" in dataset_name:
+            for stxs_unc_name in VBF_STXS_unc:
+                stxs_nominal = NUMPY_LIB.ones_like(qglWeights)
+                stxs_up = NUMPY_LIB.ones_like(stxs_nominal)
+                stxs_down = NUMPY_LIB.ones_like(stxs_nominal)
+                stxs_unc = NUMPY_LIB.array(HSTXS_rel[stxs_unc_name])
+                compute_stxs_unc(scalars["HTXS_stage1_1_fine_cat_pTjet25GeV"], stxs_unc, stxs_up, stxs_down)
+                weights_individual[stxs_unc_name] = {"nominal": stxs_nominal, "up": stxs_up, "down": stxs_down}
+
     #actually multiply all the weights together with the appropriate up/down variations.
     #creates a 1-level dictionary with weights "nominal", "puweight__up", "puweight__down", ..." 
     weights_final = finalize_weights(weights_individual, dataset_era)
@@ -2075,8 +2084,17 @@ def get_qglWeights(jets, jet_attrs, ret_mu, func, dataset_name):
                     NUMPY_LIB.asnumpy(subleading_jet["eta"]),
                     NUMPY_LIB.asnumpy(subleading_jet["qgl"]), psgen))
     qglw = qglj1w*qglj2w
-    qglw_down = qglw*qglw
+    qglw_down = 2.0*qglw - 1.0
     return qglw, qglw_up, qglw_down
+
+#STXS uncertainties
+#https://cms-nanoaod-integration.web.cern.ch/integration/master-cmsswmaster/mc102X_doc.html
+#refs: https://gitlab.cern.ch/LHCHIGGSXS/LHCHXSWG2/STXS/Classification/-/blob/master/HiggsTemplateCrossSections.h https://gitlab.cern.ch/LHCHIGGSXS/LHCHXSWG2/STXS/VBF-Uncertainties
+@numba.njit(parallel=True)
+def compute_stxs_unc(stxs_bin, stxs_unc, stxs_up, stxs_down):
+    for iev in numba.prange(stxs_up.shape[0]):
+        stxs_up[iev] = stxs_unc[stxs_bin[iev]-200]+1.0
+        stxs_down[iev] = 2.0 - stxs_up[iev]
 
 @numba.njit(parallel=True)
 def compute_eff_product_cpu(offsets, jet_pt, subjet_pt, jet_pt_mask, jets_mask_passes_id, jets_eff, out_proba):
@@ -2095,14 +2113,14 @@ def compute_eff_product_cpu(offsets, jet_pt, subjet_pt, jet_pt_mask, jets_mask_p
         out_proba[iev] = p_tot
 
 @cuda.jit
-def compute_eff_product_cudakernel(offsets, jet_pt_mask, jets_mask_passes_id, jets_eff, out_proba):
+def compute_eff_product_cudakernel(offsets, jet_pt, subjet_pt, jet_pt_mask, jets_mask_passes_id, jets_eff, out_proba):
     xi = cuda.grid(1)
     xstride = cuda.gridsize(1)
     for iev in range(xi, offsets.shape[0]-1, xstride):
         p_tot = np.float32(1.0)
         #loop over jets in event
         for ij in range(offsets[iev], offsets[iev+1]):
-            if not jet_pt_mask[ij]: continue
+            if (not jet_pt_mask[ij]) or (jet_pt[ij] < subjet_pt[iev]): continue
             this_jet_passes = jets_mask_passes_id[ij]
             if this_jet_passes:
                 p_tot *= jets_eff[ij]
@@ -3537,7 +3555,11 @@ def create_datastructure(dataset_name, is_mc, dataset_era, do_fsr=False):
         if "dy" in dataset_name or "ewk" in dataset_name or "ggh" in dataset_name or "vbf" in dataset_name or "wmh" in dataset_name or "wph" in dataset_name or "zh" in dataset_name or "tth" in dataset_name:
             datastructures["EventVariables"] += [
                 ("nLHEPdfWeight", "uint32")
-        ]
+            ]
+        if "vbf_powheg_pythia_dipole_125" in dataset_name:
+            datastructures["EventVariables"] += [
+                ("HTXS_stage1_1_fine_cat_pTjet25GeV", "int32")
+            ]
         if dataset_era == "2016" or dataset_era == "2017":
             datastructures["EventVariables"] += [
                 ("L1PreFiringWeight_Nom", "float32"),
