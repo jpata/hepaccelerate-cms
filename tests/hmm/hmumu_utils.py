@@ -375,6 +375,7 @@ def analyze_data(
         jet_attrs += ["partonFlavour"]
         qglWeights, qglWeights_up, qglWeights_down = get_qglWeights(jets_passing_id, jet_attrs, ret_mu, analysis_corrections.miscvariables, dataset_name)
         weights_individual["qgl_weight"] = {"nominal": qglWeights, "up": qglWeights_up, "down": qglWeights_down}
+
         if "vbf_powheg_pythia_dipole_125" in dataset_name:
             for stxs_unc_name in VBF_STXS_unc:
                 stxs_nominal = NUMPY_LIB.ones_like(qglWeights)
@@ -2083,7 +2084,7 @@ def get_qglWeights(jets, jet_attrs, ret_mu, func, dataset_name):
                     NUMPY_LIB.asnumpy(subleading_jet["eta"]),
                     NUMPY_LIB.asnumpy(subleading_jet["qgl"]), psgen))
     qglw = qglj1w*qglj2w
-    qglw_down = qglw*qglw
+    qglw_down = 2.0*qglw - 1.0
     return qglw, qglw_up, qglw_down
 
 #STXS uncertainties
@@ -2091,10 +2092,9 @@ def get_qglWeights(jets, jet_attrs, ret_mu, func, dataset_name):
 #refs: https://gitlab.cern.ch/LHCHIGGSXS/LHCHXSWG2/STXS/Classification/-/blob/master/HiggsTemplateCrossSections.h https://gitlab.cern.ch/LHCHIGGSXS/LHCHXSWG2/STXS/VBF-Uncertainties
 @numba.njit(parallel=True)
 def compute_stxs_unc(stxs_bin, stxs_unc, stxs_up, stxs_down):
-    #for iev in range(stxs_up.shape[0]):
     for iev in numba.prange(stxs_up.shape[0]):
         stxs_up[iev] = stxs_unc[stxs_bin[iev]-200]+1.0
-    stxs_down = 2.0 - stxs_up
+        stxs_down[iev] = 2.0 - stxs_up[iev]
 
 @numba.njit(parallel=True)
 def compute_eff_product_cpu(offsets, jet_pt, subjet_pt, jet_pt_mask, jets_mask_passes_id, jets_eff, out_proba):
