@@ -95,9 +95,15 @@ cd batch
 mkdir logs
 source slurm_submit.sh
 
+#monitor the jobs
+squeue -u $USER
+
 #check the output
 python verify_analyze.py
 python check_logs.py "logs/slurm-*.out"
+
+#submit the merge job
+sbatch slurm_post.sh
 ```
 
 ## Running on full dataset using batch queue

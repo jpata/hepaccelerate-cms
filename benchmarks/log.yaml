@@ -1,4 +1,107 @@
 - date: 2020-04-30
+  site: Caltech Tier2
+  code version: ea8c448c0f95aac0043c17e4d5e62e1db7795d6d
+  configuration:
+    do_factorized_jec: True
+  number of jobs: 341
+  runtime: 2611.25 +- 1772.54 s
+  maxrss: 3754.24 +- 278.37 MB
+  speeds: 1302.71 +- 326.53 Hz
+  total processed: 995100000 events, 1225.19 GB
+  comments: 2 threads
+
+- date: 2020-04-30
+  site: Caltech HPC
+  code version: ea8c448c0f95aac0043c17e4d5e62e1db7795d6d
+  configuration:
+    do_factorized_jec: True
+  number of jobs: 341
+  runtime: 1642.30 +- 327.84 s
+  maxrss: 4096.77 +- 297.11 MB
+  speeds: 1807.27 +- 265.88 Hz
+  total processed: 995060000 events, 1225.09 GB
+
+- date: 2020-04-30
+  site: Caltech HPC
+  code version: ea8c448c0f95aac0043c17e4d5e62e1db7795d6d
+  configuration:
+    do_factorized_jec: True
+  number of jobs: 341
+  runtime: 1642.30 +- 327.84 s
+  maxrss: 4096.77 +- 297.11 MB
+  speeds: 1807.27 +- 265.88 Hz
+  total processed: 995060000 events, 1225.09 GB
+- date: 2020-04-30
+  site: Caltech HPC
+  code version: ea8c448c0f95aac0043c17e4d5e62e1db7795d6d
+  configuration:
+    do_factorized_jec: True
+  number of jobs: 341
+  runtime: 1642.30 +- 327.84 s
+  maxrss: 4096.77 +- 297.11 MB
+  speeds: 1807.27 +- 265.88 Hz
+  total processed: 995060000 events, 1225.09 GB
+- date: 2020-04-30
+  site: Caltech HPC
+  code version: ea8c448c0f95aac0043c17e4d5e62e1db7795d6d
+  configuration:
+    do_factorized_jec: True
+  number of jobs: 341
+  runtime: 1642.30 +- 327.84 s
+  maxrss: 4096.77 +- 297.11 MB
+  speeds: 1807.27 +- 265.88 Hz
+  total processed: 995060000 events, 1225.09 GB
+- date: 2020-04-30
+  site: Caltech HPC
+  code version: ea8c448c0f95aac0043c17e4d5e62e1db7795d6d
+  configuration:
+    do_factorized_jec: True
+  number of jobs: 341
+  runtime: 1642.30 +- 327.84 s
+  maxrss: 4096.77 +- 297.11 MB
+  speeds: 1807.27 +- 265.88 Hz
+  total processed: 995060000 events, 1225.09 GB
+- date: 2020-04-30
+  site: Caltech HPC
+  code version: ea8c448c0f95aac0043c17e4d5e62e1db7795d6d
+  configuration:
+    do_factorized_jec: True
+  number of jobs: 341
+  runtime: 1642.30 +- 327.84 s
+  maxrss: 4096.77 +- 297.11 MB
+  speeds: 1807.27 +- 265.88 Hz
+  total processed: 995060000 events, 1225.09 GB
+- date: 2020-04-30
+  site: Caltech HPC
+  code version: ea8c448c0f95aac0043c17e4d5e62e1db7795d6d
+  configuration:
+    do_factorized_jec: True
+  number of jobs: 341
+  runtime: 1642.30 +- 327.84 s
+  maxrss: 4096.77 +- 297.11 MB
+  speeds: 1807.27 +- 265.88 Hz
+  total processed: 995060000 events, 1225.09 GB
+- date: 2020-04-30
+  site: Caltech HPC
+  code version: ea8c448c0f95aac0043c17e4d5e62e1db7795d6d
+  configuration:
+    do_factorized_jec: True
+  number of jobs: 341
+  runtime: 1642.30 +- 327.84 s
+  maxrss: 4096.77 +- 297.11 MB
+  speeds: 1807.27 +- 265.88 Hz
+  total processed: 995060000 events, 1225.09 GB
+- date: 2020-04-30
+  site: Caltech HPC
+  code version: ea8c448c0f95aac0043c17e4d5e62e1db7795d6d
+  configuration:
+    do_factorized_jec: True
+  number of jobs: 341
+  runtime: 1642.30 +- 327.84 s
+  maxrss: 4096.77 +- 297.11 MB
+  speeds: 1807.27 +- 265.88 Hz
+  total processed: 995060000 events, 1225.09 GB
+- date: 2020-04-30
   site: Caltech HPC
   code version: ea8c448c0f95aac0043c17e4d5e62e1db7795d6d
   configuration:
