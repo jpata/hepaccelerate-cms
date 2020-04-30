@@ -1,5 +1,12 @@
 [![Build Status](https://travis-ci.com/jpata/hepaccelerate-cms.svg?branch=master)](https://travis-ci.com/jpata/hepaccelerate-cms)
 
+The following benchmarks have been extracted for the full Run 2 analysis as of April 30, 2020. The jobs were configured with 2 threads.
+
+site        | Job runtime  | Number of jobs | avg. speed (ev/s) |
+------------|--------------|----------------|-------------------|
+Caltech T2  | 44 +- 30 min | 341            | 1.3 kHz           |
+Caltech HPC | 27 +- 5 min  | 341            | 1.8 kHz           |
+
 # hepaccelerate-cms
 
 CMS-specific (optionally) GPU-accelerated analysis code based on the [hepaccelerate](https://github.com/hepaccelerate/hepaccelerate) backend library.
