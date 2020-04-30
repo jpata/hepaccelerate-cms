@@ -3,7 +3,7 @@ set -e
 
 #number of files to process per job
 #For factorized JEC, 5-50 is a good starting point
-export NCHUNK=50
+export NCHUNK=20
 export SUBMIT_DIR=$(dirname `pwd`) 
 
 echo "Will create submit files based on directory SUBMIT_DIR="$SUBMIT_DIR
@@ -40,6 +40,7 @@ for f in `\ls -1 jobfiles/jobfiles_split.txt.*`; do
 
     #create condor submit files
     echo /storage/user/$USER/hmm/out_$NJOB.tgz $f >> args_analyze.txt 
+    echo sbatch slurm_hmm_analyze.sh /central/groups/smaria/$USER/hmm/out_$NJOB.tgz $f >> slurm_submit.sh
 
     NJOB=$((NJOB + 1))
 done
@@ -50,5 +51,5 @@ tar -cvzf jobfiles.tgz jobfiles
 NJOBS=`wc -l args_analyze.txt`
 echo "Prepared jobs: $NJOBS"
 echo "Please run 'export SUBMIT_DIR=$SUBMIT_DIR'"
-echo "To submit the jobs, just run 'condor_submit analyze.jdl'" 
-
+echo "On T2_US_Caltech, to submit the jobs, just run 'condor_submit analyze.jdl'" 
+echo "On Caltech HPC, to submit the jobs, just run 'source slurm_submit.sh'" 

@@ -58,6 +58,48 @@ cd ../..
 ./tests/hmm/run.sh
 ~~~
 
+## Installation on Caltech HPC
+
+```bash
+#Go through the Caltech Tier2
+ssh USER@login-1.hep.caltech.edu
+
+#copy the skimmed samples to HPC, needs to be done once, or as top-up if you update the skim
+#use the rsync /./ and -R option to copy the full path structure, --ignore-existing to update just the new files
+rsync -rR --progress --ignore-existing /storage/user/nlu/./hmm/skim_merged USER@login1.hpc.caltech.edu:/central/groups/smaria/
+
+#now log in to the HPC machine
+ssh USER@login1.hpc.caltech.edu 
+
+#activate the prepared python environment (should you wish to do this from scratch, you can use the example in environments/setup-miniconda.sh)
+source /central/groups/smaria/jpata/miniconda3/bin/activate
+
+#make a working directory under the shared filesystem
+mkdir /central/groups/smaria/$USER
+cd /central/groups/smaria/$USER
+mkdir hmm
+cd hmm
+
+#get the code, compile the C++ helper library
+git clone https://github.com/jpata/hepaccelerate-cms
+cd hepaccelerate-cms/tests/hmm
+make -j4
+cd ../..
+
+#run a local test on the interactive login node and create jobfiles
+./tests/hmm/run_hpc.sh
+
+#submit batch jobs
+cd batch
+./make_submit_jdl.sh
+mkdir logs
+source slurm_submit.sh
+
+#check the output
+python verify_analyze.py
+python check_logs.py "logs/slurm-*.out"
+```
+
 ## Running on full dataset using batch queue
 We use the condor batch queue on Caltech T2 to run the analysis. It takes ~20 minutes for all 3 years using just the Total JEC & JER (2-3h using factorized JEC) using about 200 job slots.
 
