@@ -90,6 +90,7 @@ cd ../..
 
 #run a local test on the interactive login node and create jobfiles
 ./tests/hmm/run_hpc.sh
+export SUBMIT_DIR=`pwd`
 
 #submit batch jobs
 cd batch
