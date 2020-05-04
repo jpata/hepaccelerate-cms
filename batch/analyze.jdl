@@ -8,7 +8,7 @@ Requirements=(TARGET.OpSysAndVer=="CentOS7" && regexp("blade.*", TARGET.Machine)
 +InteractiveUser = true
 +SingularityImage = "/storage/user/jpata/gpuservers/singularity/images/cupy.simg"
 +SingularityBindCVMFS = True
-+RequestWalltime = 6*3600
++RequestWalltime = 1*3600
 +PeriodicRemove = ((JobStatus =?= 2) && ((MemoryUsage =!= UNDEFINED && MemoryUsage > 2*RequestMemory)))
 
 run_as_owner = True

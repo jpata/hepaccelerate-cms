@@ -1,6 +1,7 @@
 from __future__ import print_function
 import sys, os
 
+#argument file
 infile = sys.argv[1]
 
 resubmits = open(infile + ".resubmit", "w")

@@ -82,6 +82,8 @@ cd hmm
 
 #get the code, compile the C++ helper library
 git clone https://github.com/jpata/hepaccelerate-cms
+git submodule init
+git submodule update
 cd hepaccelerate-cms/tests/hmm
 make -j4
 cd ../..
@@ -92,15 +94,14 @@ cd ../..
 #submit batch jobs
 cd batch
 ./make_submit_jdl.sh
-mkdir logs
 source slurm_submit.sh
 
 #monitor the jobs
 squeue -u $USER
 
 #check the output
-python verify_analyze.py
-python check_logs.py "logs/slurm-*.out"
+python verify_analyze.py slurm_submit.sh
+python check_logs.py "slurm-*.out"
 
 #submit the merge job
 sbatch slurm_post.sh
@@ -133,7 +134,7 @@ du -csh ~/hmm/skim_merged
 ./make_submit_jdl.sh
 condor_submit analyze.jdl
 #...wait until done, create resubmit file if needed
-python verify_analyze.py
+python verify_analyze.py args_analyze.txt
 du -csh ~/hmm/out_*.tgz
 
 #submit merging and plotting, this should be around 30 minutes
