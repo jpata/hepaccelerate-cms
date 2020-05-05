@@ -14,9 +14,9 @@ export NTHREADS=2
 
 export NUMBA_NUM_THREADS=$NTHREADS
 export OMP_NUM_THREADS=$NTHREADS
-export NUMBA_THREADING_LAYER=workqueue
+export NUMBA_THREADING_LAYER=omp
 export WORKDIR=/central/groups/smaria/$USER/hmm/hepaccelerate-cms
-export CACHEPATH=/central/groups/smaria/jpata/hmm/skim_merged
+export CACHEPATH=/central/groups/smaria/hmm/skim_merged
 export JOB_TMPDIR=$TMPDIR/$SLURM_JOB_ID
 export OUTDIR=out
 
@@ -34,6 +34,7 @@ mkdir $OUTDIR
 mv jobfiles/datasets.json $OUTDIR/
 mv jobfiles $OUTDIR/
 
+#rename the input files to fit Caltech HPC
 python3 $SUBMIT_DIR/batch/addprefix.py $JOB_TMPDIR/$OUTDIR/ < $OUTDIR/$INFILE > $OUTDIR/$INFILE.tmp
 mv $OUTDIR/$INFILE.tmp $OUTDIR/$INFILE
 
@@ -44,7 +45,8 @@ PYTHONPATH=hepaccelerate:coffea:. python3 tests/hmm/analysis_hmumu.py \
     --cachepath $CACHEPATH \
     --nthreads $NTHREADS \
     --do-factorized-jec \
-    --datasets-yaml data/datasets_NanoAODv5.yml \
+    --do-fsr \
+    --datasets-yaml data/datasets_NanoAODv6_Run2_mixv1.yml \
     --jobfiles-load $JOB_TMPDIR/$OUTDIR/$INFILE \
     --out $JOB_TMPDIR/$OUTDIR
 

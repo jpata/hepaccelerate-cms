@@ -1,14 +1,18 @@
 from __future__ import print_function
 import sys, os
 
-resubmits = open("args_analyze_resubmit.txt", "w")
+#argument file
+infile = sys.argv[1]
+
+resubmits = open(infile + ".resubmit", "w")
 is_fine = True
 num_outputs_found = 0
 num_outputs_missing = 0
 
-for argline in open("args_analyze.txt").readlines():
+for argline in open(infile).readlines():
     argline = argline.strip()
-    outfile = argline.split()[0]
+    #output file is the second-to-last argument on the line
+    outfile = argline.split()[-2]
     if not os.path.isfile(outfile):
         print(argline, file=resubmits)
         is_fine = False

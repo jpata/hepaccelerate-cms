@@ -1258,7 +1258,7 @@ def run_analysis(
     
     t1 = time.time()
     dt = t1 - t0
-    print("In run_analysis, processed {nev_loaded:.2E} ({nev:.2E} raw NanoAOD equivalent) events in total {size:.2f} GB, {dt:.1f} seconds, {evspeed:.2E} Hz, {sizespeed:.2f} MB/s".format(
+    print("In run_analysis, processed {nev_loaded} ({nev} raw NanoAOD equivalent) events in total {size:.2f} GB, {dt:.1f} seconds, {evspeed:.2E} Hz, {sizespeed:.2f} MB/s".format(
         nev=nev_total, nev_loaded=nev_loaded, dt=dt,
         size=processed_size_mb/1024.0, evspeed=nev_total/dt, sizespeed=processed_size_mb/dt,
         )
