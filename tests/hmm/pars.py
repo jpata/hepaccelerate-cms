@@ -436,8 +436,8 @@ jer_unc = ["jerB1","jerB2","jerEC1","jerEC2","jerF1","jerF2"]
 #jec_unc = ["Total"]
 
 VBF_STXS_unc = ["THU_VBF_Yield", "THU_VBF_Mjj60", "THU_VBF_Mjj120", "THU_VBF_Mjj350", "THU_VBF_PTH200", "THU_VBF_PTH25", "THU_VBF_JET01", "THU_VBF_Mjj1000", "THU_VBF_Mjj700", "THU_VBF_Mjj1500"]
-
-shape_systematics = jec_unc + jer_unc + VBF_STXS_unc + ["trigger", "id", "iso", "jet_puid", "qgl_weight", "puWeight", "L1PreFiringWeight","DYLHEScaleWeightZ","EWZLHEScaleWeightZ","DYLHEScaleWeight","EWZLHEScaleWeight","btag_weight_bcFl","btag_weight_lFl","LHEPdfWeight","EWZ105160PS", "VBFHPS"] 
+btag_unc = ["btag_weight_jes","btag_weight_lf","btag_weight_hfstats1","btag_weight_hfstats2","btag_weight_cferr1","btag_weight_cferr2","btag_weight_hf","btag_weight_lfstats1","btag_weight_lfstats2"]
+shape_systematics = jec_unc + jer_unc + VBF_STXS_unc + btag_unc + ["trigger", "id", "iso", "jet_puid", "qgl_weight", "puWeight", "L1PreFiringWeight","DYLHEScaleWeightZ","EWZLHEScaleWeightZ","DYLHEScaleWeight","EWZLHEScaleWeight","LHEPdfWeight","EWZ105160PS", "VBFHPS"] 
 common_scale_uncertainties = {
     "lumi": 1.025,
 }
