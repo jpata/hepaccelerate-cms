@@ -9,7 +9,7 @@ import uproot
 import copy
 import multiprocessing
 
-from pars import catnames, varnames, analysis_names, shape_systematics, controlplots_shape, genweight_scalefactor, lhe_pdf_variations
+from pars import catnames, varnames, analysis_names, shape_systematics, controlplots_shape, genweight_scalefactor, lhe_pdf_variations, jer_unc, dymodel_DNN_reshape
 from pars import process_groups, colors, extra_plot_kwargs,proc_grps,combined_signal_samples, remove_proc
 
 from scipy.stats import wasserstein_distance
@@ -285,6 +285,25 @@ def plot_variations(args):
                 np.sqrt(h_pdf_down.contents_w2),
                        kwargs_step={"label": "down "+"({0:.3E})".format(np.sum(h_pdf_down.contents))},
             )
+    if('DYshape_DNN' in unc and 'dy' in mc_samp and 'dnnPisa_pred_atanh' in var and 'z_peak' not in var):
+        h_dyShape_up = copy.deepcopy(hnom)
+        h_dyShape_down = copy.deepcopy(hnom)
+        if 'h_peak' in var:
+            massbin = 'h_peak'
+        elif 'h_sideband' in var:
+            massbin = 'h_sideband'
+        for r in range(len(dymodel_DNN_reshape[str(datataking_year)][massbin])):
+            h_dyShape_up.contents[r] = h_dyShape_up.contents[r]*dymodel_DNN_reshape[str(datataking_year)][massbin][r]
+            h_dyShape_down.contents[r] = 2*h_dyShape_down.contents[r] - h_dyShape_up.contents[r]
+
+        plot_hist_step(ax, h_dyShape_up.edges, h_dyShape_up.contents,
+                np.sqrt(h_dyShape_up.contents_w2),
+                       kwargs_step={"label": "up "+"({0:.3E})".format(np.sum(h_dyShape_up.contents))},
+            )
+        plot_hist_step(ax, h_dyShape_down.edges, h_dyShape_down.contents,
+                np.sqrt(h_dyShape_down.contents_w2),
+                       kwargs_step={"label": "down "+"({0:.3E})".format(np.sum(h_dyShape_down.contents))},
+            )
 
     handles, labels = ax.get_legend_handles_labels()
     ax.legend(handles[::-1], labels[::-1], frameon=False, fontsize=4, loc=1, ncol=2)
@@ -436,9 +455,9 @@ def mask_inv_mass(hist):
     hist["contents_w2"][bin_idx1:bin_idx2] = 0.0
 
 def create_variated_histos(weight_xs, proc,
-    hdict, hdict_vbf_ps_ref, vbf_ps_ref, hdict_vbf_ps_herwig, vbf_ps_herwig, hdict_ps_pythia, ps_pythia, hdict_ps_herwig, ps_herwig, era,
-    baseline="nominal",
-        variations=shape_systematics):
+                           hdict, hdict_vbf_ps_ref, vbf_ps_ref, hdict_vbf_ps_herwig, vbf_ps_herwig, hdict_ps_pythia, ps_pythia, hdict_ps_herwig, ps_herwig, era, histname,
+                           baseline="nominal",
+                           variations=shape_systematics):
     if not baseline in hdict.keys():
         raise KeyError("baseline histogram missing")
    
@@ -532,7 +551,7 @@ def create_variated_histos(weight_xs, proc,
         elif('ewk' in proc):
             ret['EWZLHEScaleWeightZUp']=h_nom_up
             ret['EWZLHEScaleWeightZDown']=h_nom_down
-
+    
     if('LHEPdfWeight' in variations):
         h_pdf =[]
         h_pdf_up = copy.deepcopy(hbase)
@@ -565,7 +584,20 @@ def create_variated_histos(weight_xs, proc,
         ret['LHEPdfNom']=h_pdf_nom
         ret['LHEPdfWeightUp']=h_pdf_up
         ret['LHEPdfWeightDown']=h_pdf_down
-        
+
+    if('DYshape_DNN' in variations and 'dy' in proc and 'dnnPisa_pred_atanh' in histname and 'z_peak' not in histname):
+        h_dyShape_up = copy.deepcopy(hbase)
+        h_dyShape_down = copy.deepcopy(hbase)
+        if 'h_peak' in histname:
+            massbin = 'h_peak'
+        elif 'h_sideband' in histname:
+            massbin = 'h_sideband'
+        for r in range(len(dymodel_DNN_reshape[era][massbin])):
+            h_dyShape_up.contents[r] = h_dyShape_up.contents[r]*dymodel_DNN_reshape[era][massbin][r]
+            h_dyShape_down.contents[r] = 2*h_dyShape_down.contents[r] - h_dyShape_up.contents[r]
+        ret['DYshape_DNNUp']=h_dyShape_up
+        ret['DYshape_DNNDown']=h_dyShape_down
+
     return ret
 
 def create_datacard(dict_procs, parameter_name, all_processes, histname, baseline, variations, weight_xs, era):
@@ -600,7 +632,7 @@ def create_datacard(dict_procs, parameter_name, all_processes, histname, baselin
         if proc == "data":
             _variations = []
 
-        variated_histos = create_variated_histos(weight_xs, proc, rr, rr_vbf_ps_ref, vbf_ps_ref, rr_vbf_ps_herwig, vbf_ps_herwig, rr_ps_pythia, ps_pythia, rr_ps_herwig, ps_herwig, era, baseline, _variations)
+        variated_histos = create_variated_histos(weight_xs, proc, rr, rr_vbf_ps_ref, vbf_ps_ref, rr_vbf_ps_herwig, vbf_ps_herwig, rr_ps_pythia, ps_pythia, rr_ps_herwig, ps_herwig, era, histname, baseline, _variations)
 
         for syst_name, histo in variated_histos.items():
             if proc != "data":
@@ -670,6 +702,7 @@ def create_datacard_combine(
     combined_all_processes.pop(combined_all_processes.index("data"))
     shape_uncertainties = {v:1.0 for v in variations}
     cat = Category(
+        era=era,
         name=histname,
         processes=list(combined_all_processes),
         signal_processes=combined_signal_processes,
@@ -690,7 +723,7 @@ from uproot_methods.classes.TH1 import from_numpy
 
 def to_th1(hdict, name):
     content = np.array(hdict.contents)
-    content_w2 = np.array(hdict.contents_w2)
+    content_w2 = np.concatenate(([0.0],np.array(hdict.contents_w2),[0.0]))
     edges = np.array(hdict.edges)
     
     #remove inf/nan just in case
@@ -704,7 +737,7 @@ def to_th1(hdict, name):
     centers = (edges[:-1] + edges[1:]) / 2.0
     th1 = from_numpy((content, edges))
     th1._fName = name
-    th1._fSumw2 = np.array(hdict.contents_w2)
+    th1._fSumw2 = np.array(content_w2)
     th1._fTsumw2 = np.array(hdict.contents_w2).sum()
     th1._fTsumwx2 = np.array(hdict.contents_w2 * centers).sum()
 
@@ -757,7 +790,7 @@ class Category:
         self.full_name = self.name
         self.rebin = kwargs.get("rebin", 1)
         self.do_limit = kwargs.get("do_limit", True)
-
+        self.era = kwargs.get("era")
 
         self.cuts = kwargs.get("cuts", [])
 
@@ -778,7 +811,7 @@ class Category:
             for systname, systval in common_shape_uncertainties.items():
                 self.shape_uncertainties[proc][systname] = systval
             for systname, systval in common_scale_uncertainties.items():
-                self.scale_uncertainties[proc][systname] = systval
+                self.scale_uncertainties[proc][systname] = systval[self.era]
 
         #Load the process-dependent shape uncertainties
         self.proc_shape_uncertainties = kwargs.get("shape_uncertainties", {})
@@ -1038,12 +1071,15 @@ def PrintDatacard(categories, dict_procs, era, event_counts, filenames, ofname):
         dcof.write("RZ rateParam {0} dy_2j 1 \n".format(cat.full_name)) 
         #dcof.write("REWZ rateParam {0} ewk_lljj_mll50_mjj120 1 \n".format(cat.full_name))
     elif ("h_peak" in cat.full_name) or ("h_sideband" in cat.full_name):
-        dcof.write("R_01j rateParam {0} dy_m105_160_amc_01j 1 \n".format(cat.full_name))           
-        dcof.write("R_01j rateParam {0} dy_m105_160_vbf_amc_01j 1 \n".format(cat.full_name))
-        dcof.write("R_2j rateParam {0} dy_m105_160_amc_2j 1 \n".format(cat.full_name))
-        dcof.write("R_2j rateParam {0} dy_m105_160_vbf_amc_2j 1 \n".format(cat.full_name))
+        dcof.write("R_01j_{1} rateParam {0} dy_m105_160_amc_01j 1 \n".format(cat.full_name,str(era)))           
+        dcof.write("R_01j_{1} rateParam {0} dy_m105_160_vbf_amc_01j 1 \n".format(cat.full_name,str(era)))
+        dcof.write("R_2j_{1} rateParam {0} dy_m105_160_amc_2j 1 \n".format(cat.full_name,str(era)))
+        dcof.write("R_2j_{1} rateParam {0} dy_m105_160_vbf_amc_2j 1 \n".format(cat.full_name,str(era)))
         #dcof.write("REWZ rateParam {0} ewk_lljj_mll105_160 1 \n".format(cat.full_name))
     dcof.write("{0} autoMCStats 0 0 1 \n".format(cat.full_name))
+    
+    for jer_syst in jer_unc:
+        dcof.write("nuisance edit rename .*.* * {0} {0}_{1} \n".format(jer_syst,str(era)))
     dcof.write("\n")
     dcof.write("# Execute with:\n")
     dcof.write("# combine -n {0} -M FitDiagnostics -t -1 {1} \n".format(cat.full_name, os.path.basename(ofname)))
@@ -1138,7 +1174,7 @@ if __name__ == "__main__":
             #print("Processing histnames", histnames)
             
             for var in histnames:
-                if var in ["hist_puweight", "hist__dijet_inv_mass_gen", "hist__dnn_presel__dnn_pred"]:
+                if var in ["hist_puweight", "hist__dijet_inv_mass_gen", "hist__dnn_presel__dnn_pred","hist__dimuon_invmass_h_sideband_cat5__dnnPisa_predf","hist__dimuon_invmass_z_peak_cat5__dnnPisa_predf","hist__dimuon_invmass_h_peak_cat5__dnnPisa_predf"]:
                     print("Skipping {0}".format(var))
                     continue
                 if ("h_peak" in var):
@@ -1192,7 +1228,6 @@ if __name__ == "__main__":
                     outdir_datacards + "/{0}.txt".format(var),
                     era
                 )]
-
                 hdata = res["data"][analysis][var]["nominal"]
                 plot_args += [(
                     histos, hdata, mc_samples, analysis,

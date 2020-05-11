@@ -306,7 +306,7 @@ extra_plot_kwargs = {
 controlplots_shape = [
     "inv_mass",
     "dnn_pred2",
-    "dnnPisa_predf"
+    "dnnPisa_pred_atanh"
 ]
 
 cross_sections = {
@@ -437,9 +437,53 @@ jer_unc = ["jerB1","jerB2","jerEC1","jerEC2","jerF1","jerF2"]
 
 VBF_STXS_unc = ["THU_VBF_Yield", "THU_VBF_Mjj60", "THU_VBF_Mjj120", "THU_VBF_Mjj350", "THU_VBF_PTH200", "THU_VBF_PTH25", "THU_VBF_JET01", "THU_VBF_Mjj1000", "THU_VBF_Mjj700", "THU_VBF_Mjj1500"]
 btag_unc = ["btag_weight_jes","btag_weight_lf","btag_weight_hfstats1","btag_weight_hfstats2","btag_weight_cferr1","btag_weight_cferr2","btag_weight_hf","btag_weight_lfstats1","btag_weight_lfstats2"]
-shape_systematics = jec_unc + jer_unc + VBF_STXS_unc + btag_unc + ["trigger", "id", "iso", "jet_puid", "qgl_weight", "puWeight", "L1PreFiringWeight","DYLHEScaleWeightZ","EWZLHEScaleWeightZ","DYLHEScaleWeight","EWZLHEScaleWeight","LHEPdfWeight","EWZ105160PS", "VBFHPS"] 
+shape_systematics = jec_unc + jer_unc + VBF_STXS_unc + btag_unc + ["trigger", "id", "iso", "jet_puid", "qgl_weight", "puWeight", "L1PreFiringWeight","DYLHEScaleWeightZ","EWZLHEScaleWeightZ","DYLHEScaleWeight","EWZLHEScaleWeight","LHEPdfWeight","EWZ105160PS", "VBFHPS","DYshape_DNN"] 
 common_scale_uncertainties = {
-    "lumi": 1.025,
+    "lumi2016": {
+        "2016":1.022,
+        "2017":1.0,
+        "2018":1.0,
+    },
+    "lumi2017": {
+        "2016":1.0,
+        "2017":1.02,
+        "2018":1.0,
+    },
+    "lumi2018": {
+        "2016":1.0,
+        "2017":1.0,
+        "2018":1.015,
+    },
+    "lumi_XYfac":{
+        "2016":1.009,
+        "2017":1.008,
+        "2018":1.02,
+    },
+    "lumi_lengthScale":{
+        "2016":1.0,
+        "2017":1.003,
+        "2018":1.002,
+    },
+    "lumi_BBDeflect":{
+        "2016":1.004,
+        "2017":1.004,
+        "2018":1.0,
+    },
+    "lumi_dynamicBeta":{
+        "2016":1.005,
+        "2017":1.005,
+        "2018":1.0,
+    },
+    "lumi_beamCalib":{
+        "2016":1.0,
+        "2017":1.003,
+        "2018":1.002,
+    },
+    "lumi_ghostSat":{
+        "2016":1.004,
+        "2017":1.001,
+        "2018":1.0,
+    },
 }
 scale_uncertainties = {
     "ww_2l2nu": {"VVxsec": 1.10},
@@ -476,6 +520,65 @@ HSTXS_rel = {
     "THU_VBF_JET01": [0.0,-0.01025,-0.01025,0.008923,0.008921,0.008906,0.008932,0.008915,0.008909,0.008913,0.008907,0.008899,0.008909,0.008912,0.008913,0.008922,0.008911,0.00888,0.008922,0.008977,0.00894,0.008853,0.008947,0.008907,0.008885],
 }
 
+dymodel_DNN_reshape = {
+    "2016":{"h_peak": (1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0),
+            "h_sideband":(1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0),
+        },
+    "2017":{
+        "h_peak": (1.0064769139390106,
+                   0.9875121499640535,
+                   1.0320797889012678,
+                   0.8975891421231633,
+                   0.9206222632711042,
+                   0.7773578278895823,
+                   0.9013774670697995,
+                   1.0673562177997709,
+                   0.6548519422834674,
+                   0.7867474065689233,
+                   0.5840610310410788,
+                   0.6209998218158985),
+        "h_sideband": (1.0528158926872906,
+                       0.998836935744691,
+                       0.9811344499642836,
+                       0.9282656370203487,
+                       0.8782232873985127,
+                       0.946516309235605,
+                       0.8620212865102371,
+                       0.8409588179271669,
+                       0.8189777395834341,
+                       0.733058298842442,
+                       0.8594507125307944,
+                       0.7919195231543948),
+    },
+    "2018":{
+        "h_peak": (1.0004365933767336,
+                   1.0112661416182862,
+                   1.0294730142829374,
+                   0.999987948557506,
+                   0.895986372087664,
+                   0.8873064839860901,
+                   0.8176189461458993,
+                   0.9807636441227375,
+                   0.6988385333027968,
+                   0.9079753037784,
+                   0.6322868373800075,
+                   0.6665612276453299,
+                   0.48035079612634557),
+        "h_sideband":(1.0639247956701892,
+                      1.0290591625411643,
+                      0.9485558592451369,
+                      0.9142939439945216,
+                      0.9184458046060899,
+                      0.9778768288106027,
+                      0.9205661017504344,
+                      0.9102971705004299,
+                      0.8463129934076897,
+                      0.7166522539992746,
+                      0.8856566468303663,
+                      0.7637269376882754,
+                      0.880266852301989),
+    }
+}
 lhe_pdf_variations ={
     "2016":103,
     "2017":33,
@@ -555,7 +658,7 @@ varnames = {
     "dRmin_mj": "min $\Delta R (\mu j)$",
     "dijet_inv_mass": "dijet invariant mass $M_{jj} [GeV]",
     "dnn_pred2": "signal DNN", 
-    "dnnPisa_predf": "signal Pisa DNN",
+    "dnnPisa_pred_atanh": "signal Pisa DNN",
     "eta_mmjj": "$\eta_{\mu\mu j_1 j_2}$",
     "hmmthetacs": "$\theta_{CS}$",
     "inv_mass": "$M_{\mu\mu}$",
@@ -660,7 +763,7 @@ analysis_parameters = {
         "extra_electrons_iso": 0.4, #Check if we want to apply this
         "extra_electrons_id": "mvaFall17V2Iso_WP90",
 
-        "save_dnn_vars": False,
+        "save_dnn_vars": True,
         "dnn_vars_path": "out/dnn_vars",
         #If true, apply mjj > cut, otherwise inverse
         "vbf_filter_mjj_cut": 350,
@@ -766,7 +869,7 @@ histo_bins = {
     "massErr": np.linspace(0, 10, 101, dtype=np.float32),
     "massErr_rel": np.linspace(0, 0.05, 101, dtype=np.float32),
     "DeepCSV": np.linspace(0, 1, 11, dtype=np.float32),
-    "dnnPisa_pred" : np.linspace(0,1,1001, dtype=np.float32),
+    "dnnPisa_pred" : np.linspace(0,5,5001, dtype=np.float32),
 
 }
 for hname, bins in analysis_parameters["baseline"]["dnn_input_histogram_bins"].items():
@@ -795,4 +898,24 @@ histo_bins["dnnPisa_predf"] = {
     "h_sideband": np.array([0.0, 0.797, 0.892, 0.939, 0.964, 0.976, 0.983, 0.988, 0.991, 0.994, 0.996, 0.998, 1.0], dtype=np.float32),
 }
 
+histo_bins["dnnPisa_pred_atanh"] = {
+    "2016":{
+        "h_peak": np.array([0, 1.09, 1.43333333333, 1.72666666667, 2.00333333333, 2.21166666667, 2.38, 2.555, 2.71833333333, 2.885, 3.095, 3.34, 5.0], dtype=np.float32),
+        "z_peak": np.array([0, 1.09, 1.43333333333, 1.72666666667, 2.00333333333, 2.21166666667, 2.38, 2.555, 2.71833333333, 2.885, 3.095, 3.34, 5.0], dtype=np.float32),
+        "h_sideband": np.array([0, 1.09, 1.43333333333, 1.72666666667, 2.00333333333, 2.21166666667, 2.38, 2.555, 2.71833333333, 2.885, 3.095, 3.34, 5.0], dtype=np.float32),
+    },
+    "2017":{
+        "h_peak": np.array([0, 1.09, 1.43333333333, 1.72666666667, 2.00333333333, 2.21166666667, 2.38, 2.555, 2.71833333333, 2.885, 3.095, 3.34, 5.0], dtype=np.float32),
+        "z_peak": np.array([0, 1.09, 1.43333333333, 1.72666666667, 2.00333333333, 2.21166666667, 2.38, 2.555, 2.71833333333, 2.885, 3.095, 3.34, 5.0], dtype=np.float32),
+        "h_sideband": np.array([0, 1.09, 1.43333333333, 1.72666666667, 2.00333333333, 2.21166666667, 2.38, 2.555, 2.71833333333, 2.885, 3.095, 3.34, 5.0], dtype=np.float32),
+
+    },
+    "2018":{
+        "h_peak": np.array([0 , 0.623333333333 , 1.34166666667 , 1.70166666667 , 1.98333333333 , 2.22166666667 , 2.42 , 2.58666666667 , 2.74166666667 ,2.9 , 3.06166666667 , 3.24166666667 , 3.48 , 5.0 ], dtype=np.float32),
+
+        "z_peak": np.array([0 , 0.623333333333 , 1.34166666667 , 1.70166666667 ,1.98333333333 , 2.22166666667 , 2.42 , 2.58666666667 , 2.74166666667 ,2.9 , 3.06166666667 , 3.24166666667 , 3.48 , 5.0 ], dtype=np.float32),
+
+        "h_sideband": np.array([0 , 0.623333333333 , 1.34166666667 , 1.70166666667 ,1.98333333333 , 2.22166666667 , 2.42 , 2.58666666667 , 2.74166666667 , 2.9 , 3.06166666667 , 3.24166666667 , 3.48 , 5.0 ], dtype=np.float32),
+    },
+}
 analysis_parameters["baseline"]["histo_bins"] = histo_bins

@@ -724,7 +724,7 @@ def analyze_data(
                 dnn_vars["Nbjet_loose"] = ret_jet["num_jets_btag_loose"][dnn_presel]
                 dnn_vars["Njet_loose"] = ret_jet["num_jets"][dnn_presel]
                 if not (len(dnnPisa_predictions)==0):
-                    dnn_vars["dnnPisa_pred"] = dnnPisaComb_pred
+                    dnn_vars["dnnPisa_pred"] =dnnPisaComb_pred
                     for imodel in range(len(dnnPisa_predictions)):
                         dnn_vars["dnnPisa_pred"+str(imodel)] = dnnPisa_predictions[imodel]
                 #Save the DNN training ntuples as npy files
@@ -795,7 +795,7 @@ def analyze_data(
                         ] + [
                             (dnn_vars["dnn_pred"], "dnn_pred2", histo_bins["dnn_pred2"][massbin_name])
                         ] + [
-                            (dnn_vars["dnnPisa_pred"], "dnnPisa_predf", histo_bins["dnnPisa_predf"][massbin_name])
+                            (dnn_vars["dnnPisa_pred"], "dnnPisa_pred_atanh", histo_bins["dnnPisa_pred_atanh"][dataset_era][massbin_name])
                         ],
                         (dnn_presel & massbin_msk & msk_cat)[dnn_presel],
                         weights_in_dnn_presel,
@@ -3020,7 +3020,11 @@ def compute_fill_dnn(
                     NUMPY_LIB.asnumpy(dnnPisa_vars1_arr), NUMPY_LIB.asnumpy(dnnPisa_vars2_arr)], batch_size=len(dnnPisa_vars1_arr))[:, 0])
             imodel += 1
         compute_dnnPisaComb(dnnPisaComb_pred, dnnPisa_preds, scalars["event"][dnn_presel], use_cuda)
-
+        dnnPisaComb_pred = NUMPY_LIB.arctanh(dnnPisaComb_pred)
+        #### Calculating atanh is expensive, skipping for individual models#####
+        #for imodel in range(len(dnnPisa_preds)): 
+        #    dnnPisa_preds[imodel] = NUMPY_LIB.arctanh(dnnPisa_preds[imodel])
+       
     if parameters["do_bdt_ucsd"]:
         hmmthetacs, hmmphics = miscvariables.csangles(
             NUMPY_LIB.asnumpy(leading_muon_s["pt"]),
