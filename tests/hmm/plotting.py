@@ -9,7 +9,7 @@ import uproot
 import copy
 import multiprocessing
 
-from pars import catnames, varnames, analysis_names, shape_systematics, controlplots_shape, genweight_scalefactor, lhe_pdf_variations, jer_unc, dymodel_DNN_reshape
+from pars import catnames, varnames, analysis_names, shape_systematics, controlplots_shape, genweight_scalefactor, lhe_pdf_variations, decorrelate_syst, dymodel_DNN_reshape
 from pars import process_groups, colors, extra_plot_kwargs,proc_grps,combined_signal_samples, remove_proc
 
 from scipy.stats import wasserstein_distance
@@ -725,14 +725,14 @@ def to_th1(hdict, name):
     content = np.array(hdict.contents)
     content_w2 = np.concatenate(([0.0],np.array(hdict.contents_w2),[0.0]))
     edges = np.array(hdict.edges)
-    
+
     #remove inf/nan just in case
     content[np.isinf(content)] = 0
     content_w2[np.isinf(content_w2)] = 0
 
     content[np.isnan(content)] = 0
     content_w2[np.isnan(content_w2)] = 0
-    
+
     #update the error bars
     centers = (edges[:-1] + edges[1:]) / 2.0
     th1 = from_numpy((content, edges))
@@ -1078,8 +1078,8 @@ def PrintDatacard(categories, dict_procs, era, event_counts, filenames, ofname):
         #dcof.write("REWZ rateParam {0} ewk_lljj_mll105_160 1 \n".format(cat.full_name))
     dcof.write("{0} autoMCStats 0 0 1 \n".format(cat.full_name))
     
-    for jer_syst in jer_unc:
-        dcof.write("nuisance edit rename .*.* * {0} {0}_{1} \n".format(jer_syst,str(era)))
+    for isyst in decorrelate_syst:
+        dcof.write("nuisance edit rename .*.* * {0} {0}_{1} \n".format(isyst,str(era)))
     dcof.write("\n")
     dcof.write("# Execute with:\n")
     dcof.write("# combine -n {0} -M FitDiagnostics -t -1 {1} \n".format(cat.full_name, os.path.basename(ofname)))

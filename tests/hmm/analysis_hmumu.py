@@ -426,18 +426,19 @@ class AnalysisCorrections:
                     import cupy
                     self.dnnPisa_normfactors1 = cupy.array(self.dnnPisa_normfactors1[0]), cupy.array(self.dnnPisa_normfactors1[1])
                     self.dnnPisa_normfactors2 = cupy.array(self.dnnPisa_normfactors2[0]), cupy.array(self.dnnPisa_normfactors2[1])
+                    
         print("Loading UCSD BDT model")
-        self.bdt_ucsd = GBREvaluator(self.libhmm, "data/Hmm_BDT_xml/2016/TMVAClassification_BDTG.weights.2jet_bveto_withmass.xml")
-        self.bdt2j_ucsd = {
-            "2016": GBREvaluator(self.libhmm, "data/Hmm_BDT_xml/2016/TMVAClassification_BDTG.weights.2jet_bveto.xml"),
-            "2017": GBREvaluator(self.libhmm, "data/Hmm_BDT_xml/2017/TMVAClassification_BDTG.weights.2jet_bveto.xml"),
-            "2018": GBREvaluator(self.libhmm, "data/Hmm_BDT_xml/2018/TMVAClassification_BDTG.weights.2jet_bveto.xml")
-        }
-        self.bdt01j_ucsd = {
-            "2016": GBREvaluator(self.libhmm, "data/Hmm_BDT_xml/2016/TMVAClassification_BDTG.weights.01jet.xml"),
-            "2017": GBREvaluator(self.libhmm, "data/Hmm_BDT_xml/2017/TMVAClassification_BDTG.weights.01jet.xml"),
-            "2018": GBREvaluator(self.libhmm, "data/Hmm_BDT_xml/2018/TMVAClassification_BDTG.weights.01jet.xml")
-        }
+        #self.bdt_ucsd = GBREvaluator(self.libhmm, "data/Hmm_BDT_xml/2016/TMVAClassification_BDTG.weights.2jet_bveto_withmass.xml")
+        #self.bdt2j_ucsd = {
+        #    "2016": GBREvaluator(self.libhmm, "data/Hmm_BDT_xml/2016/TMVAClassification_BDTG.weights.2jet_bveto.xml"),
+        #    "2017": GBREvaluator(self.libhmm, "data/Hmm_BDT_xml/2017/TMVAClassification_BDTG.weights.2jet_bveto.xml"),
+        #    "2018": GBREvaluator(self.libhmm, "data/Hmm_BDT_xml/2018/TMVAClassification_BDTG.weights.2jet_bveto.xml")
+        #}
+        #self.bdt01j_ucsd = {
+        #    "2016": GBREvaluator(self.libhmm, "data/Hmm_BDT_xml/2016/TMVAClassification_BDTG.weights.01jet.xml"),
+        #    "2017": GBREvaluator(self.libhmm, "data/Hmm_BDT_xml/2017/TMVAClassification_BDTG.weights.01jet.xml"),
+        #    "2018": GBREvaluator(self.libhmm, "data/Hmm_BDT_xml/2018/TMVAClassification_BDTG.weights.01jet.xml")
+        #}
         self.miscvariables = MiscVariables(self.libhmm)
         print("Loading NNLOPSReweighting...")
         self.nnlopsreweighting = NNLOPSReweighting(self.libhmm, "data/nnlops/NNLOPS_reweight.root")

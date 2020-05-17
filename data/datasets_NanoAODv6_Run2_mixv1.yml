@@ -62,6 +62,30 @@ datasets:
   is_mc: true
   name: vbf_powheg_pythia_dipole_125_ref
   skim_cut: "(HLT_IsoMu27) && nMuon>=2"
+#- era: "2017"
+#  files_merged: /store/mc/VBFprivate/2017/VBFHToMuMu_M-120_TuneCP5_13TeV-powheg-pythia_dipole/merged_*.root
+#  files_nano_in: /store/mc/VBFprivate/VBFHToMuMu_M-120_TuneCP5_13TeV-powheg-pythia_dipole/dkondrat-RunIIFall17MiniAODv2_mH120_v1/*/*/*root
+#  is_mc: true
+#  name: vbf_powheg_pythia_dipole_120
+#  skim_cut: "(HLT_IsoMu27) && nMuon>=2"
+#- era: "2017"
+#  files_merged: /store/mc/VBFprivate/2017/VBFHToMuMu_M-120_TuneCP5_13TeV-powheg-pythia_dipole/merged_*.root
+#  files_nano_in: /store/mc/VBFprivate/VBFHToMuMu_M-120_TuneCP5_13TeV-powheg-pythia_dipole/dkondrat-RunIIFall17MiniAODv2_mH120_v1/*/*/*root
+#  is_mc: true
+#  name: vbf_powheg_pythia_dipole_120_ref
+#  skim_cut: "(HLT_IsoMu27) && nMuon>=2"
+#- era: "2017"
+#  files_merged: /store/mc/VBFprivate/2017/VBFHToMuMu_M-130_TuneCP5_13TeV-powheg-pythia_dipole/merged_*.root
+#  files_nano_in: /store/mc/VBFprivate/VBFHToMuMu_M-130_TuneCP5_13TeV-powheg-pythia_dipole/dkondrat-RunIIFall17MiniAODv2_mH130_v1/*/*/*root
+#  is_mc: true
+#  name: vbf_powheg_pythia_dipole_130
+#  skim_cut: "(HLT_IsoMu27) && nMuon>=2"
+#- era: "2017"
+#  files_merged: /store/mc/VBFprivate/2017/VBFHToMuMu_M-130_TuneCP5_13TeV-powheg-pythia_dipole/merged_*.root
+#  files_nano_in: /store/mc/VBFprivate/VBFHToMuMu_M-130_TuneCP5_13TeV-powheg-pythia_dipole/dkondrat-RunIIFall17MiniAODv2_mH130_v1/*/*/*root
+#  is_mc: true
+#  name: vbf_powheg_pythia_dipole_130_ref
+#  skim_cut: "(HLT_IsoMu27) && nMuon>=2"
 - era: "2017"
   files_merged: /store/mc/RunIIFall17NanoAODv6v2/VBFHToMuMu_M-125_TuneCP5_PSweights_13TeV_powheg_pythia8/merged_*.root
   files_nano_in: /store/mc/RunIIFall17NanoAODv6v2/VBFHToMuMu_M-125_TuneCP5_PSweights_13TeV_powheg_pythia8/*d02171*/*/*/*.root
@@ -80,6 +104,18 @@ datasets:
   is_mc: true
   name: vbf_powheg_herwig_125
   skim_cut: "(HLT_IsoMu27) && nMuon>=2"
+#- era: "2017"
+#  files_merged: /store/mc/RunIIFall17NanoAODv6v2/VBFHToMuMu_M-120_TuneEEC5_13TeV-powheg-herwigpp/merged_*.root
+#  files_nano_in: /store/mc/RunIIFall17NanoAODv6v2/VBFHToMuMu_M-120_TuneEEC5_13TeV-powheg-herwigpp/*d01282*/*/*/*.root
+#  is_mc: true
+#  name: vbf_powheg_herwig_120
+#  skim_cut: "(HLT_IsoMu27) && nMuon>=2"
+#- era: "2017"
+#  files_merged: /store/mc/RunIIFall17NanoAODv6v2/VBFHToMuMu_M-130_TuneEEC5_13TeV-powheg-herwigpp/merged_*.root
+#  files_nano_in: /store/mc/RunIIFall17NanoAODv6v2/VBFHToMuMu_M-130_TuneEEC5_13TeV-powheg-herwigpp/*d01282*/*/*/*.root
+#  is_mc: true
+#  name: vbf_powheg_herwig_130
+#  skim_cut: "(HLT_IsoMu27) && nMuon>=2"
 - era: "2017"
   files_merged: /store/mc/RunIIFall17NanoAODv6v2/DYJetsToLL_M-50_TuneCP5_13TeV-amcatnloFXFX-pythia8/merged_*.root
   files_nano_in: /store/mc/RunIIFall17NanoAODv6v2/DYJetsToLL_M-50_TuneCP5_13TeV-amcatnloFXFX-pythia8/*d01282*/*/*/*.root
@@ -206,12 +242,12 @@ datasets:
   is_mc: true
   name: zh_125
   skim_cut: "(HLT_IsoMu27) && nMuon>=2"
-- era: "2017"
-  files_merged: /store/mc/RunIIFall17NanoAODv6v2/bbHToMuMu_M-125_4FS_yb2_TuneCP5_13TeV-amcatnlo-pythia8/merged_*.root
-  files_nano_in: /store/mc/RunIIFall17NanoAODv6v2/bbHToMuMu_M-125_4FS_yb2_TuneCP5_13TeV-amcatnlo-pythia8/RunIIFall17MiniAODv2-PU2017_12Apr2018_94X_mc2017_realistic_v14-v1_d01282_s64/*/*/*.root
-  is_mc: true
-  name: bbh_125
-  skim_cut: "(HLT_IsoMu27) && nMuon>=2"
+#- era: "2017"
+#  files_merged: /store/mc/RunIIFall17NanoAODv6v2/bbHToMuMu_M-125_4FS_yb2_TuneCP5_13TeV-amcatnlo-pythia8/merged_*.root
+#  files_nano_in: /store/mc/RunIIFall17NanoAODv6v2/bbHToMuMu_M-125_4FS_yb2_TuneCP5_13TeV-amcatnlo-pythia8/RunIIFall17MiniAODv2-PU2017_12Apr2018_94X_mc2017_realistic_v14-v1_d01282_s64/*/*/*.root
+#  is_mc: true
+#  name: bbh_125
+#  skim_cut: "(HLT_IsoMu27) && nMuon>=2"
 - era: "2017"
   files_merged: /store/mc/RunIIFall17NanoAODv6/WWTo2L2Nu_NNPDF31_TuneCP5_PSweights_13TeV-powheg-pythia8/merged_*.root
   files_nano_in: /store/mc/RunIIFall17NanoAODv6/WWTo2L2Nu_NNPDF31_TuneCP5_PSweights_13TeV-powheg-pythia8/NANOAODSIM/*/*/*.root
@@ -332,18 +368,18 @@ datasets:
   is_mc: true
   name: vbf_powheg_herwig_125
   skim_cut: "(HLT_IsoMu24 || HLT_IsoTkMu24) && nMuon>=2"
-- era: "2016"
-  files_merged: /store/mc/RunIISummer16NanoAODv6v2/VBFHToMuMu_M-120_TuneEEC5_13TeV-powheg-herwigpp/merged_*.root
-  files_nano_in: /store/mc/RunIISummer16NanoAODv6v2/VBFHToMuMu_M-120_TuneEEC5_13TeV-powheg-herwigpp/RunIISummer16MiniAODv3*/*/*/*.root
-  is_mc: true
-  name: vbf_powheg_herwig_120
-  skim_cut: "(HLT_IsoMu24 || HLT_IsoTkMu24) && nMuon>=2"
-- era: "2016"
-  files_merged: /store/mc/RunIISummer16NanoAODv6v2/VBFHToMuMu_M-130_TuneEEC5_13TeV-powheg-herwigpp/merged_*.root
-  files_nano_in: /store/mc/RunIISummer16NanoAODv6v2/VBFHToMuMu_M-130_TuneEEC5_13TeV-powheg-herwigpp/RunIISummer16MiniAODv3*/*/*/*.root
-  is_mc: true
-  name: vbf_powheg_herwig_130
-  skim_cut: "(HLT_IsoMu24 || HLT_IsoTkMu24) && nMuon>=2"
+#- era: "2016"
+#  files_merged: /store/mc/RunIISummer16NanoAODv6v2/VBFHToMuMu_M-120_TuneEEC5_13TeV-powheg-herwigpp/merged_*.root
+#  files_nano_in: /store/mc/RunIISummer16NanoAODv6v2/VBFHToMuMu_M-120_TuneEEC5_13TeV-powheg-herwigpp/RunIISummer16MiniAODv3*/*/*/*.root
+#  is_mc: true
+#  name: vbf_powheg_herwig_120
+#  skim_cut: "(HLT_IsoMu24 || HLT_IsoTkMu24) && nMuon>=2"
+#- era: "2016"
+#  files_merged: /store/mc/RunIISummer16NanoAODv6v2/VBFHToMuMu_M-130_TuneEEC5_13TeV-powheg-herwigpp/merged_*.root
+#  files_nano_in: /store/mc/RunIISummer16NanoAODv6v2/VBFHToMuMu_M-130_TuneEEC5_13TeV-powheg-herwigpp/RunIISummer16MiniAODv3*/*/*/*.root
+#  is_mc: true
+#  name: vbf_powheg_herwig_130
+#  skim_cut: "(HLT_IsoMu24 || HLT_IsoTkMu24) && nMuon>=2"
 - era: "2016"
   files_merged: /store/mc/RunIISummer16NanoAODv6v2/VBF_HToMuMu_M125_13TeV_powheg_pythia8/merged_*.root
   files_nano_in: /store/mc/RunIISummer16NanoAODv6v2/VBF_HToMuMu_M125_13TeV_powheg_pythia8/RunIISummer16MiniAODv3*/*/*/*.root
@@ -362,54 +398,78 @@ datasets:
   is_mc: true
   name: vbf_powheg_pythia_dipole_125_ref
   skim_cut: "(HLT_IsoMu24 || HLT_IsoTkMu24) && nMuon>=2"
-- era: "2016"
-  files_merged: /store/mc/RunIISummer16NanoAODv6v2/VBF_HToMuMu_M120_13TeV_powheg_pythia8/merged_*.root
-  files_nano_in: /store/mc/RunIISummer16NanoAODv6v2/VBF_HToMuMu_M120_13TeV_powheg_pythia8/RunIISummer16MiniAODv3*/*/*/*.root
-  is_mc: true
-  name: vbf_powheg_pythia_120
-  skim_cut: "(HLT_IsoMu24 || HLT_IsoTkMu24) && nMuon>=2"
-- era: "2016"
-  files_merged: /store/mc/RunIISummer16NanoAODv6v2/VBF_HToMuMu_M130_13TeV_powheg_pythia8/merged_*.root
-  files_nano_in: /store/mc/RunIISummer16NanoAODv6v2/VBF_HToMuMu_M130_13TeV_powheg_pythia8/RunIISummer16MiniAODv3*/*/*/*.root
-  is_mc: true
-  name: vbf_powheg_pythia_130
-  skim_cut: "(HLT_IsoMu24 || HLT_IsoTkMu24) && nMuon>=2"
+#- era: "2016"
+#  files_merged: /store/mc/VBFprivate/2016/VBFHToMuMu_M-120_TuneCP5_13TeV-powheg-pythia_dipole/merged_*.root
+#  files_nano_in: /store/mc/VBFprivate/VBFHToMuMu_M-120_TuneCP5_13TeV-powheg-pythia_dipole/rgerosa-RunIISummer16MiniAODv3_mH120_v1/*/*/*root
+#  is_mc: true
+#  name: vbf_powheg_pythia_dipole_120
+#  skim_cut: "(HLT_IsoMu24 || HLT_IsoTkMu24) && nMuon>=2"
+#- era: "2016"
+#  files_merged: /store/mc/VBFprivate/2016/VBFHToMuMu_M-120_TuneCP5_13TeV-powheg-pythia_dipole/merged_*.root
+#  files_nano_in: /store/mc/VBFprivate/VBFHToMuMu_M-120_TuneCP5_13TeV-powheg-pythia_dipole/rgerosa-#RunIISummer16MiniAODv3_mH120_v1/*/*/*root
+#  is_mc: true
+#  name: vbf_powheg_pythia_dipole_120_ref
+#  skim_cut: "(HLT_IsoMu24 || HLT_IsoTkMu24) && nMuon>=2"
+#- era: "2016"
+#  files_merged: /store/mc/VBFprivate/2016/VBFHToMuMu_M-130_TuneCP5_13TeV-powheg-pythia_dipole/merged_*.root
+#  files_nano_in: /store/mc/VBFprivate/VBFHToMuMu_M-130_TuneCP5_13TeV-powheg-pythia_dipole/rgerosa-RunIISummer16MiniAODv3_mH130_v2/*/*/*root
+#  is_mc: true
+#  name: vbf_powheg_pythia_dipole_130
+#  skim_cut: "(HLT_IsoMu24 || HLT_IsoTkMu24) && nMuon>=2"
+#- era: "2016"
+#  files_merged: /store/mc/VBFprivate/2016/VBFHToMuMu_M-130_TuneCP5_13TeV-powheg-pythia_dipole/merged_*.root
+#  files_nano_in: /store/mc/VBFprivate/VBFHToMuMu_M-130_TuneCP5_13TeV-powheg-pythia_dipole/rgerosa-RunIISummer16MiniAODv3_mH130_v2/*/*/*root
+#  is_mc: true
+#  name: vbf_powheg_pythia_dipole_130_ref
+#  skim_cut: "(HLT_IsoMu24 || HLT_IsoTkMu24) && nMuon>=2"
+#- era: "2016"
+#  files_merged: /store/mc/RunIISummer16NanoAODv6v2/VBF_HToMuMu_M120_13TeV_powheg_pythia8/merged_*.root
+#  files_nano_in: #/store/mc/RunIISummer16NanoAODv6v2/VBF_HToMuMu_M120_13TeV_powheg_pythia8/RunIISummer16MiniAODv3*/*/*/*.root
+#  is_mc: true
+#  name: vbf_powheg_pythia_120
+#  skim_cut: "(HLT_IsoMu24 || HLT_IsoTkMu24) && nMuon>=2"
+#- era: "2016"
+#  files_merged: /store/mc/RunIISummer16NanoAODv6v2/VBF_HToMuMu_M130_13TeV_powheg_pythia8/merged_*.root
+#  files_nano_in: /store/mc/RunIISummer16NanoAODv6v2/VBF_HToMuMu_M130_13TeV_powheg_pythia8/RunIISummer16MiniAODv3*/*/*/*.root
+#  is_mc: true
+#  name: vbf_powheg_pythia_130
+#  skim_cut: "(HLT_IsoMu24 || HLT_IsoTkMu24) && nMuon>=2"
 - era: "2016"
   files_merged: /store/mc/RunIISummer16NanoAODv6v2/VBFHToMuMu_M-125_TuneCP5_PSweights_13TeV_powheg_pythia8/merged_*.root
   files_nano_in: /store/mc/RunIISummer16NanoAODv6v2/VBFHToMuMu_M-125_TuneCP5_PSweights_13TeV_powheg_pythia8/RunIISummer16MiniAODv3*/*/*/*.root
   is_mc: true
   name: vbf_powhegPS_pythia_125
   skim_cut: "(HLT_IsoMu24 || HLT_IsoTkMu24) && nMuon>=2"
-- era: "2016"
-  files_merged: /store/mc/RunIISummer16NanoAODv6v2/VBFHToMuMu_M-120_TuneCP5_PSweights_13TeV_powheg_pythia8/merged_*.root
-  files_nano_in: /store/mc/RunIISummer16NanoAODv6v2/VBFHToMuMu_M-120_TuneCP5_PSweights_13TeV_powheg_pythia8/RunIISummer16MiniAODv3*/*/*/*.root
-  is_mc: true
-  name: vbf_powhegPS_pythia_120
-  skim_cut: "(HLT_IsoMu24 || HLT_IsoTkMu24) && nMuon>=2"
-- era: "2016"
-  files_merged: /store/mc/RunIISummer16NanoAODv6v2/VBFHToMuMu_M-130_TuneCP5_PSweights_13TeV_powheg_pythia8/merged_*.root
-  files_nano_in: /store/mc/RunIISummer16NanoAODv6v2/VBFHToMuMu_M-130_TuneCP5_PSweights_13TeV_powheg_pythia8/RunIISummer16MiniAODv3*/*/*/*.root
-  is_mc: true
-  name: vbf_powhegPS_pythia_130
-  skim_cut: "(HLT_IsoMu24 || HLT_IsoTkMu24) && nMuon>=2"
+#- era: "2016"
+#  files_merged: /store/mc/RunIISummer16NanoAODv6v2/VBFHToMuMu_M-120_TuneCP5_PSweights_13TeV_powheg_pythia8/merged_*.root
+#  files_nano_in: /store/mc/RunIISummer16NanoAODv6v2/VBFHToMuMu_M-120_TuneCP5_PSweights_13TeV_powheg_pythia8/RunIISummer16MiniAODv3*/*/*/*.root
+#  is_mc: true
+#  name: vbf_powhegPS_pythia_120
+#  skim_cut: "(HLT_IsoMu24 || HLT_IsoTkMu24) && nMuon>=2"
+#- era: "2016"
+#  files_merged: /store/mc/RunIISummer16NanoAODv6v2/VBFHToMuMu_M-130_TuneCP5_PSweights_13TeV_powheg_pythia8/merged_*.root
+#  files_nano_in: /store/mc/RunIISummer16NanoAODv6v2/VBFHToMuMu_M-130_TuneCP5_PSweights_13TeV_powheg_pythia8/RunIISummer16MiniAODv3*/*/*/*.root
+#  is_mc: true
+#  name: vbf_powhegPS_pythia_130
+#  skim_cut: "(HLT_IsoMu24 || HLT_IsoTkMu24) && nMuon>=2"
 - era: "2016"
   files_merged: /store/mc/RunIISummer16NanoAODv6v2/GluGluHToMuMu_M125_TuneCP5_PSweights_13TeV_amcatnloFXFX_pythia8/merged_*.root
   files_nano_in: /store/mc/RunIISummer16NanoAODv6v2/GluGluHToMuMu_M125_TuneCP5_PSweights_13TeV_amcatnloFXFX_pythia8/*/*/*/*.root
   is_mc: true
   name: ggh_amcPS_pythia_125
   skim_cut: "(HLT_IsoMu24 || HLT_IsoTkMu24) && nMuon>=2"
-- era: "2016"
-  files_merged: /store/mc/RunIISummer16NanoAODv6v2/GluGluHToMuMu_M120_TuneCP5_PSweights_13TeV_amcatnloFXFX_pythia8/merged_*.root
-  files_nano_in: /store/mc/RunIISummer16NanoAODv6v2/GluGluHToMuMu_M120_TuneCP5_PSweights_13TeV_amcatnloFXFX_pythia8/*/*/*/*.root
-  is_mc: true
-  name: ggh_amcPS_pythia_120
-  skim_cut: "(HLT_IsoMu24 || HLT_IsoTkMu24) && nMuon>=2"
-- era: "2016"
-  files_merged: /store/mc/RunIISummer16NanoAODv6v2/GluGluHToMuMu_M130_TuneCP5_PSweights_13TeV_amcatnloFXFX_pythia8/merged_*.root
-  files_nano_in: /store/mc/RunIISummer16NanoAODv6v2/GluGluHToMuMu_M130_TuneCP5_PSweights_13TeV_amcatnloFXFX_pythia8/*/*/*/*.root
-  is_mc: true
-  name: ggh_amcPS_pythia_130
-  skim_cut: "(HLT_IsoMu24 || HLT_IsoTkMu24) && nMuon>=2"
+#- era: "2016"
+#  files_merged: /store/mc/RunIISummer16NanoAODv6v2/GluGluHToMuMu_M120_TuneCP5_PSweights_13TeV_amcatnloFXFX_pythia8/merged_*.root
+  files_nano_in: #/store/mc/RunIISummer16NanoAODv6v2/GluGluHToMuMu_M120_TuneCP5_PSweights_13TeV_amcatnloFXFX_pythia8/*/*/*/*.root
+#  is_mc: true
+#  name: ggh_amcPS_pythia_120
+#  skim_cut: "(HLT_IsoMu24 || HLT_IsoTkMu24) && nMuon>=2"
+#- era: "2016"
+#  files_merged: /store/mc/RunIISummer16NanoAODv6v2/GluGluHToMuMu_M130_TuneCP5_PSweights_13TeV_amcatnloFXFX_pythia8/merged_*.root
+#  files_nano_in: /store/mc/RunIISummer16NanoAODv6v2/GluGluHToMuMu_M130_TuneCP5_PSweights_13TeV_amcatnloFXFX_pythia8/*/*/*/*.root
+#  is_mc: true
+#  name: ggh_amcPS_pythia_130
+#  skim_cut: "(HLT_IsoMu24 || HLT_IsoTkMu24) && nMuon>=2"
 - era: "2016"
   files_merged: /store/mc/RunIISummer16NanoAODv6/DYJetsToLL_M-50_TuneCUETP8M1_13TeV-amcatnloFXFX-pythia8/merged_*.root
   files_nano_in: /store/mc/RunIISummer16NanoAODv6/DYJetsToLL_M-50_TuneCUETP8M1_13TeV-amcatnloFXFX-pythia8/NANOAODSIM/*/*/*.root
@@ -470,18 +530,18 @@ datasets:
   is_mc: true
   name: ttjets_sl
   skim_cut: "(HLT_IsoMu24 || HLT_IsoTkMu24) && nMuon>=2"
-- era: "2016"
-  files_merged: /store/mc/RunIISummer16NanoAODv6/TTWJetsToLNu_TuneCUETP8M1_13TeV-amcatnloFXFX-madspin-pythia8/merged_*.root
-  files_nano_in: /store/mc/RunIISummer16NanoAODv6/TTWJetsToLNu_TuneCUETP8M1_13TeV-amcatnloFXFX-madspin-pythia8/NANOAODSIM/*/*/*.root
-  is_mc: true
-  name: ttw
-  skim_cut: "(HLT_IsoMu24 || HLT_IsoTkMu24) && nMuon>=2"
-- era: "2016"
-  files_merged: /store/mc/RunIISummer16NanoAODv6/TTZToLLNuNu_M-10_TuneCUETP8M1_13TeV-amcatnlo-pythia8/merged_*.root
-  files_nano_in: /store/mc/RunIISummer16NanoAODv6/TTZToLLNuNu_M-10_TuneCUETP8M1_13TeV-amcatnlo-pythia8/NANOAODSIM/*/*/*.root
-  is_mc: true
-  name: ttz
-  skim_cut: "(HLT_IsoMu24 || HLT_IsoTkMu24) && nMuon>=2"
+#- era: "2016"
+#  files_merged: /store/mc/RunIISummer16NanoAODv6/TTWJetsToLNu_TuneCUETP8M1_13TeV-amcatnloFXFX-madspin-pythia8#/merged_*.root
+#  files_nano_in: /store/mc/RunIISummer16NanoAODv6/TTWJetsToLNu_TuneCUETP8M1_13TeV-amcatnloFXFX-madspin-pythia8/NANOAODSIM/*/*/*.root
+#  is_mc: true
+#  name: ttw
+#  skim_cut: "(HLT_IsoMu24 || HLT_IsoTkMu24) && nMuon>=2"
+#- era: "2016"
+#  files_merged: /store/mc/RunIISummer16NanoAODv6/TTZToLLNuNu_M-10_TuneCUETP8M1_13TeV-amcatnlo-pythia8/merged_*.root
+#  files_nano_in: /store/mc/RunIISummer16NanoAODv6/TTZToLLNuNu_M-10_TuneCUETP8M1_13TeV-amcatnlo-pythia8/NANOAODSIM/*/*/*.root
+#  is_mc: true
+#  name: ttz
+#  skim_cut: "(HLT_IsoMu24 || HLT_IsoTkMu24) && nMuon>=2"
 - era: "2016"
   files_merged: /store/mc/RunIISummer16NanoAODv6/EWK_LLJJ_MLL-50_MJJ-120_13TeV-madgraph-herwigpp/merged_*.root
   files_nano_in: /store/mc/RunIISummer16NanoAODv6/EWK_LLJJ_MLL-50_MJJ-120_13TeV-madgraph-herwigpp/NANOAODSIM/*/*/*.root
@@ -626,12 +686,12 @@ datasets:
   is_mc: true
   name: zh_130
   skim_cut: "(HLT_IsoMu24 || HLT_IsoTkMu24) && nMuon>=2"
-- era: "2016"
-  files_merged: /store/mc/RunIISummer16NanoAODv6/bbHToMuMu_M-125_4FS_yb2_TuneCP5_13TeV-amcatnlo-pythia8/merged_*.root
-  files_nano_in: /store/mc/RunIISummer16NanoAODv6/bbHToMuMu_M-125_4FS_yb2_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/*/*/*.root
-  is_mc: true
-  name: bbh_125
-  skim_cut: "(HLT_IsoMu24 || HLT_IsoTkMu24) && nMuon>=2"
+#- era: "2016"
+#  files_merged: /store/mc/RunIISummer16NanoAODv6/bbHToMuMu_M-125_4FS_yb2_TuneCP5_13TeV-amcatnlo-pythia8/merged_*.root
+#  files_nano_in: /store/mc/RunIISummer16NanoAODv6/bbHToMuMu_M-125_4FS_yb2_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/*/*/*.root
+#  is_mc: true
+#  name: bbh_125
+#  skim_cut: "(HLT_IsoMu24 || HLT_IsoTkMu24) && nMuon>=2"
 - era: "2016"
   files_merged: /store/mc/RunIISummer16NanoAODv6/WWW_4F_TuneCUETP8M1_13TeV-amcatnlo-pythia8/merged_*.root
   files_nano_in: /store/mc/RunIISummer16NanoAODv6/WWW_4F_TuneCUETP8M1_13TeV-amcatnlo-pythia8/NANOAODSIM/*/*/*.root
@@ -692,12 +752,48 @@ datasets:
   is_mc: true
   name: vbf_powheg_pythia_dipole_125_ref
   skim_cut: "(HLT_IsoMu24) && nMuon>=2"
+#- era: "2018"
+#  files_merged: /store/mc/VBFprivate/2018/VBFHToMuMu_M-120_TuneCP5_13TeV-powheg-pythia_dipole/merged_*.root
+#  files_nano_in: /store/mc/VBFprivate/VBFHToMuMu_M-120_TuneCP5_13TeV-powheg-pythia_dipole/dkondrat-RunIIAutumn18MiniAOD-102X_mH120_v1/*/*/*root
+#  is_mc: true
+#  name: vbf_powheg_pythia_dipole_120
+#  skim_cut: "(HLT_IsoMu24) && nMuon>=2"
+#- era: "2018"
+#  files_merged: /store/mc/VBFprivate/2016/VBFHToMuMu_M-120_TuneCP5_13TeV-powheg-pythia_dipole/merged_*.root
+#  files_nano_in: /store/mc/VBFprivate/VBFHToMuMu_M-120_TuneCP5_13TeV-powheg-pythia_dipole/dkondrat-RunIIAutumn18MiniAOD-102X_mH120_v1/*/*/*root
+#  is_mc: true
+#  name: vbf_powheg_pythia_dipole_120_ref
+#  skim_cut: "(HLT_IsoMu24) && nMuon>=2"
+#- era: "2018"
+#  files_merged: /store/mc/VBFprivate/2018/VBFHToMuMu_M-130_TuneCP5_13TeV-powheg-pythia_dipole/merged_*.root
+#  files_nano_in: /store/mc/VBFprivate/VBFHToMuMu_M-130_TuneCP5_13TeV-powheg-pythia_dipole/dkondrat-RunIIAutumn18MiniAOD-102X_mH130_v1/*/*/*root
+#  is_mc: true
+#  name: vbf_powheg_pythia_dipole_130
+#  skim_cut: "(HLT_IsoMu24) && nMuon>=2"
+#- era: "2018"
+#  files_merged: /store/mc/VBFprivate/2016/VBFHToMuMu_M-130_TuneCP5_13TeV-powheg-pythia_dipole/merged_*.root
+#  files_nano_in: /store/mc/VBFprivate/VBFHToMuMu_M-130_TuneCP5_13TeV-powheg-pythia_dipole/rgerosa-RunIISummer16MiniAODv3_mH130_v2/*/*/*root
+#  is_mc: true
+#  name: vbf_powheg_pythia_dipole_130_ref
+#  skim_cut: "(HLT_IsoMu24 || HLT_IsoTkMu24) && nMuon>=2"
 - era: "2018"
   files_merged: /store/mc/RunIISummer16NanoAODv6v2/VBFHToMuMu_M-125_TuneEEC5_13TeV-powheg-herwigpp/merged_*.root
   files_nano_in: /store/mc/RunIISummer16NanoAODv6v2/VBFHToMuMu_M-125_TuneEEC5_13TeV-powheg-herwigpp/RunIISummer16MiniAODv3*/*/*/*.root
   is_mc: true
   name: vbf_powheg_herwig_125
   skim_cut: "(HLT_IsoMu24) && nMuon>=2"
+#- era: "2018"
+#  files_merged: /store/mc/RunIISummer16NanoAODv6v2/VBFHToMuMu_M-120_TuneEEC5_13TeV-powheg-herwigpp/merged_*.root
+#  files_nano_in: /store/mc/RunIISummer16NanoAODv6v2/VBFHToMuMu_M-120_TuneEEC5_13TeV-powheg-herwigpp/RunIISummer16MiniAODv3*/*/*/*.root
+#  is_mc: true
+#  name: vbf_powheg_herwig_120
+#  skim_cut: "(HLT_IsoMu24) && nMuon>=2"
+#- era: "2018"
+#  files_merged: /store/mc/RunIISummer16NanoAODv6v2/VBFHToMuMu_M-130_TuneEEC5_13TeV-powheg-herwigpp/merged_*.root
+#  files_nano_in: /store/mc/RunIISummer16NanoAODv6v2/VBFHToMuMu_M-130_TuneEEC5_13TeV-powheg-herwigpp/RunIISummer16MiniAODv3*/*/*/*.root
+#  is_mc: true
+#  name: vbf_powheg_herwig_130
+#  skim_cut: "(HLT_IsoMu24) && nMuon>=2"
 - era: "2018"
   files_merged: /store/mc/Feb132020PisaNanoAOD/2018/GluGluHToMuMu_M125_TuneCP5_PSweights_13TeV_amcatnloFXFX_pythia8/merged_*.root
   files_nano_in: /store/mc/Feb132020PisaNanoAOD/reNANOAODsignalwithGeoFit/GluGluHToMuMu_M125_TuneCP5_PSweights_13TeV_amcatnloFXFX_pythia8/RunIISummer16MiniAODv3_FSRmyNanoProdMc2018_NANOV8a*/*/*/*.root
@@ -764,18 +860,18 @@ datasets:
   is_mc: true
   name: ttjets_sl
   skim_cut: "HLT_IsoMu24 && nMuon>=2"
-- era: "2018"
-  files_merged: /store/mc/RunIIAutumn18NanoAODv6/TTWJetsToLNu_TuneCP5_13TeV-amcatnloFXFX-madspin-pythia8/merged_*.root
-  files_nano_in: /store/mc/RunIIAutumn18NanoAODv6/TTWJetsToLNu_TuneCP5_13TeV-amcatnloFXFX-madspin-pythia8/NANOAODSIM/Nano25Oct2019*/*/*.root
-  is_mc: true
-  name: ttw
-  skim_cut: "HLT_IsoMu24 && nMuon>=2"
-- era: "2018"
-  files_merged: /store/mc/RunIIAutumn18NanoAODv6/TTZToLLNuNu_M-10_TuneCP5_13TeV-amcatnlo-pythia8/merged_*.root
-  files_nano_in: /store/mc/RunIIAutumn18NanoAODv6/TTZToLLNuNu_M-10_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/Nano25Oct2019*/*/*.root
-  is_mc: true
-  name: ttz
-  skim_cut: "HLT_IsoMu24 && nMuon>=2"
+#- era: "2018"
+#  files_merged: /store/mc/RunIIAutumn18NanoAODv6/TTWJetsToLNu_TuneCP5_13TeV-amcatnloFXFX-madspin-pythia8/merged_*.root
+#  files_nano_in: /store/mc/RunIIAutumn18NanoAODv6/TTWJetsToLNu_TuneCP5_13TeV-amcatnloFXFX-madspin-pythia8/NANOAODSIM/Nano25Oct2019*/*/*.root
+#  is_mc: true
+#  name: ttw
+#  skim_cut: "HLT_IsoMu24 && nMuon>=2"
+#- era: "2018"
+#  files_merged: /store/mc/RunIIAutumn18NanoAODv6/TTZToLLNuNu_M-10_TuneCP5_13TeV-amcatnlo-pythia8/merged_*.root
+#  files_nano_in: /store/mc/RunIIAutumn18NanoAODv6/TTZToLLNuNu_M-10_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/Nano25Oct2019*/*/*.root
+#  is_mc: true
+#  name: ttz
+#  skim_cut: "HLT_IsoMu24 && nMuon>=2"
 - era: "2018"
   files_merged: /store/mc/RunIIAutumn18NanoAODv6/EWK_LLJJ_MLL-50_MJJ-120_pTJ-0_TuneCH3_PSweights_13TeV-madgraph-herwig7/merged_*.root
   files_nano_in: /store/mc/RunIIAutumn18NanoAODv6/EWK_LLJJ_MLL-50_MJJ-120_pTJ-0_TuneCH3_PSweights_13TeV-madgraph-herwig7/NANOAODSIM/Nano25Oct2019*/*/*.root

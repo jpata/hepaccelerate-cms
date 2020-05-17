@@ -102,10 +102,8 @@ categories = {
 }
 proc_grps = [
         ("vh_125",["wmh_125", "wph_125", "zh_125"]),
-        ("vv", ["wz_3lnu", "ww_2l2nu", "wz_2l2q", "zz"]),
-        ("vvv", ["www","wwz","wzz","zzz"]),
-        ("stop", ["st_tw_top", "st_tw_antitop"]),
-        ("tt", ["ttjets_sl", "ttjets_dl",]),
+        ("vv", ["wz_3lnu", "ww_2l2nu", "wz_2l2q", "zz", "www","wwz","wzz","zzz"]),
+        ("top", ["ttjets_sl", "ttjets_dl", "st_tw_top", "st_tw_antitop"]),
     ]
 combined_signal_samples= ["ggh_amcPS_pythia_125", "vbf_powheg_pythia_dipole_125", "vh_125", "tth_125"]
 combined_categories = {
@@ -122,10 +120,9 @@ combined_categories = {
             "ewk_lljj_mll50_mjj120_herwig",
             #"st_top",
             #"st_t_antitop",
-            "stop",
-            "tt",
+            "top",
             "dy",
-            "vvv",
+            #"vvv",
         ],
     },
     "z_peak": {
@@ -141,10 +138,9 @@ combined_categories = {
             "ewk_lljj_mll50_mjj120_herwig",
             #"st_top",
             #"st_t_antitop",
-            "stop",
-            "tt",
+            "top",
             "dy_0j", "dy_1j", "dy_2j",
-            "vvv",
+            #"vvv",
         ],
     },
     "h_sideband": {
@@ -162,11 +158,10 @@ combined_categories = {
             "ewk_lljj_mll105_160_pythia",
             #"st_top",
             #"st_t_antitop",
-            "stop",
-            "tt",
+            "top",
             "dy_m105_160_amc_01j", "dy_m105_160_vbf_amc_01j",
             "dy_m105_160_amc_2j", "dy_m105_160_vbf_amc_2j",
-            "vvv",
+            #"vvv",
         ],
     },
     "h_peak": {
@@ -184,11 +179,10 @@ combined_categories = {
             "ewk_lljj_mll105_160_pythia",
             #"st_top",
             #"st_t_antitop",
-            "stop",
-            "tt",
+            "top",
             "dy_m105_160_amc_01j", "dy_m105_160_vbf_amc_01j",
             "dy_m105_160_amc_2j", "dy_m105_160_vbf_amc_2j",
-            "vvv",
+            #"vvv",
         ],
     }
 }
@@ -196,8 +190,7 @@ combined_categories = {
 colors = {
     "dy": (254, 254, 83),
     "ewk": (109, 253, 245),
-    "stop": (236, 76, 105),
-    "tt": (67, 150, 42),
+    "top": (67, 150, 42),
     "vvv": (247, 206, 205),
     "vv": (100, 105, 98),
     "higgs": (0, 0, 0),
@@ -210,8 +203,7 @@ process_groups = [
     ("vv", ["wz_3lnu", "ww_2l2nu", "wz_2l2q", "zz"]),
     ("vvv", ["www","wwz","wzz","zzz"]),
     ("ewk", ["ewk_lljj_mll50_mjj120_herwig", "ewk_lljj_mll105_160_ptJ_herwig"]),
-    ("stop", ["st_tw_top", "st_tw_antitop"]),
-    ("tt", ["ttjets_sl", "ttjets_dl",]),
+    ("top", ["ttjets_sl", "ttjets_dl", "st_tw_top", "st_tw_antitop"]),
     ("dy", ["dy_0j", "dy_1j", "dy_2j", "dy_m105_160_amc_01j", "dy_m105_160_vbf_amc_01j", "dy_m105_160_amc_2j", "dy_m105_160_vbf_amc_2j", "dy"]),
 ]
 
@@ -356,6 +348,8 @@ cross_sections = {
     "vbf_powhegPS_pythia_120": 9.535E-04,
     "vbf_amc_herwig_120": 9.535E-04,
     "vbf_amcPS_pythia_120": 9.535E-04,
+    "vbf_powheg_pythia_dipole_120": 9.535E-04,
+    "vbf_powheg_pythia_dipole_120_ref": 9.535E-04,
     
     "vbf_powheg_herwig_130": 6.827E-04, #3.637E+00 x 1.877E-04
     "vbf_amcPS_130": 6.827E-04,
@@ -363,6 +357,8 @@ cross_sections = {
     "vbf_powhegPS_pythia_130": 6.827E-04,
     "vbf_amc_herwig_130": 6.827E-04,
     "vbf_amcPS_pythia_130": 6.827E-04,
+    "vbf_powheg_pythia_dipole_130": 6.827E-04,
+    "vbf_powheg_pythia_dipole_130_ref": 6.827E-04,
     
     "wmh_125": 0.000116,
     "wmh_120": 1.476E-04,
@@ -413,6 +409,13 @@ cross_sections = {
 }
 
 signal_samples = ["ggh_amcPS_pythia_125", "vbf_powhegPS_pythia_125", "wmh_125", "wph_125", "zh_125", "tth_125"]
+
+#has to include 125
+mass_point = [125]
+
+#mass scan
+#mass_point = [120, 120.5, 121, 121.5, 122, 122.5, 123, 123.5, 124, 124.5, 125, 125.5, 126, 126.5, 127, 127.5, 128, 128.5, 129, 129.5, 130]
+
 #jec_unc = [
 #    'AbsoluteMPFBias', 'AbsoluteScale', 'AbsoluteStat',
 #    'FlavorQCD', 'TimePtEta', 'Fragmentation', 'PileUpDataMC',
@@ -435,9 +438,15 @@ jer_unc = ["jerB1","jerB2","jerEC1","jerEC2","jerF1","jerF2"]
 #Uncomment to use just the total JEC for quick tests
 #jec_unc = ["Total"]
 
+#qcd uncertainties for VBF
 VBF_STXS_unc = ["THU_VBF_Yield", "THU_VBF_Mjj60", "THU_VBF_Mjj120", "THU_VBF_Mjj350", "THU_VBF_PTH200", "THU_VBF_PTH25", "THU_VBF_JET01", "THU_VBF_Mjj1000", "THU_VBF_Mjj700", "THU_VBF_Mjj1500"]
+
 btag_unc = ["btag_weight_jes","btag_weight_lf","btag_weight_hfstats1","btag_weight_hfstats2","btag_weight_cferr1","btag_weight_cferr2","btag_weight_hf","btag_weight_lfstats1","btag_weight_lfstats2"]
+
 shape_systematics = jec_unc + jer_unc + VBF_STXS_unc + btag_unc + ["trigger", "id", "iso", "jet_puid", "qgl_weight", "puWeight", "L1PreFiringWeight","DYLHEScaleWeightZ","EWZLHEScaleWeightZ","DYLHEScaleWeight","EWZLHEScaleWeight","LHEPdfWeight","EWZ105160PS", "VBFHPS","DYshape_DNN"] 
+
+decorrelate_syst = jer_unc + btag_unc + ["trigger", "id", "iso", "jet_puid", "qgl_weight", "puWeight", "L1PreFiringWeight", "DYLHEScaleWeight","EWZLHEScaleWeight","EWKLHEScaleWeight_norm", "LHEPdfWeight","LHEPdfWeight_norm","EWZ105160PS", "VBFHPS","DYshape_DNN","Topxsec","VVxsec"] 
+
 common_scale_uncertainties = {
     "lumi2016": {
         "2016":1.022,
@@ -485,7 +494,15 @@ common_scale_uncertainties = {
         "2018":1.0,
     },
 }
+
+#http://twiki.ihep.ac.cn/twiki/view/CMS/CombineTutorial
+#"zh_125": {"THU_zh_pdfas": 1.016},
+#"zh_125": {"THU_zh_qcdscale": 1.038/0.969},
 scale_uncertainties = {
+    "ggh_amcPS_pythia_125": {"THU_ggh_pdfas": 1.032, "THU_ggh_qcdscale": "1.046/0.933", "THU_hmm_br": 1.0123},
+    "vbf_powheg_pythia_dipole_125": {"THU_vbf_pdfas": 1.021, "THU_hmm_br": 1.0123},
+    "vh_125": {"THU_vh_pdfas": 1.019, "THU_vh_qcdscale": "1.005/0.993", "THU_hmm_br": 1.0123},
+    "tth_125": {"THU_tth_pdfas": 1.036, "THU_tth_qcdscale": "1.058/0.908", "THU_hmm_br": 1.0123},
     "ww_2l2nu": {"VVxsec": 1.10},
     "wz_3lnu": {"VVxsec": 1.10},
     "wz_2l2q": {"VVxsec": 1.10},
@@ -493,18 +510,17 @@ scale_uncertainties = {
     "zz": {"VVxsec": 1.10},
     "wjets": {"WJetsxsec": 1.10},
     "vv" :{"VVxsec": 1.10},
-    "stop": {"STxsec": 1.05},
-    "tt" : {"TTxsec": 1.05},
+    "top": {"Topxsec": 1.05},
     #"dy_m105_160_amc": {"DYxsec": 1.10},
     #"dy_m105_160__vbf_amc": {"DYxsec": 1.10},
     #"ewk_lljj_mll105_160_ptJ": {"EWZxsec": 1.20},
     #"ewk_lljj_mll50_mjj120": {"EWZxsecZ": 1.20},
-    "ttjets_sl": {"TTxsec": 1.05},
-    "ttjets_dl": {"TTxsec": 1.05},
-    "st_t_top": {"STxsec": 1.05},
-    "st_t_antitop": {"STxsec": 1.05},
-    "st_tw_top": {"STxsec": 1.05},
-    "st_tw_antitop": {"STxsec": 1.05},
+    #"ttjets_sl": {"TTxsec": 1.05},
+    #"ttjets_dl": {"TTxsec": 1.05},
+    #"st_t_top": {"STxsec": 1.05},
+    #"st_t_antitop": {"STxsec": 1.05},
+    #"st_tw_top": {"STxsec": 1.05},
+    #"st_tw_antitop": {"STxsec": 1.05},
 }
 
 HSTXS_rel = {
@@ -525,58 +541,60 @@ dymodel_DNN_reshape = {
             "h_sideband":(1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0),
         },
     "2017":{
-        "h_peak": (1.0064769139390106,
-                   0.9875121499640535,
-                   1.0320797889012678,
-                   0.8975891421231633,
-                   0.9206222632711042,
-                   0.7773578278895823,
-                   0.9013774670697995,
-                   1.0673562177997709,
-                   0.6548519422834674,
-                   0.7867474065689233,
-                   0.5840610310410788,
-                   0.6209998218158985),
-        "h_sideband": (1.0528158926872906,
-                       0.998836935744691,
-                       0.9811344499642836,
-                       0.9282656370203487,
-                       0.8782232873985127,
-                       0.946516309235605,
-                       0.8620212865102371,
-                       0.8409588179271669,
-                       0.8189777395834341,
-                       0.733058298842442,
-                       0.8594507125307944,
-                       0.7919195231543948),
+        "h_peak": (1.009582067058904,
+                   0.9760306308204648,
+                   0.9878762485670113,
+                   1.0152758177772272,
+                   0.8996686968864203,
+                   0.8972718401489942,
+                   0.7665413920734926,
+                   0.9189815453298147,
+                   0.9881462623901858,
+                   0.6720430956368215,
+                   0.7608219840547292,
+                   0.6841294042882445,
+                   0.5477961929983237),
+        "h_sideband": (1.059549233412968,
+                       1.0167040941090992,
+                       0.9942155509502238,
+                       0.9500001676551832,
+                       0.9350542912742336,
+                       0.8621106401314015,
+                       0.9726635773901664,
+                       0.8400526041909793,
+                       0.8458141773929961,
+                       0.7974604399350912,
+                       0.7156263250369328,
+                       0.8757335880576723,
+                       0.8375218090557625),
     },
     "2018":{
-        "h_peak": (1.0004365933767336,
-                   1.0112661416182862,
-                   1.0294730142829374,
-                   0.999987948557506,
-                   0.895986372087664,
-                   0.8873064839860901,
-                   0.8176189461458993,
-                   0.9807636441227375,
-                   0.6988385333027968,
-                   0.9079753037784,
-                   0.6322868373800075,
-                   0.6665612276453299,
-                   0.48035079612634557),
-        "h_sideband":(1.0639247956701892,
-                      1.0290591625411643,
-                      0.9485558592451369,
-                      0.9142939439945216,
-                      0.9184458046060899,
-                      0.9778768288106027,
-                      0.9205661017504344,
-                      0.9102971705004299,
-                      0.8463129934076897,
-                      0.7166522539992746,
-                      0.8856566468303663,
-                      0.7637269376882754,
-                      0.880266852301989),
+        "h_peak": (1.0010318042291648,
+                   1.0055206456317705,
+                   1.037304798490107,
+                   1.0005875812342768,
+                   0.9163867982652268,
+                   0.8820972063775326,
+                   0.8296668799386406,
+                   0.9424493494023379,
+                   0.6783707605786182,
+                   0.9575208284365664,
+                   0.6624602194634628,
+                   0.6560630289803749,
+                   0.5538314451417505),
+        "h_sideband":(1.0694338272195676,
+                      1.0285060504856702,
+                      0.950570193149086,
+                      0.93121207511194,
+                      0.9060494596698355,
+                      0.9828790509786846,
+                      0.9158647328930418,
+                      0.9202660607772751,
+                      0.8264897980423085,
+                      0.7169826000803974,
+                      0.9829701467719837,
+                      0.6535810086374887,
+                      0.894410218808504),
     }
 }
 lhe_pdf_variations ={
@@ -806,12 +824,11 @@ analysis_parameters = {
                 #"dy_m105_160_vbf_amc": 1,
             },
         },
-       
         #Pisa Group's DNN input variable order for keras
         "dnnPisa_varlist1_order": ['Mqq_log','Rpt','qqDeltaEta','log(ll_zstar)','NSoft5','HTSoft2','minEtaHQ','CS_phi', 'CS_theta','Higgs_pt','log(Higgs_pt)','Higgs_eta','Mqq','QJet0_pt_touse','QJet1_pt_touse','QJet0_eta','QJet1_eta','QJet0_phi','QJet1_phi','QJet0_qgl','QJet1_qgl','year'],
-        "dnnPisa_varlist2_order": ['Higgs_m','Higgs_mRelReso','Higgs_mReso'],
+        
         #Irene's DNN input variable order for keras
-        "dnn_varlist_order": ['HTSoft5', 'dRmm','dEtamm','M_jj','pt_jj','eta_jj','phi_jj','M_mmjj','eta_mmjj','phi_mmjj','dEta_jj','Zep','minEtaHQ','minPhiHQ','dPhimm','leadingJet_pt','subleadingJet_pt','massErr_rel', 'leadingJet_eta','subleadingJet_eta','leadingJet_qgl','subleadingJet_qgl','cthetaCS','Higgs_pt','Higgs_eta','Higgs_m'],
+        "dnn_varlist_order": ['HTSoft5', 'dRmm','dEtamm','M_jj','pt_jj','eta_jj','phi_jj','M_mmjj','eta_mmjj','phi_mmjj','dEta_jj','Zep','minEtaHQ','minPhiHQ','dPhimm','leadingJet_pt','subleadingJet_pt','massErr_rel', 'leadingJet_eta','subleadingJet_eta','leadingJet_qgl','subleadingJet_qgl','cthetaCS','Higgs_pt','Higgs_eta','Higgs_m_125'],
         "dnn_input_histogram_bins": {
             "HTSoft5": (0,10,10),
             "dRmm": (0,5,11),
@@ -822,8 +839,8 @@ analysis_parameters = {
             "eta_jj": (-5,5,41),
             "phi_jj": (-5,5,41),
             "M_mmjj": (0,2000,11),
-            "eta_mmjj": (-3,3,11),
-            "phi_mmjj": (-3,3,11),
+            #"eta_mmjj": (-3,3,11),
+            #"phi_mmjj": (-3,3,11),
             "dEta_jj": (-3,3,11),
             "Zep": (-2,2,11),
             "minEtaHQ":(-5,5,11),
@@ -850,8 +867,9 @@ analysis_parameters = {
         "do_bdt_ucsd": False,
         "do_dnn_pisa": True,
         "do_dnn_cit": True,
-    },
+    }, #end of baseline
 }
+
 #define the histogram binning
 histo_bins = {
     "muon_pt": np.linspace(0, 200, 101, dtype=np.float32),
@@ -869,9 +887,13 @@ histo_bins = {
     "massErr": np.linspace(0, 10, 101, dtype=np.float32),
     "massErr_rel": np.linspace(0, 0.05, 101, dtype=np.float32),
     "DeepCSV": np.linspace(0, 1, 11, dtype=np.float32),
-    "dnnPisa_pred" : np.linspace(0,5,5001, dtype=np.float32),
 
 }
+
+for imass in mass_point:
+    histo_bins["dnnPisa_pred_"+str(imass)] = np.linspace(0,5,5001, dtype=np.float32)
+    analysis_parameters["baseline"]["dnnPisa_varlist2_order_"+str(imass)] = ['Higgs_m_'+str(imass),'Higgs_mRelReso','Higgs_mReso_'+str(imass)]
+
 for hname, bins in analysis_parameters["baseline"]["dnn_input_histogram_bins"].items():
     histo_bins[hname] = np.linspace(bins[0], bins[1], bins[2], dtype=np.float32)
 
@@ -891,7 +913,6 @@ histo_bins["dnn_pred2"] = {
     "z_peak_jerF2": np.array([0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], dtype=np.float32),
 }
 
-
 histo_bins["dnnPisa_predf"] = {
     "h_peak": np.array([0.0, 0.797, 0.892, 0.939, 0.964, 0.976, 0.983, 0.988, 0.991, 0.994, 0.996, 0.998, 1.0], dtype=np.float32),
     "z_peak": np.array([0.0, 0.797, 0.892, 0.939, 0.964, 0.976, 0.983, 0.988, 0.991, 0.994, 0.996, 0.998, 1.0], dtype=np.float32),
@@ -900,22 +921,22 @@ histo_bins["dnnPisa_predf"] = {
 
 histo_bins["dnnPisa_pred_atanh"] = {
     "2016":{
-        "h_peak": np.array([0, 1.09, 1.43333333333, 1.72666666667, 2.00333333333, 2.21166666667, 2.38, 2.555, 2.71833333333, 2.885, 3.095, 3.34, 5.0], dtype=np.float32),
-        "z_peak": np.array([0, 1.09, 1.43333333333, 1.72666666667, 2.00333333333, 2.21166666667, 2.38, 2.555, 2.71833333333, 2.885, 3.095, 3.34, 5.0], dtype=np.float32),
-        "h_sideband": np.array([0, 1.09, 1.43333333333, 1.72666666667, 2.00333333333, 2.21166666667, 2.38, 2.555, 2.71833333333, 2.885, 3.095, 3.34, 5.0], dtype=np.float32),
+        "h_peak": np.array([0, 0.846666666667, 1.30333333333, 1.575, 1.815, 2.03833333333, 2.23666666667, 2.41, 2.575, 2.74, 2.91833333333, 3.12333333333, 3.4, 5.0], dtype=np.float32),
+        "z_peak": np.array([0, 0.846666666667, 1.30333333333, 1.575, 1.815, 2.03833333333, 2.23666666667, 2.41, 2.575, 2.74, 2.91833333333, 3.12333333333, 3.4, 5.0], dtype=np.float32),
+        "h_sideband": np.array([0, 0.846666666667, 1.30333333333, 1.575, 1.815, 2.03833333333, 2.23666666667, 2.41, 2.575, 2.74, 2.91833333333, 3.12333333333, 3.4, 5.0], dtype=np.float32),
     },
     "2017":{
-        "h_peak": np.array([0, 1.09, 1.43333333333, 1.72666666667, 2.00333333333, 2.21166666667, 2.38, 2.555, 2.71833333333, 2.885, 3.095, 3.34, 5.0], dtype=np.float32),
-        "z_peak": np.array([0, 1.09, 1.43333333333, 1.72666666667, 2.00333333333, 2.21166666667, 2.38, 2.555, 2.71833333333, 2.885, 3.095, 3.34, 5.0], dtype=np.float32),
-        "h_sideband": np.array([0, 1.09, 1.43333333333, 1.72666666667, 2.00333333333, 2.21166666667, 2.38, 2.555, 2.71833333333, 2.885, 3.095, 3.34, 5.0], dtype=np.float32),
+        "h_peak": np.array([0, 0.846666666667, 1.30333333333, 1.575, 1.815, 2.03833333333, 2.23666666667, 2.41, 2.575, 2.74, 2.91833333333, 3.12333333333, 3.4, 5.0], dtype=np.float32),
+        "z_peak": np.array([0, 0.846666666667, 1.30333333333, 1.575, 1.815, 2.03833333333, 2.23666666667, 2.41, 2.575, 2.74, 2.91833333333, 3.12333333333, 3.4, 5.0], dtype=np.float32),
+        "h_sideband": np.array([0, 0.846666666667, 1.30333333333, 1.575, 1.815, 2.03833333333, 2.23666666667, 2.41, 2.575, 2.74, 2.91833333333, 3.12333333333, 3.4, 5.0], dtype=np.float32),
 
     },
     "2018":{
-        "h_peak": np.array([0 , 0.623333333333 , 1.34166666667 , 1.70166666667 , 1.98333333333 , 2.22166666667 , 2.42 , 2.58666666667 , 2.74166666667 ,2.9 , 3.06166666667 , 3.24166666667 , 3.48 , 5.0 ], dtype=np.float32),
+        "h_peak": np.array([0, 0.575, 1.30833333333, 1.67, 1.965, 2.21666666667, 2.42166666667, 2.59166666667, 2.75333333333, 2.91666666667, 3.08666666667, 3.27833333333, 3.52333333333, 5.0], dtype=np.float32),
 
-        "z_peak": np.array([0 , 0.623333333333 , 1.34166666667 , 1.70166666667 ,1.98333333333 , 2.22166666667 , 2.42 , 2.58666666667 , 2.74166666667 ,2.9 , 3.06166666667 , 3.24166666667 , 3.48 , 5.0 ], dtype=np.float32),
+        "z_peak": np.array([0, 0.575, 1.30833333333, 1.67, 1.965, 2.21666666667, 2.42166666667, 2.59166666667, 2.75333333333, 2.91666666667, 3.08666666667, 3.27833333333, 3.52333333333, 5.0], dtype=np.float32),
 
-        "h_sideband": np.array([0 , 0.623333333333 , 1.34166666667 , 1.70166666667 ,1.98333333333 , 2.22166666667 , 2.42 , 2.58666666667 , 2.74166666667 , 2.9 , 3.06166666667 , 3.24166666667 , 3.48 , 5.0 ], dtype=np.float32),
+        "h_sideband": np.array([0, 0.575, 1.30833333333, 1.67, 1.965, 2.21666666667, 2.42166666667, 2.59166666667, 2.75333333333, 2.91666666667, 3.08666666667, 3.27833333333, 3.52333333333, 5.0], dtype=np.float32),
     },
 }
 analysis_parameters["baseline"]["histo_bins"] = histo_bins
