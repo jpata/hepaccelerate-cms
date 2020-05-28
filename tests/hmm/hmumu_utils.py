@@ -534,7 +534,7 @@ def analyze_data(
             # Get the data for the leading and subleading jets as contiguous vectors
             jet_attrs += ["phi", "mass","jetId","puId","btagDeepB"]
             if is_mc:
-                jet_attrs += ["hadronFlavour"]
+                jet_attrs += ["hadronFlavour", "genJetIdx"]
             leading_jet = jets_passing_id.select_nth(
                 0, ret_mu['selected_events'], ret_jet["selected_jets"],
                 attributes=jet_attrs)
@@ -592,16 +592,9 @@ def analyze_data(
             )
             if is_mc and 'dy_m105_160' in dataset_name:
                 leading_jet_offset = NUMPY_LIB.arange(0,len(leading_jet["pt"])+1)
-                leading_jets_matched_to_genJet = NUMPY_LIB.invert(ha.mask_deltar_first(
-                    {"eta": leading_jet["eta"], "phi": leading_jet["phi"], "offsets": leading_jet_offset},
-                    dnn_presel,
-                    {"eta": genJet.eta, "phi": genJet.phi, "offsets": genJet.offsets},
-                    genJet.masks["all"], 0.4))
-                subleading_jets_matched_to_genJet = NUMPY_LIB.invert(ha.mask_deltar_first(
-                    {"eta": subleading_jet["eta"], "phi": subleading_jet["phi"], "offsets": leading_jet_offset},
-                    dnn_presel,
-                    {"eta": genJet.eta, "phi": genJet.phi, "offsets": genJet.offsets},
-                    genJet.masks["all"], 0.4))
+                
+                leading_jets_matched_to_genJet = leading_jet["genJetIdx"]>=0
+                subleading_jets_matched_to_genJet = subleading_jet["genJetIdx"]>=0
                 
                 if debug:
                     for evtid in debug_event_ids:
