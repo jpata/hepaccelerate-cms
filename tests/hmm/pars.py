@@ -99,6 +99,8 @@ categories = {
     }
 }
 proc_grps = [
+        ("dy_m105_160_01j", ["dy_m105_160_amc_01j", "dy_m105_160_vbf_amc_01j"]),
+        ("dy_m105_160_2j", ["dy_m105_160_amc_2j", "dy_m105_160_vbf_amc_2j"]),
         ("vh_125",["wmh_125", "wph_125", "zh_125"]),
         ("vv", ["wz_3lnu", "ww_2l2nu", "wz_2l2q", "zz", "www","wwz","wzz","zzz"]),
         ("top", ["ttjets_sl", "ttjets_dl", "st_tw_top", "st_tw_antitop"]),
@@ -156,8 +158,8 @@ combined_categories = {
             #"st_top",
             #"st_t_antitop",
             "top",
-            "dy_m105_160_amc_01j", "dy_m105_160_vbf_amc_01j",
-            "dy_m105_160_amc_2j", "dy_m105_160_vbf_amc_2j",
+            "dy_m105_160_01j",
+            "dy_m105_160_2j", 
             #"vvv",
         ],
     },
@@ -176,8 +178,8 @@ combined_categories = {
             #"st_top",
             #"st_t_antitop",
             "top",
-            "dy_m105_160_amc_01j", "dy_m105_160_vbf_amc_01j",
-            "dy_m105_160_amc_2j", "dy_m105_160_vbf_amc_2j",
+            "dy_m105_160_01j", 
+            "dy_m105_160_2j", 
             #"vvv",
         ],
     }
@@ -441,50 +443,63 @@ btag_unc = ["btag_weight_jes","btag_weight_lf","btag_weight_hfstats1","btag_weig
 
 shape_systematics = jec_unc + jer_unc + VBF_STXS_unc + btag_unc + ["trigger", "id", "iso", "jet_puid", "qgl_weight", "puWeight", "L1PreFiringWeight","DYLHEScaleWeightZ","EWZLHEScaleWeightZ","DYLHEScaleWeight","EWZLHEScaleWeight","LHEPdfWeight","EWZ105160PS", "VBFHPS","DYshape_DNN"] 
 
-decorrelate_syst = jer_unc + btag_unc + ["trigger", "id", "iso", "jet_puid", "qgl_weight", "puWeight", "L1PreFiringWeight", "DYLHEScaleWeight","EWZLHEScaleWeight","EWKLHEScaleWeight_norm", "LHEPdfWeight","LHEPdfWeight_norm","EWZ105160PS", "VBFHPS","DYshape_DNN","Topxsec","VVxsec"] 
+jec_unc_rename = ['CMS_scale_j_absolute', 'CMS_scale_j_absolute_2018', 'CMS_scale_j_bbec1', 'CMS_scale_j_bbec1_2018', 'CMS_scale_j_ec2', 'CMS_scale_j_ec2_2018', 'CMS_scale_j_flavorQCD', 'CMS_scale_j_hf', 'CMS_scale_j_hf_2018', 'CMS_scale_j_relativeBal', 'CMS_scale_j_relativeSample_2018', 'CMS_scale_j_absolute_2017', 'CMS_scale_j_bbec1_2017', 'CMS_scale_j_ec2_2017', 'CMS_scale_j_hf_2017', 'CMS_scale_j_relativeSample_2017', 'CMS_scale_j_absolute_2016', 'CMS_scale_j_bbec1_2016', 'CMS_scale_j_ec2_2016', 'CMS_scale_j_hf_2016', 'CMS_scale_j_relativeSample_2016']
+
+jer_unc_rename = ["CMS_res_j_barrel", "CMS_res_j_endcap1", "CMS_res_j_endcap2lowpt", "CMS_res_j_endcap2highpt", "CMS_res_j_forwardlowpt", "CMS_res_j_forwardhighpt"]
+
+btag_unc_rename = ["CMS_btag_jes","CMS_btag_Lf","CMS_btag_Hfstats1","CMS_btag_Hfstats2","CMS_btag_Cferr1","CMS_btag_Cferr2","CMS_btag_Hf","CMS_btag_Lfstats1","CMS_btag_Lfstats2"]
+
+other_syst_rename = ["CMS_pileup_vbf", "CMS_prefiring"]
+rename_syst= jec_unc_rename + jer_unc_rename+ btag_unc_rename + other_syst_rename
+org_syst = jec_unc + jer_unc+ btag_unc + ["puWeight", "L1PreFiringWeight"]
+decorrelate_syst = ["trigger", "id", "iso", "jet_puid",  "DYLHEScaleWeight","EWZLHEScaleWeight","EWKLHEScaleWeight_norm", "LHEPdfWeight","LHEPdfWeight_norm","EWZ105160PS", "VBFHPS","DYshape_DNN","Topxsec","VVxsec"] 
+
+py_samp = ["ggh_amcPS_pythia_125", "dy_m105_160_01j", "dy_m105_160_2j","top", "vv", "vh_125","tth_125"]
+herwig_samp = ["ewk_lljj_mll105_160_ptJ_herwig"]
+pydipole_samp = ["vbf_powheg_pythia_dipole_125"]
 
 common_scale_uncertainties = {
-    "lumi2016": {
+    "lumi_13TeV_2016": {
         "2016":1.022,
         "2017":1.0,
         "2018":1.0,
     },
-    "lumi2017": {
+    "lumi_13TeV_2017": {
         "2016":1.0,
         "2017":1.02,
         "2018":1.0,
     },
-    "lumi2018": {
+    "lumi_13Tev_2018": {
         "2016":1.0,
         "2017":1.0,
         "2018":1.015,
     },
-    "lumi_XYfac":{
+    "lumi_13Tev_XY":{
         "2016":1.009,
         "2017":1.008,
         "2018":1.02,
     },
-    "lumi_lengthScale":{
+    "lumi_13Tev_LS":{
         "2016":1.0,
         "2017":1.003,
         "2018":1.002,
     },
-    "lumi_BBDeflect":{
+    "lumi_13Tev_BBD":{
         "2016":1.004,
         "2017":1.004,
         "2018":1.0,
     },
-    "lumi_dynamicBeta":{
+    "lumi_13Tev_DB":{
         "2016":1.005,
         "2017":1.005,
         "2018":1.0,
     },
-    "lumi_beamCalib":{
+    "lumi_13Tev_BCC":{
         "2016":1.0,
         "2017":1.003,
         "2018":1.002,
     },
-    "lumi_ghostSat":{
+    "lumi_13Tev_GS":{
         "2016":1.004,
         "2017":1.001,
         "2018":1.0,

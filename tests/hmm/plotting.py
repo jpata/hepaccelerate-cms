@@ -9,7 +9,7 @@ import uproot
 import copy
 import multiprocessing
 
-from pars import catnames, varnames, analysis_names, shape_systematics, controlplots_shape, genweight_scalefactor, lhe_pdf_variations, decorrelate_syst, dymodel_DNN_reshape
+from pars import catnames, varnames, analysis_names, shape_systematics, controlplots_shape, genweight_scalefactor, lhe_pdf_variations, decorrelate_syst, dymodel_DNN_reshape, rename_syst, org_syst, other_syst_rename, py_samp, pydipole_samp, herwig_samp
 from pars import process_groups, colors, extra_plot_kwargs,proc_grps,combined_signal_samples, remove_proc
 
 from scipy.stats import wasserstein_distance
@@ -1000,16 +1000,31 @@ def PrintDatacard(categories, dict_procs, era, event_counts, filenames, ofname):
             if proc in remove_proc:
                 continue
             elif "dy" in proc or "ewk_lljj_mll105_160_ptJ_herwig" in proc or "ggh" in proc or "vbf" in proc or "vh" in proc or "tth" in proc:
-                if("vh" not in proc):
+                if("vh" not in proc and "dy_m105_160" not in proc):
                     Pdf_norm = calculate_LHEPdf_norm(dict_procs[proc], era, proc)
                     dcof.write("{0:.3f}".format(1.0 + Pdf_norm))
                 else:
-                    Pdf_norm_vh =[]
-                    Pdf_norm_vh.append(calculate_LHEPdf_norm(dict_procs["wph_125"], era, proc))
-                    Pdf_norm_vh.append(calculate_LHEPdf_norm(dict_procs["wmh_125"], era, proc))
-                    Pdf_norm_vh.append(calculate_LHEPdf_norm(dict_procs["zh_125"], era, proc))
-                    sorted(Pdf_norm_vh, reverse = True)
-                    dcof.write("{0:.3f}".format(1.0 + Pdf_norm_vh[0]))
+                    if("vh" in proc):
+                        Pdf_norm_vh =[]
+                        Pdf_norm_vh.append(calculate_LHEPdf_norm(dict_procs["wph_125"], era, proc))
+                        Pdf_norm_vh.append(calculate_LHEPdf_norm(dict_procs["wmh_125"], era, proc))
+                        Pdf_norm_vh.append(calculate_LHEPdf_norm(dict_procs["zh_125"], era, proc))
+                        sorted(Pdf_norm_vh, reverse = True)
+                        dcof.write("{0:.3f}".format(1.0 + Pdf_norm_vh[0]))
+                    else:
+                        if("dy_m105_160_01j" in proc):
+                            Pdf_norm_dy_m105_160_01j =[]
+                            Pdf_norm_dy_m105_160_01j.append(calculate_LHEPdf_norm(dict_procs["dy_m105_160_amc_01j"], era, proc))
+                            Pdf_norm_dy_m105_160_01j.append(calculate_LHEPdf_norm(dict_procs["dy_m105_160_vbf_amc_01j"], era, proc))
+                            sorted(Pdf_norm_dy_m105_160_01j, reverse = True)
+                            dcof.write("{0:.3f}".format(1.0 + Pdf_norm_dy_m105_160_01j[0]))
+
+                        elif("dy_m105_160_2j" in proc):
+                            Pdf_norm_dy_m105_160_2j =[]
+                            Pdf_norm_dy_m105_160_2j.append(calculate_LHEPdf_norm(dict_procs["dy_m105_160_amc_2j"], era, proc))
+                            Pdf_norm_dy_m105_160_2j.append(calculate_LHEPdf_norm(dict_procs["dy_m105_160_vbf_amc_2j"], era, proc))
+                            sorted(Pdf_norm_dy_m105_160_2j, reverse = True)
+                            dcof.write("{0:.3f}".format(1.0 + Pdf_norm_dy_m105_160_2j[0]))
                     
             else:
                 dcof.write("-")
@@ -1025,8 +1040,21 @@ def PrintDatacard(categories, dict_procs, era, event_counts, filenames, ofname):
     for cat in categories:
         for proc in cat.processes:
             if "dy" in proc:
-                QCD_norm = calculate_LHEscale_norm(dict_procs[proc], era)
-                dcof.write("{0:.2f}".format(1.0 + QCD_norm))
+                if "160_2j" in proc:
+                    QCD_norm_2j =[]
+                    QCD_norm_2j.append(calculate_LHEscale_norm(dict_procs["dy_m105_160_amc_2j"], era))
+                    QCD_norm_2j.append(calculate_LHEscale_norm(dict_procs["dy_m105_160_vbf_amc_2j"], era))
+                    sorted(QCD_norm_2j, reverse = True)
+                    dcof.write("{0:.2f}".format(1.0 + QCD_norm_2j[0]))
+                elif "160_01j" in proc:
+                    QCD_norm_01j =[]
+                    QCD_norm_01j.append(calculate_LHEscale_norm(dict_procs["dy_m105_160_amc_01j"], era))
+                    QCD_norm_01j.append(calculate_LHEscale_norm(dict_procs["dy_m105_160_vbf_amc_01j"], era))
+                    sorted(QCD_norm_01j, reverse = True)
+                    dcof.write("{0:.2f}".format(1.0 + QCD_norm_01j[0]))
+                else:
+                    QCD_norm = calculate_LHEscale_norm(dict_procs[proc], era)
+                    dcof.write("{0:.2f}".format(1.0 + QCD_norm))
             else:
                 dcof.write("-")
             dcof.write("\t")
@@ -1053,7 +1081,7 @@ def PrintDatacard(categories, dict_procs, era, event_counts, filenames, ofname):
         for nui in nuisances:
             good_nuisances += [nui]
         dcof.write("{0} group = {1}\n".format(nuisance_group, " ".join(good_nuisances)))
-    
+    dcof.write("---------------------\n")
     #dcof.write("* autoMCStats 20\n")
     #
     #shapename = os.path.basename(datacard.output_datacardname)
@@ -1064,15 +1092,30 @@ def PrintDatacard(categories, dict_procs, era, event_counts, filenames, ofname):
         dcof.write("RZ rateParam {0} dy_2j 1 \n".format(cat.full_name)) 
         #dcof.write("REWZ rateParam {0} ewk_lljj_mll50_mjj120 1 \n".format(cat.full_name))
     elif ("h_peak" in cat.full_name) or ("h_sideband" in cat.full_name):
-        dcof.write("R_01j_{1} rateParam {0} dy_m105_160_amc_01j 1 \n".format(cat.full_name,str(era)))           
-        dcof.write("R_01j_{1} rateParam {0} dy_m105_160_vbf_amc_01j 1 \n".format(cat.full_name,str(era)))
-        dcof.write("R_2j_{1} rateParam {0} dy_m105_160_amc_2j 1 \n".format(cat.full_name,str(era)))
-        dcof.write("R_2j_{1} rateParam {0} dy_m105_160_vbf_amc_2j 1 \n".format(cat.full_name,str(era)))
+        dcof.write("R_01j_{1} rateParam {0} dy_m105_160_01j 1 \n".format(cat.full_name,str(era)))           
+        dcof.write("R_2j_{1} rateParam {0} dy_m105_160_2j 1 \n".format(cat.full_name,str(era)))
         #dcof.write("REWZ rateParam {0} ewk_lljj_mll105_160 1 \n".format(cat.full_name))
+
+    dcof.write("---------------------\n")
     dcof.write("{0} autoMCStats 0 0 1 \n".format(cat.full_name))
-    
+    dcof.write("---------------------\n")
+
+    for isyst in range(len(rename_syst)):
+        if("btag" not in rename_syst[isyst] and "scale_j" not in rename_syst[isyst]):
+            dcof.write("nuisance edit rename .*.* * {0} {1}_{2} \n".format(org_syst[isyst],rename_syst[isyst],str(era)))
+        else:
+            dcof.write("nuisance edit rename .*.* * {0} {1} \n".format(org_syst[isyst],rename_syst[isyst]))
+
     for isyst in decorrelate_syst:
         dcof.write("nuisance edit rename .*.* * {0} {0}_{1} \n".format(isyst,str(era)))
+
+    for iproc in py_samp:
+        dcof.write("nuisance edit rename {0} * qgl_weight qgl_weightPY_{1} \n".format(iproc,str(era))) 
+    for iproc in pydipole_samp:
+        dcof.write("nuisance edit rename {0} * qgl_weight qgl_weightPYDIPOLE_{1} \n".format(iproc,str(era)))
+    for iproc in herwig_samp:
+        dcof.write("nuisance edit rename {0} * qgl_weight qgl_weightHER_{1} \n".format(iproc,str(era)))
+
     dcof.write("\n")
     dcof.write("# Execute with:\n")
     dcof.write("# combine -n {0} -M FitDiagnostics -t -1 {1} \n".format(cat.full_name, os.path.basename(ofname)))
