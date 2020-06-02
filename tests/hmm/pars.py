@@ -778,7 +778,7 @@ analysis_parameters = {
 
         "masswindow_z_peak": [76, 106],
         "masswindow_h_sideband": [110, 150],
-        "masswindow_h_peak": [115, 135],
+        "masswindow_h_peak": [115.03, 135.03],
         "masswindow_z_peak_jerB1": [76, 106],
         "masswindow_z_peak_jerB2": [76, 106],
         "masswindow_z_peak_jerEC1": [76, 106],
