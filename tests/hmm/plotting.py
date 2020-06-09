@@ -1092,8 +1092,8 @@ def PrintDatacard(categories, dict_procs, era, event_counts, filenames, ofname):
         dcof.write("RZ rateParam {0} dy_2j 1 \n".format(cat.full_name)) 
         #dcof.write("REWZ rateParam {0} ewk_lljj_mll50_mjj120 1 \n".format(cat.full_name))
     elif ("h_peak" in cat.full_name) or ("h_sideband" in cat.full_name):
-        dcof.write("R_01j_{1} rateParam {0} dy_m105_160_01j 1 \n".format(cat.full_name,str(era)))           
-        dcof.write("R_2j_{1} rateParam {0} dy_m105_160_2j 1 \n".format(cat.full_name,str(era)))
+        dcof.write("R_01j_{1} rateParam {0} dy_m105_160_01j 1 [0.1,5] \n".format(cat.full_name,str(era)))           
+        dcof.write("R_2j_{1} rateParam {0} dy_m105_160_2j 1 [0.1,5] \n".format(cat.full_name,str(era)))
         #dcof.write("REWZ rateParam {0} ewk_lljj_mll105_160 1 \n".format(cat.full_name))
 
     dcof.write("---------------------\n")
