@@ -355,9 +355,9 @@ def analyze_data(
 
     # PU ID weights are only applied to 2016 and 2018 so far, as they haven't been validated for 2017
     # https://github.com/jpata/hepaccelerate-cms/pull/66
-    if (parameters["jet_puid"] != "none") and is_mc:
-        puid_weights = get_puid_weights(jets_wopuid, analysis_corrections.puidreweighting, dataset_era, parameters["jet_puid"], temp_subjet["pt"], parameters["jet_pt_subleading"][dataset_era], parameters["jet_puid_pt_max"], use_cuda)
-        weights_individual["jet_puid"] = {"nominal": puid_weights, "up": puid_weights, "down": puid_weights}
+    #if (parameters["jet_puid"] != "none") and is_mc:
+    #    puid_weights = get_puid_weights(jets_wopuid, analysis_corrections.puidreweighting, dataset_era, parameters["jet_puid"], temp_subjet["pt"], parameters["jet_pt_subleading"][dataset_era], parameters["jet_puid_pt_max"], use_cuda)
+    #    weights_individual["jet_puid"] = {"nominal": puid_weights, "up": puid_weights, "down": puid_weights}
 
     if is_mc and parameters["apply_btag"]:
         btagWeights, btagWeights_up, btagWeights_down = get_factorized_btag_weights_shape(jets_passing_id, analysis_corrections.btag_weights, dataset_era, scalars, parameters["jet_pt_subleading"][dataset_era])
@@ -702,8 +702,8 @@ def analyze_data(
                     dnn_vars["qgl_weight"] = weights_individual['qgl_weight']['nominal'][dnn_presel]
                     if parameters["apply_btag"]:
                         dnn_vars["btag_weight"] = weights_individual['btag_weight']['nominal'][dnn_presel]
-                    if parameters["jet_puid"] != "none":
-                        dnn_vars["puid_weight"] = weights_individual['jet_puid']['nominal'][dnn_presel]
+                    #if parameters["jet_puid"] != "none":
+                    #    dnn_vars["puid_weight"] = weights_individual['jet_puid']['nominal'][dnn_presel]
                     dnn_vars["j1_partonFlavour"] = leading_jet["partonFlavour"][dnn_presel]
                     dnn_vars["j2_partonFlavour"] = subleading_jet["partonFlavour"][dnn_presel]
                 dnn_vars["j1_jetId"] = leading_jet["jetId"][dnn_presel]

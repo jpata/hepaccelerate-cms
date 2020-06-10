@@ -439,20 +439,23 @@ jer_unc = ["jerB1","jerB2","jerEC1","jerEC2","jerF1","jerF2"]
 #qcd uncertainties for VBF
 VBF_STXS_unc = ["THU_VBF_Yield", "THU_VBF_Mjj60", "THU_VBF_Mjj120", "THU_VBF_Mjj350", "THU_VBF_PTH200", "THU_VBF_PTH25", "THU_VBF_JET01", "THU_VBF_Mjj1000", "THU_VBF_Mjj700", "THU_VBF_Mjj1500"]
 
-btag_unc = ["btag_weight_jes","btag_weight_lf","btag_weight_hfstats1","btag_weight_hfstats2","btag_weight_cferr1","btag_weight_cferr2","btag_weight_hf","btag_weight_lfstats1","btag_weight_lfstats2"]
+#"btag_weight_hfstats1","btag_weight_hfstats2" removed to due very small uncertainty <=2% for DY 2j and one sided.
+btag_unc = ["btag_weight_jes","btag_weight_lf","btag_weight_cferr1","btag_weight_cferr2","btag_weight_hf","btag_weight_lfstats1","btag_weight_lfstats2"]
 
-shape_systematics = jec_unc + jer_unc + VBF_STXS_unc + btag_unc + ["trigger", "id", "iso", "jet_puid", "qgl_weight", "puWeight", "L1PreFiringWeight","DYLHEScaleWeightZ","EWZLHEScaleWeightZ","DYLHEScaleWeight","EWZLHEScaleWeight","LHEPdfWeight","EWZ105160PS", "VBFHPS","DYshape_DNN"] 
+#"jet_puid"
+shape_systematics = jec_unc + jer_unc + VBF_STXS_unc + btag_unc + ["trigger", "id", "iso", "qgl_weight", "puWeight", "L1PreFiringWeight","DYLHEScaleWeightZ","EWZLHEScaleWeightZ","DYLHEScaleWeight","EWZLHEScaleWeight","LHEPdfWeight","EWZ105160PS", "VBFHPS","DYshape_DNN"] 
 
 jec_unc_rename = ['CMS_scale_j_absolute', 'CMS_scale_j_absolute_2018', 'CMS_scale_j_bbec1', 'CMS_scale_j_bbec1_2018', 'CMS_scale_j_ec2', 'CMS_scale_j_ec2_2018', 'CMS_scale_j_flavorQCD', 'CMS_scale_j_hf', 'CMS_scale_j_hf_2018', 'CMS_scale_j_relativeBal', 'CMS_scale_j_relativeSample_2018', 'CMS_scale_j_absolute_2017', 'CMS_scale_j_bbec1_2017', 'CMS_scale_j_ec2_2017', 'CMS_scale_j_hf_2017', 'CMS_scale_j_relativeSample_2017', 'CMS_scale_j_absolute_2016', 'CMS_scale_j_bbec1_2016', 'CMS_scale_j_ec2_2016', 'CMS_scale_j_hf_2016', 'CMS_scale_j_relativeSample_2016']
 
 jer_unc_rename = ["CMS_res_j_barrel", "CMS_res_j_endcap1", "CMS_res_j_endcap2lowpt", "CMS_res_j_endcap2highpt", "CMS_res_j_forwardlowpt", "CMS_res_j_forwardhighpt"]
 
-btag_unc_rename = ["CMS_btag_jes","CMS_btag_Lf","CMS_btag_Hfstats1","CMS_btag_Hfstats2","CMS_btag_Cferr1","CMS_btag_Cferr2","CMS_btag_Hf","CMS_btag_Lfstats1","CMS_btag_Lfstats2"]
+#"CMS_btag_Hfstats1","CMS_btag_Hfstats2"
+btag_unc_rename = ["CMS_btag_jes","CMS_btag_Lf","CMS_btag_Cferr1","CMS_btag_Cferr2","CMS_btag_Hf","CMS_btag_Lfstats1","CMS_btag_Lfstats2"]
 
 other_syst_rename = ["CMS_pileup_vbf", "CMS_prefiring"]
 rename_syst= jec_unc_rename + jer_unc_rename+ btag_unc_rename + other_syst_rename
 org_syst = jec_unc + jer_unc+ btag_unc + ["puWeight", "L1PreFiringWeight"]
-decorrelate_syst = ["trigger", "id", "iso", "jet_puid",  "DYLHEScaleWeight","EWZLHEScaleWeight","EWKLHEScaleWeight_norm", "LHEPdfWeight","LHEPdfWeight_norm","EWZ105160PS", "VBFHPS","DYshape_DNN","Topxsec","VVxsec"] 
+decorrelate_syst = ["trigger", "id", "iso", "DYLHEScaleWeight","EWZLHEScaleWeight","EWKLHEScaleWeight_norm", "LHEPdfWeight","LHEPdfWeight_norm","EWZ105160PS", "VBFHPS","DYshape_DNN","Topxsec","VVxsec"] 
 
 py_samp = ["ggh_amcPS_pythia_125", "dy_m105_160_01j", "dy_m105_160_2j","top", "vv", "vh_125","tth_125"]
 herwig_samp = ["ewk_lljj_mll105_160_ptJ_herwig"]
@@ -778,7 +781,7 @@ analysis_parameters = {
 
         "masswindow_z_peak": [76, 106],
         "masswindow_h_sideband": [110, 150],
-        "masswindow_h_peak": [115, 135],
+        "masswindow_h_peak": [115.03, 135.03],
         "masswindow_z_peak_jerB1": [76, 106],
         "masswindow_z_peak_jerB2": [76, 106],
         "masswindow_z_peak_jerEC1": [76, 106],
