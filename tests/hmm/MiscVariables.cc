@@ -92,20 +92,19 @@ std::pair<double,double> CSAnglesPisa(TLorentzVector& mu_Plus, TLorentzVector& m
 float PtCorrGeoFit(float d0_BS_charge, float pt_Roch, float eta, int year) {
     float pt_cor = 0.0;
     if(fabs(d0_BS_charge)<999999.){
-      year = 2017;
       if (year == 2016) {
-        if      (abs(eta) < 0.9) pt_cor = 411.34 * d0_BS_charge * pt_Roch * pt_Roch / 10000.0;
-        else if (abs(eta) < 1.7) pt_cor = 673.40 * d0_BS_charge * pt_Roch * pt_Roch / 10000.0;
+        if      (fabs(eta) < 0.9) pt_cor = 411.34 * d0_BS_charge * pt_Roch * pt_Roch / 10000.0;
+        else if (fabs(eta) < 1.7) pt_cor = 673.40 * d0_BS_charge * pt_Roch * pt_Roch / 10000.0;
         else                     pt_cor = 1099.0 * d0_BS_charge * pt_Roch * pt_Roch / 10000.0;
       }
       else if (year == 2017) {
-        if      (abs(eta) < 0.9) pt_cor = 582.32 * d0_BS_charge * pt_Roch * pt_Roch / 10000.0;
-        else if (abs(eta) < 1.7) pt_cor = 974.05 * d0_BS_charge * pt_Roch * pt_Roch / 10000.0;
+        if      (fabs(eta) < 0.9) pt_cor = 582.32 * d0_BS_charge * pt_Roch * pt_Roch / 10000.0;
+        else if (fabs(eta) < 1.7) pt_cor = 974.05 * d0_BS_charge * pt_Roch * pt_Roch / 10000.0;
         else                     pt_cor = 1263.4 * d0_BS_charge * pt_Roch * pt_Roch / 10000.0;
       }
       else if (year == 2018) {
-        if      (abs(eta) < 0.9) pt_cor = 650.84 * d0_BS_charge * pt_Roch * pt_Roch / 10000.0;
-        else if (abs(eta) < 1.7) pt_cor = 988.37 * d0_BS_charge * pt_Roch * pt_Roch / 10000.0;
+        if      (fabs(eta) < 0.9) pt_cor = 650.84 * d0_BS_charge * pt_Roch * pt_Roch / 10000.0;
+        else if (fabs(eta) < 1.7) pt_cor = 988.37 * d0_BS_charge * pt_Roch * pt_Roch / 10000.0;
         else                     pt_cor = 1484.6 * d0_BS_charge * pt_Roch * pt_Roch / 10000.0;
       }
     }
@@ -116,7 +115,7 @@ float PtCorrGeoFit(float d0_BS_charge, float pt_Roch, float eta, int year) {
 float qglJetWeight(int partonFlavour, float pt, float eta, float qgl, int isHerwig) {
 
 //     std::cout << partonFlavour  << " \t " << eta  << " \t " << qgl << std::endl;
-    if (partonFlavour!=0 && pt>0 && abs(eta)<2 && qgl>0) {
+    if (partonFlavour!=0 && pt>0 && fabs(eta)<2 && qgl>0) {
       //pythia
         if(isHerwig<1){
            if (abs(partonFlavour) < 4) return -0.666978*qgl*qgl*qgl + 0.929524*qgl*qgl -0.255505*qgl + 0.981581; 
