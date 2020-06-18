@@ -86,7 +86,7 @@ class TestAnalysis(unittest.TestCase):
         print(ret2["baseline"]["selected_events_dimuon"])
         self.assertAlmostEqual(ret2["num_events"], 3674)
         self.assertAlmostEqual(ret2["genEventSumw"], 4.659182940800001)
-        self.assertAlmostEqual(ret2["baseline"]["selected_events_dimuon"], 1561)
+        self.assertAlmostEqual(ret2["baseline"]["selected_events_dimuon"], 1580)
     
     #Run the analysis on a skimmed MC sample
     def test_run_analysis_mc_skim(self):
@@ -126,7 +126,7 @@ class TestAnalysis(unittest.TestCase):
         print(ret2["baseline"]["selected_events_dimuon"])
         self.assertAlmostEqual(ret2["num_events"], 1880)
         self.assertAlmostEqual(ret2["genEventSumw"], 4.659182940800001)
-        self.assertAlmostEqual(ret2["baseline"]["selected_events_dimuon"], 1561)
+        self.assertAlmostEqual(ret2["baseline"]["selected_events_dimuon"], 1580)
     
     #Run the analysis on a raw NanoAOD data sample 
     def test_run_analysis_data(self):
@@ -165,7 +165,7 @@ class TestAnalysis(unittest.TestCase):
         print(ret2["baseline"]["selected_events_dimuon"])
         self.assertAlmostEqual(ret2["num_events"], 2000)
         self.assertAlmostEqual(ret2["int_lumi"], 0.130571592)
-        self.assertAlmostEqual(ret2["baseline"]["selected_events_dimuon"], 42)
+        self.assertAlmostEqual(ret2["baseline"]["selected_events_dimuon"], 45)
    
     #Run the analysis on a skimmed data sample 
     def test_run_analysis_data_skim(self):
@@ -205,7 +205,7 @@ class TestAnalysis(unittest.TestCase):
         print(ret2["baseline"]["selected_events_dimuon"])
         self.assertAlmostEqual(ret2["num_events"], 142)
         self.assertAlmostEqual(ret2["int_lumi"], 0.130571592)
-        self.assertAlmostEqual(ret2["baseline"]["selected_events_dimuon"], 41)
+        self.assertAlmostEqual(ret2["baseline"]["selected_events_dimuon"], 44)
 
         #Not sure why this is different on the skimmed sample... floating point precision in changing the file encoding?
         #self.assertAlmostEqual(ret2["baseline"]["numev_passed"]["muon"], 4024.0)

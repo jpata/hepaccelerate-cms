@@ -31,7 +31,7 @@ NUMPY_LIB = None
 debug = False
 #debug = True
 #event IDs for which to print out detailed information
-debug_event_ids = [ 8557645, 8557549, 8557904, 8557617, 8558103, 8558340 ]
+debug_event_ids = [ 1232270406]#210924656 ]
 #Run additional checks on the analyzed data to ensure consistency - for debugging
 doverify = False
 
@@ -1440,22 +1440,22 @@ def get_selected_muons(
     )
 
     #Get muons that are high-pt and are matched to trigger object
-    mask_trigger_objects_mu = (trigobj.id == 13)
-    muons_matched_to_trigobj = NUMPY_LIB.invert(ha.mask_deltar_first(
-        {"eta": muons.eta, "phi": muons.phi, "offsets": muons.offsets},
-        muons_passing_id_trig_matched & passes_leading_pt,
-        {"eta": trigobj.eta, "phi": trigobj.phi, "offsets": trigobj.offsets},
-        mask_trigger_objects_mu, muon_trig_match_dr
-    ))
-    muons.attrs_data["triggermatch"] = muons_matched_to_trigobj
+   # mask_trigger_objects_mu = (trigobj.id == 13)
+   # muons_matched_to_trigobj = NUMPY_LIB.invert(ha.mask_deltar_first(
+   #     {"eta": muons.eta, "phi": muons.phi, "offsets": muons.offsets},
+   #     muons_passing_id_trig_matched & passes_leading_pt,
+   #     {"eta": trigobj.eta, "phi": trigobj.phi, "offsets": trigobj.offsets},
+   #     mask_trigger_objects_mu, muon_trig_match_dr
+   # ))
+    #muons.attrs_data["triggermatch"] = muons_matched_to_trigobj
     muons.attrs_data["pass_id"] = muons_passing_id
     muons.attrs_data["passes_leading_pt"] = passes_leading_pt
 
     #At least one muon must be matched to trigger object, find such events
-    events_passes_triggermatch = ha.sum_in_offsets(
-        muons.offsets, muons_matched_to_trigobj, mask_events,
-        muons.masks["all"], NUMPY_LIB.int8
-    ) >= 1
+    #events_passes_triggermatch = ha.sum_in_offsets(
+    #    muons.offsets, muons_matched_to_trigobj, mask_events,
+    #    muons.masks["all"], NUMPY_LIB.int8
+    #) >= 1
 
     #select events that have muons passing cuts: 2 passing ID, 1 passing leading pt, 2 passing subleading pt
     events_passes_muid = ha.sum_in_offsets(
@@ -1471,7 +1471,7 @@ def get_selected_muons(
     #Get the mask of selected events
     base_event_sel = (
         mask_events &
-        events_passes_triggermatch &
+        #events_passes_triggermatch &
         events_passes_muid &
         events_passes_leading_pt &
         events_passes_subleading_pt
@@ -1501,7 +1501,7 @@ def get_selected_muons(
             jaggedstruct_print(muons, idx,
                 ["pt", "eta", "phi", "charge", "pfRelIso04_all", "mediumId",
                 "isGlobal", "isTracker", 
-                "triggermatch", "pass_id", "passes_leading_pt"])
+                 "pass_id", "passes_leading_pt"])
 
     return {
         "selected_events": final_event_sel,
