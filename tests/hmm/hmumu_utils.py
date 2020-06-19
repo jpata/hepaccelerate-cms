@@ -249,7 +249,7 @@ def analyze_data(
         assert(NUMPY_LIB.all(z[z!=0] == 2))
         
     # Create arrays with just the leading and subleading particle contents for easier management
-    mu_attrs = ["mvaLowPt","pt", "eta", "phi", "mass", "pdgId", "nTrackerLayers", "charge", "ptErr"]
+    mu_attrs = ["miniPFRelIso_chg", "pfRelIso03_chg", "pt", "eta", "phi", "mass", "pdgId", "nTrackerLayers", "charge", "ptErr"]
 
     #do geofit after the selection of jets
     if parameters["do_geofit"]:
@@ -2480,6 +2480,7 @@ def do_geofit_corrections(
         NUMPY_LIB.asnumpy(muons.charge),
         years
     )
+    muons.pfRelIso03_chg[:] = muons.pt[:] 
     muons.pt[:] = muon_pt_corr[:]
     return
 
@@ -2502,7 +2503,7 @@ def do_rochester_corrections(
         is_mc, rochester_corrections, muons)
     
     muon_pt_corr = muons.pt * qterm
-    muons.mvaLowPt[:] = muons.pt[:]
+    muons.miniPFRelIso_chg[:] = muons.pt[:]
     muons.pt[:] = muon_pt_corr[:]
 
     return
@@ -2777,7 +2778,7 @@ def dnn_variables(hrelresolution, miscvariables, leading_muon, subleading_muon, 
     #mass resolution
     if not (hrelresolution is None):
         Higgs_mrelreso = NUMPY_LIB.array(hrelresolution.compute(
-            NUMPY_LIB.asnumpy(leading_muon["mvaLowPt"]),
+            NUMPY_LIB.asnumpy(leading_muon["miniPFRelIso_chg"]),
             NUMPY_LIB.asnumpy(leading_muon["eta"]),
             NUMPY_LIB.asnumpy(subleading_muon["pt"]),
             NUMPY_LIB.asnumpy(subleading_muon["eta"])))
@@ -2848,13 +2849,15 @@ def dnn_variables(hrelresolution, miscvariables, leading_muon, subleading_muon, 
 
     ret = {
         "leading_muon_pt": leading_muon["pt"],
-        "leading_muon_pt_nanoAOD": leading_muon["mvaLowPt"],
+        "leading_muon_pt_nanoAOD": leading_muon["miniPFRelIso_chg"],
+        "leading_muon_pt_roch": leading_muon["pfRelIso03_chg"],
         "leading_muon_eta": leading_muon["eta"],
         "leading_muon_phi": leading_muon["phi"],
         "leading_muon_charge": leading_muon["charge"],
         #"leading_muon_mass": leading_muon["mass"],
         "subleading_muon_pt": subleading_muon["pt"],
-        "subleading_muon_pt_nanoAOD": subleading_muon["mvaLowPt"],
+        "subleading_muon_pt_nanoAOD": subleading_muon["miniPFRelIso_chg"],
+        "subleading_muon_pt_roch": subleading_muon["pfRelIso03_chg"],
         "subleading_muon_eta": subleading_muon["eta"],
         "subleading_muon_phi": subleading_muon["phi"],
         "subleading_muon_charge": subleading_muon["charge"],
@@ -3574,7 +3577,7 @@ def create_datastructure(dataset_name, is_mc, dataset_era, do_fsr=False):
             ("Muon_tightId", "bool"), ("Muon_charge", "int32"),
             ("Muon_isGlobal", "bool"), ("Muon_isTracker", "bool"),
             ("Muon_nTrackerLayers", "int32"), ("Muon_ptErr", "float32"),
-            ("Muon_mvaTTH", "float32"), ("Muon_mvaLowPt", "float32"),
+            ("Muon_pfRelIso03_chg", "float32"), ("Muon_miniPFRelIso_chg", "float32"),
         ],
         "Electron": [
             ("Electron_pt", "float32"), ("Electron_eta", "float32"),
