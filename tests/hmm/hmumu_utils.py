@@ -207,6 +207,36 @@ def analyze_data(
     if debug:
         print("muon selection eff", ret_mu["selected_muons"].sum() / float(muons.numobjects()))
 
+    #jet selection
+    selected_jets_id, VBFjets_wopuid = get_selected_jets_id(
+        scalars,
+        jets, muons,
+        parameters["jet_eta"],
+        parameters["jet_mu_dr"],
+        parameters["jet_id"],
+        parameters["jet_puid"],
+        parameters["jet_veto_eta"][0],
+        parameters["jet_veto_eta"][1],
+        parameters["jet_veto_raw_pt"],
+        dataset_era)
+    if debug:
+        print("jet selection eff based on id", selected_jets_id.sum() / float(len(selected_jets_id)))
+
+    #Now we throw away all the jets that didn't pass the ID to save time on computing JECs on them
+    jets_passing_id = jets.select_objects(selected_jets_id)
+    #Jets passing all other seletion except the jet puId
+    #jets_wopuid = jets.select_objects(VBFjets_wopuid)
+
+    #temp_ret_jet = get_selected_jets(
+    #            scalars,
+    #            jets_passing_id,
+    #            ret_mu['selected_events'],
+    #            parameters["jet_pt_subleading"][dataset_era],
+    #            parameters["jet_btag_medium"][dataset_era],
+    #            parameters["jet_btag_loose"][dataset_era],
+    #            is_mc, use_cuda
+    #        )
+    
     #Just a check to verify that there are exactly 2 muons per event
     if doverify:
         z = ha.sum_in_offsets(
@@ -217,6 +247,10 @@ def analyze_data(
             dtype=NUMPY_LIB.int8)
         assert(NUMPY_LIB.all(z[z!=0] == 2))
         
+    # Create arrays with just the leading and subleading particle contents for easier management
+    mu_attrs = ["miniPFRelIso_chg", "pfRelIso03_chg", "pt", "eta", "phi", "mass", "pdgId", "nTrackerLayers", "charge", "ptErr"]
+
+    #do geofit after the selection of jets
     if parameters["do_geofit"]:
         if debug:
             print("Before applying GeoFit corrections: muons.pt={0:.2f} +- {1:.2f}".format(muons.pt.mean(), muons.pt.std()))
@@ -231,10 +265,7 @@ def analyze_data(
         do_geofit_corrections(analysis_corrections.miscvariables, muons, dataset_era)
         if debug:
             print("After applying Geofit corrections muons.pt={0:.2f} +- {1:.2f}".format(muons.pt.mean(), muons.pt.std()))
- 
-    # Create arrays with just the leading and subleading particle contents for easier management
-    mu_attrs = ["pt", "eta", "phi", "mass", "pdgId", "nTrackerLayers", "charge", "ptErr"]
-
+            
     if is_mc:
         mu_attrs += ["genpt"]
     leading_muon = muons.select_nth(0, ret_mu["selected_events"], ret_mu["selected_muons"], attributes=mu_attrs)
@@ -297,10 +328,10 @@ def analyze_data(
         weights_individual["mu1_iso"] = default_weight(len(leading_muon["pt"]))
         weights_individual["mu2_id"] = default_weight(len(leading_muon["pt"]))
         weights_individual["mu2_iso"] = default_weight(len(leading_muon["pt"]))
- 
+            
     # Get the selected electrons
     ret_el = get_selected_electrons(electrons, parameters["extra_electrons_pt"], parameters["extra_electrons_eta"], parameters["extra_electrons_id"])
-    
+     
     # Get the invariant mass of the dimuon system and compute mass windows
     higgs_inv_mass, higgs_pt = compute_inv_mass(muons, ret_mu["selected_events"], ret_mu["selected_muons"], use_cuda)
     higgs_inv_mass[NUMPY_LIB.isnan(higgs_inv_mass)] = -1
@@ -319,39 +350,10 @@ def analyze_data(
     #Do the jet ID selection and lepton cleaning just once for the nominal jet systematic
     #as that does not depend on jet pt
 
-    selected_jets_id, VBFjets_wopuid = get_selected_jets_id(
-        scalars,
-        jets, muons,
-        parameters["jet_eta"],
-        parameters["jet_mu_dr"],
-        parameters["jet_id"],
-        parameters["jet_puid"],
-        parameters["jet_veto_eta"][0],
-        parameters["jet_veto_eta"][1],
-        parameters["jet_veto_raw_pt"],
-        dataset_era)
-    if debug:
-        print("jet selection eff based on id", selected_jets_id.sum() / float(len(selected_jets_id)))
-
-    #Now we throw away all the jets that didn't pass the ID to save time on computing JECs on them
-    jets_passing_id = jets.select_objects(selected_jets_id)
-    #Jets passing all other seletion except the jet puId
-    jets_wopuid = jets.select_objects(VBFjets_wopuid)
-
-    temp_ret_jet = get_selected_jets(
-                scalars,
-                jets_passing_id,
-                ret_mu['selected_events'],
-                parameters["jet_pt_subleading"][dataset_era],
-                parameters["jet_btag_medium"][dataset_era],
-                parameters["jet_btag_loose"][dataset_era],
-                is_mc, use_cuda
-            )
-
     jet_attrs = ["pt"]
-    temp_subjet = jets_passing_id.select_nth(
-                1, ret_mu['selected_events'], temp_ret_jet["selected_jets"],
-                attributes=jet_attrs)
+    #temp_subjet = jets_passing_id.select_nth(
+    #            1, ret_mu['selected_events'], temp_ret_jet["selected_jets"],
+    #            attributes=jet_attrs)
 
     # PU ID weights are only applied to 2016 and 2018 so far, as they haven't been validated for 2017
     # https://github.com/jpata/hepaccelerate-cms/pull/66
@@ -2477,6 +2479,7 @@ def do_geofit_corrections(
         NUMPY_LIB.asnumpy(muons.charge),
         years
     )
+    muons.pfRelIso03_chg[:] = muons.pt[:] 
     muons.pt[:] = muon_pt_corr[:]
     return
 
@@ -2499,6 +2502,7 @@ def do_rochester_corrections(
         is_mc, rochester_corrections, muons)
     
     muon_pt_corr = muons.pt * qterm
+    muons.miniPFRelIso_chg[:] = muons.pt[:]
     muons.pt[:] = muon_pt_corr[:]
 
     return
@@ -2773,7 +2777,7 @@ def dnn_variables(hrelresolution, miscvariables, leading_muon, subleading_muon, 
     #mass resolution
     if not (hrelresolution is None):
         Higgs_mrelreso = NUMPY_LIB.array(hrelresolution.compute(
-            NUMPY_LIB.asnumpy(leading_muon["pt"]),
+            NUMPY_LIB.asnumpy(leading_muon["miniPFRelIso_chg"]),
             NUMPY_LIB.asnumpy(leading_muon["eta"]),
             NUMPY_LIB.asnumpy(subleading_muon["pt"]),
             NUMPY_LIB.asnumpy(subleading_muon["eta"])))
@@ -2844,11 +2848,15 @@ def dnn_variables(hrelresolution, miscvariables, leading_muon, subleading_muon, 
 
     ret = {
         "leading_muon_pt": leading_muon["pt"],
+        "leading_muon_pt_nanoAOD": leading_muon["miniPFRelIso_chg"],
+        "leading_muon_pt_roch_fsr": leading_muon["pfRelIso03_chg"],
         "leading_muon_eta": leading_muon["eta"],
         "leading_muon_phi": leading_muon["phi"],
         "leading_muon_charge": leading_muon["charge"],
         #"leading_muon_mass": leading_muon["mass"],
         "subleading_muon_pt": subleading_muon["pt"],
+        "subleading_muon_pt_nanoAOD": subleading_muon["miniPFRelIso_chg"],
+        "subleading_muon_pt_roch_fsr": subleading_muon["pfRelIso03_chg"],
         "subleading_muon_eta": subleading_muon["eta"],
         "subleading_muon_phi": subleading_muon["phi"],
         "subleading_muon_charge": subleading_muon["charge"],
@@ -3568,6 +3576,7 @@ def create_datastructure(dataset_name, is_mc, dataset_era, do_fsr=False):
             ("Muon_tightId", "bool"), ("Muon_charge", "int32"),
             ("Muon_isGlobal", "bool"), ("Muon_isTracker", "bool"),
             ("Muon_nTrackerLayers", "int32"), ("Muon_ptErr", "float32"),
+            ("Muon_pfRelIso03_chg", "float32"), ("Muon_miniPFRelIso_chg", "float32"),
         ],
         "Electron": [
             ("Electron_pt", "float32"), ("Electron_eta", "float32"),
