@@ -237,7 +237,6 @@ def analyze_data(
     #            is_mc, use_cuda
     #        )
     
-    
     #Just a check to verify that there are exactly 2 muons per event
     if doverify:
         z = ha.sum_in_offsets(
