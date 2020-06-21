@@ -28,10 +28,10 @@ ha = None
 NUMPY_LIB = None
 
 #Use this to turn on debugging
-debug = False
-#debug = True
+#debug = False
+debug = True
 #event IDs for which to print out detailed information
-debug_event_ids = [ 1232270406]#210924656 ]
+debug_event_ids = [ 26431780] # 1232270406]#210924656 ]
 #Run additional checks on the analyzed data to ensure consistency - for debugging
 doverify = False
 
@@ -436,7 +436,7 @@ def analyze_data(
         parameters,
         analysis_corrections.jetmet_corrections[dataset_era][parameters["jec_tag"][dataset_era]],
         NUMPY_LIB, ha, use_cuda, is_mc, dataset_era, True)
-    
+
     syst_to_consider = ["nominal"]
     if is_mc:
         syst_to_consider += ["Total"]
@@ -530,11 +530,22 @@ def analyze_data(
             jet_attrs += ["phi", "mass","jetId","puId","btagDeepB"]
             if is_mc:
                 jet_attrs += ["hadronFlavour", "genJetIdx"]
+            #get the index of the leading and subleading jets
+            out_jet_ind0 = NUMPY_LIB.zeros(len(jets_passing_id.offsets)-1, dtype=NUMPY_LIB.int8)
+            out_jet_ind1 = NUMPY_LIB.ones(len(jets_passing_id.offsets)-1, dtype=NUMPY_LIB.int8)
+            get_leadtwo_jet_ind(jets_passing_id.offsets, jets_passing_id.pt, out_jet_ind0, out_jet_ind1)
+            
+            if debug:
+                    for evtid in debug_event_ids:
+                        idx = np.where(scalars["event"] == evtid)[0][0]
+                        print("Nan: ",out_jet_ind0[idx])
+                        print("Nan: ",out_jet_ind1[idx])
+
             leading_jet = jets_passing_id.select_nth(
-                0, ret_mu['selected_events'], ret_jet["selected_jets"],
+                out_jet_ind0, ret_mu['selected_events'], ret_jet["selected_jets"],
                 attributes=jet_attrs)
             subleading_jet = jets_passing_id.select_nth(
-                1, ret_mu['selected_events'], ret_jet["selected_jets"],
+                out_jet_ind1, ret_mu['selected_events'], ret_jet["selected_jets"],
                 attributes=jet_attrs)
             #if do_sync and jet_syst_name[0] == "nominal":
                 #sync_printout(ret_mu, muons, scalars,
@@ -1473,16 +1484,16 @@ def get_selected_muons(
         events_passes_subleading_pt
     )
 
-    #Find two opposite sign muons among the muons passing ID and subleading pt
+    #Find two opposite sign muons among the muons passing ID and leading pt
     muons_passing_os = ha.select_opposite_sign(
-        muons.offsets, muons.charge, muons_passing_id & passes_subleading_pt)
+        muons.offsets, muons.charge, muons_passing_id & passes_leading_pt)
     events_passes_os = ha.sum_in_offsets(
         muons.offsets, muons_passing_os, mask_events,
         muons.masks["all"], NUMPY_LIB.int32) == 2
 
     muons.attrs_data["pass_os"] = muons_passing_os
     final_event_sel = base_event_sel & events_passes_os
-    final_muon_sel = muons_passing_id & passes_subleading_pt & muons_passing_os
+    final_muon_sel = muons_passing_id & passes_leading_pt & muons_passing_os
     additional_muon_sel = muons_passing_id & NUMPY_LIB.invert(muons_passing_os)
     muons.masks["iso_id_aeta"] = passes_iso & passes_id & passes_aeta
     
@@ -3288,6 +3299,28 @@ def get_genJetpt_cpu(reco_offsets, reco_pt, reco_genPartIdx, genparts_offsets, g
                 out_reco_genpt[imu] = genpt
             else :
                 out_reco_genpt[imu] = reco_pt[imu]
+
+@numba.njit(parallel=True, fastmath=True)
+def get_leadtwo_jet_ind(reco_offsets, reco_pt, out_jet_ind0, out_jet_ind1):
+    #loop over events
+    for iev in numba.prange(len(reco_offsets) - 1):
+        #loop over physics object
+        pt0 = 0.0
+        pt1 = 0.0
+        ind0 = 0
+        ind1 = 1
+        for iobj in range(reco_offsets[iev], reco_offsets[iev + 1]):
+            if pt0 < reco_pt[iobj]:
+                pt0 = reco_pt[iobj]
+                tmp = ind0
+                ind0 = iobj - reco_offsets[iev]
+                if ind0 == ind1:
+                    ind1 = tmp
+            elif pt1 < reco_pt[iobj]:
+                    pt1 = reco_pt[iobj]
+                    ind1 = iobj - reco_offsets[iev]
+            out_jet_ind0[iev] = ind0 
+            out_jet_ind1[iev] = ind1
 
 def multiply_all(weight_list):
     ret = NUMPY_LIB.copy(weight_list[0])
