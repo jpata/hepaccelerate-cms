@@ -1486,14 +1486,14 @@ def get_selected_muons(
 
     #Find two opposite sign muons among the muons passing ID and leading pt
     muons_passing_os = ha.select_opposite_sign(
-        muons.offsets, muons.charge, muons_passing_id & passes_leading_pt)
+        muons.offsets, muons.charge, muons_passing_id & passes_subleading_pt)
     events_passes_os = ha.sum_in_offsets(
         muons.offsets, muons_passing_os, mask_events,
         muons.masks["all"], NUMPY_LIB.int32) == 2
 
     muons.attrs_data["pass_os"] = muons_passing_os
     final_event_sel = base_event_sel & events_passes_os
-    final_muon_sel = muons_passing_id & passes_leading_pt & muons_passing_os
+    final_muon_sel = muons_passing_id & passes_subleading_pt & muons_passing_os
     additional_muon_sel = muons_passing_id & NUMPY_LIB.invert(muons_passing_os)
     muons.masks["iso_id_aeta"] = passes_iso & passes_id & passes_aeta
     
