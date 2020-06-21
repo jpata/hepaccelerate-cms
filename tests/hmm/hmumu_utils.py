@@ -1484,7 +1484,7 @@ def get_selected_muons(
         events_passes_subleading_pt
     )
 
-    #Find two opposite sign muons among the muons passing ID and leading pt
+    #Find two opposite sign muons among the muons passing ID and subleading pt
     muons_passing_os = ha.select_opposite_sign(
         muons.offsets, muons.charge, muons_passing_id & passes_subleading_pt)
     events_passes_os = ha.sum_in_offsets(
