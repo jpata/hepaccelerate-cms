@@ -31,7 +31,7 @@ NUMPY_LIB = None
 debug = False
 #debug = True
 #event IDs for which to print out detailed information
-debug_event_ids = [ 1232270406]#210924656 ]
+debug_event_ids = [735225363]
 #Run additional checks on the analyzed data to ensure consistency - for debugging
 doverify = False
 
@@ -1317,7 +1317,7 @@ def get_histogram(data, weights, bins, mask=None):
  
 #remove parallel running for safety - it's not clear if different loop iterations modify overlapping data, which is not allowed
 @numba.njit(parallel=False)
-def fix_muon_fsrphoton_index(mu_pt, mu_eta, mu_phi, mu_mass, offsets_fsrphotons, offsets_muons, fsrphotons_dROverEt2, fsrphotons_relIso03, fsrphotons_pt, fsrphotons_muonIdx, muons_fsrPhotonIdx, out_muons_fsrPhotonIdx, fsr_dROverEt2_cut, fsr_relIso03_cut, pt_fsr_over_mu_e_cut):
+def fix_muon_fsrphoton_index(mu_pt, mu_eta, mu_phi, mu_mass, passes_aeta, passes_subleading_pt, offsets_fsrphotons, offsets_muons, fsrphotons_dROverEt2, fsrphotons_relIso03, fsrphotons_pt, fsrphotons_muonIdx, muons_fsrPhotonIdx, out_muons_fsrPhotonIdx, fsr_dROverEt2_cut, fsr_relIso03_cut, pt_fsr_over_mu_e_cut):
     for iev in range(len(offsets_fsrphotons) - 1):
         k = 0
         for i in range(offsets_fsrphotons[iev], offsets_fsrphotons[iev + 1]):
@@ -1331,9 +1331,9 @@ def fix_muon_fsrphoton_index(mu_pt, mu_eta, mu_phi, mu_mass, offsets_fsrphotons,
             py = mu_pt[midx] * np.sin(mu_phi[midx])
             pz = mu_pt[midx] * np.sinh(mu_eta[midx])
             mu_e = np.sqrt(px**2 + py**2 + pz**2 + mu_mass[midx]**2)
-
-            sel_fsr = fsrphotons_dROverEt2[fidx] < fsr_dROverEt2_cut and (fsrphotons_relIso03[fidx] < fsr_relIso03_cut and fsrphotons_pt[i]/mu_e < pt_fsr_over_mu_e_cut)
-            sel_check_fsr = fsrphotons_dROverEt2[i] < fsr_dROverEt2_cut and (fsrphotons_relIso03[i] < fsr_relIso03_cut and fsrphotons_pt[i]/mu_e < pt_fsr_over_mu_e_cut)
+            
+            sel_fsr = fsrphotons_dROverEt2[fidx] < fsr_dROverEt2_cut and (fsrphotons_relIso03[fidx] < fsr_relIso03_cut and fsrphotons_pt[i]/mu_pt[midx] < pt_fsr_over_mu_e_cut) and passes_aeta[midx] and passes_subleading_pt[midx]
+            sel_check_fsr = fsrphotons_dROverEt2[i] < fsr_dROverEt2_cut and (fsrphotons_relIso03[i] < fsr_relIso03_cut and fsrphotons_pt[i]/mu_pt[midx] < pt_fsr_over_mu_e_cut) and passes_aeta[midx] and passes_subleading_pt[midx]
             if sel_fsr or sel_check_fsr:
                 if k != muons_fsrPhotonIdx[midx]:
                     if not sel_fsr:
@@ -1371,6 +1371,9 @@ def get_selected_muons(
     muon_id_trig_matched_type (string) - "tight" muon ID requirement for trigger matched muon
     """
 
+    passes_aeta = NUMPY_LIB.abs(muons.eta) < mu_aeta_cut
+    passes_subleading_pt = muons.pt > mu_pt_cut_subleading
+
     if fsrphotons:
         out_muons_fsrPhotonIdx = NUMPY_LIB.asnumpy(muons.fsrPhotonIdx)
         mu_pt = NUMPY_LIB.asnumpy(muons.pt)
@@ -1379,7 +1382,7 @@ def get_selected_muons(
         mu_mass = NUMPY_LIB.asnumpy(muons.mass)
         mu_iso = NUMPY_LIB.asnumpy(muons.pfRelIso04_all)
         fix_muon_fsrphoton_index(
-            mu_pt, mu_eta, mu_phi, mu_mass,
+            mu_pt, mu_eta, mu_phi, mu_mass, passes_aeta, passes_subleading_pt,
             NUMPY_LIB.asnumpy(fsrphotons.offsets),
             NUMPY_LIB.asnumpy(muons.offsets),
             NUMPY_LIB.asnumpy(fsrphotons.dROverEt2),
@@ -1428,9 +1431,7 @@ def get_selected_muons(
         raise Exception("unknown muon id: {0}".format(muon_id_type))
 
     #find muons that pass ID
-    passes_subleading_pt = muons.pt > mu_pt_cut_subleading
     passes_leading_pt = muons.pt > mu_pt_cut_leading
-    passes_aeta = NUMPY_LIB.abs(muons.eta) < mu_aeta_cut
     muons_passing_id =  (
         passes_iso & passes_id &
         passes_subleading_pt & passes_aeta
@@ -1541,11 +1542,6 @@ def correct_muon_with_fsr(
                 dphi = backend_cpu.deltaphi(muons_phi[imu], fsr_phi[ifsr])
                 dr = np.sqrt(deta**2 + dphi**2)
 
-                update_iso = dr<0.4
-
-                #reference: https://gitlab.cern.ch/uhh-cmssw/fsr-photon-recovery/tree/master
-                if update_iso:
-                    muons_iso[imu] = (muons_iso[imu]*muons_pt[imu] - fsr_pt[ifsr])/muons_pt[imu]
                     
                 #compute and set corrected momentum
                 px_total = 0
@@ -1564,6 +1560,13 @@ def correct_muon_with_fsr(
                 out_pt = np.sqrt(px_total**2 + py_total**2)
                 out_eta = np.arcsinh(pz_total / out_pt)
                 out_phi = np.arctan2(py_total, px_total)
+
+                
+                update_iso = dr<0.4
+
+                #reference: https://gitlab.cern.ch/uhh-cmssw/fsr-photon-recovery/tree/master
+                if update_iso:
+                    muons_iso[imu] = (muons_iso[imu]*muons_pt[imu] - fsr_pt[ifsr])/out_pt
 
                 muons_pt[imu] = out_pt
                 muons_eta[imu] = out_eta
