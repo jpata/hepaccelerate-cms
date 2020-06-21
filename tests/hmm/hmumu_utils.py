@@ -31,7 +31,7 @@ NUMPY_LIB = None
 debug = False
 #debug = True
 #event IDs for which to print out detailed information
-debug_event_ids = [ 26431780] # 1232270406]#210924656 ]
+debug_event_ids = [1232270406]#210924656 ]
 #Run additional checks on the analyzed data to ensure consistency - for debugging
 doverify = False
 
@@ -538,8 +538,8 @@ def analyze_data(
             if debug:
                     for evtid in debug_event_ids:
                         idx = np.where(scalars["event"] == evtid)[0][0]
-                        print("Nan: ",out_jet_ind0[idx])
-                        print("Nan: ",out_jet_ind1[idx])
+                        print("leading jet index: ",out_jet_ind0[idx])
+                        print("subleading jet index: ",out_jet_ind1[idx])
 
             leading_jet = jets_passing_id.select_nth(
                 out_jet_ind0, ret_mu['selected_events'], ret_jet["selected_jets"],
@@ -3304,7 +3304,6 @@ def get_genJetpt_cpu(reco_offsets, reco_pt, reco_genPartIdx, genparts_offsets, g
 def get_leadtwo_jet_ind(reco_offsets, reco_pt, out_jet_ind0, out_jet_ind1):
     #loop over events
     for iev in numba.prange(len(reco_offsets) - 1):
-        print("iev:",iev)
         #loop over physics object
         pt0 = 0.0
         pt1 = 0.0
