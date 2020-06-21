@@ -207,8 +207,14 @@ def analyze_data(
     if debug:
         print("muon selection eff", ret_mu["selected_muons"].sum() / float(muons.numobjects()))
 
+    jet_newJEC = JetTransformer(
+        jets, scalars,
+        parameters,
+        analysis_corrections.jetmet_corrections[dataset_era][parameters["jec_tag"][dataset_era]],
+        NUMPY_LIB, ha, use_cuda, is_mc, dataset_era, True)
+    
     #jet selection
-    selected_jets_id, VBFjets_wopuid = get_selected_jets_id(
+    selected_jets_id = get_selected_jets_id(
         scalars,
         jets, muons,
         parameters["jet_eta"],
@@ -224,18 +230,6 @@ def analyze_data(
 
     #Now we throw away all the jets that didn't pass the ID to save time on computing JECs on them
     jets_passing_id = jets.select_objects(selected_jets_id)
-    #Jets passing all other seletion except the jet puId
-    #jets_wopuid = jets.select_objects(VBFjets_wopuid)
-
-    #temp_ret_jet = get_selected_jets(
-    #            scalars,
-    #            jets_passing_id,
-    #            ret_mu['selected_events'],
-    #            parameters["jet_pt_subleading"][dataset_era],
-    #            parameters["jet_btag_medium"][dataset_era],
-    #            parameters["jet_btag_loose"][dataset_era],
-    #            is_mc, use_cuda
-    #        )
     
     #Just a check to verify that there are exactly 2 muons per event
     if doverify:
@@ -436,13 +430,13 @@ def analyze_data(
     if debug:
         print("event selection eff based on 2 muons", ret_mu["selected_events"].sum() / float(len(mask_events)))
         print("Doing nominal jec on {0} jets".format(jets_passing_id.numobjects()))
-        
+
     jet_systematics = JetTransformer(
         jets_passing_id, scalars,
         parameters,
         analysis_corrections.jetmet_corrections[dataset_era][parameters["jec_tag"][dataset_era]],
-        NUMPY_LIB, ha, use_cuda, is_mc, dataset_era)
-
+        NUMPY_LIB, ha, use_cuda, is_mc, dataset_era, True)
+    
     syst_to_consider = ["nominal"]
     if is_mc:
         syst_to_consider += ["Total"]
@@ -1665,6 +1659,8 @@ def nsoftjets_cudakernel(doEta, nsoft, softht, nevt, softjets_offsets, pt, eta, 
         nsjet_out[iev] = nsoft[iev] - nbadsjet
         HTsjet_out[iev] = softht[iev] - htsjet
 
+#The value is a bit representation of the fulfilled working points: tight (1), medium (2), and loose (4).
+#As tight is also medium and medium is also loose, there are only 4 different settings: 0 (no WP, 0b000), 4 (loose, 0b100), 6 (medium, 0b110), and 7 (tight, 0b111).
 def jet_puid_cut(
     jets,
     jet_puid):
@@ -1701,11 +1697,8 @@ def get_selected_jets_id(
     elif jet_id[dataset_era] == "loose": 
         pass_jetid = jets.jetId >= 1
 
-    #The value is a bit representation of the fulfilled working points: tight (1), medium (2), and loose (4).
-    #As tight is also medium and medium is also loose, there are only 4 different settings: 0 (no WP, 0b000), 4 (loose, 0b100), 6 (medium, 0b110), and 7 (tight, 0b111).
-    
     pass_jet_puid = jet_puid_cut(jets, jet_puid)
-
+    
     abs_eta = NUMPY_LIB.abs(jets.eta)
     jet_eta_pass_veto = NUMPY_LIB.ones(jets.numobjects(), dtype=NUMPY_LIB.bool)
     if dataset_era == "2017":
@@ -1716,13 +1709,11 @@ def get_selected_jets_id(
 
     pass_qgl = jets.qgl > -2 
 
-    selected_jets_wopuid = (
+    selected_jets = (
         (abs_eta < jet_eta_cut) &
             pass_jetid & pass_qgl
-    ) & jet_eta_pass_veto
-    
-    selected_jets = selected_jets_wopuid & pass_jet_puid
-    
+    ) & jet_eta_pass_veto & pass_jet_puid
+        
     jets_pass_dr = ha.mask_deltar_first(
         {"eta": jets.eta, "phi": jets.phi, "offsets": jets.offsets},
         selected_jets,
@@ -1733,7 +1724,6 @@ def get_selected_jets_id(
     
     selected_jets = selected_jets & jets_pass_dr
    
-    selected_jets_wopuid = selected_jets_wopuid & jets_pass_dr 
     '''
     if debug:
         for evtid in debug_event_ids:
@@ -1743,7 +1733,7 @@ def get_selected_jets_id(
             jaggedstruct_print(jets, idx,
                                ["pt", "eta", "phi", "mass", "jetId", "puId","qgl"])
     '''
-    return selected_jets, selected_jets_wopuid
+    return selected_jets
 
 def get_selected_jets(
     scalars,
@@ -3129,7 +3119,7 @@ def get_jer_smearfactors(pt_or_m, ratio_jet_genjet, msk_no_genjet, resos, resosf
 
 
 class JetTransformer:
-    def __init__(self, jets, scalars, parameters, jetmet_corrections, NUMPY_LIB, ha, use_cuda, is_mc, era):
+    def __init__(self, jets, scalars, parameters, jetmet_corrections, NUMPY_LIB, ha, use_cuda, is_mc, era, redoJEC):
         self.jets = jets
         self.scalars = scalars
         self.jetmet_corrections = jetmet_corrections
@@ -3160,17 +3150,21 @@ class JetTransformer:
             self.rho = self.jets_rho
             self.area = self.jets.area
 
-        if self.is_mc:
-            self.corr_jec = self.apply_jec_mc()
-        else:
-            self.corr_jec = self.apply_jec_data()
+        if redoJEC:
+            if self.is_mc:
+                self.corr_jec = self.apply_jec_mc()
+            else:
+                self.corr_jec = self.apply_jec_data()
 
-        self.corr_jec = self.NUMPY_LIB.array(self.corr_jec)
-        if era == '2016' :
-            self.pt_jec = self.jets.pt 
+            self.corr_jec = self.NUMPY_LIB.array(self.corr_jec)
+            if era == '2016' :
+                self.pt_jec = self.jets.pt 
+            else:
+                self.pt_jec = self.NUMPY_LIB.array(self.raw_pt) * self.corr_jec
+                self.jets.pt = self.pt_jec
         else:
-            self.pt_jec = self.NUMPY_LIB.array(self.raw_pt) * self.corr_jec 
-        
+            self.pt_jec = self.jets.pt 
+            
         if self.is_mc:
             self.msk_no_genjet = (self.jets.genpt==0)
             self.jer_nominal, self.jer_up, self.jer_down = self.apply_jer()
