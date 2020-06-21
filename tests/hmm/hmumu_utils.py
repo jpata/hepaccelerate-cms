@@ -28,8 +28,8 @@ ha = None
 NUMPY_LIB = None
 
 #Use this to turn on debugging
-#debug = False
-debug = True
+debug = False
+#debug = True
 #event IDs for which to print out detailed information
 debug_event_ids = [ 26431780] # 1232270406]#210924656 ]
 #Run additional checks on the analyzed data to ensure consistency - for debugging
@@ -3304,6 +3304,7 @@ def get_genJetpt_cpu(reco_offsets, reco_pt, reco_genPartIdx, genparts_offsets, g
 def get_leadtwo_jet_ind(reco_offsets, reco_pt, out_jet_ind0, out_jet_ind1):
     #loop over events
     for iev in numba.prange(len(reco_offsets) - 1):
+        print("iev:",iev)
         #loop over physics object
         pt0 = 0.0
         pt1 = 0.0
@@ -3312,15 +3313,13 @@ def get_leadtwo_jet_ind(reco_offsets, reco_pt, out_jet_ind0, out_jet_ind1):
         for iobj in range(reco_offsets[iev], reco_offsets[iev + 1]):
             if pt0 < reco_pt[iobj]:
                 pt0 = reco_pt[iobj]
-                tmp = ind0
                 ind0 = iobj - reco_offsets[iev]
-                if ind0 == ind1:
-                    ind1 = tmp
-            elif pt1 < reco_pt[iobj]:
-                    pt1 = reco_pt[iobj]
-                    ind1 = iobj - reco_offsets[iev]
-            out_jet_ind0[iev] = ind0 
-            out_jet_ind1[iev] = ind1
+        for iobj in range(reco_offsets[iev], reco_offsets[iev + 1]):
+            if (pt1 < reco_pt[iobj]) and pt0 > reco_pt[iobj]:
+                pt1 = reco_pt[iobj]
+                ind1 = iobj - reco_offsets[iev]
+        out_jet_ind0[iev] = ind0 
+        out_jet_ind1[iev] = ind1
 
 def multiply_all(weight_list):
     ret = NUMPY_LIB.copy(weight_list[0])
