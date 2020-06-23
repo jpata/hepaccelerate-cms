@@ -28,10 +28,10 @@ ha = None
 NUMPY_LIB = None
 
 #Use this to turn on debugging
-debug = False
-#debug = True
+#debug = False
+debug = True
 #event IDs for which to print out detailed information
-debug_event_ids = [735225363]
+debug_event_ids = [1692352084] #735225363]
 #Run additional checks on the analyzed data to ensure consistency - for debugging
 doverify = False
 
@@ -207,11 +207,28 @@ def analyze_data(
     if debug:
         print("muon selection eff", ret_mu["selected_muons"].sum() / float(muons.numobjects()))
 
-    jet_newJEC = JetTransformer(
+    if debug:
+        for evtid in debug_event_ids:
+            idx = np.where(scalars["event"] == evtid)[0][0]
+            print("jets before re-apply JEC")
+            
+            jaggedstruct_print(jets, idx,
+                               ["pt", "eta", "phi", "mass", "jetId", "puId","qgl"])
+
+    #re-apply JEC
+    JetTransformer(
         jets, scalars,
         parameters,
         analysis_corrections.jetmet_corrections[dataset_era][parameters["jec_tag"][dataset_era]],
-        NUMPY_LIB, ha, use_cuda, is_mc, dataset_era, True)
+        NUMPY_LIB, ha, use_cuda, is_mc, dataset_era, parameters["do_jec"][dataset_era])
+
+    if debug:
+        for evtid in debug_event_ids:
+            idx = np.where(scalars["event"] == evtid)[0][0]
+            print("jets after re-apply JEC")
+            
+            jaggedstruct_print(jets, idx,
+                               ["pt", "eta", "phi", "mass", "jetId", "puId","qgl"])
     
     #jet selection
     selected_jets_id = get_selected_jets_id(
@@ -435,7 +452,15 @@ def analyze_data(
         jets_passing_id, scalars,
         parameters,
         analysis_corrections.jetmet_corrections[dataset_era][parameters["jec_tag"][dataset_era]],
-        NUMPY_LIB, ha, use_cuda, is_mc, dataset_era, True)
+        NUMPY_LIB, ha, use_cuda, is_mc, dataset_era, parameters["do_jer"][dataset_era])
+
+    if debug:
+        for evtid in debug_event_ids:
+            idx = np.where(scalars["event"] == evtid)[0][0]
+            print("jets for systematic loop")
+            
+            jaggedstruct_print(jets, idx,
+                               ["pt", "eta", "phi", "mass", "jetId", "puId","qgl"])
 
     syst_to_consider = ["nominal"]
     if is_mc:
@@ -533,7 +558,7 @@ def analyze_data(
             #get the index of the leading and subleading jets
             out_jet_ind0 = NUMPY_LIB.zeros(len(jets_passing_id.offsets)-1, dtype=NUMPY_LIB.int8)
             out_jet_ind1 = NUMPY_LIB.ones(len(jets_passing_id.offsets)-1, dtype=NUMPY_LIB.int8)
-            if dataset_era != "2016":
+            if parameters["do_jec"][dataset_era]:
                 get_leadtwo_jet_ind(jets_passing_id.offsets, jets_passing_id.pt, out_jet_ind0, out_jet_ind1)
             
             if debug:
@@ -1187,7 +1212,7 @@ def run_analysis(
     job_descriptions,
     parameter_sets,
     analysis_corrections,
-    numev_per_chunk=100000):
+    numev_per_chunk=1000000):
 
     #Keep track of number of events
     nev_total = 0
@@ -1774,7 +1799,7 @@ def get_selected_jets(
 
     out_jet_index0 = NUMPY_LIB.zeros(len(jets.offsets)-1, dtype=NUMPY_LIB.int32)
     out_jet_index1 = NUMPY_LIB.ones(len(jets.offsets)-1, dtype=NUMPY_LIB.int32)
-    if dataset_era != "2016": 
+    if parameters["do_jec"][dataset_era]: 
         get_leadtwo_jet_ind(jets.offsets, jets.pt, out_jet_index0, out_jet_index1)
   
     if debug:
@@ -3183,13 +3208,9 @@ class JetTransformer:
                 self.corr_jec = self.apply_jec_mc()
             else:
                 self.corr_jec = self.apply_jec_data()
-
             self.corr_jec = self.NUMPY_LIB.array(self.corr_jec)
-            if era == '2016' :
-                self.pt_jec = self.jets.pt 
-            else:
-                self.pt_jec = self.NUMPY_LIB.array(self.raw_pt) * self.corr_jec
-                self.jets.pt = self.pt_jec
+            self.pt_jec = self.NUMPY_LIB.array(self.raw_pt) * self.corr_jec
+            self.jets.pt = self.pt_jec
         else:
             self.pt_jec = self.jets.pt 
             
