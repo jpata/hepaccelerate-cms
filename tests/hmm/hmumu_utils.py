@@ -31,7 +31,7 @@ NUMPY_LIB = None
 debug = False
 #debug = True
 #event IDs for which to print out detailed information
-debug_event_ids = [735225363]
+debug_event_ids = [73484483] #735225363]
 #Run additional checks on the analyzed data to ensure consistency - for debugging
 doverify = False
 
@@ -463,7 +463,7 @@ def analyze_data(
                 parameters["jet_pt_subleading"][dataset_era],
                 parameters["jet_btag_medium"][dataset_era],
                 parameters["jet_btag_loose"][dataset_era],
-                is_mc, use_cuda
+                is_mc, dataset_era, debug, use_cuda
             )
             j_attrs = ["pt", "eta", "phi"]
             temp_subleading_jet = jets_passing_id.select_nth(
@@ -504,7 +504,7 @@ def analyze_data(
                 parameters["jet_pt_subleading"][dataset_era],
                 parameters["jet_btag_medium"][dataset_era],
                 parameters["jet_btag_loose"][dataset_era],
-                is_mc, use_cuda
+                is_mc, dataset_era, debug, use_cuda
             )
             if debug:
                 print("jet analysis syst={0} sdir={1} mean_pt_change={2:.4f} num_passing_jets={3} ".format(
@@ -533,7 +533,8 @@ def analyze_data(
             #get the index of the leading and subleading jets
             out_jet_ind0 = NUMPY_LIB.zeros(len(jets_passing_id.offsets)-1, dtype=NUMPY_LIB.int8)
             out_jet_ind1 = NUMPY_LIB.ones(len(jets_passing_id.offsets)-1, dtype=NUMPY_LIB.int8)
-            get_leadtwo_jet_ind(jets_passing_id.offsets, jets_passing_id.pt, out_jet_ind0, out_jet_ind1)
+            if dataset_era != "2016":
+                get_leadtwo_jet_ind(jets_passing_id.offsets, jets_passing_id.pt, out_jet_ind0, out_jet_ind1)
             
             if debug:
                     for evtid in debug_event_ids:
@@ -1757,6 +1758,8 @@ def get_selected_jets(
     jet_btag_medium,
     jet_btag_loose,
     is_mc,
+    dataset_era,
+    debug,
     use_cuda
     ):
     """
@@ -1765,16 +1768,27 @@ def get_selected_jets(
     """
 
     selected_jets = (jets.pt > jet_pt_cut_subleading)
-   
+ 
     #produce a mask that selects the first two selected jets 
     first_two_jets = NUMPY_LIB.zeros_like(selected_jets)
-   
-    inds = NUMPY_LIB.zeros_like(mask_events, dtype=NUMPY_LIB.int32) 
+
+    out_jet_index0 = NUMPY_LIB.zeros(len(jets.offsets)-1, dtype=NUMPY_LIB.int32)
+    out_jet_index1 = NUMPY_LIB.ones(len(jets.offsets)-1, dtype=NUMPY_LIB.int32)
+    if dataset_era != "2016": 
+        get_leadtwo_jet_ind(jets.offsets, jets.pt, out_jet_index0, out_jet_index1)
+  
+    if debug:
+        for evtid in debug_event_ids:
+            idx = np.where(scalars["event"] == evtid)[0][0]
+            print("jets")
+            jaggedstruct_print(jets, idx,
+                               ["pt", "eta", "phi", "mass", "jetId", "puId"])
+            print("selected leading jet index: ",out_jet_index0[idx])
+            print("selected subleading jet index: ",out_jet_index1[idx])
+ 
     targets = NUMPY_LIB.ones_like(mask_events, dtype=NUMPY_LIB.int32) 
-    inds[:] = 0
-    ha.set_in_offsets(jets.offsets, first_two_jets, inds, targets, mask_events, selected_jets)
-    inds[:] = 1
-    ha.set_in_offsets(jets.offsets, first_two_jets, inds, targets, mask_events, selected_jets)
+    ha.set_in_offsets(jets.offsets, first_two_jets, out_jet_index0, targets, mask_events, selected_jets)
+    ha.set_in_offsets(jets.offsets, first_two_jets, out_jet_index1, targets, mask_events, selected_jets)
     jets.attrs_data["selected"] = selected_jets
     jets.attrs_data["first_two"] = first_two_jets
 
