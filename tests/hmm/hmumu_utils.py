@@ -28,10 +28,10 @@ ha = None
 NUMPY_LIB = None
 
 #Use this to turn on debugging
-#debug = False
-debug = True
+debug = False
+#debug = True
 #event IDs for which to print out detailed information
-debug_event_ids = [1692352084] #735225363]
+debug_event_ids = [735225363]
 #Run additional checks on the analyzed data to ensure consistency - for debugging
 doverify = False
 
@@ -452,14 +452,14 @@ def analyze_data(
         jets_passing_id, scalars,
         parameters,
         analysis_corrections.jetmet_corrections[dataset_era][parameters["jec_tag"][dataset_era]],
-        NUMPY_LIB, ha, use_cuda, is_mc, dataset_era, parameters["do_jer"][dataset_era])
+        NUMPY_LIB, ha, use_cuda, is_mc, dataset_era, parameters["do_jec"][dataset_era])
 
     if debug:
         for evtid in debug_event_ids:
             idx = np.where(scalars["event"] == evtid)[0][0]
-            print("jets for systematic loop")
+            print("jets_passing_id for systematic loop")
             
-            jaggedstruct_print(jets, idx,
+            jaggedstruct_print(jets_passing_id, idx,
                                ["pt", "eta", "phi", "mass", "jetId", "puId","qgl"])
 
     syst_to_consider = ["nominal"]
@@ -488,7 +488,7 @@ def analyze_data(
                 parameters["jet_pt_subleading"][dataset_era],
                 parameters["jet_btag_medium"][dataset_era],
                 parameters["jet_btag_loose"][dataset_era],
-                is_mc, dataset_era, debug, use_cuda
+                is_mc, parameters["do_jec"][dataset_era], debug, use_cuda
             )
             j_attrs = ["pt", "eta", "phi"]
             temp_subleading_jet = jets_passing_id.select_nth(
@@ -529,7 +529,7 @@ def analyze_data(
                 parameters["jet_pt_subleading"][dataset_era],
                 parameters["jet_btag_medium"][dataset_era],
                 parameters["jet_btag_loose"][dataset_era],
-                is_mc, dataset_era, debug, use_cuda
+                is_mc, parameters["do_jec"][dataset_era], debug, use_cuda
             )
             if debug:
                 print("jet analysis syst={0} sdir={1} mean_pt_change={2:.4f} num_passing_jets={3} ".format(
@@ -1212,7 +1212,7 @@ def run_analysis(
     job_descriptions,
     parameter_sets,
     analysis_corrections,
-    numev_per_chunk=1000000):
+    numev_per_chunk=100000):
 
     #Keep track of number of events
     nev_total = 0
@@ -1783,7 +1783,7 @@ def get_selected_jets(
     jet_btag_medium,
     jet_btag_loose,
     is_mc,
-    dataset_era,
+    redo_jec,
     debug,
     use_cuda
     ):
@@ -1799,7 +1799,7 @@ def get_selected_jets(
 
     out_jet_index0 = NUMPY_LIB.zeros(len(jets.offsets)-1, dtype=NUMPY_LIB.int32)
     out_jet_index1 = NUMPY_LIB.ones(len(jets.offsets)-1, dtype=NUMPY_LIB.int32)
-    if parameters["do_jec"][dataset_era]: 
+    if redo_jec: 
         get_leadtwo_jet_ind(jets.offsets, jets.pt, out_jet_index0, out_jet_index1)
   
     if debug:
