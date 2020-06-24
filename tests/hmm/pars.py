@@ -742,8 +742,8 @@ analysis_parameters = {
         "do_rochester_corrections": True, 
         "do_lepton_sf": True,
         "do_geofit": True,
-        
-        "do_jec": True,
+        #re-apply JEC (True) or use jet pT directly from nanoAOD (False) 
+        "do_jec": {"2016": False, "2017": True, "2018": True},
         "do_jer": {"2016": True, "2017": True, "2018": True},
         "jer_pt_eta_bins" : {
             "jerB1": {"eta" : [0,1.93], "pt" : [0.0,10000.0]},
@@ -795,7 +795,7 @@ analysis_parameters = {
         "extra_electrons_iso": 0.4, #Check if we want to apply this
         "extra_electrons_id": "mvaFall17V2Iso_WP90",
 
-        "save_dnn_vars": False,
+        "save_dnn_vars": True,
         "dnn_vars_path": "out/dnn_vars",
         #If true, apply mjj > cut, otherwise inverse
         "vbf_filter_mjj_cut": 350,
@@ -880,7 +880,7 @@ analysis_parameters = {
 
         "do_bdt_ucsd": False,
         "do_dnn_pisa": True,
-        "do_dnn_cit": True,
+        "do_dnn_cit": False,
     }, #end of baseline
 }
 
