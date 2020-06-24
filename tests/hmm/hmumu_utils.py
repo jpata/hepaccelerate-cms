@@ -207,8 +207,31 @@ def analyze_data(
     if debug:
         print("muon selection eff", ret_mu["selected_muons"].sum() / float(muons.numobjects()))
 
+    if debug:
+        for evtid in debug_event_ids:
+            idx = np.where(scalars["event"] == evtid)[0][0]
+            print("jets before re-apply JEC")
+            
+            jaggedstruct_print(jets, idx,
+                               ["pt", "eta", "phi", "mass", "jetId", "puId","qgl"])
+
+    #re-apply JEC
+    JetTransformer(
+        jets, scalars,
+        parameters,
+        analysis_corrections.jetmet_corrections[dataset_era][parameters["jec_tag"][dataset_era]],
+        NUMPY_LIB, ha, use_cuda, is_mc, dataset_era, parameters["do_jec"][dataset_era])
+
+    if debug:
+        for evtid in debug_event_ids:
+            idx = np.where(scalars["event"] == evtid)[0][0]
+            print("jets after re-apply JEC")
+            
+            jaggedstruct_print(jets, idx,
+                               ["pt", "eta", "phi", "mass", "jetId", "puId","qgl"])
+    
     #jet selection
-    selected_jets_id, VBFjets_wopuid = get_selected_jets_id(
+    selected_jets_id = get_selected_jets_id(
         scalars,
         jets, muons,
         parameters["jet_eta"],
@@ -224,18 +247,6 @@ def analyze_data(
 
     #Now we throw away all the jets that didn't pass the ID to save time on computing JECs on them
     jets_passing_id = jets.select_objects(selected_jets_id)
-    #Jets passing all other seletion except the jet puId
-    #jets_wopuid = jets.select_objects(VBFjets_wopuid)
-
-    #temp_ret_jet = get_selected_jets(
-    #            scalars,
-    #            jets_passing_id,
-    #            ret_mu['selected_events'],
-    #            parameters["jet_pt_subleading"][dataset_era],
-    #            parameters["jet_btag_medium"][dataset_era],
-    #            parameters["jet_btag_loose"][dataset_era],
-    #            is_mc, use_cuda
-    #        )
     
     #Just a check to verify that there are exactly 2 muons per event
     if doverify:
@@ -436,12 +447,20 @@ def analyze_data(
     if debug:
         print("event selection eff based on 2 muons", ret_mu["selected_events"].sum() / float(len(mask_events)))
         print("Doing nominal jec on {0} jets".format(jets_passing_id.numobjects()))
-        
+
     jet_systematics = JetTransformer(
         jets_passing_id, scalars,
         parameters,
         analysis_corrections.jetmet_corrections[dataset_era][parameters["jec_tag"][dataset_era]],
-        NUMPY_LIB, ha, use_cuda, is_mc, dataset_era)
+        NUMPY_LIB, ha, use_cuda, is_mc, dataset_era, parameters["do_jec"][dataset_era])
+
+    if debug:
+        for evtid in debug_event_ids:
+            idx = np.where(scalars["event"] == evtid)[0][0]
+            print("jets_passing_id for systematic loop")
+            
+            jaggedstruct_print(jets_passing_id, idx,
+                               ["pt", "eta", "phi", "mass", "jetId", "puId","qgl"])
 
     syst_to_consider = ["nominal"]
     if is_mc:
@@ -469,7 +488,7 @@ def analyze_data(
                 parameters["jet_pt_subleading"][dataset_era],
                 parameters["jet_btag_medium"][dataset_era],
                 parameters["jet_btag_loose"][dataset_era],
-                is_mc, use_cuda
+                is_mc, parameters["do_jec"][dataset_era], debug, use_cuda
             )
             j_attrs = ["pt", "eta", "phi"]
             temp_subleading_jet = jets_passing_id.select_nth(
@@ -510,7 +529,7 @@ def analyze_data(
                 parameters["jet_pt_subleading"][dataset_era],
                 parameters["jet_btag_medium"][dataset_era],
                 parameters["jet_btag_loose"][dataset_era],
-                is_mc, use_cuda
+                is_mc, parameters["do_jec"][dataset_era], debug, use_cuda
             )
             if debug:
                 print("jet analysis syst={0} sdir={1} mean_pt_change={2:.4f} num_passing_jets={3} ".format(
@@ -536,11 +555,23 @@ def analyze_data(
             jet_attrs += ["phi", "mass","jetId","puId","btagDeepB"]
             if is_mc:
                 jet_attrs += ["hadronFlavour", "genJetIdx"]
+            #get the index of the leading and subleading jets
+            out_jet_ind0 = NUMPY_LIB.zeros(len(jets_passing_id.offsets)-1, dtype=NUMPY_LIB.int8)
+            out_jet_ind1 = NUMPY_LIB.ones(len(jets_passing_id.offsets)-1, dtype=NUMPY_LIB.int8)
+            if parameters["do_jec"][dataset_era]:
+                get_leadtwo_jet_ind(jets_passing_id.offsets, jets_passing_id.pt, out_jet_ind0, out_jet_ind1)
+            
+            if debug:
+                    for evtid in debug_event_ids:
+                        idx = np.where(scalars["event"] == evtid)[0][0]
+                        print("leading jet index: ",out_jet_ind0[idx])
+                        print("subleading jet index: ",out_jet_ind1[idx])
+
             leading_jet = jets_passing_id.select_nth(
-                0, ret_mu['selected_events'], ret_jet["selected_jets"],
+                out_jet_ind0, ret_mu['selected_events'], ret_jet["selected_jets"],
                 attributes=jet_attrs)
             subleading_jet = jets_passing_id.select_nth(
-                1, ret_mu['selected_events'], ret_jet["selected_jets"],
+                out_jet_ind1, ret_mu['selected_events'], ret_jet["selected_jets"],
                 attributes=jet_attrs)
             #if do_sync and jet_syst_name[0] == "nominal":
                 #sync_printout(ret_mu, muons, scalars,
@@ -1668,6 +1699,8 @@ def nsoftjets_cudakernel(doEta, nsoft, softht, nevt, softjets_offsets, pt, eta, 
         nsjet_out[iev] = nsoft[iev] - nbadsjet
         HTsjet_out[iev] = softht[iev] - htsjet
 
+#The value is a bit representation of the fulfilled working points: tight (1), medium (2), and loose (4).
+#As tight is also medium and medium is also loose, there are only 4 different settings: 0 (no WP, 0b000), 4 (loose, 0b100), 6 (medium, 0b110), and 7 (tight, 0b111).
 def jet_puid_cut(
     jets,
     jet_puid):
@@ -1704,11 +1737,8 @@ def get_selected_jets_id(
     elif jet_id[dataset_era] == "loose": 
         pass_jetid = jets.jetId >= 1
 
-    #The value is a bit representation of the fulfilled working points: tight (1), medium (2), and loose (4).
-    #As tight is also medium and medium is also loose, there are only 4 different settings: 0 (no WP, 0b000), 4 (loose, 0b100), 6 (medium, 0b110), and 7 (tight, 0b111).
-    
     pass_jet_puid = jet_puid_cut(jets, jet_puid)
-
+    
     abs_eta = NUMPY_LIB.abs(jets.eta)
     jet_eta_pass_veto = NUMPY_LIB.ones(jets.numobjects(), dtype=NUMPY_LIB.bool)
     if dataset_era == "2017":
@@ -1719,13 +1749,11 @@ def get_selected_jets_id(
 
     pass_qgl = jets.qgl > -2 
 
-    selected_jets_wopuid = (
+    selected_jets = (
         (abs_eta < jet_eta_cut) &
             pass_jetid & pass_qgl
-    ) & jet_eta_pass_veto
-    
-    selected_jets = selected_jets_wopuid & pass_jet_puid
-    
+    ) & jet_eta_pass_veto & pass_jet_puid
+        
     jets_pass_dr = ha.mask_deltar_first(
         {"eta": jets.eta, "phi": jets.phi, "offsets": jets.offsets},
         selected_jets,
@@ -1736,7 +1764,6 @@ def get_selected_jets_id(
     
     selected_jets = selected_jets & jets_pass_dr
    
-    selected_jets_wopuid = selected_jets_wopuid & jets_pass_dr 
     '''
     if debug:
         for evtid in debug_event_ids:
@@ -1746,7 +1773,7 @@ def get_selected_jets_id(
             jaggedstruct_print(jets, idx,
                                ["pt", "eta", "phi", "mass", "jetId", "puId","qgl"])
     '''
-    return selected_jets, selected_jets_wopuid
+    return selected_jets
 
 def get_selected_jets(
     scalars,
@@ -1756,6 +1783,8 @@ def get_selected_jets(
     jet_btag_medium,
     jet_btag_loose,
     is_mc,
+    redo_jec,
+    debug,
     use_cuda
     ):
     """
@@ -1764,16 +1793,27 @@ def get_selected_jets(
     """
 
     selected_jets = (jets.pt > jet_pt_cut_subleading)
-   
+ 
     #produce a mask that selects the first two selected jets 
     first_two_jets = NUMPY_LIB.zeros_like(selected_jets)
-   
-    inds = NUMPY_LIB.zeros_like(mask_events, dtype=NUMPY_LIB.int32) 
+
+    out_jet_index0 = NUMPY_LIB.zeros(len(jets.offsets)-1, dtype=NUMPY_LIB.int32)
+    out_jet_index1 = NUMPY_LIB.ones(len(jets.offsets)-1, dtype=NUMPY_LIB.int32)
+    if redo_jec: 
+        get_leadtwo_jet_ind(jets.offsets, jets.pt, out_jet_index0, out_jet_index1)
+  
+    if debug:
+        for evtid in debug_event_ids:
+            idx = np.where(scalars["event"] == evtid)[0][0]
+            print("jets")
+            jaggedstruct_print(jets, idx,
+                               ["pt", "eta", "phi", "mass", "jetId", "puId"])
+            print("selected leading jet index: ",out_jet_index0[idx])
+            print("selected subleading jet index: ",out_jet_index1[idx])
+ 
     targets = NUMPY_LIB.ones_like(mask_events, dtype=NUMPY_LIB.int32) 
-    inds[:] = 0
-    ha.set_in_offsets(jets.offsets, first_two_jets, inds, targets, mask_events, selected_jets)
-    inds[:] = 1
-    ha.set_in_offsets(jets.offsets, first_two_jets, inds, targets, mask_events, selected_jets)
+    ha.set_in_offsets(jets.offsets, first_two_jets, out_jet_index0, targets, mask_events, selected_jets)
+    ha.set_in_offsets(jets.offsets, first_two_jets, out_jet_index1, targets, mask_events, selected_jets)
     jets.attrs_data["selected"] = selected_jets
     jets.attrs_data["first_two"] = first_two_jets
 
@@ -3132,7 +3172,7 @@ def get_jer_smearfactors(pt_or_m, ratio_jet_genjet, msk_no_genjet, resos, resosf
 
 
 class JetTransformer:
-    def __init__(self, jets, scalars, parameters, jetmet_corrections, NUMPY_LIB, ha, use_cuda, is_mc, era):
+    def __init__(self, jets, scalars, parameters, jetmet_corrections, NUMPY_LIB, ha, use_cuda, is_mc, era, redoJEC):
         self.jets = jets
         self.scalars = scalars
         self.jetmet_corrections = jetmet_corrections
@@ -3163,17 +3203,17 @@ class JetTransformer:
             self.rho = self.jets_rho
             self.area = self.jets.area
 
-        if self.is_mc:
-            self.corr_jec = self.apply_jec_mc()
+        if redoJEC:
+            if self.is_mc:
+                self.corr_jec = self.apply_jec_mc()
+            else:
+                self.corr_jec = self.apply_jec_data()
+            self.corr_jec = self.NUMPY_LIB.array(self.corr_jec)
+            self.pt_jec = self.NUMPY_LIB.array(self.raw_pt) * self.corr_jec
+            self.jets.pt = self.pt_jec
         else:
-            self.corr_jec = self.apply_jec_data()
-
-        self.corr_jec = self.NUMPY_LIB.array(self.corr_jec)
-        if era == '2016' :
             self.pt_jec = self.jets.pt 
-        else:
-            self.pt_jec = self.NUMPY_LIB.array(self.raw_pt) * self.corr_jec 
-        
+            
         if self.is_mc:
             self.msk_no_genjet = (self.jets.genpt==0)
             self.jer_nominal, self.jer_up, self.jer_down = self.apply_jer()
@@ -3297,6 +3337,26 @@ def get_genJetpt_cpu(reco_offsets, reco_pt, reco_genPartIdx, genparts_offsets, g
                 out_reco_genpt[imu] = genpt
             else :
                 out_reco_genpt[imu] = reco_pt[imu]
+
+@numba.njit(parallel=True, fastmath=True)
+def get_leadtwo_jet_ind(reco_offsets, reco_pt, out_jet_ind0, out_jet_ind1):
+    #loop over events
+    for iev in numba.prange(len(reco_offsets) - 1):
+        #loop over physics object
+        pt0 = 0.0
+        pt1 = 0.0
+        ind0 = 0
+        ind1 = 1
+        for iobj in range(reco_offsets[iev], reco_offsets[iev + 1]):
+            if pt0 < reco_pt[iobj]:
+                pt0 = reco_pt[iobj]
+                ind0 = iobj - reco_offsets[iev]
+        for iobj in range(reco_offsets[iev], reco_offsets[iev + 1]):
+            if (pt1 < reco_pt[iobj]) and pt0 > reco_pt[iobj]:
+                pt1 = reco_pt[iobj]
+                ind1 = iobj - reco_offsets[iev]
+        out_jet_ind0[iev] = ind0 
+        out_jet_ind1[iev] = ind1
 
 def multiply_all(weight_list):
     ret = NUMPY_LIB.copy(weight_list[0])

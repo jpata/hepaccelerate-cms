@@ -742,8 +742,8 @@ analysis_parameters = {
         "do_rochester_corrections": True, 
         "do_lepton_sf": True,
         "do_geofit": True,
-        
-        "do_jec": True,
+        #re-apply JEC (True) or use jet pT directly from nanoAOD (False) 
+        "do_jec": {"2016": False, "2017": True, "2018": True},
         "do_jer": {"2016": True, "2017": True, "2018": True},
         "jer_pt_eta_bins" : {
             "jerB1": {"eta" : [0,1.93], "pt" : [0.0,10000.0]},

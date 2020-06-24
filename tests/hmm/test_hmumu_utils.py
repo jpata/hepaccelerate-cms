@@ -82,7 +82,7 @@ class TestAnalysisSmall(unittest.TestCase):
         self.analysis_parameters["baseline"]["do_bdt_ucsd"] = False
         self.analysis_parameters["baseline"]["do_bdt_pisa"] = False
         self.analysis_parameters["baseline"]["do_factorized_jec"] = False
-        self.analysis_parameters["baseline"]["do_jec"] = True
+        self.analysis_parameters["baseline"]["do_jec"] = {"2016:": False}
         self.analysis_parameters["baseline"]["do_jer"] = {"2016": True}
         
         from argparse import Namespace
