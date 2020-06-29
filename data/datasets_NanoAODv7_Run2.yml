@@ -189,8 +189,8 @@ datasets:
   name: ewk_lljj_mll50_mjj120_ptJ_herwig
   skim_cut: "(HLT_IsoMu27) && nMuon>=2 && nJet>=2"
 - era: "2017"
-  files_merged: /store/mc/RunIIFall17NanoAODv7/EWK_LLJJ_MLL_105-160_pTJ-0_SM_5f_LO_TuneCH3_13TeV-madgraph-herwig7/merged_*.root
-  files_nano_in: /store/mc/RunIIFall17NanoAODv7/EWK_LLJJ_MLL_105-160_pTJ-0_SM_5f_LO_TuneCH3_13TeV-madgraph-herwig7/NANOAODSIM/*/*/*.root
+  files_merged: /store/mc/Feb132020PisaNanoAOD/2017/EWK_LLJJ_MLL_105-160_SM_5f_LO_TuneCH3_13TeV-madgraph-herwig7_corrected/merged_*.root
+  files_nano_in: /store/mc/Feb132020PisaNanoAOD/EWZ_April/EWK_LLJJ_MLL_105-160_SM_5f_LO_TuneCH3_13TeV-madgraph-herwig7_corrected/RunIISummer16MiniAODv3_FSRmyNanoProdMc2017_NANOV8g_017_realistic_v14-v1/*/*/*.root
   is_mc: true
   name: ewk_lljj_mll105_160_ptJ_herwig
   skim_cut: "(HLT_IsoMu27) && nMuon>=2 && nJet>=2"
@@ -267,7 +267,7 @@ datasets:
   name: wz_3lnu
   skim_cut: "(HLT_IsoMu27) && nMuon>=2 && nJet>=2"
 - era: "2017"
-  files_merged: /store/mc/RunIIFall17NanoAOD7/WZTo2L2Q_13TeV_amcatnloFXFX_madspin_pythia8/merged_*.root
+  files_merged: /store/mc/RunIIFall17NanoAODv7/WZTo2L2Q_13TeV_amcatnloFXFX_madspin_pythia8/merged_*.root
   files_nano_in: /store/mc/RunIIFall17NanoAODv7/WZTo2L2Q_13TeV_amcatnloFXFX_madspin_pythia8/NANOAODSIM/*/*/*.root
   is_mc: true
   name: wz_2l2q
@@ -585,8 +585,8 @@ datasets:
   name: ewk_lljj_mll105_160_dipole_pythia
   skim_cut: "(HLT_IsoMu24 || HLT_IsoTkMu24) && nMuon>=2"
 - era: "2016"
-  files_merged: /store/mc/Feb132020PisaNanoAOD/2016/EWK_LLJJ_MLL_105-160_ptJ-0_SM_5f_LO_TuneEEC5_13TeV-madgraph-herwigpp/merged_*.root
-  files_nano_in: /store/mc/Feb132020PisaNanoAOD/EWZ_AndreaMarini_V8d/EWK_LLJJ_MLL_105-160_ptJ-0_SM_5f_LO_TuneEEC5_13TeV-madgraph-herwigpp/RunIISummer16MiniAODv3_FSRNANO2016MCV8d_bcad356ea4ed7e4f08b4/*/*/*.root
+  files_merged: /store/mc/Feb132020PisaNanoAOD/2016/EWK_LLJJ_MLL_105-160_SM_5f_LO_TuneEEC5_13TeV-madgraph-herwigpp_corrected/merged_*.root
+  files_nano_in: /store/mc/Feb132020PisaNanoAOD/EWZ_April/EWK_LLJJ_MLL_105-160_SM_5f_LO_TuneEEC5_13TeV-madgraph-herwigpp_corrected/RunIISummer16MiniAODv3_FSRNANO2016MCV8g_un2_asymptotic_v3-v1/*/*/*.root
   is_mc: true
   name: ewk_lljj_mll105_160_ptJ_herwig
   skim_cut: "(HLT_IsoMu24 || HLT_IsoTkMu24) && nMuon>=2"
@@ -915,8 +915,8 @@ datasets:
   name: ewk_lljj_mll50_mjj120_pythia
   skim_cut: "HLT_IsoMu24 && nMuon>=2"
 - era: "2018"
-  files_merged: /store/mc/Feb132020PisaNanoAOD/2018/EWK_LLJJ_MLL_105-160_ptJ-0_SM_5f_LO_TuneEEC5_13TeV-madgraph-h7/merged_*.root
-  files_nano_in: /store/mc/Feb132020PisaNanoAOD/EWZ_AndreaMarini_V8d/EWK_LLJJ_MLL_105-160_ptJ-0_SM_5f_LO_TuneEEC5_13TeV-madgraph-h7/RunIISummer16MiniAODv3_FSRmyNanoProdMc2018*/*/*/*.root
+  files_merged: /store/mc/Feb132020PisaNanoAOD/2018/EWK_LLJJ_MLL_105-160_SM_5f_LO_TuneCH3_13TeV-madgraph-herwig7_corrected/merged_*.root
+  files_nano_in: /store/mc/Feb132020PisaNanoAOD/EWZ_April/EWK_LLJJ_MLL_105-160_SM_5f_LO_TuneCH3_13TeV-madgraph-herwig7_corrected/RunIISummer16MiniAODv3_FSRnano18MC_NANOV10b_018_realistic_v15-v1/*/*/*.root
   is_mc: true
   name: ewk_lljj_mll105_160_ptJ_herwig
   skim_cut: "HLT_IsoMu24 && nMuon>=2"
