@@ -31,7 +31,7 @@ NUMPY_LIB = None
 debug = False
 #debug = True
 #event IDs for which to print out detailed information
-debug_event_ids = [895581031]
+debug_event_ids = [1464046016]
 #Run additional checks on the analyzed data to ensure consistency - for debugging
 doverify = False
 
@@ -173,7 +173,6 @@ def analyze_data(
 
     #Get the mask of events that pass trigger selection
     mask_events = select_events_trigger(scalars, parameters, mask_events, parameters["hlt_bits"][dataset_era])
-    
     if not (mask_vbf_filter is None):
         mask_events = mask_events & mask_vbf_filter
 
@@ -620,7 +619,7 @@ def analyze_data(
                 muons.numevents(), softjets, leading_muon, subleading_muon,
                 leading_jet, subleading_jet, parameters["softjet_pt2"],
                 parameters["softjet_evt_dr2"], use_cuda)
-
+            
             #compute DNN input variables in 2 muon, >=2jet region
             dnn_presel = (
                 (ret_mu['selected_events']) & (ret_jet["num_jets"] >= 2) &
@@ -1599,7 +1598,7 @@ def correct_muon_with_fsr(
                 out_pt = np.sqrt(px_total**2 + py_total**2)
                 out_eta = np.arcsinh(pz_total / out_pt)
                 out_phi = np.arctan2(py_total, px_total)
-
+                out_m = np.sqrt(e_total**2 - px_total**2 - py_total**2 - pz_total**2)
                 
                 update_iso = dr<0.4
 
@@ -1611,6 +1610,7 @@ def correct_muon_with_fsr(
                 muons_eta[imu] = out_eta
                 muons_phi[imu] = out_phi
                 is_not_fsr[imu] = 0
+                muons_mass[imu] = out_m
 
 def get_bit_values(array, bit_index):
     """
