@@ -31,7 +31,7 @@ NUMPY_LIB = None
 debug = False
 #debug = True
 #event IDs for which to print out detailed information
-debug_event_ids = [1464046016]
+debug_event_ids = [120568288]
 #Run additional checks on the analyzed data to ensure consistency - for debugging
 doverify = False
 
@@ -214,39 +214,6 @@ def analyze_data(
             jaggedstruct_print(jets, idx,
                                ["pt", "eta", "phi", "mass", "jetId", "puId","qgl"])
 
-    #re-apply JEC
-    JetTransformer(
-        jets, scalars,
-        parameters,
-        analysis_corrections.jetmet_corrections[dataset_era][parameters["jec_tag"][dataset_era]],
-        NUMPY_LIB, ha, use_cuda, is_mc, dataset_era, parameters["do_jec"][dataset_era])
-
-    if debug:
-        for evtid in debug_event_ids:
-            idx = np.where(scalars["event"] == evtid)[0][0]
-            print("jets after re-apply JEC")
-            
-            jaggedstruct_print(jets, idx,
-                               ["pt", "eta", "phi", "mass", "jetId", "puId","qgl"])
-    
-    #jet selection
-    selected_jets_id = get_selected_jets_id(
-        scalars,
-        jets, muons,
-        parameters["jet_eta"],
-        parameters["jet_mu_dr"],
-        parameters["jet_id"],
-        parameters["jet_puid"],
-        parameters["jet_veto_eta"][0],
-        parameters["jet_veto_eta"][1],
-        parameters["jet_veto_raw_pt"],
-        dataset_era)
-    if debug:
-        print("jet selection eff based on id", selected_jets_id.sum() / float(len(selected_jets_id)))
-
-    #Now we throw away all the jets that didn't pass the ID to save time on computing JECs on them
-    jets_passing_id = jets.select_objects(selected_jets_id)
-    
     #Just a check to verify that there are exactly 2 muons per event
     if doverify:
         z = ha.sum_in_offsets(
@@ -289,6 +256,42 @@ def analyze_data(
     if doverify:
         assert(NUMPY_LIB.all(leading_muon["pt"][leading_muon["pt"]>0] > parameters["muon_pt_leading"][dataset_era]))
         assert(NUMPY_LIB.all(subleading_muon["pt"][subleading_muon["pt"]>0] > parameters["muon_pt"]))
+
+
+    
+    #re-apply JEC
+    JetTransformer(
+        jets, scalars,
+        parameters,
+        analysis_corrections.jetmet_corrections[dataset_era][parameters["jec_tag"][dataset_era]],
+        NUMPY_LIB, ha, use_cuda, is_mc, dataset_era, parameters["do_jec"][dataset_era])
+
+    if debug:
+        for evtid in debug_event_ids:
+            idx = np.where(scalars["event"] == evtid)[0][0]
+            print("jets after re-apply JEC")
+            
+            jaggedstruct_print(jets, idx,
+                               ["pt", "eta", "phi", "mass", "jetId", "puId","qgl"])
+    
+    #jet selection
+    selected_jets_id = get_selected_jets_id(
+        scalars,
+        jets, leading_muon, subleading_muon,
+        parameters["jet_eta"],
+        parameters["jet_mu_dr"],
+        parameters["jet_id"],
+        parameters["jet_puid"],
+        parameters["jet_veto_eta"][0],
+        parameters["jet_veto_eta"][1],
+        parameters["jet_veto_raw_pt"],
+        dataset_era)
+    if debug:
+        print("jet selection eff based on id", selected_jets_id.sum() / float(len(selected_jets_id)))
+
+    #Now we throw away all the jets that didn't pass the ID to save time on computing JECs on them
+    jets_passing_id = jets.select_objects(selected_jets_id)
+    
 
     #Compute lepton scale factors
     if parameters["do_lepton_sf"] and is_mc:
@@ -627,8 +630,6 @@ def analyze_data(
                 (leading_jet["pt"] > parameters["jet_pt_leading"][dataset_era])
             )
             if is_mc and 'dy_m105_160' in dataset_name:
-                leading_jet_offset = NUMPY_LIB.arange(0,len(leading_jet["pt"])+1)
-                
                 leading_jets_matched_to_genJet = leading_jet["genJetIdx"]>=0
                 subleading_jets_matched_to_genJet = subleading_jet["genJetIdx"]>=0
                 
@@ -1216,7 +1217,7 @@ def run_analysis(
     job_descriptions,
     parameter_sets,
     analysis_corrections,
-    numev_per_chunk=100000):
+        numev_per_chunk=100000):
 
     #Keep track of number of events
     nev_total = 0
@@ -1725,7 +1726,8 @@ def jet_puid_cut(
 def get_selected_jets_id(
     scalars,
     jets,
-    muons,
+    leading_muon,
+    subleading_muon,
     jet_eta_cut,
     jet_dr_cut,
     jet_id,
@@ -1761,15 +1763,22 @@ def get_selected_jets_id(
         (abs_eta < jet_eta_cut) &
             pass_jetid & pass_qgl
     ) & jet_eta_pass_veto & pass_jet_puid
-        
-    jets_pass_dr = ha.mask_deltar_first(
+
+    leading_muon_offsets = NUMPY_LIB.arange(0,len(leading_muon["pt"])+1)
+    leading_muon_mask = NUMPY_LIB.ones_like(leading_muon["pt"])
+    jets_pass_dr_mu0 = ha.mask_deltar_first(
         {"eta": jets.eta, "phi": jets.phi, "offsets": jets.offsets},
         selected_jets,
-        {"eta": muons.eta, "phi": muons.phi, "offsets": muons.offsets},
-        muons.masks["iso_id_aeta"], jet_dr_cut)
+        {"eta": leading_muon["eta"], "phi": leading_muon["phi"], "offsets": leading_muon_offsets},
+        leading_muon_mask, jet_dr_cut)
+    jets_pass_dr_mu1 = ha.mask_deltar_first(
+        {"eta": jets.eta, "phi": jets.phi, "offsets": jets.offsets},
+        selected_jets,
+        {"eta": subleading_muon["eta"], "phi": subleading_muon["phi"], "offsets": leading_muon_offsets},
+        leading_muon_mask, jet_dr_cut)
 
+    jets_pass_dr = (jets_pass_dr_mu0 & jets_pass_dr_mu1)
     jets.masks["pass_dr"] = jets_pass_dr
-    
     selected_jets = selected_jets & jets_pass_dr
    
     '''
@@ -1799,7 +1808,6 @@ def get_selected_jets(
     Given jets and selected muons in events, choose jets that pass quality
     criteria and that are not dR-matched to muons.
     """
-
     selected_jets = (jets.pt > jet_pt_cut_subleading)
  
     #produce a mask that selects the first two selected jets 
