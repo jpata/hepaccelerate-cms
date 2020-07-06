@@ -212,8 +212,8 @@ def plot_variations(args):
         h_ps_pythia = res["ewk_lljj_mll105_160_dipole_pythia"]["nominal"]* weight_xs["ewk_lljj_mll105_160_dipole_pythia"]
         h_nom_up = copy.deepcopy(hnom)
         h_nom_down = copy.deepcopy(hnom)
-        h_nom_up.contents = hnom.contents - (h_ps_pythia.contents - hnom.contents)
-        h_nom_down.contents = hnom.contents + (h_ps_pythia.contents - hnom.contents)
+        h_nom_up.contents = hnom.contents + (h_ps_pythia.contents - hnom.contents)
+        h_nom_down.contents = hnom.contents - (h_ps_pythia.contents - hnom.contents)
         plot_hist_step(ax, h_nom_up.edges, h_nom_up.contents,
                 np.sqrt(h_nom_up.contents_w2),
                        kwargs_step={"label": "up "+"({0:.3E})".format(np.sum(h_nom_up.contents))},
@@ -506,8 +506,8 @@ def create_variated_histos(weight_xs, proc,
         h_nom_down = copy.deepcopy(hbase)
         hnom = hnom * weight_xs[proc]
         h_ps_pythia = h_ps_pythia * weight_xs[ps_pythia]
-        h_nom_up.contents = hnom.contents - (h_ps_pythia.contents - hnom.contents)
-        h_nom_down.contents = hnom.contents + (h_ps_pythia.contents - hnom.contents)
+        h_nom_up.contents = hnom.contents + (h_ps_pythia.contents - hnom.contents)
+        h_nom_down.contents = hnom.contents - (h_ps_pythia.contents - hnom.contents)
         hnom = hnom * (1./weight_xs[proc])
         h_nom_up = h_nom_up * (1./weight_xs[proc])
         h_nom_down = h_nom_down * (1./ weight_xs[proc])
