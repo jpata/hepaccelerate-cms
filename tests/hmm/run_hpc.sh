@@ -32,4 +32,4 @@ python3 tests/hmm/analysis_hmumu.py \
     --out ./out \
     --datapath $INPUTDATAPATH \
     --cachepath $CACHEPATH \
-    --datasets-yaml data/datasets_NanoAODv6_Run2_mixv1.yml
+    --datasets-yaml data/datasets_NanoAODv7_Run2.yml

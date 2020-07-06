@@ -46,7 +46,7 @@ PYTHONPATH=hepaccelerate:coffea:. python3 tests/hmm/analysis_hmumu.py \
     --nthreads $NTHREADS \
     --do-factorized-jec \
     --do-fsr \
-    --datasets-yaml data/datasets_NanoAODv6_Run2_mixv1.yml \
+    --datasets-yaml data/datasets_NanoAODv7_Run2.yml \
     --jobfiles-load $JOB_TMPDIR/$OUTDIR/$INFILE \
     --out $JOB_TMPDIR/$OUTDIR
 
