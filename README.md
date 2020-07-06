@@ -89,9 +89,10 @@ cd hmm
 
 #get the code, compile the C++ helper library
 git clone https://github.com/jpata/hepaccelerate-cms
+cd hepaccelerate-cms
 git submodule init
 git submodule update
-cd hepaccelerate-cms/tests/hmm
+cd tests/hmm
 make -j4
 cd ../..
 
