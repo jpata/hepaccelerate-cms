@@ -455,11 +455,28 @@ btag_unc_rename = ["CMS_btag_jes","CMS_btag_Lf","CMS_btag_Cferr1","CMS_btag_Cfer
 other_syst_rename = ["CMS_pileup_vbf", "CMS_prefiring"]
 rename_syst= jec_unc_rename + jer_unc_rename+ btag_unc_rename + other_syst_rename
 org_syst = jec_unc + jer_unc+ btag_unc + ["puWeight", "L1PreFiringWeight"]
-decorrelate_syst = ["trigger", "id", "iso", "DYLHEScaleWeight","EWZLHEScaleWeight","EWKLHEScaleWeight_norm", "LHEPdfWeight","LHEPdfWeight_norm","EWZ105160PS", "VBFHPS","DYshape_DNN","Topxsec","VVxsec"] 
+decorrelate_syst = ["trigger", "id", "iso", "DYLHEScaleWeight","EWZLHEScaleWeight","EWKLHEScaleWeight_norm", "EWZ105160PS", "VBFHPS","DYshape_DNN","Topxsec","VVxsec"] 
 
 py_samp = ["ggh_amcPS_pythia_125", "dy_m105_160_01j", "dy_m105_160_2j","top", "vv", "vh_125","tth_125"]
 herwig_samp = ["ewk_lljj_mll105_160_ptJ_herwig"]
 pydipole_samp = ["vbf_powheg_pythia_dipole_125"]
+
+LHEpdf_norm_samp = [ ("ggh_amcPS_pythia_125","ggh"),
+                ("dy_m105_160_2j","dy_2j"),
+                ("vh_125","vh"),
+                ("tth_125","tth"),
+                ("ewk_lljj_mll105_160_ptJ_herwig","ewk"),
+                ("vbf_powheg_pythia_dipole_125","vbf")]
+
+LHEpdf_samp = [ ("ggh_amcPS_pythia_125","ggh"),
+                ("dy_m105_160_2j","dy_2j"),
+                ("vh_125","vh"),
+                ("tth_125","tth"),
+                ("dy_m105_160_01j","dy_01j"),
+                ("top","top"),
+                ("vv","vv"),
+                ("ewk_lljj_mll105_160_ptJ_herwig","ewk"),
+                ("vbf_powheg_pythia_dipole_125","vbf")]
 
 common_scale_uncertainties = {
     "lumi_13TeV_2016": {
