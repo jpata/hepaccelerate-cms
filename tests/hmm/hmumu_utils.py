@@ -180,6 +180,11 @@ def analyze_data(
     #systematic name -> syst_dir -> individual weight value (not multiplied up) 
     weights_individual = {}
     weights_individual["nominal"] = {"nominal": NUMPY_LIB.ones(muons.numevents(), dtype=NUMPY_LIB.float32)}
+    
+    muons.attrs_data["nanoAOD_pt"] = muons.pt
+    muons.attrs_data["nanoAOD_eta"] = muons.eta
+    muons.attrs_data["nanoAOD_phi"] = muons.phi
+    muons.attrs_data["nanoAOD_mass"] = muons.mass
 
     #Apply Rochester corrections to leading and subleading muon momenta
     if parameters["do_rochester_corrections"]:
@@ -225,8 +230,10 @@ def analyze_data(
         assert(NUMPY_LIB.all(z[z!=0] == 2))
         
     # Create arrays with just the leading and subleading particle contents for easier management
-    mu_attrs = ["miniPFRelIso_chg", "pfRelIso03_chg", "pt", "eta", "phi", "mass", "pdgId", "nTrackerLayers", "charge", "ptErr"]
-
+    mu_attrs = ["nanoAOD_pt","nanoAOD_eta","nanoAOD_phi","nanoAOD_mass","rochfsr_pt", "pt", "eta", "phi", "mass", "pdgId", "nTrackerLayers", "charge", "ptErr"]
+    
+    muons.attrs_data["rochfsr_pt"] = muons.pt
+    
     #do geofit after the selection of jets
     if parameters["do_geofit"]:
         if debug:
@@ -598,14 +605,14 @@ def analyze_data(
             n_sel_softjet, n_sel_HTsoftjet = nsoftjets(False,
                 scalars["SoftActivityJetNjets5"], scalars["SoftActivityJetHT5"],
                 muons.numevents(), softjets, leading_muon, subleading_muon,
-                leading_jet, subleading_jet, parameters["softjet_pt5"],
+                leading_jet, subleading_jet, jets_passing_id, parameters["softjet_pt5"],
                 parameters["softjet_evt_dr2"], use_cuda)
 
             #compute Nsoft jet variable 2 by removing event footprints
             n_sel_softjet2, n_sel_HTsoftjet2 = nsoftjets(True,
                 scalars["SoftActivityJetNjets2"], scalars["SoftActivityJetHT2"],
                 muons.numevents(), softjets, leading_muon, subleading_muon,
-                leading_jet, subleading_jet, parameters["softjet_pt2"],
+                leading_jet, subleading_jet, jets_passing_id, parameters["softjet_pt2"],
                 parameters["softjet_evt_dr2"], use_cuda)
             
             #compute DNN input variables in 2 muon, >=2jet region
@@ -1604,8 +1611,8 @@ def get_bit_values(array, bit_index):
     """
     return (array & 2**(bit_index)) >> 1
 
-# Custom kernels to get the number of softJets with pT>5 GEV
-def nsoftjets(doEta, nsoft, softht, nevt,softjets, leading_muon, subleading_muon, leading_jet, subleading_jet, ptcut, dr2cut, use_cuda):
+# Custom kernels to get the number of softJets with pT>ptCut GEV, GPU part to be updated wrt CPU
+def nsoftjets(doEta, nsoft, softht, nevt,softjets, leading_muon, subleading_muon, leading_jet, subleading_jet, jets_passing_id, ptcut, dr2cut, use_cuda):
     nsjet_out = NUMPY_LIB.zeros(nevt, dtype=NUMPY_LIB.int32)
     HTsjet_out = NUMPY_LIB.zeros(nevt, dtype=NUMPY_LIB.float32)
     if use_cuda:
@@ -1618,13 +1625,13 @@ def nsoftjets(doEta, nsoft, softht, nevt,softjets, leading_muon, subleading_muon
             nsjet_out, HTsjet_out)
         cuda.synchronize() 
     else:
-        nsoftjets_cpu(doEta, nsoft, softht, nevt, softjets.offsets, softjets.pt, softjets.eta, softjets.phi, leading_jet["eta"], subleading_jet["eta"], leading_jet["phi"], subleading_jet["phi"], leading_muon["eta"], subleading_muon["eta"], leading_muon["phi"], subleading_muon["phi"], ptcut, dr2cut, nsjet_out, HTsjet_out)
+        nsoftjets_cpu(doEta, nsoft, softht, nevt, softjets.offsets, softjets.pt, softjets.eta, softjets.phi, leading_jet["eta"], subleading_jet["eta"], leading_jet["phi"], subleading_jet["phi"], leading_muon["eta"], subleading_muon["eta"], leading_muon["phi"], subleading_muon["phi"], jets_passing_id.offsets, jets_passing_id.eta, jets_passing_id.phi, ptcut, dr2cut, nsjet_out, HTsjet_out)
     return nsjet_out, HTsjet_out
 
 @numba.njit(parallel=True, fastmath=True)
-def nsoftjets_cpu(doEta, nsoft, softht, nevt, softjets_offsets, pt, eta, phi, etaj1, etaj2, phij1, phij2, etam1, etam2, phim1, phim2, ptcut, dr2cut, nsjet_out, HTsjet_out):
-    phis = [phij1, phij2, phim1, phim2]
-    etas = [etaj1, etaj2, etam1, etam2]
+def nsoftjets_cpu(doEta, nsoft, softht, nevt, softjets_offsets, pt, eta, phi, etaj1, etaj2, phij1, phij2, etam1, etam2, phim1, phim2, jets_offsets, jets_eta, jets_phi, ptcut, dr2cut, nsjet_out, HTsjet_out):
+    phis = [phim1, phim2]
+    etas = [etam1, etam2]
     #process events in parallel
     for iev in numba.prange(nevt):
         nbadsjet = 0
@@ -1642,14 +1649,39 @@ def nsoftjets_cpu(doEta, nsoft, softht, nevt, softjets_offsets, pt, eta, phi, et
                         sj_sel = False
                         break
 
+                if sj_sel:
+                    #dR2 between softjet and the leading VBF jet
+                    dphi_j1 = backend_cpu.deltaphi(phi[isoftjets], phij1[iev])
+                    deta_j1 = eta[isoftjets] - etaj1[iev]
+                    dr2j1 = dphi_j1**2 + deta_j1**2
+
+                    #dR2 between softjet and the subleading VBF jet
+                    dphi_j2 = backend_cpu.deltaphi(phi[isoftjets], phij2[iev])
+                    deta_j2 = eta[isoftjets] - etaj2[iev]
+                    dr2j2 = dphi_j2**2 + deta_j2**2
+
+                    #find the min delta R between the selected jets and the softjet
+                    mindRsoftjet = 100.
+                    for ijet in range(jets_offsets[iev], jets_offsets[iev + 1]):
+                        dphi = backend_cpu.deltaphi(phi[isoftjets], jets_phi[ijet])
+                        deta = eta[isoftjets] - jets_eta[ijet]
+                        temp = dphi**2 + deta**2
+                        if temp < mindRsoftjet:
+                            mindRsoftjet = temp
+                    if not ((mindRsoftjet < dr2j1) and (mindRsoftjet < dr2j2)):
+                        if (dr2j1 < dr2cut) or (dr2j2 < dr2cut):
+                            sj_sel = False
+
                 if not sj_sel:
                     htsjet += pt[isoftjets]
                     nbadsjet += 1
                 elif doEta:
-                    if ((((eta[isoftjets]>etaj1[iev]) or (eta[isoftjets]<etaj2[iev])) and (etaj1[iev]>etaj2[iev])) or (((eta[isoftjets]>etaj2[iev]) or (eta[isoftjets]<etaj1[iev])) and (etaj1[iev]<etaj2[iev]))):
+                    if ((eta[isoftjets]>etaj1[iev]) or (eta[isoftjets]<etaj2[iev])) and (etaj1[iev]>etaj2[iev]):
                         htsjet += pt[isoftjets]
                         nbadsjet += 1
-
+                    elif ((eta[isoftjets]>etaj2[iev]) or (eta[isoftjets]<etaj1[iev])) and (etaj1[iev]<etaj2[iev]):
+                        htsjet += pt[isoftjets]
+                        nbadsjet += 1
         nsjet_out[iev] = nsoft[iev] - nbadsjet
         HTsjet_out[iev] = softht[iev] - htsjet
 
@@ -2524,7 +2556,6 @@ is_not_fsr):
         NUMPY_LIB.asnumpy(muons.charge),
         years
     )
-    muons.pfRelIso03_chg[:] = muons.pt[:] 
     for i in numba.prange(len(is_not_fsr)):
         if is_not_fsr[i]:
             muons.pt[i] = muon_pt_corr[i]
@@ -2549,7 +2580,6 @@ def do_rochester_corrections(
         is_mc, rochester_corrections, muons)
     
     muon_pt_corr = muons.pt * qterm
-    muons.miniPFRelIso_chg[:] = muons.pt[:]
     muons.pt[:] = muon_pt_corr[:]
 
     return
@@ -2824,10 +2854,10 @@ def dnn_variables(hrelresolution, miscvariables, leading_muon, subleading_muon, 
     #mass resolution
     if not (hrelresolution is None):
         Higgs_mrelreso = NUMPY_LIB.array(hrelresolution.compute(
-            NUMPY_LIB.asnumpy(leading_muon["miniPFRelIso_chg"]),
-            NUMPY_LIB.asnumpy(leading_muon["eta"]),
-            NUMPY_LIB.asnumpy(subleading_muon["pt"]),
-            NUMPY_LIB.asnumpy(subleading_muon["eta"])))
+            NUMPY_LIB.asnumpy(leading_muon["nanoAOD_pt"]),
+            NUMPY_LIB.asnumpy(leading_muon["nanoAOD_eta"]),
+            NUMPY_LIB.asnumpy(subleading_muon["nanoAOD_pt"]),
+            NUMPY_LIB.asnumpy(subleading_muon["nanoAOD_eta"])))
     else:
         Higgs_mrelreso = NUMPY_LIB.zeros(nev, dtype=NUMPY_LIB.float32)
 
@@ -2882,32 +2912,38 @@ def dnn_variables(hrelresolution, miscvariables, leading_muon, subleading_muon, 
 
     #Collin-Soper frame variable Pisa definition
     CS_theta, CS_phi = miscvariables.csanglesPisa(
-            NUMPY_LIB.asnumpy(leading_muon["pt"]),
-            NUMPY_LIB.asnumpy(leading_muon["eta"]),
-            NUMPY_LIB.asnumpy(leading_muon["phi"]),
-            NUMPY_LIB.asnumpy(leading_muon["mass"]),
-            NUMPY_LIB.asnumpy(subleading_muon["pt"]),
-            NUMPY_LIB.asnumpy(subleading_muon["eta"]),
-            NUMPY_LIB.asnumpy(subleading_muon["phi"]),
-            NUMPY_LIB.asnumpy(subleading_muon["mass"]),
+            NUMPY_LIB.asnumpy(leading_muon["nanoAOD_pt"]),
+            NUMPY_LIB.asnumpy(leading_muon["nanoAOD_eta"]),
+            NUMPY_LIB.asnumpy(leading_muon["nanoAOD_phi"]),
+            NUMPY_LIB.asnumpy(leading_muon["nanoAOD_mass"]),
+            NUMPY_LIB.asnumpy(subleading_muon["nanoAOD_pt"]),
+            NUMPY_LIB.asnumpy(subleading_muon["nanoAOD_eta"]),
+            NUMPY_LIB.asnumpy(subleading_muon["nanoAOD_phi"]),
+            NUMPY_LIB.asnumpy(subleading_muon["nanoAOD_mass"]),
             NUMPY_LIB.asnumpy(subleading_muon["charge"]),
             )
 
     ret = {
         "leading_muon_pt": leading_muon["pt"],
-        "leading_muon_pt_nanoAOD": leading_muon["miniPFRelIso_chg"],
-        "leading_muon_pt_roch_fsr": leading_muon["pfRelIso03_chg"],
         "leading_muon_eta": leading_muon["eta"],
         "leading_muon_phi": leading_muon["phi"],
         "leading_muon_charge": leading_muon["charge"],
-        #"leading_muon_mass": leading_muon["mass"],
+        "leading_muon_mass": leading_muon["mass"],
+        "leading_muon_pt_nanoAOD": leading_muon["nanoAOD_pt"],
+        "leading_muon_eta_nanoAOD": leading_muon["nanoAOD_eta"],
+        "leading_muon_phi_nanoAOD": leading_muon["nanoAOD_phi"],
+        "leading_muon_mass_nanoAOD": leading_muon["nanoAOD_mass"],
+        "leading_muon_pt_roch_fsr": leading_muon["rochfsr_pt"],
         "subleading_muon_pt": subleading_muon["pt"],
-        "subleading_muon_pt_nanoAOD": subleading_muon["miniPFRelIso_chg"],
-        "subleading_muon_pt_roch_fsr": subleading_muon["pfRelIso03_chg"],
         "subleading_muon_eta": subleading_muon["eta"],
         "subleading_muon_phi": subleading_muon["phi"],
         "subleading_muon_charge": subleading_muon["charge"],
-        #"subleading_muon_mass": subleading_muon["mass"],
+        "subleading_muon_mass": subleading_muon["mass"],
+        "subleading_muon_pt_nanoAOD": subleading_muon["nanoAOD_pt"],
+        "subleading_muon_eta_nanoAOD": subleading_muon["nanoAOD_eta"],
+        "subleading_muon_phi_nanoAOD": subleading_muon["nanoAOD_phi"],
+        "subleading_muon_mass_nanoAOD": subleading_muon["nanoAOD_mass"],
+        "subleading_muon_pt_roch_fsr": subleading_muon["rochfsr_pt"],
         "dEtamm": mm_deta, "dPhimm": mm_dphi, "dRmm": mm_dr,
         "M_jj": jj_sph["mass"], "pt_jj": jj_sph["pt"], "eta_jj": jj_sph["eta"], "phi_jj": jj_sph["phi"],
         "M_mmjj": mmjj_sph["mass"], "eta_mmjj": mmjj_sph["eta"], "phi_mmjj": mmjj_sph["phi"],
@@ -3643,7 +3679,6 @@ def create_datastructure(dataset_name, is_mc, dataset_era, do_fsr=False):
             ("Muon_tightId", "bool"), ("Muon_charge", "int32"),
             ("Muon_isGlobal", "bool"), ("Muon_isTracker", "bool"),
             ("Muon_nTrackerLayers", "int32"), ("Muon_ptErr", "float32"),
-            ("Muon_pfRelIso03_chg", "float32"), ("Muon_miniPFRelIso_chg", "float32"),
         ],
         "Electron": [
             ("Electron_pt", "float32"), ("Electron_eta", "float32"),
