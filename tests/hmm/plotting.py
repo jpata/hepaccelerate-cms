@@ -223,27 +223,43 @@ def plot_variations(args):
                        kwargs_step={"label": "down "+"({0:.3E})".format(np.sum(h_nom_down.contents))},
             )
 
-    if((('DYLHEScaleWeight' in unc) and ('dy' in mc_samp)) or (('EWZLHEScaleWeight' in unc) and ('ewk_lljj_mll105_160_ptJ_herwig' in mc_samp) )):
+    if((('DYLHERen' in unc) and ('dy' in mc_samp)) or (('EWZLHERen' in unc) and ('ewk_lljj_mll105_160_ptJ_herwig' in mc_samp) )):
         
-        h_lhe =[]
-        h_nom_up = copy.deepcopy(hnom)
-        h_nom_down = copy.deepcopy(hnom)
-        for i in range(9):
-            sname = 'LHEScaleWeight__{0}'.format(i)
-            h_lhe.append(res[mc_samp][sname]* weight_xs[mc_samp])
-        for k in range(len(h_lhe[0].contents)):
-            for i in range(9):
-                if(h_lhe[i].contents[k]>h_nom_up.contents[k]):
-                    h_nom_up.contents[k]=h_lhe[i].contents[k]
-                if(h_lhe[i].contents[k]<h_nom_down.contents[k]):
-                    h_nom_down.contents[k]=h_lhe[i].contents[k]
-        #remove the normalization aspect from QCD scale
+        h_nom_up = res[mc_samp]['LHEScaleWeight__7']* weight_xs[mc_samp]
+        h_nom_down = res[mc_samp]['LHEScaleWeight__1']* weight_xs[mc_samp]
+        
+        if (datataking_year != '2016' and 'dy' in mc_samp):
+            h_nom_up = h_nom_up*2.0
+            h_nom_down = h_nom_down*2.0
+
         sum_nom_up=np.sum(h_nom_up.contents)
         sum_nom_down=np.sum(h_nom_down.contents)
         for k in range(len(h_nom_up.contents)):
-            h_nom_up.contents[k]=h_nom_up.contents[k]*np.sum(hnom.contents)/sum_nom_up
-            h_nom_down.contents[k]=h_nom_down.contents[k]*np.sum(hnom.contents)/sum_nom_down
+            h_nom_up.contents[k] = h_nom_up.contents[k]*np.sum(hnom.contents)/np.sum(h_nom_up.contents)
+            h_nom_down.contents[k] = h_nom_down.contents[k]*np.sum(hnom.contents)/np.sum(h_nom_down.contents)
+        plot_hist_step(ax, h_nom_up.edges, h_nom_up.contents,
+                np.sqrt(h_nom_up.contents_w2),
+                       kwargs_step={"label": "up "+"({0:.3E})".format(np.sum(h_nom_up.contents))},
+            )
+        plot_hist_step(ax, h_nom_down.edges, h_nom_down.contents,
+                np.sqrt(h_nom_down.contents_w2),
+                       kwargs_step={"label": "down "+"({0:.3E})".format(np.sum(h_nom_down.contents))},
+            )
+
+    if((('DYLHEFac' in unc) and ('dy' in mc_samp)) or (('EWZLHEFac' in unc) and ('ewk_lljj_mll105_160_ptJ_herwig' in mc_samp) )):
         
+        h_nom_up = res[mc_samp]['LHEScaleWeight__5']* weight_xs[mc_samp]
+        h_nom_down = res[mc_samp]['LHEScaleWeight__3']* weight_xs[mc_samp]
+        
+        if (datataking_year != '2016' and 'dy' in mc_samp):
+            h_nom_up = h_nom_up*2.0
+            h_nom_down = h_nom_down*2.0
+
+        sum_nom_up=np.sum(h_nom_up.contents)
+        sum_nom_down=np.sum(h_nom_down.contents)
+        for k in range(len(h_nom_up.contents)):
+            h_nom_up.contents[k] = h_nom_up.contents[k]*np.sum(hnom.contents)/np.sum(h_nom_up.contents)
+            h_nom_down.contents[k] = h_nom_down.contents[k]*np.sum(hnom.contents)/np.sum(h_nom_down.contents)
         plot_hist_step(ax, h_nom_up.edges, h_nom_up.contents,
                 np.sqrt(h_nom_up.contents_w2),
                        kwargs_step={"label": "up "+"({0:.3E})".format(np.sum(h_nom_up.contents))},
@@ -284,7 +300,7 @@ def plot_variations(args):
                 np.sqrt(h_pdf_down.contents_w2),
                        kwargs_step={"label": "down "+"({0:.3E})".format(np.sum(h_pdf_down.contents))},
             )
-    if('DYshape_DNN' in unc and 'dy' in mc_samp and 'dnnPisa_pred_atanh' in var and 'z_peak' not in var):
+    if('DYshape_DNN' in unc and 'dy' in mc_samp and '2j' in mc_samp and 'dnnPisa_pred_atanh' in var and 'z_peak' not in var):
         h_dyShape_up = copy.deepcopy(hnom)
         h_dyShape_down = copy.deepcopy(hnom)
         if 'h_peak' in var:
@@ -292,9 +308,18 @@ def plot_variations(args):
         elif 'h_sideband' in var:
             massbin = 'h_sideband'
         for r in range(len(dymodel_DNN_reshape[str(datataking_year)][massbin])):
-            h_dyShape_up.contents[r] = h_dyShape_up.contents[r]*dymodel_DNN_reshape[str(datataking_year)][massbin][r]
-            h_dyShape_down.contents[r] = 2*h_dyShape_down.contents[r] - h_dyShape_up.contents[r]
-
+            h_dyShape_up.contents[r] = 1.1*hnom.contents[r] + 0.1*(hnom.contents[r]*dymodel_DNN_reshape[str(datataking_year)][massbin][r])
+            h_dyShape_down.contents[r] = 0.9*hnom.contents[r] - 0.1*(hnom.contents[r]/(dymodel_DNN_reshape[str(datataking_year)][massbin][r])**(0.2))
+            #h_dyShape_up.contents[r] = (hnom.contents[r]*dymodel_DNN_reshape[str(datataking_year)][massbin][r])
+            #h_dyShape_down.contents[r] = (hnom.contents[r]/(dymodel_DNN_reshape[str(datataking_year)][massbin][r])**(0.2))
+        #remove the normalization aspect
+        
+        sum_dyShape_up=np.sum(h_dyShape_up.contents)
+        sum_dyShape_down=np.sum(h_dyShape_down.contents)
+        for k in range(len(h_dyShape_up.contents)):
+            if(sum_dyShape_up!=0.0) : h_dyShape_up.contents[k]=h_dyShape_up.contents[k]*np.sum(hnom.contents)/sum_dyShape_up
+            if(sum_dyShape_down!=0.0) : h_dyShape_down.contents[k]=h_dyShape_down.contents[k]*np.sum(hnom.contents)/sum_dyShape_down
+        
         plot_hist_step(ax, h_dyShape_up.edges, h_dyShape_up.contents,
                 np.sqrt(h_dyShape_up.contents_w2),
                        kwargs_step={"label": "up "+"({0:.3E})".format(np.sum(h_dyShape_up.contents))},
@@ -515,20 +540,45 @@ def create_variated_histos(weight_xs, proc,
         ret['EWZ105160PSUp']=h_nom_up
         ret['EWZ105160PSDown']=h_nom_down
 
-    if(('DYLHEScaleWeight' in variations) or ('EWZLHEScaleWeight' in variations)):
-        h_lhe =[]
-        h_nom_up = copy.deepcopy(hbase)
-        h_nom_down = copy.deepcopy(hbase)
-        for i in range(9):
-            sname = 'LHEScaleWeight__{0}'.format(i)
-            h_lhe.append(hdict[sname])
-        for k in range(len(h_lhe[0].contents)):
-            for i in range(9):
-                if(h_lhe[i].contents[k]>h_nom_up.contents[k]):
-                    h_nom_up.contents[k]=h_lhe[i].contents[k]
-                if(h_lhe[i].contents[k]<h_nom_down.contents[k]):
-                    h_nom_down.contents[k]=h_lhe[i].contents[k]
-        #remove the normalization aspect from QCD scale
+    if(('DYLHERen' in variations) or ('EWZLHERen' in variations)):
+        #LHE scale variation weights (w_var / w_nominal); [0] is renscfact=0.5d0 facscfact=0.5d0 ; [1] is renscfact=0.5d0 facscfact=1d0 ; [2] is renscfact=0.5d0 facscfact=2d0 ; [3] is renscfact=1d0 facscfact=0.5d0 ; [4] is renscfact=1d0 facscfact=1d0 ; [5] is renscfact=1d0 facscfact=2d0 ; [6] is renscfact=2d0 facscfact=0.5d0 ; [7] is renscfact=2d0 facscfact=1d0 ; [8] is renscfact=2d0 facscfact=2d0
+
+        h_nom_up = hdict['LHEScaleWeight__7']
+        h_nom_down = hdict['LHEScaleWeight__1']
+        
+        if (era != '2016' and 'dy' in proc):
+            h_nom_up = h_nom_up*2.0
+            h_nom_down = h_nom_down*2.0
+
+        sum_nom_up=np.sum(h_nom_up.contents)
+        sum_nom_down=np.sum(h_nom_down.contents)
+        for k in range(len(h_nom_up.contents)):
+            h_nom_up.contents[k]=h_nom_up.contents[k]*np.sum(hbase.contents)/sum_nom_up
+            h_nom_down.contents[k]=h_nom_down.contents[k]*np.sum(hbase.contents)/sum_nom_down
+        
+        if('dy' in proc and '160' in proc):
+            ret['DYLHERenUp']=h_nom_up
+            ret['DYLHERenDown']=h_nom_down
+        elif('ewk_lljj_mll105_160_ptJ_herwig' in proc):
+            ret['EWZLHERenUp']=h_nom_up
+            ret['EWZLHERenDown']=h_nom_down
+        elif('dy' in proc):
+            ret['DYLHERenZUp']=h_nom_up
+            ret['DYLHERenZDown']=h_nom_down
+        #elif('ewk' in proc):
+        #    ret['EWZLHEScaleWeightZUp']=h_nom_up
+        #    ret['EWZLHEScaleWeightZDown']=h_nom_down
+    
+    if(('DYLHEFac' in variations) or ('EWZLHEFac' in variations)):
+        #LHE scale variation weights (w_var / w_nominal); [0] is renscfact=0.5d0 facscfact=0.5d0 ; [1] is renscfact=0.5d0 facscfact=1d0 ; [2] is renscfact=0.5d0 facscfact=2d0 ; [3] is renscfact=1d0 facscfact=0.5d0 ; [4] is renscfact=1d0 facscfact=1d0 ; [5] is renscfact=1d0 facscfact=2d0 ; [6] is renscfact=2d0 facscfact=0.5d0 ; [7] is renscfact=2d0 facscfact=1d0 ; [8] is renscfact=2d0 facscfact=2d0
+
+        h_nom_up = hdict['LHEScaleWeight__5']
+        h_nom_down = hdict['LHEScaleWeight__3']
+        
+        if (era !='2016' and 'dy' in proc):
+            h_nom_up = h_nom_up*2.0
+            h_nom_down = h_nom_down*2.0
+
         sum_nom_up=np.sum(h_nom_up.contents)
         sum_nom_down=np.sum(h_nom_down.contents)
         for k in range(len(h_nom_up.contents)):
@@ -536,18 +586,18 @@ def create_variated_histos(weight_xs, proc,
             h_nom_down.contents[k]=h_nom_down.contents[k]*np.sum(hbase.contents)/sum_nom_down
 
         if('dy' in proc and '160' in proc):
-            ret['DYLHEScaleWeightUp']=h_nom_up
-            ret['DYLHEScaleWeightDown']=h_nom_down
+            ret['DYLHEFacUp']=h_nom_up
+            ret['DYLHEFacDown']=h_nom_down
         elif('ewk_lljj_mll105_160_ptJ_herwig' in proc):
-            ret['EWZLHEScaleWeightUp']=h_nom_up
-            ret['EWZLHEScaleWeightDown']=h_nom_down
+            ret['EWZLHEFacUp']=h_nom_up
+            ret['EWZLHEFacDown']=h_nom_down
         elif('dy' in proc):
-            ret['DYLHEScaleWeightZUp']=h_nom_up
-            ret['DYLHEScaleWeightZDown']=h_nom_down
+            ret['DYLHEFacZUp']=h_nom_up
+            ret['DYLHEFacZDown']=h_nom_down
         #elif('ewk' in proc):
         #    ret['EWZLHEScaleWeightZUp']=h_nom_up
         #    ret['EWZLHEScaleWeightZDown']=h_nom_down
-    
+
     if('LHEPdfWeight' in variations):
         h_pdf =[]
         h_pdf_up = copy.deepcopy(hbase)
@@ -581,7 +631,7 @@ def create_variated_histos(weight_xs, proc,
         ret['LHEPdfWeightUp']=h_pdf_up
         ret['LHEPdfWeightDown']=h_pdf_down
 
-    if('DYshape_DNN' in variations and 'dy' in proc and 'dnnPisa_pred_atanh' in histname and 'z_peak' not in histname):
+    if('DYshape_DNN' in variations and 'dy' in proc and '2j' in proc and 'dnnPisa_pred_atanh' in histname and 'z_peak' not in histname):
         h_dyShape_up = copy.deepcopy(hbase)
         h_dyShape_down = copy.deepcopy(hbase)
         if 'h_peak' in histname:
@@ -589,8 +639,17 @@ def create_variated_histos(weight_xs, proc,
         elif 'h_sideband' in histname:
             massbin = 'h_sideband'
         for r in range(len(dymodel_DNN_reshape[era][massbin])):
-            h_dyShape_up.contents[r] = h_dyShape_up.contents[r]*dymodel_DNN_reshape[era][massbin][r]
-            h_dyShape_down.contents[r] = 2*h_dyShape_down.contents[r] - h_dyShape_up.contents[r]
+            h_dyShape_up.contents[r] = 1.1*hbase.contents[r] + 0.1*(hbase.contents[r]*dymodel_DNN_reshape[era][massbin][r])
+            h_dyShape_down.contents[r] = 0.9*hbase.contents[r] - 0.1*(hbase.contents[r]/(dymodel_DNN_reshape[era][massbin][r])**(0.2))
+            #h_dyShape_up.contents[r] = (hbase.contents[r]*dymodel_DNN_reshape[era][massbin][r])
+            #h_dyShape_down.contents[r] = (hbase.contents[r]/(dymodel_DNN_reshape[era][massbin][r])**(0.2))
+        
+        sum_dyShape_up=np.sum(h_dyShape_up.contents)
+        sum_dyShape_down=np.sum(h_dyShape_down.contents)
+        for k in range(len(h_dyShape_up.contents)):
+            if(sum_dyShape_up!=0.0): h_dyShape_up.contents[k]=h_dyShape_up.contents[k]*np.sum(hbase.contents)/sum_dyShape_up
+            if(sum_dyShape_down!=0.0): h_dyShape_down.contents[k]=h_dyShape_down.contents[k]*np.sum(hbase.contents)/sum_dyShape_down
+        
         ret['DYshape_DNNUp']=h_dyShape_up
         ret['DYshape_DNNDown']=h_dyShape_down
 
@@ -937,7 +996,7 @@ def PrintDatacard(categories, dict_procs, era, event_counts, filenames, ofname):
 
     #print out shape uncertainties
     for syst in all_shape_uncerts:
-        if('LHEScale' in syst): continue
+        if('LHERen' in syst or 'LHEFac' in syst): continue
         dcof.write(syst + "\t shape \t")
         for cat in categories:
             for proc in cat.processes:
@@ -950,10 +1009,26 @@ def PrintDatacard(categories, dict_procs, era, event_counts, filenames, ofname):
                     dcof.write("-")
                 dcof.write("\t")
         dcof.write("\n")
+
     if 'z_peak' in  cat.full_name:
-        dcof.write("EWZLHEScaleWeightZ" + "\t shape \t")
+        dcof.write("EWZLHERenZ" + "\t shape \t")
     else:
-        dcof.write("EWZLHEScaleWeight" + "\t shape \t")
+        dcof.write("EWZLHERen" + "\t shape \t")
+    for cat in categories:
+        for proc in cat.processes:
+            if proc in remove_proc:
+                continue
+            elif ('ewk_lljj_mll105_160_ptJ_herwig' in proc):
+                dcof.write(str(1.0))
+            else:
+                dcof.write("-")
+            dcof.write("\t")
+    dcof.write("\n")
+
+    if 'z_peak' in  cat.full_name:
+        dcof.write("EWZLHEFacZ" + "\t shape \t")
+    else:
+        dcof.write("EWZLHEFac" + "\t shape \t")
     for cat in categories:
         for proc in cat.processes:
             if proc in remove_proc:
@@ -966,9 +1041,9 @@ def PrintDatacard(categories, dict_procs, era, event_counts, filenames, ofname):
     dcof.write("\n")
     
     if 'z_peak'in  cat.full_name:
-        dcof.write("DYLHEScaleWeightZ" + "\t shape \t")
+        dcof.write("DYLHERenZ" + "\t shape \t")
     else:
-        dcof.write("DYLHEScaleWeight" + "\t shape \t")
+        dcof.write("DYLHERen" + "\t shape \t")
     for cat in categories:
         for proc in cat.processes:
             if proc in remove_proc:
@@ -979,6 +1054,22 @@ def PrintDatacard(categories, dict_procs, era, event_counts, filenames, ofname):
                 dcof.write("-")
             dcof.write("\t")
     dcof.write("\n")
+
+    if 'z_peak'in  cat.full_name:
+        dcof.write("DYLHEFacZ" + "\t shape \t")
+    else:
+        dcof.write("DYLHEFac" + "\t shape \t")
+    for cat in categories:
+        for proc in cat.processes:
+            if proc in remove_proc:
+                continue
+            elif ('dy' in proc):
+                dcof.write(str(1.0))
+            else:
+                dcof.write("-")
+            dcof.write("\t")
+    dcof.write("\n")
+
     #print out scale uncertainties
     for syst in all_scale_uncerts:
         dcof.write(syst + "\t lnN \t")
@@ -1293,10 +1384,10 @@ if __name__ == "__main__":
                                 plot_args_shape_syst += [(
                                     histos, hdata, mc_samp, analysis,
                                     var, "nominal", weight_xs, int_lumi, outdir, era, unc)]
-        rets = list(pool.map(make_pdf_plot, plot_args))
+        #rets = list(pool.map(make_pdf_plot, plot_args))
         #rets = list(pool.map(make_pdf_plot, plot_args_weights_off))
         rets = list(pool.map(create_datacard_combine_wrap, datacard_args))
-        rets = list(pool.map(plot_variations, plot_args_shape_syst))
+        #rets = list(pool.map(plot_variations, plot_args_shape_syst))
 
         #for args, retval in zip(datacard_args, rets):
         #    res, hd, mc_samples, analysis, var, weight, weight_xs, int_lumi, outdir, datataking_year = args

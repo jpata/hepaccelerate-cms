@@ -443,7 +443,7 @@ VBF_STXS_unc = ["THU_VBF_Yield", "THU_VBF_Mjj60", "THU_VBF_Mjj120", "THU_VBF_Mjj
 btag_unc = ["btag_weight_jes","btag_weight_lf","btag_weight_cferr1","btag_weight_cferr2","btag_weight_hf","btag_weight_lfstats1","btag_weight_lfstats2"]
 
 #"jet_puid"
-shape_systematics = jec_unc + jer_unc + VBF_STXS_unc + btag_unc + ["trigger", "id", "iso", "qgl_weight", "puWeight", "L1PreFiringWeight","DYLHEScaleWeightZ","EWZLHEScaleWeightZ","DYLHEScaleWeight","EWZLHEScaleWeight","LHEPdfWeight","EWZ105160PS", "VBFHPS","DYshape_DNN"] 
+shape_systematics = jec_unc + jer_unc + VBF_STXS_unc + btag_unc + ["trigger", "id", "iso", "qgl_weight", "puWeight", "L1PreFiringWeight","DYLHERenZ","EWZLHERenZ","DYLHEFacZ","EWZLHEFacZ","DYLHEFac","EWZLHEFac","DYLHERen","EWZLHERen","LHEPdfWeight","EWZ105160PS", "VBFHPS","DYshape_DNN"] 
 
 jec_unc_rename = ['CMS_scale_j_absolute', 'CMS_scale_j_absolute_2018', 'CMS_scale_j_bbec1', 'CMS_scale_j_bbec1_2018', 'CMS_scale_j_ec2', 'CMS_scale_j_ec2_2018', 'CMS_scale_j_flavorQCD', 'CMS_scale_j_hf', 'CMS_scale_j_hf_2018', 'CMS_scale_j_relativeBal', 'CMS_scale_j_relativeSample_2018', 'CMS_scale_j_absolute_2017', 'CMS_scale_j_bbec1_2017', 'CMS_scale_j_ec2_2017', 'CMS_scale_j_hf_2017', 'CMS_scale_j_relativeSample_2017', 'CMS_scale_j_absolute_2016', 'CMS_scale_j_bbec1_2016', 'CMS_scale_j_ec2_2016', 'CMS_scale_j_hf_2016', 'CMS_scale_j_relativeSample_2016']
 
@@ -455,7 +455,7 @@ btag_unc_rename = ["CMS_btag_jes","CMS_btag_Lf","CMS_btag_Cferr1","CMS_btag_Cfer
 other_syst_rename = ["CMS_pileup_vbf", "CMS_prefiring"]
 rename_syst= jec_unc_rename + jer_unc_rename+ btag_unc_rename + other_syst_rename
 org_syst = jec_unc + jer_unc+ btag_unc + ["puWeight", "L1PreFiringWeight"]
-decorrelate_syst = ["trigger", "id", "iso", "DYLHEScaleWeight","EWZLHEScaleWeight","EWKLHEScaleWeight_norm", "EWZ105160PS", "VBFHPS","DYshape_DNN","Topxsec","VVxsec"] 
+decorrelate_syst = ["trigger", "id", "iso", "EWKLHEScaleWeight_norm", "EWZ105160PS","Topxsec","VVxsec"] 
 
 py_samp = ["ggh_amcPS_pythia_125", "dy_m105_160_01j", "dy_m105_160_2j","top", "vv", "vh_125","tth_125"]
 herwig_samp = ["ewk_lljj_mll105_160_ptJ_herwig"]
@@ -572,60 +572,61 @@ dymodel_DNN_reshape = {
             "h_sideband":(1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0),
         },
     "2017":{
-        "h_peak": (1.009582067058904,
-                   0.9760306308204648,
-                   0.9878762485670113,
-                   1.0152758177772272,
-                   0.8996686968864203,
-                   0.8972718401489942,
-                   0.7665413920734926,
-                   0.9189815453298147,
-                   0.9881462623901858,
-                   0.6720430956368215,
-                   0.7608219840547292,
-                   0.6841294042882445,
-                   0.5477961929983237),
-        "h_sideband": (1.059549233412968,
-                       1.0167040941090992,
-                       0.9942155509502238,
-                       0.9500001676551832,
-                       0.9350542912742336,
-                       0.8621106401314015,
-                       0.9726635773901664,
-                       0.8400526041909793,
-                       0.8458141773929961,
-                       0.7974604399350912,
-                       0.7156263250369328,
-                       0.8757335880576723,
-                       0.8375218090557625),
+        "h_peak": (1.008679284,
+                   1.008443075,
+                   0.9533933208,
+                   1.000047493,
+                   0.9497453485,
+                   0.9087377694,
+                   0.8660737525,
+                   1.003580687,
+                   0.9749485311,
+                   0.6627367356,
+                   0.7011913518,
+                   0.7759534665,
+                   0.522),
+        "h_sideband": (1.037397278,
+                       1.052804602,
+                       1.007356839,
+                       0.9940118619,
+                       0.9981218343,
+                       0.9114297911,
+                       0.9382380765,
+                       0.9274733396,
+                       0.7535121328,
+                       0.8683631121,
+                       0.7424364422,
+                       0.7416515127,
+                       0.7673167661),
     },
     "2018":{
-        "h_peak": (1.0010318042291648,
-                   1.0055206456317705,
-                   1.037304798490107,
-                   1.0005875812342768,
-                   0.9163867982652268,
-                   0.8820972063775326,
-                   0.8296668799386406,
-                   0.9424493494023379,
-                   0.6783707605786182,
-                   0.9575208284365664,
-                   0.6624602194634628,
-                   0.6560630289803749,
-                   0.5538314451417505),
-        "h_sideband":(1.0694338272195676,
-                      1.0285060504856702,
-                      0.950570193149086,
-                      0.93121207511194,
-                      0.9060494596698355,
-                      0.9828790509786846,
-                      0.9158647328930418,
-                      0.9202660607772751,
-                      0.8264897980423085,
-                      0.7169826000803974,
-                      0.9829701467719837,
-                      0.6535810086374887,
-                      0.894410218808504),
+        "h_peak": (0.9951012233,
+                   1.016147681,
+                   1.009796371,
+                   1.017391335,
+                   0.8998916965,
+                   1.003134189,
+                   0.9382245025,
+                   0.9398089067,
+                   0.9238255108,
+                   1.354468107,
+                   1.302041425,
+                   1.383144437,
+                   1.94),
+        "h_sideband":(
+            1.028935383,
+            1.056019234,
+            0.9842308641,
+            0.9530115489,
+            0.9284349217,
+            0.9654664347,
+            0.9136553811,
+            0.8263961795,
+            0.9406409542,
+            0.7948182252,
+            0.9696701881,
+            0.9762267725,
+            1.578297804),
     }
 }
 lhe_pdf_variations ={
@@ -812,7 +813,7 @@ analysis_parameters = {
         "extra_electrons_iso": 0.4, #Check if we want to apply this
         "extra_electrons_id": "mvaFall17V2Iso_WP90",
 
-        "save_dnn_vars": False,
+        "save_dnn_vars": True,
         "dnn_vars_path": "out/dnn_vars",
         #If true, apply mjj > cut, otherwise inverse
         "vbf_filter_mjj_cut": 350,

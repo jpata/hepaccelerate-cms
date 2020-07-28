@@ -31,7 +31,7 @@ NUMPY_LIB = None
 debug = False
 #debug = True
 #event IDs for which to print out detailed information
-debug_event_ids = [23899592]
+debug_event_ids = [1471942832]
 #Run additional checks on the analyzed data to ensure consistency - for debugging
 doverify = False
 
@@ -607,7 +607,7 @@ def analyze_data(
                 muons.numevents(), softjets, leading_muon, subleading_muon,
                 leading_jet, subleading_jet, jets_passing_id, parameters["softjet_pt5"],
                 parameters["softjet_evt_dr2"], use_cuda)
-
+            
             #compute Nsoft jet variable 2 by removing event footprints
             n_sel_softjet2, n_sel_HTsoftjet2 = nsoftjets(True,
                 scalars["SoftActivityJetNjets2"], scalars["SoftActivityJetHT2"],
@@ -621,6 +621,7 @@ def analyze_data(
                 #(ret_mu['selected_events']) & (ret_jet["num_jets"] >= 2) & (ret_jet["dijet_inv_mass"]>300) &  
                 (leading_jet["pt"] > parameters["jet_pt_leading"][dataset_era])
             )
+            
             if is_mc and 'dy_m105_160' in dataset_name:
                 leading_jets_matched_to_genJet = leading_jet["genJetIdx"]>=0
                 subleading_jets_matched_to_genJet = subleading_jet["genJetIdx"]>=0
@@ -674,7 +675,7 @@ def analyze_data(
                 weights_selected,
                 use_cuda
             )
-
+            
             #Compute the DNN inputs, the DNN output, fill the DNN input and output variable histograms
             dnn_prediction = None
             dnn_vars, dnn_prediction, dnnPisa_predictions, dnnPisaComb_pred = compute_fill_dnn(analysis_corrections.hrelresolution,
@@ -707,7 +708,6 @@ def analyze_data(
                 parameters["cat5_abs_jj_deta_cut"]
             )
             scalars["category"] = category
-                    
             #Assign the final analysis discriminator based on category
             #scalars["final_discriminator"] = NUMPY_LIB.zeros_like(higgs_inv_mass)
             if not (dnn_prediction is None):
@@ -735,6 +735,7 @@ def analyze_data(
                     #    dnn_vars["puid_weight"] = weights_individual['jet_puid']['nominal'][dnn_presel]
                     dnn_vars["j1_partonFlavour"] = leading_jet["partonFlavour"][dnn_presel]
                     dnn_vars["j2_partonFlavour"] = subleading_jet["partonFlavour"][dnn_presel]
+                
                 dnn_vars["j1_jetId"] = leading_jet["jetId"][dnn_presel]
                 dnn_vars["j1_puId"] = leading_jet["puId"][dnn_presel]
                 dnn_vars["j2_jetId"] =subleading_jet["jetId"][dnn_presel]
@@ -1444,7 +1445,7 @@ def get_selected_muons(
         muons.phi = mu_phi
         muons.mass = mu_mass
         muons.pfRelIso04_all = mu_iso
-
+    
     passes_iso = muons.pfRelIso04_all < mu_iso_cut
     passes_iso_trig_matched = muons.pfRelIso04_all < mu_iso_trig_matched_cut
 
@@ -1511,8 +1512,9 @@ def get_selected_muons(
     )
 
     #Find two opposite sign muons among the muons passing ID and subleading pt
-    muons_passing_os = ha.select_opposite_sign(
-        muons.offsets, muons.charge, muons_passing_id & passes_subleading_pt)
+    muons_passing_os = NUMPY_LIB.zeros_like(muons_passing_id, dtype = NUMPY_LIB.bool)
+    select_opposite_sign_kernel2(
+        muons.charge, muons.offsets, muons_passing_id & passes_subleading_pt, muons_passing_os)
     events_passes_os = ha.sum_in_offsets(
         muons.offsets, muons_passing_os, mask_events,
         muons.masks["all"], NUMPY_LIB.int32) == 2
@@ -1526,7 +1528,6 @@ def get_selected_muons(
     # To save time apply a mass window cut. get the invariant mass of the dimuon system and compute mass windows
     #higgs_inv_mass, _ = compute_inv_mass(muons, final_event_sel, final_muon_sel, use_cuda)
     #final_event_sel = final_event_sel & (higgs_inv_mass > 100.0)
-    
     if debug:
         for evtid in debug_event_ids:
             idx = np.where(scalars["event"] == evtid)[0][0]
@@ -1593,11 +1594,11 @@ def correct_muon_with_fsr(
                 out_phi = np.arctan2(py_total, px_total)
                 out_m = np.sqrt(e_total**2 - px_total**2 - py_total**2 - pz_total**2)
                 
-                update_iso = dr<0.4
+                #update_iso = dr<0.4
 
                 #reference: https://gitlab.cern.ch/uhh-cmssw/fsr-photon-recovery/tree/master
-                if update_iso:
-                    muons_iso[imu] = (muons_iso[imu]*muons_pt[imu] - fsr_pt[ifsr])/out_pt
+                #if update_iso:
+                muons_iso[imu] = (muons_iso[imu]*muons_pt[imu] - fsr_pt[ifsr])/out_pt
 
                 muons_pt[imu] = out_pt
                 muons_eta[imu] = out_eta
@@ -1783,6 +1784,7 @@ def get_selected_jets_id(
 
     leading_muon_offsets = NUMPY_LIB.arange(0,len(leading_muon["pt"])+1)
     leading_muon_mask = NUMPY_LIB.ones_like(leading_muon["pt"])
+    
     jets_pass_dr_mu0 = ha.mask_deltar_first(
         {"eta": jets.eta, "phi": jets.phi, "offsets": jets.offsets},
         selected_jets,
@@ -1797,7 +1799,6 @@ def get_selected_jets_id(
     jets_pass_dr = (jets_pass_dr_mu0 & jets_pass_dr_mu1)
     jets.masks["pass_dr"] = jets_pass_dr
     selected_jets = selected_jets & jets_pass_dr
-   
     '''
     if debug:
         for evtid in debug_event_ids:
@@ -1826,7 +1827,6 @@ def get_selected_jets(
     criteria and that are not dR-matched to muons.
     """
     selected_jets = (jets.pt > jet_pt_cut_subleading)
- 
     #produce a mask that selects the first two selected jets 
     first_two_jets = NUMPY_LIB.zeros_like(selected_jets)
 
@@ -1845,8 +1845,11 @@ def get_selected_jets(
             print("selected subleading jet index: ",out_jet_index1[idx])
  
     targets = NUMPY_LIB.ones_like(mask_events, dtype=NUMPY_LIB.int32) 
-    ha.set_in_offsets(jets.offsets, first_two_jets, out_jet_index0, targets, mask_events, selected_jets)
-    ha.set_in_offsets(jets.offsets, first_two_jets, out_jet_index1, targets, mask_events, selected_jets)
+    for iev in numba.prange(len(jets.offsets)-1):
+        for j in range(jets.offsets[iev],jets.offsets[iev+1]):
+            if (j-jets.offsets[iev])==out_jet_index0[iev] or (j-jets.offsets[iev])==out_jet_index1[iev]:
+                first_two_jets[j] = 1
+    
     jets.attrs_data["selected"] = selected_jets
     jets.attrs_data["first_two"] = first_two_jets
 
@@ -1926,10 +1929,10 @@ def compute_dnnPisaComb_cuda(dnnPisaComb_pred, dnnPisa_preds, event_array, n_mas
         for imass in range(n_mass):
             dnnPisaComb_pred[imass][i] = dnnPisa_preds[n_mass*(event_array[i]%4)+imass][i]
 
-@numba.njit(parallel=True)
+#@numba.njit(parallel=True)
 def mhfordnn(fixedmH, dimu, movem):
-    for i in numba.prange(len(dimu)):
-        if (dimu[i]>115) & (dimu[i]<135):
+    for i in range(len(dimu)):
+        if (dimu[i]>115.03) & (dimu[i]<135.03):
             fixedmH[i] = dimu[i] + movem[i]
         else:
             fixedmH[i] = 125.0
@@ -2267,6 +2270,36 @@ def compute_eff_product_cpu(offsets, jet_pt, subjet_pt, jet_pt_mask, jets_mask_p
             else:
                 p_tot *= 1.0 - jets_eff[ij]
         out_proba[iev] = p_tot
+
+@numba.njit(parallel=True, fastmath=True)
+def select_opposite_sign_kernel2(
+    charges_content, charges_offsets, content_mask_in, content_mask_out
+):
+    assert len(charges_content) == len(content_mask_in)
+    assert len(charges_content) == len(content_mask_out)
+    for iev in numba.prange(charges_offsets.shape[0] - 1):
+        start = np.uint64(charges_offsets[iev])
+        end = np.uint64(charges_offsets[iev + 1])
+        ch1 = np.float32(0.0)
+        ch2 = np.float32(0.0)
+        pair_found = False
+        # loop over objects (e.g. muons)
+        for iobj in range(start, end):
+            if not content_mask_in[iobj]:
+                continue
+            ch1 = charges_content[iobj]
+            for jobj in range(start+1, end):
+                if not content_mask_in[jobj]:
+                    continue
+                ch2 = charges_content[jobj]
+                if ch1 == -ch2:
+                    pair_found = True
+                    content_mask_out[iobj] = True
+                    content_mask_out[jobj] = True
+                    break
+            if pair_found:
+                break
+    return
 
 @cuda.jit
 def compute_eff_product_cudakernel(offsets, jet_pt, subjet_pt, jet_pt_mask, jets_mask_passes_id, jets_eff, out_proba):
@@ -2756,7 +2789,11 @@ def to_cartesian(arrs):
     return {"px": px, "py": py, "pz": pz, "e": e}
 
 def rapidity(e, pz):
-    return 0.5*NUMPY_LIB.log((e + pz) / (e - pz))
+    rap = NUMPY_LIB.zeros_like(e,dtype=NUMPY_LIB.float32)
+    for k in numba.prange(len(pz)):
+        if (e[k]-pz[k])!=0.:
+            rap[k]= 0.5*NUMPY_LIB.log((e[k] + pz[k]) / (e[k] - pz[k]))
+    return rap
 
 """
 Given a a dictionary of arrays of cartesian coordinates (px, py, pz, e),
@@ -2902,7 +2939,6 @@ def dnn_variables(hrelresolution, miscvariables, leading_muon, subleading_muon, 
     dr_mmj = NUMPY_LIB.vstack(dr_mmjs)
     dRmin_mmj = NUMPY_LIB.min(dr_mmj, axis=0) 
     dRmax_mmj = NUMPY_LIB.max(dr_mmj, axis=0)
-   
     #Zeppenfeld variable
     Zep = (mm_sph["eta"] - 0.5*(leading_jet["eta"] + subleading_jet["eta"]))
     Zep_rapidity = (mm_sph["rapidity"] - 0.5*(leading_jet["rapidity"] + subleading_jet["rapidity"]))/(leading_jet["rapidity"]-subleading_jet["rapidity"])
@@ -3001,7 +3037,7 @@ def dnn_variables(hrelresolution, miscvariables, leading_muon, subleading_muon, 
         movem = NUMPY_LIB.full(nw, 125.0-imass, dtype=NUMPY_LIB.float32)
         mhfordnn(fixm, mm_sph["mass"],movem)
         ret.update( {"Higgs_m_"+str(imass): fixm} )
-        ret.update( {"Higgs_mReso_"+str(imass): fixm*Higgs_mrelreso,} )
+        ret.update( {"Higgs_mReso_"+str(imass): mm_sph["mass"]*Higgs_mrelreso,} )
     if debug:
         for k in ret.keys():
             msk = NUMPY_LIB.isnan(ret[k])
@@ -3054,7 +3090,6 @@ def compute_fill_dnn(
     is_mc):
 
     nev_dnn_presel = NUMPY_LIB.sum(dnn_presel)
-
     #for some reason, on the cuda backend, the sum does not return a simple number
     if use_cuda:
         nev_dnn_presel = int(NUMPY_LIB.asnumpy(nev_dnn_presel).flatten()[0])
@@ -3694,6 +3729,8 @@ def create_datastructure(dataset_name, is_mc, dataset_era, do_fsr=False):
             ("Jet_btagDeepB", "float32"),
             ("Jet_qgl", "float32"),
             ("Jet_jetId", "int32"),
+            ("Jet_muonIdx1","int32"),
+            ("Jet_muonIdx2","int32"),
             ("Jet_puId", "int32"),
             ("Jet_area", "float32"),
             ("Jet_rawFactor", "float32"),

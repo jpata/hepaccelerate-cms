@@ -504,26 +504,26 @@ datasets:
   name: dy_2j
   skim_cut: "(HLT_IsoMu24 || HLT_IsoTkMu24) && nMuon>=2"
 - era: "2016"
-  files_merged: /store/mc/RunIISummer16NanoAODv6v2/DYJetsToLL_M-105To160_TuneCUETP8M1_13TeV-amcatnloFXFX-pythia8/merged_*.root
-  files_nano_in: /store/mc/RunIISummer16NanoAODv6v2/DYJetsToLL_M-105To160_TuneCUETP8M1_13TeV-amcatnloFXFX-pythia8/*/*/*/*.root
+  files_merged: /store/mc/RunIISummer16NanoAODv6/DYJetsToLL_M-105To160_TuneCUETP8M1_13TeV-amcatnloFXFX-pythia8/merged_*.root
+  files_nano_in: /store/mc/RunIISummer16NanoAODv6/DYJetsToLL_M-105To160_TuneCUETP8M1_13TeV-amcatnloFXFX-pythia8/*/*/*/*.root
   is_mc: true
   name: dy_m105_160_amc_01j
   skim_cut: "(HLT_IsoMu24 || HLT_IsoTkMu24) && nMuon>=2"
 - era: "2016"
-  files_merged: /store/mc/RunIISummer16NanoAODv6v2/DYJetsToLL_M-105To160_TuneCUETP8M1_13TeV-amcatnloFXFX-pythia8/merged_*.root
-  files_nano_in: /store/mc/RunIISummer16NanoAODv6v2/DYJetsToLL_M-105To160_TuneCUETP8M1_13TeV-amcatnloFXFX-pythia8/*/*/*/*.root
+  files_merged: /store/mc/RunIISummer16NanoAODv6/DYJetsToLL_M-105To160_TuneCUETP8M1_13TeV-amcatnloFXFX-pythia8/merged_*.root
+  files_nano_in: /store/mc/RunIISummer16NanoAODv6/DYJetsToLL_M-105To160_TuneCUETP8M1_13TeV-amcatnloFXFX-pythia8/*/*/*/*.root
   is_mc: true
   name: dy_m105_160_amc_2j
   skim_cut: "(HLT_IsoMu24 || HLT_IsoTkMu24) && nMuon>=2"
 - era: "2016"
-  files_merged: /store/mc/RunIISummer16NanoAODv6v2/DYJetsToLL_M-105To160_VBFFilter_TuneCUETP8M1_13TeV-amcatnloFXFX-pythia8/merged_*.root
-  files_nano_in: /store/mc/RunIISummer16NanoAODv6v2/DYJetsToLL_M-105To160_VBFFilter_TuneCUETP8M1_13TeV-amcatnloFXFX-pythia8/*/*/*/*.root
+  files_merged: /store/mc/RunIISummer16NanoAODv6/DYJetsToLL_M-105To160_VBFFilter_TuneCUETP8M1_13TeV-amcatnloFXFX-pythia8/merged_*.root
+  files_nano_in: /store/mc/RunIISummer16NanoAODv6/DYJetsToLL_M-105To160_VBFFilter_TuneCUETP8M1_13TeV-amcatnloFXFX-pythia8/*/*/*/*.root
   is_mc: true
   name: dy_m105_160_vbf_amc_01j
   skim_cut: "(HLT_IsoMu24 || HLT_IsoTkMu24) && nMuon>=2"
 - era: "2016"
-  files_merged: /store/mc/RunIISummer16NanoAODv6v2/DYJetsToLL_M-105To160_VBFFilter_TuneCUETP8M1_13TeV-amcatnloFXFX-pythia8/merged_*.root
-  files_nano_in: /store/mc/RunIISummer16NanoAODv6v2/DYJetsToLL_M-105To160_VBFFilter_TuneCUETP8M1_13TeV-amcatnloFXFX-pythia8/*/*/*/*.root
+  files_merged: /store/mc/RunIISummer16NanoAODv6/DYJetsToLL_M-105To160_VBFFilter_TuneCUETP8M1_13TeV-amcatnloFXFX-pythia8/merged_*.root
+  files_nano_in: /store/mc/RunIISummer16NanoAODv6/DYJetsToLL_M-105To160_VBFFilter_TuneCUETP8M1_13TeV-amcatnloFXFX-pythia8/*/*/*/*.root
   is_mc: true
   name: dy_m105_160_vbf_amc_2j
   skim_cut: "(HLT_IsoMu24 || HLT_IsoTkMu24) && nMuon>=2"
