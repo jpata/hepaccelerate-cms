@@ -187,6 +187,13 @@ extern "C" {
         }
     }
 
+    void roccor_kScaleDTerror(RoccoR* rc, float* out, int n_elem, int* charge, float* pt, float* eta, float* phi) {
+        #pragma omp parallel for default(none) shared(out, rc, charge, pt, eta, phi,  n_elem) schedule(dynamic, 1000)
+        for (int i=0; i<n_elem; i++) {
+            out[i] = rc->kScaleDTerror(charge[i], pt[i], eta[i], phi[i]);
+        }
+    }
+
     void roccor_kSpreadMC_or_kSmearMC(RoccoR* rc, float* out, int n_elem,
         int* charge, float* pt, float* eta, float* phi, float* genpt, int* tracklayers, float* rand, int s, int m) {
         #pragma omp parallel for default(none) shared(out, rc, charge, pt, eta, phi, genpt, tracklayers, rand, s, m, n_elem) schedule(dynamic, 1000)
@@ -198,6 +205,18 @@ extern "C" {
             }
         }
     }
+    void roccor_kSpreadMCerror_or_kSmearMCerror(RoccoR* rc, float* out, int n_elem,
+        int* charge, float* pt, float* eta, float* phi, float* genpt, int* tracklayers, float* rand) {
+        #pragma omp parallel for default(none) shared(out, rc, charge, pt, eta, phi, genpt, tracklayers, rand, n_elem) schedule(dynamic, 1000)
+        for (int i=0; i<n_elem; i++) {
+            if (genpt[i] > 0) {
+                out[i] = rc->kSpreadMCerror(charge[i], pt[i], eta[i], phi[i], genpt[i]);
+            } else {
+                out[i] = rc->kSmearMCerror(charge[i], pt[i], eta[i], phi[i], tracklayers[i], rand[i]);
+            }
+        }
+    }
+
 }
 
 #endif

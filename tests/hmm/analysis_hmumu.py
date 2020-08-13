@@ -16,7 +16,7 @@ from hepaccelerate.utils import Dataset, Results
 import hmumu_utils
 from hmumu_utils import run_analysis, create_dataset_jobfiles, load_puhist_target, seed_generator
 #Load legacy ROOT-based C++ corrections that are not yet available in coffea 
-from hmumu_lib import LibHMuMu, RochesterCorrections, LeptonEfficiencyCorrections, GBREvaluator
+from hmumu_lib import LibHMuMu, RochesterCorrections, LeptonEfficiencyCorrections, GBREvaluator, BTagCalibration
 from hmumu_lib import MiscVariables, NNLOPSReweighting, hRelResolution, ZpTReweighting
 
 import json
@@ -454,11 +454,20 @@ class AnalysisCorrections:
         puid_extractor.finalize()
         self.puidreweighting = puid_extractor.make_evaluator()
 
+        systs = ["jes", "lfstats1", "lfstats2", "hfstats1", "hfstats2", "cferr1", "cferr2", "lf", "hf"]
+        systs_sdir=[]
+        for sdir in ["up", "down"]:
+            for syst in systs:
+                systs_sdir += [sdir + "_" + syst]
+            
         print("Extracting b-tag weights...")
         self.btag_weights = {
-            "DeepCSV_2016": BTagScaleFactor("data/btagSF/DeepCSV_2016LegacySF_V1.csv", BTagScaleFactor.RESHAPE, 'iterativefit,iterativefit,iterativefit', keep_df=True),
-            "DeepCSV_2017": BTagScaleFactor("data/btagSF/DeepCSV_94XSF_V5_B_F.csv", BTagScaleFactor.RESHAPE, 'iterativefit,iterativefit,iterativefit', keep_df=True),
-            "DeepCSV_2018": BTagScaleFactor("data/btagSF/DeepCSV_102XSF_V1.csv", BTagScaleFactor.RESHAPE, 'iterativefit,iterativefit,iterativefit', keep_df=True)
+            "DeepCSV_2016": BTagCalibration(self.libhmm, "DeepCSV", "data/btagSF/DeepCSV_2016LegacySF_V1.csv" , systs_sdir),
+            "DeepCSV_2017": BTagCalibration(self.libhmm, "DeepCSV", "data/btagSF/DeepCSV_94XSF_V5_B_F.csv", systs_sdir),
+            "DeepCSV_2018": BTagCalibration(self.libhmm, "DeepCSV", "data/btagSF/DeepCSV_102XSF_V1.csv", systs_sdir)
+            #"DeepCSV_2016": BTagScaleFactor("data/btagSF/DeepCSV_2016LegacySF_V1.csv", BTagScaleFactor.RESHAPE, 'iterativefit,iterativefit,iterativefit', keep_df=True),
+            #"DeepCSV_2017": BTagScaleFactor("data/btagSF/DeepCSV_94XSF_V5_B_F.csv", BTagScaleFactor.RESHAPE, 'iterativefit,iterativefit,iterativefit', keep_df=True),
+            #"DeepCSV_2018": BTagScaleFactor("data/btagSF/DeepCSV_102XSF_V1.csv", BTagScaleFactor.RESHAPE, 'iterativefit,iterativefit,iterativefit', keep_df=True)
             #"DeepCSV_2016": BTagWeights(tag_name="DeepCSV_2016LegacySF_V1"),
             #"DeepCSV_2017": BTagWeights(tag_name="DeepCSV_94XSF_V4_B_F"),
             #"DeepCSV_2018": BTagWeights(tag_name="DeepCSV_102XSF_V1")

@@ -52,10 +52,10 @@ public:
       std::string measurement_type="comb",
       std::string sys_type="central",
       JetFlavor jf=FLAV_B,
-      float eta_min=-99999.,
-      float eta_max=99999.,
+      float eta_min=-2.4,//-99999.,
+      float eta_max=2.4,//99999.,
       float pt_min=0.,
-      float pt_max=99999.,
+      float pt_max=1000.,//99999.,
       float discr_min=0.,
       float discr_max=99999.
     );

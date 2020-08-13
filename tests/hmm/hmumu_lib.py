@@ -9,9 +9,11 @@ class LibHMuMu:
         self.ffi.cdef("""
             void* new_roccor(char* filename);
             void roccor_kScaleDT(void* rc, float* out, int n_elem, int* charges, float* pt, float* eta, float* phi, int s, int m);
+            void roccor_kScaleDTerror(void* rc, float* out, int n_elem, int* charges, float* pt, float* eta, float* phi);
             void roccor_kSpreadMC_or_kSmearMC(void* rc, float* out, int n_elem,
                 int* charges, float* pt, float* eta, float* phi,
                 float* genpt, int* tracklayers, float* rand, int s, int m);
+            void roccor_kSpreadMCerror_or_kSmearMCerror(void* rc, float* out, int n_elem,                                                                                                                                             int* charges, float* pt, float* eta, float* phi,                                                                                                                                                           float* genpt, int* tracklayers, float* rand);
 
             void* new_LeptonEfficiencyCorrector(int n, const char** file, const char** histo, float* weights);
             void LeptonEfficiencyCorrector_getSF(void* c, float* out, int n, int* pdgid, float* pt, float* eta);
@@ -53,7 +55,9 @@ class LibHMuMu:
 
         self.new_roccor = self.libhmm.new_roccor
         self.roccor_kScaleDT = self.libhmm.roccor_kScaleDT
+        self.roccor_kScaleDTerror = self.libhmm.roccor_kScaleDTerror
         self.roccor_kSpreadMC_or_kSmearMC = self.libhmm.roccor_kSpreadMC_or_kSmearMC
+        self.roccor_kSpreadMCerror_or_kSmearMCerror = self.libhmm.roccor_kSpreadMCerror_or_kSmearMCerror
 
         self.new_LeptonEfficiencyCorrector = self.libhmm.new_LeptonEfficiencyCorrector
         self.LeptonEfficiencyCorrector_getSF = self.libhmm.LeptonEfficiencyCorrector_getSF
@@ -108,6 +112,21 @@ class RochesterCorrections:
         )
         return out
 
+    def compute_kScaleDTerror(self, pts, etas, phis, charges):
+        out = numpy_lib.zeros_like(pts)
+        nev = len(pts)
+        assert(len(etas) == nev)
+        assert(len(phis) == nev)
+        assert(len(charges) == nev)
+        self.libhmm.roccor_kScaleDTerror(self.c_class,
+            self.libhmm.cast_as("float *", out), len(out), #output                                                                                                                                          
+            self.libhmm.cast_as("int *", charges),
+            self.libhmm.cast_as("float *", pts),
+            self.libhmm.cast_as("float *", etas),
+            self.libhmm.cast_as("float *", phis),
+        )
+        return out
+
     def compute_kSpreadMC_or_kSmearMC(self, pts, etas, phis, charges, genpts, tracklayers, rnds):
         out = numpy_lib.zeros_like(pts)
         nev = len(pts)
@@ -127,6 +146,27 @@ class RochesterCorrections:
             self.libhmm.cast_as("int *", tracklayers),
             self.libhmm.cast_as("float *", rnds),
             0, 0
+        )
+        return out
+
+    def compute_kSpreadMCerror_or_kSmearMCerror(self, pts, etas, phis, charges, genpts, tracklayers, rnds):
+        out = numpy_lib.zeros_like(pts)
+        nev = len(pts)
+        assert(len(etas) == nev)
+        assert(len(phis) == nev)
+        assert(len(charges) == nev)
+        assert(len(genpts) == nev)
+        assert(len(tracklayers) == nev)
+        assert(len(rnds) == nev)
+        self.libhmm.roccor_kSpreadMCerror_or_kSmearMCerror(self.c_class,
+            self.libhmm.cast_as("float *", out), len(out), #output                                                                                                                                          
+            self.libhmm.cast_as("int *", charges),
+            self.libhmm.cast_as("float *", pts),
+            self.libhmm.cast_as("float *", etas),
+            self.libhmm.cast_as("float *", phis),
+            self.libhmm.cast_as("float *", genpts),
+            self.libhmm.cast_as("int *", tracklayers),
+            self.libhmm.cast_as("float *", rnds),
         )
         return out
 

@@ -31,7 +31,7 @@ NUMPY_LIB = None
 debug = False
 #debug = True
 #event IDs for which to print out detailed information
-debug_event_ids = [1471942832]
+debug_event_ids = [147564817]
 #Run additional checks on the analyzed data to ensure consistency - for debugging
 doverify = False
 
@@ -186,6 +186,8 @@ def analyze_data(
     muons.attrs_data["nanoAOD_phi"] = muons.phi
     muons.attrs_data["nanoAOD_mass"] = muons.mass
 
+    muon_pt_err_up = NUMPY_LIB.copy(muons.pt)
+    muon_pt_err_down = NUMPY_LIB.copy(muons.pt)
     #Apply Rochester corrections to leading and subleading muon momenta
     if parameters["do_rochester_corrections"]:
         if debug:
@@ -193,10 +195,10 @@ def analyze_data(
         do_rochester_corrections(
             is_mc,
             analysis_corrections.rochester_corrections[dataset_era],
-            muons)
+            muons, muon_pt_err_up, muon_pt_err_down )
         if debug:
             print("After applying Rochester corrections muons.pt={0:.2f} +- {1:.2f}".format(muons.pt.mean(), muons.pt.std()))
-        
+
     #get the two leading muons after applying all muon selection
     ret_mu = get_selected_muons(
         scalars,
@@ -304,7 +306,7 @@ def analyze_data(
     if parameters["do_lepton_sf"] and is_mc:
         lepton_sf_values = compute_lepton_sf(leading_muon, subleading_muon,
             analysis_corrections.lepsf_iso[dataset_era], analysis_corrections.lepsf_id[dataset_era], analysis_corrections.lepeff_trig_data[dataset_era],
-            analysis_corrections.lepeff_trig_mc[dataset_era], use_cuda, dataset_era, NUMPY_LIB, debug)
+            analysis_corrections.lepeff_trig_mc[dataset_era],  use_cuda, dataset_era, NUMPY_LIB, debug)
         weights_individual["trigger"] = {
             "nominal": lepton_sf_values["trigger"],
             "up": lepton_sf_values["trigger__up"], 
@@ -2157,9 +2159,10 @@ def get_factorized_btag_weights_shape(jets, evaluator, era, scalars, pt_cut):
     mask_pt_bounds = NUMPY_LIB.logical_and(NUMPY_LIB.logical_not(pt_eta_mask), (jets.pt > 1000. ))
     # Code help from https://github.com/chreissel/hepaccelerate/blob/mass_fit/lib_analysis.py#L118
     # Code help from https://gitlab.cern.ch/uhh-cmssw/CAST/blob/master/BTaggingWeight/plugins/BTaggingReShapeProducer.cc
+    mask_correct_bound = NUMPY_LIB.logical_and(NUMPY_LIB.logical_not(pt_eta_mask),(jets.pt < 1000. ))
+    #p_jetWt = evaluator[tag_name].eval('central', jets.hadronFlavour, NUMPY_LIB.abs(jets.eta), jet_pt, jets.btagDeepB,True)
+    p_jetWt = evaluator[tag_name].eval('central', jets.hadronFlavour, NUMPY_LIB.abs(jets.eta), jets.pt, jets.btagDeepB)
     
-    p_jetWt = evaluator[tag_name].eval('central', jets.hadronFlavour, NUMPY_LIB.abs(jets.eta), jet_pt, jets.btagDeepB,True)
-        
     #print("p_JetWt before", p_jetWt, p_jetWt.mean(), p_jetWt.std())
     p_jetWt[pt_eta_mask] = 1.
     #print("p_JetWt after", p_jetWt, p_jetWt.mean(), p_jetWt.std())
@@ -2191,20 +2194,31 @@ def get_factorized_btag_weights_shape(jets, evaluator, era, scalars, pt_cut):
     for i in range(0,9):
         for sdir in ['up','down']:
             tsys_name = sdir + '_' + tag_sys[i]
-            SF_btag = evaluator[tag_name].eval(tsys_name, jets.hadronFlavour, NUMPY_LIB.abs(jets.eta), jet_pt, jets.btagDeepB, True)
+            #SF_btag = evaluator[tag_name].eval(tsys_name, jets.hadronFlavour, NUMPY_LIB.abs(jets.eta), jet_pt, jets.btagDeepB, True)
+            SF_btag = evaluator[tag_name].eval(tsys_name, jets.hadronFlavour, NUMPY_LIB.abs(jets.eta), jets.pt, jets.btagDeepB)
+            if(i==0):
+                SF_btag[(jets.hadronFlavour)==4] = 1.
+            elif(i>0 and i<4):
+                SF_btag[(jets.hadronFlavour)!=5] = 1.
+            elif(i>3 and i<6):
+                SF_btag[(jets.hadronFlavour)!=4] = 1.
+            elif(i>5):
+                SF_btag[(jets.hadronFlavour)!=0] = 1.
             if sdir == 'up':
                 p_jetWt_up[i]*=SF_btag
                 p_jetWt_up[i][pt_eta_mask] = 1.
                 #For jets with pt > 1000., evaluate with pt =1000. (done automatically) and inflate to double the systematic
                 # based on https://github.com/cms-sw/cmssw/blob/master/CondTools/BTau/src/BTagCalibrationReader.cc#L170
-                p_jetWt_up[i][mask_pt_bounds] = p_jetWt[mask_pt_bounds]+2*(p_jetWt_up[i][mask_pt_bounds]-p_jetWt[mask_pt_bounds])
+                #p_jetWt_up[i][mask_pt_bounds] = p_jetWt[mask_pt_bounds]+2*NUMPY_LIB.abs(p_jetWt_up[i][mask_pt_bounds]-p_jetWt[mask_pt_bounds])
+                #p_jetWt_up[i][mask_correct_bound] = p_jetWt[mask_correct_bound]+NUMPY_LIB.abs(p_jetWt_up[i][mask_correct_bound]-p_jetWt[mask_correct_bound])
                 compute_event_btag_weight_shape(jets.offsets, p_jetWt_up[i], eventweight_btag_up[i])
             else:
                 p_jetWt_down[i]*=SF_btag
                 p_jetWt_down[i][pt_eta_mask] = 1.
                 #For jets with pt > 1000., evaluate with pt =1000. (done automatically) and inflate to double the systematic
                 # based on https://github.com/cms-sw/cmssw/blob/master/CondTools/BTau/src/BTagCalibrationReader.cc#L170
-                p_jetWt_down[i][mask_pt_bounds] = p_jetWt[mask_pt_bounds]+2*(p_jetWt_down[i][mask_pt_bounds]-p_jetWt[mask_pt_bounds])
+                #p_jetWt_down[i][mask_pt_bounds] = p_jetWt[mask_pt_bounds]-2*NUMPY_LIB.abs(-p_jetWt_down[i][mask_pt_bounds]+p_jetWt[mask_pt_bounds])
+                #p_jetWt_down[i][mask_correct_bound] = p_jetWt[mask_correct_bound]-NUMPY_LIB.abs(-p_jetWt_down[i][mask_correct_bound]+p_jetWt[mask_correct_bound])
                 compute_event_btag_weight_shape(jets.offsets, p_jetWt_down[i], eventweight_btag_down[i])
                     
         if debug:
@@ -2607,14 +2621,17 @@ Applies Rochester corrections on leading and subleading muons, returns the corre
 def do_rochester_corrections(
     is_mc,
     rochester_corrections,
-    muons):
+        muons, muon_pt_err_up, muon_pt_err_down):
 
-    qterm = rochester_correction_muon_qterm(
+    qterm, errterm = rochester_correction_muon_qterm(
         is_mc, rochester_corrections, muons)
     
     muon_pt_corr = muons.pt * qterm
+    muon_pt_err = muons.pt * errterm
+    
     muons.pt[:] = muon_pt_corr[:]
-
+    muon_pt_err_up = muon_pt_corr + muon_pt_err
+    muon_pt_err_down = muon_pt_corr - muon_pt_err
     return
 
 """
@@ -2640,6 +2657,15 @@ def rochester_correction_muon_qterm(
             NUMPY_LIB.asnumpy(muons.nTrackerLayers),
             NUMPY_LIB.asnumpy(rnd)
         )
+        errterm = rochester_corrections.compute_kSpreadMCerror_or_kSmearMCerror(
+            NUMPY_LIB.asnumpy(muons.pt),
+            NUMPY_LIB.asnumpy(muons.eta),
+            NUMPY_LIB.asnumpy(muons.phi),
+            NUMPY_LIB.asnumpy(muons.charge),
+            NUMPY_LIB.asnumpy(muons.genpt),
+            NUMPY_LIB.asnumpy(muons.nTrackerLayers),
+            NUMPY_LIB.asnumpy(rnd)
+        )
     else:
         qterm = rochester_corrections.compute_kScaleDT(
             NUMPY_LIB.asnumpy(muons.pt),
@@ -2647,8 +2673,14 @@ def rochester_correction_muon_qterm(
             NUMPY_LIB.asnumpy(muons.phi),
             NUMPY_LIB.asnumpy(muons.charge),
         )
+        errterm = rochester_corrections.compute_kScaleDTerror(
+            NUMPY_LIB.asnumpy(muons.pt),
+            NUMPY_LIB.asnumpy(muons.eta),
+            NUMPY_LIB.asnumpy(muons.phi),
+            NUMPY_LIB.asnumpy(muons.charge),
+        )
 
-    return NUMPY_LIB.array(qterm)
+    return NUMPY_LIB.array(qterm),NUMPY_LIB.array(errterm)
 
 @numba.njit('float32[:], float32[:], float32[:]', parallel=True, fastmath=True)
 def deltaphi_cpu(phi1, phi2, out_dphi):
@@ -3460,7 +3492,7 @@ def compute_lepton_sf(leading_muon, subleading_muon, lepsf_iso, lepsf_id, lepeff
     effs_trig_data_down = []
     effs_trig_mc_up = []
     effs_trig_mc_down = []
-
+    
     #compute weight for both leading and subleading muon
     for mu in [leading_muon, subleading_muon]:
         #lepton SF computed on CPU 
@@ -3515,6 +3547,7 @@ def compute_lepton_sf(leading_muon, subleading_muon, lepsf_iso, lepsf_id, lepeff
         effs_trig_mc_down += [eff_trig_mc_down]
     
     #multiply all ID, iso, trigger weights for leading and subleading muons
+    # nominal rochester correction factor already applied to muon pt
     sf_id = multiply_all(sfs_id)
     sf_iso = multiply_all(sfs_iso)
     sf_trig = multiply_all_trig(effs_trig_data)/multiply_all_trig(effs_trig_mc)
@@ -3539,7 +3572,7 @@ def compute_lepton_sf(leading_muon, subleading_muon, lepsf_iso, lepsf_id, lepeff
         "iso__up": sf_iso_up,
         "iso__down": sf_iso_down,
         "trigger__up": sf_trig_up,
-        "trigger__down": sf_trig_down
+        "trigger__down": sf_trig_down,
     }
 
     if use_cuda:
